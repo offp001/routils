@@ -1,5 +1,0 @@
-Pillow
-lz4
-numpy
-zstandard
-DracoPy
