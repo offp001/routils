@@ -26,20 +26,13 @@
 
 ## Requirements
 
-* Python 3.9+
-* `Pillow` (required)
-* `lz4` (required for cache/RBXM decompression)
-* `numpy` (for mesh processing)
-* `zstandard` (only for reading ZSTD-compressed RBXM blobs; optional)
-* `DracoPy` (only for v6/v7 mesh preview; optional)
+* `Nothing :)` 
 
 ## Installation
 
-1. Install **Python 3.9+**.
-2. Download or clone this repository.
-3. Open `install_requirements.cmd` (It will download requirements and will open routils.pyw.)
+1. Open RoUtils.exe
+2. Done
 
 ## Credits
 
 * `offp001`
-* `Lorno`
