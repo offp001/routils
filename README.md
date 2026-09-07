@@ -53,7 +53,7 @@
 
 ### 🎨 Themes
 
-* **🌈 15 New Themes**
+* **🌈 20 Themes** - Midnight, Ocean, Hacker, Amethyst, Onyx, Nord, Dracula, Monokai, Solarized, Rose Pine, Catppuccin, Gruvbox, Tokyo Night, Synthwave, Forest, Ruby, Amber, Arctic, Lavender, Coffee, Slate, Cyber, Sunset, Mint, Deep Blue
 * **🖌️ Custom Theme** – Create your own custom color theme
 
 ## 📥 Installation
