@@ -1,0 +1,15 @@
+{
+    "FFlagSimEnableDCD10": "True",
+    "FFlagDebugGraphicsPreferD3D11FL10": "True",
+    "DFIntBufferCompressionLevel": "0",
+    "DFIntBufferCompressionThreshold": "100",
+    "DFIntPerformanceControlFrameTimeMax": "1",
+    "DFIntPerformanceControlFrameTimeMaxUtility": "-1",
+    "FFlagPushFrameTimeToHarmony": "True",
+    "FFlagUISUseLastFrameTimeInUpdateInputSignal": "True",
+    "DFIntAnimatorThrottleMaxFramesToSkip": "1",
+    "DFIntNumFramesAllowedToBeAboveError": "1",
+    "DFIntVisibilityCheckRayCastLimitPerFrame": "10",
+    "DFIntNetworkSchemaCompressionRatio": "100",
+    "DFIntTimeBetweenSendConnectionAttemptsMS": "200"
+}
