@@ -100,7 +100,7 @@ _LOCAL_APPDATA = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
 DATA_DIR = os.path.join(_LOCAL_APPDATA, "RoUtils")
 os.makedirs(DATA_DIR, exist_ok=True)
 
-APP_VERSION = "3.4"
+APP_VERSION = "3.5"
 HISTORY_PATH = os.path.join(DATA_DIR, "history.json")
 SETTINGS_PATH = os.path.join(DATA_DIR, "routils_settings.json")
 
@@ -4333,7 +4333,7 @@ class _WindowsTrayIcon:
         nid.uFlags = self.NIF_MESSAGE | self.NIF_ICON | self.NIF_TIP
         nid.uCallbackMessage = self.WM_TRAYICON
         nid.hIcon = self.hicon
-        nid.szTip = "RoUtils 3.4"
+        nid.szTip = "RoUtils"
         self._nid = nid
         if not shell32.Shell_NotifyIconW(self.NIM_ADD, ctypes.byref(nid)):
             raise ctypes.WinError()
@@ -8071,6 +8071,14 @@ class App(tk.Tk):
         self._global_hotkey_q = queue.Queue()
         self._hotkey_stop = threading.Event()
         self.fflag_hotkeys = list(self.settings.get("fflag_hotkeys", []))
+        default_fps_hotkeys = {str(fps): "" for fps in (30, 60, 120, 144, 180, 200, 240)}
+        saved_fps_hotkeys = self.settings.get("fps_hotkeys", {})
+        if isinstance(saved_fps_hotkeys, dict):
+            default_fps_hotkeys.update({
+                str(fps): str(saved_fps_hotkeys.get(str(fps), "") or "").upper()
+                for fps in default_fps_hotkeys
+            })
+        self.fps_hotkeys = default_fps_hotkeys
         self._hotkey_prev = {}
         self._hotkey_thread = None
 
@@ -8128,7 +8136,7 @@ class App(tk.Tk):
             saved_fps = int(self.settings.get("fps_limit", 0))
         except Exception:
             saved_fps = 0
-        self.fps_limit = tk.IntVar(value=max(0, min(800, saved_fps)))
+        self.fps_limit = tk.IntVar(value=max(0, min(240, saved_fps)))
         self._hidden_fps_flag_name = "DFIntTaskSchedulerTargetFps"
         self._hidden_fps_flag_value = None
         self.after(30000, self._fps_apply_tick)
@@ -8153,14 +8161,10 @@ class App(tk.Tk):
         self.launch_on_startup = tk.BooleanVar(value=self.settings.get("launch_on_startup", False))
         self.launch_on_tray = tk.BooleanVar(value=self.settings.get("launch_on_tray", False))
         self.hide_to_tray_on_close = tk.BooleanVar(value=self.settings.get("hide_to_tray_on_close", False))
-        self.ram_limit_enabled = tk.BooleanVar(value=self.settings.get("ram_limit_enabled", False))
-        self.ram_limit_mb = tk.IntVar(value=max(500, min(7600, int(self.settings.get("ram_limit_mb", 4096) or 4096))))
         self._tray_icon = None
         self._tray_thread = None
         self._tray_hidden = False
         self.gemini_api_key = tk.StringVar(value=str(self.settings.get("gemini_api_key", "")))
-        self._ram_job_handle = None
-        self._ram_job_limit = None
         self._load_fflag_flags()
         self._sync_fps_flag_to_manager()
         self._build_home_tab()
@@ -8170,6 +8174,7 @@ class App(tk.Tk):
         self._build_utils_tab()
         self._build_cconfigs_tab()
         self._build_subplace_joiner_tab()
+        self._build_server_viewer_tab()
         self._build_history_tab()
         self._history_resolve_existing_names()
         self._build_client_tab()
@@ -8206,10 +8211,17 @@ class App(tk.Tk):
             user32 = ctypes.windll.user32
             while not self._hotkey_stop.is_set():
                 try:
-                    bindings = list(self.fflag_hotkeys)
-                    seen = set()
-                    for binding in bindings:
+                    bindings = []
+                    for binding in self.fflag_hotkeys:
                         key = str(binding.get("key", "")).upper()
+                        if key:
+                            bindings.append(("fflag", key, binding.copy()))
+                    for fps, key in self.fps_hotkeys.items():
+                        key = str(key or "").upper()
+                        if key:
+                            bindings.append(("fps", key, {"fps": int(fps), "key": key}))
+                    seen = set()
+                    for kind, key, binding in bindings:
                         vk = fflag_key_to_vk(key)
                         if not vk or vk in seen:
                             continue
@@ -8218,7 +8230,7 @@ class App(tk.Tk):
                         was_down = self._hotkey_prev.get(vk, False)
                         self._hotkey_prev[vk] = down
                         if down and not was_down:
-                            self._global_hotkey_q.put(binding.copy())
+                            self._global_hotkey_q.put((kind, binding))
                 except Exception:
                     pass
                 time.sleep(0.025)
@@ -8229,14 +8241,105 @@ class App(tk.Tk):
     def _process_global_hotkeys(self):
         try:
             while True:
-                binding = self._global_hotkey_q.get_nowait()
-                self._handle_fflag_hotkey(binding)
+                kind, binding = self._global_hotkey_q.get_nowait()
+                if kind == "fps":
+                    self._handle_fps_hotkey(binding)
+                else:
+                    self._handle_fflag_hotkey(binding)
         except queue.Empty:
             pass
         except Exception:
             pass
         if not self._hotkey_stop.is_set():
             self.after(50, self._process_global_hotkeys)
+
+    def _handle_fps_hotkey(self, binding):
+        try:
+            fps = max(0, min(240, int(binding.get("fps", 0))))
+            self.fps_limit.set(fps)
+            self._save_settings()
+            self._sync_fps_flag_to_manager()
+            self._apply_fps_flag(silent=True)
+            if hasattr(self, "fps_value_label"):
+                self.fps_value_label.config(
+                    text="FPS: Uncap" if fps == 0 else f"FPS: {fps}"
+                )
+            if hasattr(self, "_fps_text_var"):
+                self._fps_text_var.set(str(fps))
+        except Exception:
+            pass
+
+    def _fps_hotkey_editor(self, fps):
+        dlg = tk.Toplevel(self)
+        dlg.title(f"FPS Hotkey - {fps} FPS")
+        dlg.geometry("420x210")
+        dlg.transient(self)
+        dlg.grab_set()
+        theme_toplevel(dlg)
+
+        outer = ttk.Frame(dlg, padding=14)
+        outer.pack(fill="both", expand=True)
+
+        ttk.Label(
+            outer, text=f"Set hotkey for {fps} FPS",
+            font=("Segoe UI Semibold", 12)
+        ).pack(anchor="w", pady=(0, 10))
+
+        ttk.Label(outer, text="Press a key:").pack(anchor="w")
+        key_var = tk.StringVar(value=str(self.fps_hotkeys.get(str(fps), "")))
+        key_entry = ttk.Entry(outer, textvariable=key_var, width=25)
+        key_entry.pack(fill="x", pady=(4, 8))
+
+        status = ttk.Label(outer, text="Click the box and press a key.", foreground="#9aa0a6")
+        status.pack(anchor="w")
+
+        def capture_key(event):
+            if event.keysym in ("Shift_L", "Shift_R", "Control_L", "Control_R",
+                                "Alt_L", "Alt_R", "Win_L", "Win_R"):
+                return "break"
+            key = str(event.keysym or "").upper()
+            if key == "ESCAPE":
+                key = "ESC"
+            key_var.set(key)
+            status.config(text=f"Hotkey: {key}")
+            return "break"
+
+        key_entry.bind("<KeyPress>", capture_key)
+
+        def save():
+            key = key_var.get().strip().upper()
+            if key and not fflag_key_to_vk(key):
+                messagebox.showerror("FPS Hotkeys", "Unsupported keyboard key.", parent=dlg)
+                return
+            for other_fps, other_key in self.fps_hotkeys.items():
+                if str(other_fps) != str(fps) and key and str(other_key).upper() == key:
+                    messagebox.showerror("FPS Hotkeys", f"{key} is already assigned to {other_fps} FPS.", parent=dlg)
+                    return
+            self.fps_hotkeys[str(fps)] = key
+            self._hotkey_prev.clear()
+            self._save_settings()
+            self._refresh_fps_hotkey_buttons()
+            dlg.destroy()
+
+        btns = ttk.Frame(outer)
+        btns.pack(fill="x", pady=(12, 0))
+        ttk.Button(btns, text="Save", command=save).pack(side="left", padx=(0, 6))
+        ttk.Button(btns, text="Cancel", command=dlg.destroy).pack(side="left")
+
+        key_entry.focus_set()
+
+    def _refresh_fps_hotkey_buttons(self):
+        if not hasattr(self, "_fps_hotkey_buttons"):
+            return
+        for fps, button in self._fps_hotkey_buttons.items():
+            key = str(self.fps_hotkeys.get(str(fps), "") or "")
+            button.config(text=f"{fps} FPS" + (f"  [{key}]" if key else ""))
+
+    def _reset_fps_hotkeys(self):
+        self.fps_hotkeys = {str(fps): "" for fps in (30, 60, 120, 144, 180, 200, 240)}
+        self._hotkey_prev.clear()
+        self._save_settings()
+        self._refresh_fps_hotkey_buttons()
 
     def _handle_fflag_hotkey(self, binding):
         flag_name = fflag_strip_prefix(str(binding.get("flag", "")).strip())
@@ -9405,33 +9508,6 @@ class App(tk.Tk):
         classic.grid(row=4, column=0, sticky="ew", pady=(0, 10))
         ttk.Label(classic, text="Create a Roblox (Classic) desktop shortcut using the selected RobloxPlayerBeta.exe.").pack(anchor="w", pady=(0, 8))
         ttk.Button(classic, text="Enable Beta Classic Theme", command=self._enable_beta_classic_theme).pack(anchor="w")
-        fps_box=ttk.LabelFrame(tab,text="FPS",padding=(10,8)); fps_box.grid(row=6,column=0,sticky="ew",pady=(12,0))
-        self.fps_value_label=ttk.Label(fps_box,font=("Segoe UI Semibold",10)); self.fps_value_label.pack(anchor="w")
-        self.fps_pid_label=ttk.Label(fps_box,text="PID: Waiting for Roblox...",foreground="#9aa0a6"); self.fps_pid_label.pack(anchor="w",pady=(0,4))
-        def _fps_ui(value=None):
-
-
-            fps = int(round(float(self.fps_limit.get() if value is None else value)))
-            fps = max(0, min(240, fps))
-            if self.fps_limit.get() != fps:
-                self.fps_limit.set(fps)
-            self.fps_value_label.config(text="FPS: Unlocked" if fps == 0 else f"FPS: {fps}")
-
-        def _fps_slider_released(_event=None):
-
-
-            if getattr(self, "_fps_release_job", None):
-                try:
-                    self.after_cancel(self._fps_release_job)
-                except Exception:
-                    pass
-            self._fps_release_job = self.after(80, self._apply_fps_after_slider)
-
-        ttk.Scale(fps_box, from_=0, to=240, orient="horizontal", variable=self.fps_limit, command=_fps_ui).pack(fill="x")
-        self._fps_scale_widget = fps_box.winfo_children()[-1]
-        self._fps_scale_widget.bind("<ButtonRelease-1>", _fps_slider_released, add="+")
-        ttk.Label(fps_box, text="FPS Changer", font=("Segoe UI",8), foreground="#9aa0a6").pack(anchor="w")
-        _fps_ui()
 
     def _version_path(self):
         return os.path.join(DATA_DIR, "version.txt")
@@ -9571,7 +9647,7 @@ class App(tk.Tk):
 
 
     def _reorder_tabs(self):
-        order=["Home","Cache","FFlags","Modifications","CConfigs","Subplace Joiner","History","Client","Themes","Settings"]
+        order=["Home","Cache","FFlags","Modifications","CConfigs","Subplace Joiner","Server Viewer","History","Client","Themes","Settings"]
         for i,name in enumerate(order):
             for tab_id in self.nb.tabs():
                 if self.nb.tab(tab_id,"text")==name:
@@ -9962,119 +10038,88 @@ class App(tk.Tk):
             ttk.Label(info,text=label).grid(row=i,column=0,sticky="w",padx=(0,14),pady=5); ttk.Label(info,textvariable=var).grid(row=i,column=1,sticky="w",pady=5)
         actions=ttk.Frame(tab); actions.grid(row=3,column=0,sticky="w",pady=(4,0))
         ttk.Button(actions,text="Refresh",command=self._client_refresh).pack(side="left",padx=(0,6)); ttk.Button(actions,text="Open Roblox",command=self._open_selected_roblox).pack(side="left")
-        ram_box=ttk.LabelFrame(tab,text="Roblox RAM Limit",padding=14); ram_box.grid(row=4,column=0,sticky="ew",pady=(12,0)); ram_box.columnconfigure(0,weight=1)
-        self.ram_value_label=ttk.Label(ram_box,font=("Segoe UI Semibold",10)); self.ram_value_label.grid(row=0,column=0,sticky="w")
-        ttk.Checkbutton(ram_box,text="Enabled",variable=self.ram_limit_enabled,command=self._ram_limit_setting_changed).grid(row=0,column=1,sticky="e",padx=(10,0))
-        def _ram_ui(value=None):
-            mb=int(round(float(self.ram_limit_mb.get() if value is None else value)))
-            mb=max(500,min(7600,mb)); self.ram_limit_mb.set(mb); self.ram_value_label.config(text=f"RAM Limit: {mb} MB")
-        scale=ttk.Scale(ram_box,from_=500,to=7600,orient="horizontal",variable=self.ram_limit_mb,command=_ram_ui)
-        scale.grid(row=1,column=0,columnspan=2,sticky="ew",pady=(8,2))
-        scale.bind("<ButtonRelease-1>",lambda _e:self._ram_limit_setting_changed(),add="+")
-        ttk.Label(ram_box,text="500 MB — 7600 MB",foreground="#9aa0a6").grid(row=2,column=0,columnspan=2,sticky="w")
-        _ram_ui()
-        self._client_cpu_prev=None; self._client_system_prev=None; self._client_refresh(); self.after(1000,self._client_live_update); self.after(1500,self._apply_ram_limit_if_needed)
+        fps_box=ttk.LabelFrame(tab,text="FPS",padding=(10,8)); fps_box.grid(row=4,column=0,sticky="ew",pady=(12,0))
+        self.fps_value_label=ttk.Label(fps_box,font=("Segoe UI Semibold",10)); self.fps_value_label.pack(anchor="w")
+        self.fps_pid_label=ttk.Label(fps_box,text="PID: Waiting for Roblox...",foreground="#9aa0a6"); self.fps_pid_label.pack(anchor="w",pady=(0,4))
+        def _fps_ui(value=None):
 
-    def _ram_limit_setting_changed(self):
-        try:
-            self.ram_limit_mb.set(max(500, min(7600, int(self.ram_limit_mb.get()))))
-        except Exception:
-            self.ram_limit_mb.set(4096)
-        self._save_settings()
-        if not self.ram_limit_enabled.get():
-            self._release_ram_job()
-        else:
-            self._apply_ram_limit_if_needed()
 
-    def _release_ram_job(self):
-        if self._ram_job_handle:
-            try: ctypes.windll.kernel32.CloseHandle(self._ram_job_handle)
-            except Exception: pass
-        self._ram_job_handle=None; self._ram_job_limit=None
+            fps = int(round(float(self.fps_limit.get() if value is None else value)))
+            fps = max(0, min(240, fps))
+            if self.fps_limit.get() != fps:
+                self.fps_limit.set(fps)
+            self.fps_value_label.config(text="FPS: Uncap" if fps == 0 else f"FPS: {fps}")
+            if hasattr(self, "_fps_text_var") and self._fps_text_var.get() != str(fps):
+                self._fps_text_var.set(str(fps))
 
-    def _apply_ram_limit_if_needed(self):
-        if not self.ram_limit_enabled.get() or os.name != "nt":
-            try: self.after(2000, self._apply_ram_limit_if_needed)
-            except Exception: pass
-            return
+        def _fps_slider_released(_event=None):
 
-        try:
-            pids=self._client_roblox_pids()
-            if pids:
-                limit=int(self.ram_limit_mb.get())*1024*1024
 
-                if self._ram_job_handle is None or self._ram_job_limit != limit:
-                    self._release_ram_job()
+            if getattr(self, "_fps_release_job", None):
+                try:
+                    self.after_cancel(self._fps_release_job)
+                except Exception:
+                    pass
+            self._fps_release_job = self.after(80, self._apply_fps_after_slider)
 
-                    kernel32=ctypes.windll.kernel32
-                    h=kernel32.CreateJobObjectW(None, None)
-                    if h:
-                        class JOBOBJECT_BASIC_LIMIT_INFORMATION(ctypes.Structure):
-                            _fields_=[
-                                ("PerProcessUserTimeLimit",ctypes.c_longlong),
-                                ("PerJobUserTimeLimit",ctypes.c_longlong),
-                                ("LimitFlags",ctypes.wintypes.DWORD),
-                                ("MinimumWorkingSetSize",ctypes.c_size_t),
-                                ("MaximumWorkingSetSize",ctypes.c_size_t),
-                                ("ActiveProcessLimit",ctypes.wintypes.DWORD),
-                                ("Affinity",ctypes.c_size_t),
-                                ("PriorityClass",ctypes.wintypes.DWORD),
-                                ("SchedulingClass",ctypes.wintypes.DWORD)
-                            ]
-                        class IO_COUNTERS(ctypes.Structure):
-                            _fields_=[
-                                ("ReadOperationCount",ctypes.c_ulonglong),
-                                ("WriteOperationCount",ctypes.c_ulonglong),
-                                ("OtherOperationCount",ctypes.c_ulonglong),
-                                ("ReadTransferCount",ctypes.c_ulonglong),
-                                ("WriteTransferCount",ctypes.c_ulonglong),
-                                ("OtherTransferCount",ctypes.c_ulonglong)
-                            ]
-                        class JOBOBJECT_EXTENDED_LIMIT_INFORMATION(ctypes.Structure):
-                            _fields_=[
-                                ("BasicLimitInformation",JOBOBJECT_BASIC_LIMIT_INFORMATION),
-                                ("IoInfo",IO_COUNTERS),
-                                ("ProcessMemoryLimit",ctypes.c_size_t),
-                                ("JobMemoryLimit",ctypes.c_size_t),
-                                ("PeakProcessMemoryUsed",ctypes.c_size_t),
-                                ("PeakJobMemoryUsed",ctypes.c_size_t)
-                            ]
+        ttk.Scale(fps_box, from_=0, to=240, orient="horizontal", variable=self.fps_limit, command=_fps_ui).pack(fill="x")
+        self._fps_scale_widget = fps_box.winfo_children()[-1]
+        self._fps_scale_widget.bind("<ButtonRelease-1>", _fps_slider_released, add="+")
+        self._fps_text_var = tk.StringVar(value=str(self.fps_limit.get()))
+        self._fps_text_entry = ttk.Entry(fps_box, textvariable=self._fps_text_var, width=12)
+        self._fps_text_entry.pack(anchor="w", pady=(6, 0))
+        def _fps_text_apply(_event=None):
+            try:
+                fps = int(self._fps_text_var.get().strip())
+            except Exception:
+                self._fps_text_var.set(str(self.fps_limit.get()))
+                return
+            fps = max(0, min(240, fps))
+            self.fps_limit.set(fps)
+            _fps_ui(fps)
+            self._apply_fps_after_slider()
+        self._fps_text_entry.bind("<Return>", _fps_text_apply)
+        self._fps_text_entry.bind("<FocusOut>", _fps_text_apply)
 
-                        info=JOBOBJECT_EXTENDED_LIMIT_INFORMATION()
-                        info.BasicLimitInformation.LimitFlags=0x100
-                        info.ProcessMemoryLimit=limit
+        fps_hotkey_frame = ttk.Frame(fps_box)
+        fps_hotkey_frame.pack(fill="x", pady=(8, 0))
+        self._fps_hotkey_buttons = {}
+        fps_values = (30, 60, 120, 144, 180, 200, 240)
 
-                        if kernel32.SetInformationJobObject(
-                            h, 9, ctypes.byref(info), ctypes.sizeof(info)
-                        ):
-                            assigned=False
-                            for pid in pids:
-                                ph=kernel32.OpenProcess(
-                                    0x0200|0x0001|0x0010|0x0400,
-                                    False, int(pid)
-                                )
-                                if ph:
-                                    try:
-                                        if kernel32.AssignProcessToJobObject(h, ph):
-                                            assigned=True
-                                    finally:
-                                        kernel32.CloseHandle(ph)
+        def _set_fps_from_button(fps):
+            self.fps_limit.set(fps)
+            _fps_ui(fps)
+            self._apply_fps_after_slider()
 
-                            if assigned:
-                                self._ram_job_handle=h
-                                self._ram_job_limit=limit
-                            else:
-                                kernel32.CloseHandle(h)
-                        else:
-                            kernel32.CloseHandle(h)
-        except Exception:
-            pass
+        for index, fps in enumerate(fps_values):
+            button = ttk.Button(
+                fps_hotkey_frame,
+                text=f"{fps} FPS",
+                command=lambda value=fps: _set_fps_from_button(value)
+            )
+            button.grid(row=index // 4, column=index % 4, sticky="ew", padx=(0 if index % 4 == 0 else 4, 0), pady=(0 if index < 4 else 4, 0))
+            self._fps_hotkey_buttons[fps] = button
 
-        try:
-            self.after(2000, self._apply_ram_limit_if_needed)
-        except Exception:
-            pass
+        for column in range(4):
+            fps_hotkey_frame.columnconfigure(column, weight=1)
 
+        fps_hotkey_actions = ttk.Frame(fps_box)
+        fps_hotkey_actions.pack(fill="x", pady=(6, 0))
+        ttk.Button(
+            fps_hotkey_actions, text="Edit Hotkeys",
+            command=lambda: self._fps_hotkey_editor(
+                min(fps_values, key=lambda value: abs(value - int(self.fps_limit.get())))
+            )
+        ).pack(side="left")
+        ttk.Button(
+            fps_hotkey_actions, text="Reset Hotkeys",
+            command=self._reset_fps_hotkeys
+        ).pack(side="left", padx=(6, 0))
+
+        ttk.Label(fps_box, text="FPS Changer", font=("Segoe UI",8), foreground="#9aa0a6").pack(anchor="w")
+        self._refresh_fps_hotkey_buttons()
+        _fps_ui()
+        self._client_cpu_prev=None; self._client_system_prev=None; self._client_refresh(); self.after(1000,self._client_live_update)
 
     def _client_roblox_pids(self):
         """Return the Roblox Game Client process tree members.
@@ -10418,6 +10463,205 @@ class App(tk.Tk):
         try: os.startfile(f"roblox://placeId={pid}")
         except Exception as e: messagebox.showerror("Subplace Joiner",f"Could not launch Roblox:\n{e}",parent=self)
 
+    def _build_server_viewer_tab(self):
+        tab = ttk.Frame(self.nb, padding=12)
+        self.nb.add(tab, text="Server Viewer")
+        tab.columnconfigure(0, weight=1)
+        tab.rowconfigure(2, weight=1)
+
+        head = ttk.Frame(tab)
+        head.grid(row=0, column=0, sticky="ew", pady=(0, 8))
+        ttk.Label(head, text="Server Viewer", font=("Segoe UI Semibold", 15)).pack(side="left")
+        self.server_viewer_status = ttk.Label(head, text="Paste a Roblox server deeplink", foreground="#9aa0a6")
+        self.server_viewer_status.pack(side="right")
+
+        row = ttk.Frame(tab)
+        row.grid(row=1, column=0, sticky="ew", pady=(0, 10))
+        row.columnconfigure(0, weight=1)
+        self.server_viewer_link = tk.StringVar()
+        ttk.Entry(row, textvariable=self.server_viewer_link).grid(row=0, column=0, sticky="ew")
+        ttk.Button(row, text="View Server", command=self._server_viewer_load).grid(row=0, column=1, padx=(6, 0))
+        ttk.Button(row, text="Clear", command=self._server_viewer_clear).grid(row=0, column=2, padx=(6, 0))
+
+        body = ttk.PanedWindow(tab, orient="horizontal")
+        body.grid(row=2, column=0, sticky="nsew")
+        left = ttk.Frame(body)
+        right = ttk.Frame(body)
+        body.add(left, weight=1)
+        body.add(right, weight=1)
+        left.columnconfigure(0, weight=1)
+        left.rowconfigure(1, weight=1)
+        right.columnconfigure(0, weight=1)
+        right.rowconfigure(1, weight=1)
+
+        info = ttk.LabelFrame(left, text="Server Information")
+        info.grid(row=0, column=0, sticky="ew", pady=(0, 8))
+        for i in range(2):
+            info.columnconfigure(i, weight=1)
+        self.server_viewer_vars = {}
+        fields = [
+            ("Place ID", "place_id"),
+            ("Job ID", "job_id"),
+            ("Players", "players"),
+            ("Max Capacity", "max_players"),
+            ("Ping", "ping"),
+            ("Server FPS", "fps"),
+            ("Location", "location"),
+        ]
+        for i, (label, key) in enumerate(fields):
+            r, c = divmod(i, 2)
+            ttk.Label(info, text=label, foreground="#9aa0a6").grid(row=r * 2, column=c, sticky="w", padx=8, pady=(6, 0))
+            var = tk.StringVar(value="—")
+            self.server_viewer_vars[key] = var
+            ttk.Label(info, textvariable=var).grid(row=r * 2 + 1, column=c, sticky="w", padx=8, pady=(0, 6))
+
+        note = ttk.Label(
+            left,
+            text="\n"
+                 "",
+            foreground="#9aa0a6",
+            justify="left"
+        )
+        note.grid(row=1, column=0, sticky="nw", pady=(4, 0))
+
+        ttk.Label(right, text="", font=("Segoe UI Semibold", 10)).grid(row=0, column=0, sticky="w", pady=(0, 6))
+        self.server_viewer_players = tk.Listbox(
+            right,
+            bg=_CURRENT_PALETTE["bg_medium"],
+            fg=_CURRENT_PALETTE["fg"],
+            relief="flat",
+            bd=0,
+            highlightthickness=0,
+            selectbackground=_CURRENT_PALETTE["bg_light"]
+        )
+        self.server_viewer_players.grid(row=1, column=0, sticky="nsew")
+
+    @staticmethod
+    def _server_viewer_parse_deeplink(value):
+        value = str(value or "").strip()
+        if not value:
+            raise ValueError("Paste a Roblox deeplink first.")
+        parsed = urlparse(value)
+        query = parse_qs(parsed.query)
+        place_id = None
+        job_id = None
+        for key in ("placeId", "placeid", "placeID"):
+            if query.get(key):
+                place_id = query[key][0]
+                break
+        for key in ("gameInstanceId", "gameinstanceid", "jobId", "jobid"):
+            if query.get(key):
+                job_id = query[key][0]
+                break
+        if not place_id or not str(place_id).isdigit():
+            m = re.search(r"(?:placeId|placeid)[=/](\d+)", value, re.IGNORECASE)
+            if m:
+                place_id = m.group(1)
+        if not job_id:
+            m = re.search(r"(?:gameInstanceId|jobId|jobid)[=/]([0-9a-fA-F-]{32,36})", value, re.IGNORECASE)
+            if m:
+                job_id = m.group(1)
+        if not place_id or not job_id:
+            raise ValueError("The deeplink must contain both placeId and gameInstanceId/jobId.")
+        return str(place_id), str(job_id)
+
+    def _server_viewer_clear(self):
+        self.server_viewer_link.set("")
+        for var in self.server_viewer_vars.values():
+            var.set("—")
+        self.server_viewer_players.delete(0, tk.END)
+        self.server_viewer_status.config(text="Paste a Roblox server deeplink", foreground="#9aa0a6")
+
+    def _server_viewer_load(self):
+        try:
+            place_id, job_id = self._server_viewer_parse_deeplink(self.server_viewer_link.get())
+        except Exception as e:
+            messagebox.showerror("Server Viewer", str(e), parent=self)
+            return
+
+        self.server_viewer_status.config(text="Loading server...", foreground="#f2c94c")
+        self.server_viewer_players.delete(0, tk.END)
+        for var in self.server_viewer_vars.values():
+            var.set("—")
+        threading.Thread(
+            target=self._server_viewer_worker,
+            args=(place_id, job_id),
+            daemon=True,
+            name="RoUtils-ServerViewer"
+        ).start()
+
+    def _server_viewer_worker(self, place_id, job_id):
+        try:
+            cursor = None
+            found = None
+            pages = 0
+            while pages < 50:
+                pages += 1
+                params = "sortOrder=Asc&excludeFullGames=false&limit=100"
+                if cursor:
+                    from urllib.parse import quote
+                    params += "&cursor=" + quote(cursor, safe="")
+                url = f"https://games.roblox.com/v1/games/{place_id}/servers/Public?{params}"
+                req = urllib.request.Request(url, headers={"User-Agent": "RoUtils/3.4"})
+                with urllib.request.urlopen(req, timeout=15) as r:
+                    data = json.loads(r.read().decode("utf-8", "replace"))
+                for server in data.get("data", []):
+                    if str(server.get("id", "")) == job_id:
+                        found = server
+                        break
+                if found:
+                    break
+                cursor = data.get("nextPageCursor")
+                if not cursor:
+                    break
+
+            if not found:
+                raise ValueError("That server was not found in the public server list. It may have closed, be private, or no longer be listed.")
+
+            players = found.get("playing", 0)
+            max_players = found.get("maxPlayers", 0)
+            ping = found.get("ping")
+            fps = found.get("fps")
+            tokens = found.get("playerTokens") or []
+            public_players = found.get("players") or []
+            result = {
+                "place_id": place_id,
+                "job_id": job_id,
+                "players": f"{players}/{max_players}",
+                "max_players": str(max_players),
+                "ping": f"{round(float(ping))} ms" if ping is not None else "—",
+                "fps": f"{float(fps):.1f}" if fps is not None else "—",
+                        "tokens": tokens,
+                "public_players": public_players,
+            }
+            self.after(0, lambda result=result: self._server_viewer_show(result))
+        except Exception as e:
+            self.after(0, lambda msg=str(e): self._server_viewer_error(msg))
+
+    def _server_viewer_show(self, result):
+        for key in ("place_id", "job_id", "players", "max_players", "ping", "fps"):
+            self.server_viewer_vars[key].set(result[key])
+        self.server_viewer_players.delete(0, tk.END)
+        public_players = result.get("public_players") or []
+        tokens = result.get("tokens") or []
+        if public_players:
+            for player in public_players:
+                if isinstance(player, dict):
+                    name = player.get("username") or player.get("name") or player.get("displayName") or str(player)
+                else:
+                    name = str(player)
+                self.server_viewer_players.insert(tk.END, name)
+        elif tokens:
+            for i, token in enumerate(tokens, 1):
+                self.server_viewer_players.insert(tk.END, f"Player {i}")
+        else:
+            self.server_viewer_players.insert(tk.END, "")
+        self.server_viewer_status.config(text="Server loaded", foreground="#65d98b")
+
+    def _server_viewer_error(self, message):
+        self.server_viewer_status.config(text="Failed to load server", foreground="#ff6b6b")
+        messagebox.showerror("Server Viewer", f"Could not load server:\n{message}", parent=self)
+
     def _build_fflag_tab(self):
         tab = ttk.Frame(self.nb, padding=12)
         self.nb.insert(1, tab, text="FFlags")
@@ -10714,8 +10958,8 @@ class App(tk.Tk):
         self.after(1000, self._fflag_refresh_process)
 
     def _fps_flag_value(self):
-        fps = max(0, min(800, int(self.fps_limit.get())))
-        return "9999999999999999" if fps == 0 else str(fps)
+        fps = max(0, min(240, int(self.fps_limit.get())))
+        return str(fps)
 
     def _sync_fps_flag_to_manager(self):
 
@@ -11000,8 +11244,19 @@ class App(tk.Tk):
                 inline = token.startswith("`") and token.endswith("`") and len(token) >= 2
                 value = token[2:-2] if bold else (token[1:-1] if inline else token)
                 line.insert("end", value, "bold" if bold else ("inline" if inline else ""))
+
+            def update_height(_event=None):
+                try:
+                    line.update_idletasks()
+                    display_lines = line.count("1.0", "end-1c", "displaylines")[0]
+                    line.configure(height=max(1, display_lines))
+                except Exception:
+                    pass
+
             line.configure(state="disabled")
+            line.bind("<Configure>", update_height)
             line.bind("<Button-2>", lambda e: "break")
+            line.after_idle(update_height)
             return line
 
         def add_markdown_message(parent, text):
@@ -11375,12 +11630,11 @@ class App(tk.Tk):
             "viewer_collapsed": self.viewer_collapsed,
             "theme": self.theme_var.get() if hasattr(self, "theme_var") else self.settings.get("theme", DEFAULT_THEME),
             "fflag_hotkeys": self.fflag_hotkeys,
+            "fps_hotkeys": self.fps_hotkeys,
             "fflag_auto_apply": self.fflag_auto_apply.get() if hasattr(self,"fflag_auto_apply") else self.settings.get("fflag_auto_apply",False),
             "launch_on_tray": self.launch_on_tray.get() if hasattr(self, "launch_on_tray") else self.settings.get("launch_on_tray", False),
             "launch_on_startup": self.launch_on_startup.get() if hasattr(self, "launch_on_startup") else self.settings.get("launch_on_startup", False),
             "hide_to_tray_on_close": self.hide_to_tray_on_close.get() if hasattr(self, "hide_to_tray_on_close") else self.settings.get("hide_to_tray_on_close", False),
-            "ram_limit_enabled": self.ram_limit_enabled.get() if hasattr(self, "ram_limit_enabled") else self.settings.get("ram_limit_enabled", False),
-            "ram_limit_mb": self.ram_limit_mb.get() if hasattr(self, "ram_limit_mb") else self.settings.get("ram_limit_mb", 4096),
             "roblox_path": self.settings.get("roblox_path",""),
             "roblox_username": self.settings.get("roblox_username",""),
             "roblox_user_id": self.settings.get("roblox_user_id",""),
@@ -12917,7 +13171,6 @@ class App(tk.Tk):
         if not force and self.hide_to_tray_on_close.get():
             self._save_settings(); self._hide_to_tray(); return
         self.watching = False; self.stop_event.set(); self._hotkey_stop.set(); self._save_settings()
-        self._release_ram_job()
         try:
             if self._tray_icon:
                 self._tray_icon.stop()
