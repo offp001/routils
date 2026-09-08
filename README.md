@@ -1,4 +1,4 @@
-# 🛠️ RoUtils (Version 3.4)
+# 🛠️ RoUtils (Version 3.5)
 
 <img width="1633" height="792" alt="RoUtils" src="https://github.com/user-attachments/assets/54d812b2-aba6-488f-9306-b244d7c13927" />
 
@@ -36,7 +36,6 @@
 
 * **👤 Default R6 Mesh Changer** – Change default R6 character meshes
 * **📐 Mesh to OBJ Converter** – Convert meshes to OBJ format
-* **⚡ FPS Changer** – Change Roblox's FPS limit
 * **🔄 File Converter** – Convert `.rbxm` / `.rbxmx` / `.rbxh` files
 * **📦 RBXM → RBXH Blob** – Create Roblox-style RBXH v2 cache blobs
 * **🕺 R6 to R15 Animations** – Convert R6 animations to R15 animations
@@ -51,6 +50,9 @@
 * **🚀 Subplace Joiner** – Join Roblox subplaces by entering a Universe ID or Place ID
 * **🔗 Copy Deep Link** – Copy the current server deeplink
 
+### 🔰Server Viewer
+* **🔰See server information without joining with deeplink (Place ID, Job ID, Players (9/25 etc.), Max Capacity, Ping, Server FPS, Location)
+
 ### 📜 History
 
 * **🕒 Game History** – Save game history and join games again later
@@ -58,7 +60,8 @@
 ### 💻 Client
 
 * **📊 Client Information** – Show CPU/RAM usage and current Game ID/JobID
-* **🧠 Roblox RAM Limit** – Set a Roblox memory limit
+* **⚡ FPS Changer** – Change Roblox's FPS limit
+* **⚡ FPS Hotkeys** – Change Roblox's FPS limit using Hotkeys
 
 ### 🎨 Themes
 
