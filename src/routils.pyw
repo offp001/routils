@@ -100,7 +100,7 @@ _LOCAL_APPDATA = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
 DATA_DIR = os.path.join(_LOCAL_APPDATA, "RoUtils")
 os.makedirs(DATA_DIR, exist_ok=True)
 
-APP_VERSION = "3.5"
+APP_VERSION = "3.6"
 HISTORY_PATH = os.path.join(DATA_DIR, "history.json")
 SETTINGS_PATH = os.path.join(DATA_DIR, "routils_settings.json")
 
@@ -7693,10 +7693,22 @@ class RobloxFFlagEngine:
         return int.from_bytes(b, "little", signed=True) if b else 0
 
     def get_singleton(self) -> int:
-        if self.cached_singleton:
-            return self.cached_singleton
         if not self.handle or not self.module_base:
+            self.cached_singleton = 0
             return 0
+        try:
+            code = ctypes.c_ulong()
+            if not ctypes.windll.kernel32.GetExitCodeProcess(self.handle, ctypes.byref(code)) or code.value != 259:
+                self.cached_singleton = 0
+                return 0
+        except Exception:
+            self.cached_singleton = 0
+            return 0
+        if self.cached_singleton:
+            test = self._read(self.cached_singleton + 48, 8)
+            if test is not None and int.from_bytes(test, "little", signed=False):
+                return self.cached_singleton
+            self.cached_singleton = 0
 
         mbi = ctypes.create_string_buffer(48)
         addr = self.module_base
@@ -8082,6 +8094,7 @@ class App(tk.Tk):
         self._hotkey_prev = {}
         self._hotkey_thread = None
 
+        self._cache_built = False
         self.nb = ttk.Notebook(self)
         self.nb.pack(fill="both", expand=True, padx=8, pady=(0, 8))
 
@@ -8150,7 +8163,6 @@ class App(tk.Tk):
         self._img_preview_fade_job: Optional[str] = None
         self._tree_hover_iid: Optional[str] = None
 
-        self._build_viewer_widgets()
         self.fflag_engine = RobloxFFlagEngine()
         self.fflag_flags = []
         self.fflag_offsets = {}
@@ -8167,18 +8179,40 @@ class App(tk.Tk):
         self.gemini_api_key = tk.StringVar(value=str(self.settings.get("gemini_api_key", "")))
         self._load_fflag_flags()
         self._sync_fps_flag_to_manager()
+
+        self._lazy_tabs = {}
+        self._lazy_tab_ids = {}
+        self.nb.bind("<<NotebookTabChanged>>", self._lazy_tab_changed, add="+")
         self._build_home_tab()
-        self._build_themes_tab()
-        self._build_settings_tab()
-        self._build_fflag_tab()
-        self._build_utils_tab()
-        self._build_cconfigs_tab()
-        self._build_subplace_joiner_tab()
-        self._build_server_viewer_tab()
-        self._build_history_tab()
-        self._history_resolve_existing_names()
-        self._build_client_tab()
+
+        lazy_builders = {
+            "Cache": self._lazy_build_cache,
+            "FFlags": self._build_fflag_tab,
+            "Modifications": self._build_utils_tab,
+            "CConfigs": self._build_cconfigs_tab,
+            "Subplace Joiner": self._build_subplace_joiner_tab,
+            "Server Viewer": self._build_server_viewer_tab,
+            "History": self._build_history_tab,
+            "Client": self._build_client_tab,
+            "Themes": self._build_themes_tab,
+            "Settings": self._build_settings_tab,
+        }
+
+        for tab_name in ("Cache", "FFlags", "Modifications", "CConfigs", "Subplace Joiner",
+                         "Server Viewer", "History", "Client", "Themes", "Settings"):
+            if tab_name == "Cache":
+                tab = self.tab_viewer
+            else:
+                tab = ttk.Frame(self.nb)
+                self.nb.add(tab, text=tab_name)
+            self._lazy_tab_ids[tab_name] = str(tab)
+            self._lazy_tabs[str(tab)] = (tab_name, lazy_builders[tab_name], tab)
+            if tab_name != "Cache":
+                ttk.Label(tab, text="Loading...", foreground="#9aa0a6").pack(expand=True)
+
         self._reorder_tabs()
+        self.nb.select(self.nb.tabs()[0])
+        self.after_idle(self._lazy_tab_changed)
 
 
         self.after_idle(self._install_global_scroll_support)
@@ -8191,15 +8225,66 @@ class App(tk.Tk):
             self.after_idle(self._hide_to_tray)
         self._start_global_hotkeys()
         self.after(50, self._process_global_hotkeys)
-        self.update_idletasks()
-        self._apply_startup_layouts()
         if self.settings.get("viewer_collapsed"):
-            self._toggle_viewer_pane()
-        self._update_status()
+            self.after(250, self._apply_saved_viewer_state)
         self.after(150, self._drain_queue)
         self.after(200, self._save_settings)
         self.after(6000, self._fflag_auto_apply_tick)
 
+
+    def _lazy_build_cache(self):
+        if getattr(self, "_cache_built", False):
+            return
+        self._build_viewer_widgets()
+        self._cache_built = True
+        self.after_idle(self._apply_startup_layouts)
+        self.after_idle(self._update_status)
+
+    def _lazy_tab_changed(self, _event=None):
+        try:
+            tab_id = self.nb.select()
+        except Exception:
+            return
+        if not tab_id:
+            return
+        info = self._lazy_tabs.get(str(tab_id))
+        if not info:
+            return
+        tab_name, builder, placeholder = info
+        try:
+            self.nb.unbind("<<NotebookTabChanged>>")
+            if tab_name != "Cache":
+                self.nb.forget(placeholder)
+                placeholder.destroy()
+                builder()
+                self._reorder_tabs()
+            else:
+                builder()
+        except Exception:
+            try:
+                if tab_name != "Cache" and placeholder.winfo_exists():
+                    placeholder.destroy()
+            except Exception:
+                pass
+        finally:
+            try:
+                self.nb.bind("<<NotebookTabChanged>>", self._lazy_tab_changed, add="+")
+            except Exception:
+                pass
+        self._lazy_tabs.pop(str(tab_id), None)
+        try:
+            self.after_idle(self._install_global_scroll_support)
+        except Exception:
+            pass
+
+    def _apply_saved_viewer_state(self):
+        if not getattr(self, "_cache_built", False):
+            return
+        try:
+            if self.settings.get("viewer_collapsed"):
+                self._toggle_viewer_pane()
+        except Exception:
+            pass
 
     def _start_global_hotkeys(self):
         if self._hotkey_thread and self._hotkey_thread.is_alive():
@@ -11020,8 +11105,7 @@ class App(tk.Tk):
             pass
 
     def _fps_apply_tick(self):
-        self._apply_fps_flag(silent=True)
-        self.after(30000, self._fps_apply_tick)
+        return
 
     def _fflag_apply(self, silent=False):
         if not self.fflag_pid or not self.fflag_engine.handle:
@@ -11077,15 +11161,10 @@ class App(tk.Tk):
         )
 
     def _toggle_fflag_auto_apply(self):
-
-        if self.fflag_auto_apply.get() and self.fflag_pid and self.fflag_engine.handle:
-            self._fflag_apply(silent=True)
+        self.fflag_auto_apply.set(False)
 
     def _fflag_auto_apply_tick(self):
-
-        if self.fflag_auto_apply.get() and self.fflag_pid and self.fflag_engine.handle:
-            self._fflag_apply(silent=True)
-            self.after(6000, self._fflag_auto_apply_tick)
+        return
 
     def _build_settings_tab(self):
         tab = ttk.Frame(self.nb, padding=0)
