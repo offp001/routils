@@ -100,7 +100,7 @@ _LOCAL_APPDATA = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
 DATA_DIR = os.path.join(_LOCAL_APPDATA, "RoUtils")
 os.makedirs(DATA_DIR, exist_ok=True)
 
-APP_VERSION = "3.6"
+APP_VERSION = "3.7"
 HISTORY_PATH = os.path.join(DATA_DIR, "history.json")
 SETTINGS_PATH = os.path.join(DATA_DIR, "routils_settings.json")
 
@@ -4178,7 +4178,7 @@ def save_settings(data: Dict) -> None:
 _BUNDLE_DIR = getattr(sys, "_MEIPASS", BASE_DIR)
 ICON_PATH = os.path.join(_BUNDLE_DIR, "routils.ico")
 
-WEBVIEW2_URL_DEFAULTS = "https://raw.githubusercontent.com/offp001/routils/refs/heads/main/src/DefaultValues.json"
+WEBVIEW2_URL_DEFAULTS = "https://raw.githubusercontent.com/MaximumADHD/Roblox-FFlag-Tracker/refs/heads/main/PCDesktopClient.json"
 WEBVIEW2_URL_OFFSETS_ROOT = "https://offsets.imtheo.lol/"
 WEBVIEW2_URL_OFFSETS_TEMPLATE = "https://offsets.imtheo.lol/{version}/fflags.hpp"
 GITHUB_PRESETS_API = "https://api.github.com/repos/offp001/routils/contents/src/presets"
@@ -8074,7 +8074,9 @@ class App(tk.Tk):
 
 
         self.bind("<Map>", lambda _e: self.after_idle(self._restore_windows_taskbar_presence), add="+")
+        self.bind("<Map>", lambda _e: self.after(250, self._apply_streamer_mode), add="+")
         self.after_idle(self._restore_windows_taskbar_presence)
+        self.after(250, self._apply_streamer_mode)
         try:
             self.iconbitmap(ICON_PATH)
         except Exception:
@@ -8133,11 +8135,13 @@ class App(tk.Tk):
         self.hide_tickets = tk.BooleanVar(value=self.settings.get("hide_tickets", True))
         self.stay_on_top = tk.BooleanVar(value=self.settings.get("stay_on_top", False))
         self.show_lines = tk.BooleanVar(value=self.settings.get("show_lines", True))
+        self.streamer_mode = tk.BooleanVar(value=self.settings.get("streamer_mode", False))
 
         def _trace(*_):
             self._save_settings()
-        for v in (self.autoscroll, self.hide_tickets, self.stay_on_top, self.show_lines):
+        for v in (self.autoscroll, self.hide_tickets, self.stay_on_top, self.show_lines, self.streamer_mode):
             v.trace_add("write", _trace)
+        self.streamer_mode.trace_add("write", lambda *_: self._apply_streamer_mode())
         self.filter_text = tk.StringVar(value="")
         self.max_rows = tk.IntVar(value=0)
         self.type_filter = tk.StringVar(value=self.settings.get("type_filter", "All"))
@@ -8251,6 +8255,7 @@ class App(tk.Tk):
         if not info:
             return
         tab_name, builder, placeholder = info
+        target_name = tab_name
         try:
             self.nb.unbind("<<NotebookTabChanged>>")
             if tab_name != "Cache":
@@ -8272,6 +8277,13 @@ class App(tk.Tk):
             except Exception:
                 pass
         self._lazy_tabs.pop(str(tab_id), None)
+        try:
+            for current_id in self.nb.tabs():
+                if self.nb.tab(current_id, "text") == target_name:
+                    self.nb.select(current_id)
+                    break
+        except Exception:
+            pass
         try:
             self.after_idle(self._install_global_scroll_support)
         except Exception:
@@ -8630,6 +8642,69 @@ class App(tk.Tk):
 
 
 
+
+    def _apply_streamer_mode(self, _retry=0):
+        if sys.platform != "win32" or not self.winfo_exists():
+            return
+
+        try:
+            self.update_idletasks()
+
+            user32 = ctypes.WinDLL("user32", use_last_error=True)
+            SetWindowDisplayAffinity = user32.SetWindowDisplayAffinity
+            SetWindowDisplayAffinity.argtypes = [
+                ctypes.wintypes.HWND,
+                ctypes.wintypes.DWORD,
+            ]
+            SetWindowDisplayAffinity.restype = ctypes.wintypes.BOOL
+
+            WDA_NONE = 0x00000000
+            WDA_EXCLUDEFROMCAPTURE = 0x00000011
+
+            hwnd = ctypes.wintypes.HWND(int(self.winfo_id()))
+
+            foreground = user32.GetForegroundWindow()
+            if foreground:
+                try:
+                    foreground_pid = ctypes.wintypes.DWORD()
+                    user32.GetWindowThreadProcessId(
+                        foreground,
+                        ctypes.byref(foreground_pid),
+                    )
+                    if foreground_pid.value == os.getpid():
+                        hwnd = ctypes.wintypes.HWND(foreground)
+                except Exception:
+                    pass
+
+            affinity = (
+                WDA_EXCLUDEFROMCAPTURE
+                if self.streamer_mode.get()
+                else WDA_NONE
+            )
+
+            if SetWindowDisplayAffinity(hwnd, affinity):
+                return
+
+            error = ctypes.get_last_error()
+
+            if _retry < 5:
+                self.after(150, lambda: self._apply_streamer_mode(_retry + 1))
+                return
+
+            if self.streamer_mode.get():
+                self.settings["streamer_mode"] = False
+                self._save_settings()
+                try:
+                    self.streamer_mode.set(False)
+                except Exception:
+                    pass
+
+        except Exception:
+            if _retry < 5:
+                try:
+                    self.after(150, lambda: self._apply_streamer_mode(_retry + 1))
+                except Exception:
+                    pass
 
     def _restore_windows_taskbar_presence(self):
         """Keep this exact Tk root as a normal Windows taskbar/Alt+Tab app.
@@ -9519,80 +9594,87 @@ class App(tk.Tk):
             except Exception:
                 pass
 
-    def _enable_beta_classic_theme(self):
-        path = self.settings.get("roblox_path", "") if hasattr(self, "settings") else ""
-        if not path:
-            try:
-                path = self.roblox_path_var.get()
-            except Exception:
-                path = ""
-        if os.path.isdir(path):
-            candidate = os.path.join(path, "RobloxPlayerBeta.exe")
-            if os.path.isfile(candidate):
-                path = candidate
-        if not path or os.path.basename(path).lower() != "robloxplayerbeta.exe" or not os.path.isfile(path):
-            try:
-                messagebox.showwarning("RoUtils", "Please select a valid RobloxPlayerBeta.exe first.")
-            except Exception:
-                pass
-            return
-        try:
-            import winshell
-            from win32com.client import Dispatch
-            desktop = winshell.desktop()
-            shortcut_path = os.path.join(desktop, "Roblox (Classic).lnk")
-            shell = Dispatch("WScript.Shell")
-            shortcut = shell.CreateShortCut(shortcut_path)
-            shortcut.Targetpath = path
-            shortcut.Arguments = '-channel "zrobloxplustheme"'
-            shortcut.WorkingDirectory = os.path.dirname(path)
-            shortcut.IconLocation = path + ",0"
-            shortcut.save()
-            messagebox.showinfo("RoUtils", "Classic Roblox Shortcut added to Desktop")
-        except Exception:
-
-            try:
-                desktop = os.path.join(os.path.expanduser("~"), "Desktop")
-                shortcut_path = os.path.join(desktop, "Roblox (Classic).lnk")
-                shell = __import__("win32com.client", fromlist=["Dispatch"]).Dispatch("WScript.Shell")
-                shortcut = shell.CreateShortCut(shortcut_path)
-                shortcut.Targetpath = path
-                shortcut.Arguments = '-channel "zrobloxplustheme"'
-                shortcut.WorkingDirectory = os.path.dirname(path)
-                shortcut.IconLocation = path + ",0"
-                shortcut.save()
-                messagebox.showinfo("RoUtils", "Classic Roblox Shortcut added to Desktop")
-            except Exception as e:
-                messagebox.showerror("RoUtils", f"Could not create shortcut:\n{e}")
-
     def _build_utils_tab(self):
         tab_outer = _ScrollableTab(self.nb, padding=0)
         tab = tab_outer.inner
         self.nb.insert(2, tab_outer, text="Modifications")
         tab.columnconfigure(0, weight=1)
-        ttk.Label(tab, text="Modifications", font=("Segoe UI Semibold", 15)).grid(row=0, column=0, sticky="w")
-        ttk.Label(tab, text="Roblox Modifications", foreground="#9aa0a6").grid(row=1, column=0, sticky="w", pady=(0, 14))
-        anim = ttk.LabelFrame(tab, text="Converters", padding=14); anim.grid(row=2,column=0,sticky="ew",pady=(0,10))
-        ttk.Button(anim, text="R6 Animation → R15", command=self._utils_r6_to_r15).pack(anchor="w", pady=(0,6))
-        ttk.Button(anim, text="Roblox File Converter (.rbxm / .rbxh / .rbxmx)", command=self._utils_roblox_file_convert).pack(anchor="w", pady=(0,6))
-        ttk.Button(anim, text="Mesh to OBJ", command=self._utils_mesh_to_obj).pack(anchor="w")
-        mesh = ttk.LabelFrame(tab, text="Default Mesh Changer", padding=14); mesh.grid(row=3,column=0,sticky="ew",pady=(0,10))
-        ttk.Label(mesh, text="It allows you to change the default R6 Meshes.").grid(row=0,column=0,columnspan=3,sticky="w",pady=(0,8))
-        pathrow=ttk.Frame(mesh); pathrow.grid(row=1,column=0,columnspan=3,sticky="ew",pady=(0,10)); pathrow.columnconfigure(0,weight=1)
-        self.roblox_path_var=tk.StringVar(value=self.settings.get("roblox_path",""))
-        ttk.Entry(pathrow,textvariable=self.roblox_path_var,state="readonly").grid(row=0,column=0,sticky="ew")
-        ttk.Button(pathrow,text="Choose",command=self._choose_roblox_path).grid(row=0,column=1,padx=(6,0))
-        ttk.Button(pathrow,text="Open Selected Roblox",command=self._open_selected_roblox).grid(row=0,column=2,padx=(6,0))
-        self.mesh_rows={}
-        for i,name in enumerate(("Head.mesh","leftarm.mesh","leftleg.mesh","rightarm.mesh","rightleg.mesh","torso.mesh"),start=2):
-            ttk.Label(mesh,text=name).grid(row=i,column=0,sticky="w",pady=3)
-            ttk.Button(mesh,text="Delete",command=lambda n=name:self._delete_default_mesh(n)).grid(row=i,column=1,padx=5)
-            ttk.Button(mesh,text="Choose",command=lambda n=name:self._choose_default_mesh(n)).grid(row=i,column=2)
-        mesh.columnconfigure(0,weight=1)
-        classic = ttk.LabelFrame(tab, text="Classic Theme", padding=14)
-        classic.grid(row=4, column=0, sticky="ew", pady=(0, 10))
-        ttk.Label(classic, text="Create a Roblox (Classic) desktop shortcut using the selected RobloxPlayerBeta.exe.").pack(anchor="w", pady=(0, 8))
-        ttk.Button(classic, text="Enable Beta Classic Theme", command=self._enable_beta_classic_theme).pack(anchor="w")
+
+        ttk.Label(tab, text="Modifications", font=("Segoe UI Semibold", 15)).grid(
+            row=0, column=0, sticky="w"
+        )
+        ttk.Label(
+            tab, text="Roblox Modifications", foreground="#9aa0a6"
+        ).grid(row=1, column=0, sticky="w", pady=(0, 14))
+
+        converters = ttk.LabelFrame(tab, text="Converters", padding=14)
+        converters.grid(row=2, column=0, sticky="ew", pady=(0, 10))
+        ttk.Button(
+            converters,
+            text="R6 Animation → R15",
+            command=self._utils_r6_to_r15,
+        ).pack(anchor="w", pady=(0, 6))
+        ttk.Button(
+            converters,
+            text="Roblox File Converter (.rbxm / .rbxh / .rbxmx)",
+            command=self._utils_roblox_file_convert,
+        ).pack(anchor="w", pady=(0, 6))
+        ttk.Button(
+            converters,
+            text="Mesh to OBJ",
+            command=self._utils_mesh_to_obj,
+        ).pack(anchor="w")
+
+        mesh = ttk.LabelFrame(tab, text="Default Mesh Changer", padding=14)
+        mesh.grid(row=3, column=0, sticky="ew", pady=(0, 10))
+        ttk.Label(
+            mesh,
+            text="It allows you to change the default R6 Meshes.",
+        ).grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 8))
+
+        pathrow = ttk.Frame(mesh)
+        pathrow.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(0, 10))
+        pathrow.columnconfigure(0, weight=1)
+
+        self.roblox_path_var = tk.StringVar(
+            value=self.settings.get("roblox_path", "")
+        )
+        ttk.Entry(
+            pathrow,
+            textvariable=self.roblox_path_var,
+            state="readonly",
+        ).grid(row=0, column=0, sticky="ew")
+        ttk.Button(
+            pathrow,
+            text="Choose",
+            command=self._choose_roblox_path,
+        ).grid(row=0, column=1, padx=(6, 0))
+        ttk.Button(
+            pathrow,
+            text="Open Selected Roblox",
+            command=self._open_selected_roblox,
+        ).grid(row=0, column=2, padx=(6, 0))
+
+        self.mesh_rows = {}
+        for i, name in enumerate(
+            ("Head.mesh", "leftarm.mesh", "leftleg.mesh",
+             "rightarm.mesh", "rightleg.mesh", "torso.mesh"),
+            start=2,
+        ):
+            ttk.Label(mesh, text=name).grid(
+                row=i, column=0, sticky="w", pady=3
+            )
+            ttk.Button(
+                mesh,
+                text="Delete",
+                command=lambda n=name: self._delete_default_mesh(n),
+            ).grid(row=i, column=1, padx=5)
+            ttk.Button(
+                mesh,
+                text="Choose",
+                command=lambda n=name: self._choose_default_mesh(n),
+            ).grid(row=i, column=2)
+        mesh.columnconfigure(0, weight=1)
 
     def _version_path(self):
         return os.path.join(DATA_DIR, "version.txt")
@@ -9986,6 +10068,7 @@ class App(tk.Tk):
                 str(x.get("job_id", "")).lower() == job_id.lower()
             )]
             history.insert(0, entry)
+            history = history[:20]
             self._history_save(history)
             try:
                 self.after(0, self._history_refresh)
@@ -10123,6 +10206,7 @@ class App(tk.Tk):
             ttk.Label(info,text=label).grid(row=i,column=0,sticky="w",padx=(0,14),pady=5); ttk.Label(info,textvariable=var).grid(row=i,column=1,sticky="w",pady=5)
         actions=ttk.Frame(tab); actions.grid(row=3,column=0,sticky="w",pady=(4,0))
         ttk.Button(actions,text="Refresh",command=self._client_refresh).pack(side="left",padx=(0,6)); ttk.Button(actions,text="Open Roblox",command=self._open_selected_roblox).pack(side="left")
+
         fps_box=ttk.LabelFrame(tab,text="FPS",padding=(10,8)); fps_box.grid(row=4,column=0,sticky="ew",pady=(12,0))
         self.fps_value_label=ttk.Label(fps_box,font=("Segoe UI Semibold",10)); self.fps_value_label.pack(anchor="w")
         self.fps_pid_label=ttk.Label(fps_box,text="PID: Waiting for Roblox...",foreground="#9aa0a6"); self.fps_pid_label.pack(anchor="w",pady=(0,4))
@@ -10770,7 +10854,6 @@ class App(tk.Tk):
         ]
         for text, cmd in buttons:
             ttk.Button(bar, text=text, command=cmd).pack(side="left", padx=(0, 5))
-        ttk.Checkbutton(bar, text="Auto Apply", variable=self.fflag_auto_apply, command=self._toggle_fflag_auto_apply).pack(side="left", padx=(8, 0))
         ttk.Button(bar, text="Apply Selected Json", command=self._apply_selected_json).pack(side="right")
 
         frame = ttk.PanedWindow(tab, orient="horizontal")
@@ -11185,6 +11268,20 @@ class App(tk.Tk):
         ttk.Checkbutton(startup, text="Launch on Tray", variable=self.launch_on_tray, command=self._startup_setting_changed).pack(anchor="w", padx=8, pady=2)
         ttk.Checkbutton(startup, text="Launch on Boot", variable=self.launch_on_startup, command=self._startup_setting_changed).pack(anchor="w", padx=8, pady=2)
         ttk.Checkbutton(startup, text="Hide to Tray when Close", variable=self.hide_to_tray_on_close, command=self._save_settings).pack(anchor="w", padx=8, pady=2)
+
+        streamer = ttk.LabelFrame(tab, text="Streamer Mode")
+        streamer.pack(fill="x", pady=6)
+        ttk.Checkbutton(
+            streamer,
+            text="Hide RoUtils from screen sharing and recording",
+            variable=self.streamer_mode,
+            command=self._apply_streamer_mode,
+        ).pack(anchor="w", padx=8, pady=4)
+        ttk.Label(
+            streamer,
+            text="RoUtils does not appear in screen shares. (Only you can see it.)",
+            foreground="#9aa0a6",
+        ).pack(anchor="w", padx=8, pady=(0, 6))
 
         gemini = ttk.LabelFrame(tab, text="Gemini AI")
         gemini.pack(fill="x", pady=6)
@@ -11703,6 +11800,7 @@ class App(tk.Tk):
             "hide_tickets": self.hide_tickets.get(),
             "stay_on_top": self.stay_on_top.get(),
             "show_lines": self.show_lines.get(),
+            "streamer_mode": self.streamer_mode.get() if hasattr(self, "streamer_mode") else self.settings.get("streamer_mode", False),
             "fps_limit": self.fps_limit.get() if hasattr(self, "fps_limit") else self.settings.get("fps_limit", 0),
             "type_filter": self.type_filter.get(),
             "columns": {c: var.get() for c, var in getattr(self, "_col_vars", {}).items()},
