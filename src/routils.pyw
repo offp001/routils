@@ -33,7 +33,7 @@ from typing import Iterable
 from tkinter import filedialog, simpledialog, messagebox, ttk
 from tkinter import font as tkfont
 from typing import Dict, List, Optional, Tuple
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urlparse, urljoin
 
 UI_THEME = "clam"
 
@@ -100,7 +100,7 @@ _LOCAL_APPDATA = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
 DATA_DIR = os.path.join(_LOCAL_APPDATA, "RoUtils")
 os.makedirs(DATA_DIR, exist_ok=True)
 
-APP_VERSION = "3.8"
+APP_VERSION = "3.9"
 HISTORY_PATH = os.path.join(DATA_DIR, "history.json")
 SETTINGS_PATH = os.path.join(DATA_DIR, "routils_settings.json")
 
@@ -4156,9 +4156,19 @@ def now_hms() -> str:
     return datetime.now().strftime("%H:%M:%S")
 
 def _sanitize_filename_for_windows(s: str) -> str:
+    s = str(s or "")
     illegal = '<>:"/\\|?*'
-    cleaned = "".join("_" if c in illegal else c for c in (s or ""))
-    return cleaned.rstrip(" .")
+    cleaned = "".join("_" if c in illegal or ord(c) < 32 else c for c in s)
+    cleaned = cleaned.strip().rstrip(" .")
+    if not cleaned:
+        return ""
+    reserved = {"CON", "PRN", "AUX", "NUL"}
+    reserved.update(f"COM{i}" for i in range(1, 10))
+    reserved.update(f"LPT{i}" for i in range(1, 10))
+    stem = cleaned.split(".", 1)[0].upper()
+    if stem in reserved:
+        cleaned = "_" + cleaned
+    return cleaned[:180].rstrip(" .")
 
 def load_settings() -> Dict:
     try:
@@ -5010,6 +5020,17 @@ def sniff_kind(body: bytes, url: Optional[str], headers: Dict[str, str], full_pa
     if text_head.startswith("#extm3u"):
         return "Video", "M3U", False
 
+    ct = _content_type(headers)
+    if ct.startswith("video/"):
+        subtype = ct.split("/", 1)[1].upper()
+        if subtype in ("X-MATROSKA", "MATROSKA"):
+            subtype = "WEBM"
+        elif subtype in ("MP4", "X-M4V"):
+            subtype = "MP4"
+        elif subtype in ("M3U8", "X-MPEGURL", "VND.APPLE.MPEGURL"):
+            subtype = "M3U8"
+        return "Video", subtype, False
+
     if body[:3] == b"ID3":
         return "Sound", "MP3", False
     if len(body) >= 12 and body[:4] == b"RIFF" and body[8:12] == b"WAVE":
@@ -5070,6 +5091,9 @@ def sniff_kind(body: bytes, url: Optional[str], headers: Dict[str, str], full_pa
             return ("Decal" if ("tr.rbxcdn.com" in u.netloc or "/image/" in tail or "/thumbnail/" in tail) else "Image"), tail.split(".")[-1].upper(), False
         if any(tail.endswith(ext) for ext in (".ogg", ".mp3", ".wav")):
             return "Sound", tail.split(".")[-1].upper(), False
+        if any(tail.endswith(ext) for ext in (".mp4", ".m4v", ".webm", ".mkv", ".m3u8", ".mov")):
+            ext = tail.split(".")[-1].upper()
+            return "Video", ("WEBM" if ext == "WEBM" else ext), False
         if tail.endswith(".ktx") or tail.endswith(".ktx2"):
             return "Texture", "KTX2" if tail.endswith("ktx2") else "KTX1", False
         if any(tail.endswith(ext) for ext in (".ttf", ".otf", ".ttc", ".woff", ".woff2")):
@@ -7571,10 +7595,11 @@ TYPE_FILTERS = [
     ("Audio", lambda c: c == "Sound"),
     ("Animation", lambda c: c == "Animation"),
     ("Image", lambda c: c in ("Image", "Decal")),
+    ("Video", lambda c: c == "Video"),
     ("KTX Texture", lambda c: c == "KTX Texture"),
     ("Model/RBXM", lambda c: c in ("Model", "RBXM", "rbxl (place)")),
     ("Font", lambda c: c == "Font"),
-    ("Text", lambda c: c in ("Text", "Translations", "Video", "Compressed", "Ticket")),
+    ("Text", lambda c: c in ("Text", "Translations", "Compressed", "Ticket")),
     ("Unknown", lambda c: c == "Unknown"),
 ]
 
@@ -11838,6 +11863,8 @@ class App(tk.Tk):
         self._ctx_rbxm_index = self._ctx.index("end")
         self._ctx.add_command(label="Export ▸ Image…", command=self._export_selected_image)
         self._ctx_img_index = self._ctx.index("end")
+        self._ctx.add_command(label="Export ▸ Video…", command=self._export_selected_video)
+        self._ctx_video_index = self._ctx.index("end")
         self._ctx.add_separator()
         for lbl, cmd in [
             ("Change Hash…", self._action_change_hash),
@@ -12058,6 +12085,8 @@ class App(tk.Tk):
             return cat in {"image", "decal", "texture"}
         if selected == "audio":
             return cat in {"sound", "audio"}
+        if selected == "video":
+            return cat == "video"
         if selected == "font":
             return cat == "font"
         if selected == "text":
@@ -12081,7 +12110,7 @@ class App(tk.Tk):
         combo = ttk.Combobox(
             outer,
             textvariable=type_var,
-            values=("Mesh", "Model/RBXM", "Animation", "Image", "Audio", "Font", "Text", "Unknown"),
+            values=("Mesh", "Model/RBXM", "Animation", "Image", "Audio", "Video", "Font", "Text", "Unknown"),
             state="readonly",
             width=18,
         )
@@ -12830,8 +12859,10 @@ class App(tk.Tk):
                 return
             any_model = any((i.kind.split(" ", 1)[0] in ("RBXM", "Model")) for i in items)
             any_img = any((i.kind.split(" ", 1)[0] in ("Image", "Decal", "Texture")) for i in items)
+            any_video = any((i.kind.split(" ", 1)[0] == "Video") for i in items)
             self._ctx.entryconfigure(self._ctx_rbxm_index, state=tk.NORMAL if any_model else tk.DISABLED)
             self._ctx.entryconfigure(self._ctx_img_index, state=tk.NORMAL if any_img else tk.DISABLED)
+            self._ctx.entryconfigure(self._ctx_video_index, state=tk.NORMAL if any_video else tk.DISABLED)
             try:
                 self._ctx.tk_popup(event.x_root, event.y_root)
             finally:
@@ -13069,6 +13100,368 @@ class App(tk.Tk):
             messagebox.showinfo("Export RBXM", f"Saved model:\n{path}")
         except Exception as e:
             messagebox.showerror("Export RBXM", f"Failed to save file:\n{e}")
+
+    def _video_signed_query_values(self, source_url: str) -> Dict[str, str]:
+        values = {}
+        try:
+            raw_query = urlparse(source_url or "").query
+            for key, vals in parse_qs(raw_query, keep_blank_values=True).items():
+                if vals:
+                    values[key.lower()] = vals[0]
+        except Exception:
+            pass
+        return values
+
+    @staticmethod
+    def _video_has_placeholders(text: str) -> bool:
+        low = str(text or "").lower()
+        return any(x in low for x in (
+            "{$__token_}", "{$__token__}", "{$expires}", "{$policy}",
+            "{$signature}", "{$key-pair-id}", "${__token_}", "${expires}",
+            "${policy}", "${signature}", "${key-pair-id}",
+        ))
+
+    @staticmethod
+    def _extract_signed_urls_from_bytes(payload: bytes) -> List[str]:
+        if not payload:
+            return []
+        text = payload.decode("utf-8", "ignore")
+        urls = []
+        for m in re.finditer(r'https?://[^\s"\'<>]+', text, re.I):
+            u = m.group(0).rstrip(",);]}")
+            low = u.lower()
+            if "rbxcdn.com" in low and any(k in low for k in (
+                "__token_", "signature", "key-pair-id", "policy", "expires"
+            )):
+                urls.append(u)
+        return list(dict.fromkeys(urls))
+
+    def _find_video_ticket_urls(self, video_it: ScanItem, manifest: bytes) -> List[str]:
+        """Find signed Roblox CDN URLs stored in separate ticket cache entries.
+
+        A video manifest can contain symbolic {$...} query parameters while the
+        actual signed values live in another cache entry. Search the complete
+        files table for ticket-like payloads instead of assuming the ticket hash
+        equals the video hash.
+        """
+        candidates = []
+        manifest_text = manifest.decode("utf-8", "ignore")
+        paths = []
+        for line in manifest_text.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            try:
+                paths.append(urlparse(line).path.lower())
+            except Exception:
+                pass
+        path_tokens = set()
+        for path in paths:
+            for part in path.split('/'):
+                if len(part) >= 5:
+                    path_tokens.add(part)
+
+        try:
+            conn = connect_ro(self.db_path)
+            cur = conn.cursor()
+            cur.execute("SELECT id, content FROM files")
+            for id_b, content in cur:
+                h = id_bytes_to_hex(id_b)
+                blob = content if content is not None else read_shard_bytes(self.shard_root, h)
+                if not blob:
+                    continue
+                meta = parse_rbxh(blob)
+                url = str(meta.get("url") or "")
+                body = meta.get("body") or b""
+                full = meta.get("full_payload") or body
+                is_ticket, _ = detect_ticket(full, url)
+                if not is_ticket:
+                    continue
+
+                found = []
+                if url:
+                    found.append(url)
+                found.extend(self._extract_signed_urls_from_bytes(body))
+                found.extend(self._extract_signed_urls_from_bytes(full))
+                for u in found:
+                    low = u.lower()
+                    score = 0
+                    if "rbxcdn.com" in low:
+                        score += 10
+                    if any(k in low for k in ("__token_", "signature", "key-pair-id", "policy", "expires")):
+                        score += 20
+                    try:
+                        upath = urlparse(u).path.lower()
+                        for token in path_tokens:
+                            if token in upath:
+                                score += 25
+                    except Exception:
+                        pass
+                    if any(x in low for x in (".m3u8", "playlist", "video")):
+                        score += 15
+                    candidates.append((score, u))
+        except Exception:
+            pass
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+        candidates.sort(key=lambda x: x[0], reverse=True)
+        out = []
+        seen = set()
+        for _score, u in candidates:
+            if u in seen:
+                continue
+            seen.add(u)
+            out.append(u)
+            if len(out) >= 80:
+                break
+        return out
+
+    def _resolve_hls_uri(self, uri: str, base_url: str, token_values: Dict[str, str]) -> str:
+        uri = str(uri or "").strip().strip('"\'')
+        if not uri:
+            return ""
+
+        def repl(match):
+            key = match.group(1).strip().lower()
+            return token_values.get(key, match.group(0))
+
+        uri = re.sub(r"\{\$([^}]+)\}", repl, uri)
+        uri = re.sub(r"\$\{([^}]+)\}", repl, uri)
+        uri = re.sub(r"\$([A-Za-z0-9_-]+)", repl, uri)
+        return urljoin(base_url, uri)
+
+    def _download_hls_video(self, manifest: bytes, source_url: str, video_it: Optional[ScanItem] = None, timeout: int = 20):
+        """Resolve a cached Roblox HLS manifest, recovering signed ticket URLs when needed."""
+        session = urllib.request.build_opener()
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) RoUtils/3.8",
+            "Accept": "*/*",
+            "Accept-Encoding": "identity",
+        }
+
+        def fetch(url):
+            req = urllib.request.Request(url, headers=headers)
+            with session.open(req, timeout=timeout) as r:
+                return r.read(), r.geturl(), dict(r.headers.items())
+
+        ticket_urls = []
+        if video_it is not None and self._video_has_placeholders(manifest.decode("utf-8", "ignore")):
+            ticket_urls = self._find_video_ticket_urls(video_it, manifest)
+
+        initial_urls = []
+        if source_url and not self._video_has_placeholders(source_url) and source_url != "-":
+            initial_urls.append(source_url)
+        initial_urls.extend(ticket_urls)
+
+        def parse_manifest(data, base_url, token_values=None, depth=0):
+            if depth > 5:
+                raise RuntimeError("HLS playlist nesting is too deep.")
+            token_values = dict(token_values or {})
+            token_values.update(self._video_signed_query_values(base_url))
+            text = data.decode("utf-8-sig", "replace")
+            lines = [x.strip() for x in text.splitlines() if x.strip()]
+            if not any(x.upper().startswith("#EXTM3U") for x in lines):
+                raise RuntimeError("The cached video is not a valid HLS manifest.")
+
+            variants = []
+            pending_inf = None
+            for line in lines:
+                if line.upper().startswith("#EXT-X-STREAM-INF:"):
+                    pending_inf = line.split(":", 1)[1]
+                    continue
+                if pending_inf is not None and not line.startswith("#"):
+                    bw = 0
+                    res_area = 0
+                    m = re.search(r"(?:^|,)BANDWIDTH=(\d+)", pending_inf, re.I)
+                    if m:
+                        bw = int(m.group(1))
+                    m = re.search(r"(?:^|,)RESOLUTION=(\d+)x(\d+)", pending_inf, re.I)
+                    if m:
+                        res_area = int(m.group(1)) * int(m.group(2))
+                    variants.append((bw, res_area, line))
+                    pending_inf = None
+            if variants:
+                variants.sort(key=lambda x: (x[0], x[1]), reverse=True)
+                errors = []
+                for _bw, _area, variant in variants:
+                    uri = self._resolve_hls_uri(variant, base_url, token_values)
+                    try:
+                        child, child_url, child_headers = fetch(uri)
+                        child_values = dict(token_values)
+                        child_values.update(self._video_signed_query_values(child_url))
+                        return parse_manifest(child, child_url, child_values, depth + 1)
+                    except Exception as e:
+                        errors.append(str(e))
+                raise RuntimeError("Unable to open any HLS quality playlist: " + (errors[-1] if errors else "unknown error"))
+
+            parts = []
+            init_uri = None
+            for line in lines:
+                upper = line.upper()
+                if upper.startswith("#EXT-X-KEY:"):
+                    method = re.search(r"METHOD=([^,]+)", line, re.I)
+                    if method and method.group(1).upper() != "NONE":
+                        raise RuntimeError("This HLS video is encrypted and the required key is not present in the cache.")
+                    continue
+                if upper.startswith("#EXT-X-MAP:"):
+                    m = re.search(r'URI="([^"]+)"', line, re.I)
+                    if m:
+                        init_uri = self._resolve_hls_uri(m.group(1), base_url, token_values)
+                    continue
+                if not line.startswith("#"):
+                    parts.append(self._resolve_hls_uri(line, base_url, token_values))
+
+            if not parts:
+                raise RuntimeError("The HLS playlist contains no media segments.")
+
+            output = bytearray()
+            if init_uri:
+                init_data, _, _ = fetch(init_uri)
+                output.extend(init_data)
+            for n, part_url in enumerate(parts, 1):
+                segment, _, _ = fetch(part_url)
+                if not segment:
+                    raise RuntimeError(f"HLS segment {n} was empty.")
+                output.extend(segment)
+            return bytes(output)
+
+        errors = []
+        for candidate in initial_urls:
+            try:
+                candidate_values = self._video_signed_query_values(candidate)
+                resolved_candidate = self._resolve_hls_uri(candidate, candidate, candidate_values)
+                data, final_url, _headers = fetch(resolved_candidate)
+                if data.lstrip().startswith(b"#EXTM3U"):
+                    values = dict(candidate_values)
+                    values.update(self._video_signed_query_values(final_url))
+                    return parse_manifest(data, final_url, values)
+
+                cached_text = manifest.decode("utf-8", "ignore")
+                master_path = next((x.strip() for x in cached_text.splitlines()
+                                    if x.strip() and not x.lstrip().startswith("#") and "playlist.m3u8" in x.lower()), None)
+                if master_path:
+                    base = final_url if final_url.endswith("/") else final_url.rsplit("/", 1)[0] + "/"
+                    playlist_url = self._resolve_hls_uri(master_path, base, values)
+                    pdata, pfinal, _ = fetch(playlist_url)
+                    if pdata.lstrip().startswith(b"#EXTM3U"):
+                        values.update(self._video_signed_query_values(pfinal))
+                        return parse_manifest(pdata, pfinal, values)
+                errors.append("Ticket URL did not return an HLS playlist")
+            except Exception as e:
+                errors.append(str(e))
+
+        if source_url and not self._video_has_placeholders(manifest.decode("utf-8", "ignore")):
+            return parse_manifest(manifest, source_url, self._video_signed_query_values(source_url))
+
+        detail = errors[0] if errors else "No signed ticket URL was found in the cache."
+        raise RuntimeError("Could not recover the Roblox video ticket from cache. " + detail)
+
+    def _export_selected_video(self):
+        items = self._get_selected_items()
+        if not items:
+            messagebox.showinfo("Export Video", "Select a row first.")
+            return
+
+        video_items = [it for it in items if it.kind.split(" ", 1)[0].lower() == "video"]
+        if not video_items:
+            messagebox.showerror("Export Video", "The selected cache does not contain a detected video.")
+            return
+
+        def get_video_payload(it):
+            blob = self._fetch_full_blob(it)
+            if not blob:
+                return None, None
+            body, meta = self._dump_blob_body(blob)
+            if not body:
+                return None, None
+
+            ct = str(meta.get("headers", {}).get("content-type", "") or "").lower()
+            kind = str(it.kind or "").lower()
+
+            if body[:4] == b"\x1a\x45\xdf\xa3" or "webm" in kind or "video/webm" in ct:
+                ext = ".webm"
+            elif (len(body) >= 12 and body[4:8] == b"ftyp") or "mp4" in kind or "video/mp4" in ct:
+                ext = ".mp4"
+            elif body.lstrip().lower().startswith(b"#extm3u") or "m3u" in kind or "mpegurl" in ct:
+                try:
+                    resolved = self._download_hls_video(body, it.url, it)
+                    if resolved:
+                        if len(resolved) >= 12 and resolved[4:8] == b"ftyp":
+                            return resolved, ".mp4"
+                        if resolved[:4] == b"\x1a\x45\xdf\xa3":
+                            return resolved, ".webm"
+                        return resolved, ".ts"
+                except Exception:
+                    ext = ".m3u8"
+            elif "mkv" in kind or "matroska" in ct:
+                ext = ".mkv"
+            elif "m4v" in kind or "x-m4v" in ct:
+                ext = ".m4v"
+            elif "mov" in kind or "quicktime" in ct:
+                ext = ".mov"
+            else:
+                return None, None
+
+            return body, ext
+
+        if len(video_items) > 1:
+            directory = filedialog.askdirectory(title="Export videos to folder")
+            if not directory:
+                return
+            saved = 0
+            failed = 0
+            for it in video_items:
+                payload, ext = get_video_payload(it)
+                if not payload:
+                    failed += 1
+                    continue
+                name = _sanitize_filename_for_windows(it.name or it.hash) or it.hash
+                path = os.path.join(directory, f"{name}_{it.hash}{ext}")
+                try:
+                    with open(path, "wb") as f:
+                        f.write(payload)
+                    saved += 1
+                except Exception:
+                    failed += 1
+            messagebox.showinfo(
+                "Export Video",
+                f"Exported {saved} of {len(video_items)} video(s) to:\n{directory}"
+                + (f"\nFailed: {failed}" if failed else "")
+            )
+            return
+
+        it = video_items[0]
+        payload, ext = get_video_payload(it)
+        if not payload:
+            messagebox.showerror(
+                "Export Video",
+                "The cached blob was detected as video, but its video payload could not be extracted."
+            )
+            return
+
+        default_name = f"{_sanitize_filename_for_windows(it.name or it.hash) or it.hash}{ext}"
+        path = filedialog.asksaveasfilename(
+            title="Export Video",
+            defaultextension=ext,
+            initialfile=default_name,
+            filetypes=[("Video", f"*{ext}"), ("All files", "*.*")]
+        )
+        if not path:
+            return
+
+        try:
+            with open(path, "wb") as f:
+                f.write(payload)
+            messagebox.showinfo(
+                "Export Video",
+                f"Saved video:\n{path}\n\nSize: {human_size(len(payload))}"
+            )
+        except Exception as e:
+            messagebox.showerror("Export Video", f"Failed to save video:\n{e}")
 
     def _rbxm_body(self, it):
         
