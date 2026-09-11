@@ -100,7 +100,7 @@ _LOCAL_APPDATA = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
 DATA_DIR = os.path.join(_LOCAL_APPDATA, "RoUtils")
 os.makedirs(DATA_DIR, exist_ok=True)
 
-APP_VERSION = "3.7"
+APP_VERSION = "3.8"
 HISTORY_PATH = os.path.join(DATA_DIR, "history.json")
 SETTINGS_PATH = os.path.join(DATA_DIR, "routils_settings.json")
 
@@ -8177,6 +8177,10 @@ class App(tk.Tk):
         self.launch_on_startup = tk.BooleanVar(value=self.settings.get("launch_on_startup", False))
         self.launch_on_tray = tk.BooleanVar(value=self.settings.get("launch_on_tray", False))
         self.hide_to_tray_on_close = tk.BooleanVar(value=self.settings.get("hide_to_tray_on_close", False))
+        self.auto_update = tk.BooleanVar(value=self.settings.get("auto_update", False))
+        self._latest_version = None
+        self._auto_update_in_progress = False
+        self._outdated_dialog_shown = False
         self._tray_icon = None
         self._tray_thread = None
         self._tray_hidden = False
@@ -9776,10 +9780,168 @@ class App(tk.Tk):
         threading.Thread(target=worker,daemon=True).start()
 
 
+    @staticmethod
+    def _version_tuple(version):
+        parts = re.findall(r"\d+", str(version or ""))
+        if not parts:
+            return (0,)
+        return tuple(int(x) for x in parts[:4])
+
+    def _is_newer_version(self, latest, current):
+        return self._version_tuple(latest) > self._version_tuple(current)
+
+    def _show_outdated_dialog(self, latest):
+        if self._outdated_dialog_shown or self._auto_update_in_progress:
+            return
+        self._outdated_dialog_shown = True
+
+        try:
+            dlg = tk.Toplevel(self)
+            dlg.title("RoUtils is Outdated")
+            dlg.resizable(False, False)
+            dlg.transient(self)
+            dlg.grab_set()
+            theme_toplevel(dlg)
+
+            width, height = 440, 230
+            self.update_idletasks()
+            x = max(0, (self.winfo_screenwidth() - width) // 2)
+            y = max(0, (self.winfo_screenheight() - height) // 2)
+            dlg.geometry(f"{width}x{height}+{x}+{y}")
+
+            outer = ttk.Frame(dlg, padding=24)
+            outer.pack(fill="both", expand=True)
+
+            ttk.Label(
+                outer,
+                text="RoUtils is Outdated",
+                font=("Segoe UI Semibold", 18),
+            ).pack(pady=(8, 8))
+
+            ttk.Label(
+                outer,
+                text=f"Download New Version ({latest})",
+                font=("Segoe UI", 11),
+            ).pack(pady=(0, 20))
+
+            buttons = ttk.Frame(outer)
+            buttons.pack()
+
+            def download():
+                try:
+                    dlg.grab_release()
+                except Exception:
+                    pass
+                try:
+                    dlg.destroy()
+                except Exception:
+                    pass
+                webbrowser.open(
+                    f"https://github.com/offp001/routils/releases/download/{latest}/RoUtils.exe"
+                )
+
+            def later():
+                try:
+                    dlg.grab_release()
+                except Exception:
+                    pass
+                try:
+                    dlg.destroy()
+                except Exception:
+                    pass
+
+            ttk.Button(buttons, text="Download", command=download).pack(side="left", padx=6)
+            ttk.Button(buttons, text="Later", command=later).pack(side="left", padx=6)
+
+            dlg.protocol("WM_DELETE_WINDOW", later)
+            dlg.focus_force()
+        except Exception:
+            self._outdated_dialog_shown = False
+
+    def _start_auto_update(self, latest):
+        if self._auto_update_in_progress:
+            return
+        self._auto_update_in_progress = True
+
+        def worker():
+            try:
+                current = self._local_version()
+                if not self._is_newer_version(latest, current):
+                    return
+
+                download_url = (
+                    f"https://github.com/offp001/routils/releases/download/"
+                    f"{latest}/RoUtils.exe"
+                )
+
+                target_dir = BASE_DIR
+                target_path = os.path.join(target_dir, f"RoUtils-{latest}.exe")
+                temp_path = target_path + ".download"
+
+                req = urllib.request.Request(
+                    download_url,
+                    headers={"User-Agent": "RoUtils-AutoUpdater"},
+                )
+
+                with urllib.request.urlopen(req, timeout=30) as response:
+                    with open(temp_path, "wb") as out:
+                        shutil.copyfileobj(response, out)
+
+                if not os.path.isfile(temp_path) or os.path.getsize(temp_path) < 1024:
+                    raise RuntimeError("Downloaded update is invalid.")
+
+                os.replace(temp_path, target_path)
+
+                subprocess.Popen(
+                    [target_path],
+                    cwd=target_dir,
+                    close_fds=True,
+                    creationflags=getattr(
+                        subprocess,
+                        "CREATE_NEW_PROCESS_GROUP",
+                        0,
+                    ),
+                )
+
+                self.after(0, lambda: self._on_close(force=True))
+            except Exception as e:
+                self._auto_update_in_progress = False
+                try:
+                    temp_path = locals().get("temp_path")
+                    if temp_path and os.path.isfile(temp_path):
+                        os.remove(temp_path)
+                except Exception:
+                    pass
+
+                try:
+                    self.after(
+                        0,
+                        lambda err=str(e): self._show_update_error(err),
+                    )
+                except Exception:
+                    pass
+
+        threading.Thread(
+            target=worker,
+            daemon=True,
+            name="RoUtils-AutoUpdate",
+        ).start()
+
+    def _show_update_error(self, error):
+        self._auto_update_in_progress = False
+        try:
+            messagebox.showwarning(
+                "RoUtils Update",
+                f"Automatic update failed:\n{error}",
+                parent=self,
+            )
+        except Exception:
+            pass
+
     def _start_version_check(self):
         def worker():
-            current=self._local_version()
-            latest=current
+            current = self._local_version()
+            latest = current
 
             def set_state(state, color):
                 try:
@@ -9792,25 +9954,39 @@ class App(tk.Tk):
                     pass
 
             set_state("Checking", "#f2c94c")
+
             try:
-                req=urllib.request.Request(
+                req = urllib.request.Request(
                     "https://api.github.com/repos/offp001/routils/releases/latest",
-                    headers={"User-Agent": "RoUtils"}
+                    headers={"User-Agent": "RoUtils"},
                 )
-                with urllib.request.urlopen(req, timeout=3) as r:
-                    data=json.loads(r.read().decode("utf-8", "replace"))
-                tag=str(data.get("tag_name", "")).strip()
+                with urllib.request.urlopen(req, timeout=5) as r:
+                    data = json.loads(r.read().decode("utf-8", "replace"))
+
+                tag = str(data.get("tag_name", "")).strip()
                 if tag:
-                    latest=tag.lstrip("v")
+                    latest = tag.lstrip("v")
             except Exception:
                 set_state("Unknown", "#9aa0a6")
                 return
 
-            state="Latest" if latest==current else "Outdated"
-            color="#65d98b" if state == "Latest" else "#ff5f57"
+            self._latest_version = latest
+            is_outdated = self._is_newer_version(latest, current)
+            state = "Outdated" if is_outdated else "Latest"
+            color = "#ff5f57" if is_outdated else "#65d98b"
             set_state(state, color)
 
-        threading.Thread(target=worker, daemon=True, name="RoUtils-VersionCheck").start()
+            if is_outdated:
+                if self.auto_update.get():
+                    self.after(0, lambda v=latest: self._start_auto_update(v))
+                else:
+                    self.after(0, lambda v=latest: self._show_outdated_dialog(v))
+
+        threading.Thread(
+            target=worker,
+            daemon=True,
+            name="RoUtils-VersionCheck",
+        ).start()
 
 
     def _reorder_tabs(self):
@@ -11283,6 +11459,20 @@ class App(tk.Tk):
             foreground="#9aa0a6",
         ).pack(anchor="w", padx=8, pady=(0, 6))
 
+        updates = ttk.LabelFrame(tab, text="Updates")
+        updates.pack(fill="x", pady=6)
+        ttk.Checkbutton(
+            updates,
+            text="Auto Update",
+            variable=self.auto_update,
+            command=self._save_settings,
+        ).pack(anchor="w", padx=8, pady=(6, 1))
+        ttk.Label(
+            updates,
+            text="Updates RoUtils on Background",
+            foreground="#9aa0a6",
+        ).pack(anchor="w", padx=8, pady=(0, 7))
+
         gemini = ttk.LabelFrame(tab, text="Gemini AI")
         gemini.pack(fill="x", pady=6)
         ttk.Label(gemini, text="Gemini API Key").grid(row=0, column=0, sticky="w", padx=8, pady=(8, 4))
@@ -11812,6 +12002,7 @@ class App(tk.Tk):
             "launch_on_tray": self.launch_on_tray.get() if hasattr(self, "launch_on_tray") else self.settings.get("launch_on_tray", False),
             "launch_on_startup": self.launch_on_startup.get() if hasattr(self, "launch_on_startup") else self.settings.get("launch_on_startup", False),
             "hide_to_tray_on_close": self.hide_to_tray_on_close.get() if hasattr(self, "hide_to_tray_on_close") else self.settings.get("hide_to_tray_on_close", False),
+            "auto_update": self.auto_update.get() if hasattr(self, "auto_update") else self.settings.get("auto_update", False),
             "roblox_path": self.settings.get("roblox_path",""),
             "roblox_username": self.settings.get("roblox_username",""),
             "roblox_user_id": self.settings.get("roblox_user_id",""),
