@@ -1,4 +1,4 @@
-# 🛠️ RoUtils (Version 3.8)
+# 🛠️ RoUtils (Version 3.9)
 
 ## Features
 
@@ -12,6 +12,7 @@
 * `Full Blob`
 * `RBXM`
 * `Image`
+* `Video`
 * `Copy / Save Hash`
 * **Delete Cache Type** – Delete a selected cache category
 
@@ -28,6 +29,7 @@ Cached files are separated into categories such as:
 * Animation
 * Image
 * Audio
+* Video
 * Font
 * Text
 * Unknown
