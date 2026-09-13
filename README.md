@@ -1,4 +1,6 @@
-# 🛠️ RoUtils (Version 3.9)
+# 🛠️ RoUtils (Version 4.0)
+
+<img width="1361" height="755" alt="routils" src="https://github.com/user-attachments/assets/efaa27ce-97fe-422c-9fdc-b267e1125e2b" />
 
 ## Features
 
@@ -13,6 +15,7 @@
 * `RBXM`
 * `Image`
 * `Video`
+* `OBJ`
 * `Copy / Save Hash`
 * **Delete Cache Type** – Delete a selected cache category
 
@@ -60,6 +63,7 @@ RoUtils performs cache operations without intentionally blocking the main interf
 * **JSON Editor** – Edit FFlag JSON files directly
 * **Default FFlag Values** – Open the default FFlag values
 * **Latest FFlag List** – Open the latest FFlag list
+* **RoUtils AI Chat** – Ask questions directly inside RoUtils (Add Gemini API Key on settings to use) (Powered by Gemini AI)
 
 #### How does FFlag Manager work?
 
@@ -97,11 +101,15 @@ RoUtils also creates a `jsons` folder where saved `.json` configurations can be 
 
 ### 🛠️ Modifications
 
+* **Mesh Changer** – Change Roblox avatar meshes
+* **Skybox Changer** – Change Roblox skybox textures
+* **Sounds Changer** – Change Roblox sound files
+* **Other File Changers** – Change Roblox texture and font files
 * **Default R6 Mesh Changer** – Change default R6 character meshes
 * **Mesh to OBJ Converter** – Convert meshes to OBJ format
-* **File Converter** – Convert `.rbxm` / `.rbxmx` / `.rbxh` files
 * **RBXM → RBXH Blob** – Convert RBXM to RBXH v2 cache blobs
 * **R6 to R15 Animations** – Convert R6 animations to R15 animations
+
 
 ### CConfigs (.db configs)
 
@@ -212,15 +220,6 @@ The purpose of Server Viewer is to let you inspect a server before deciding whet
 * **FPS Changer** – Change Roblox's FPS limit
 * **FPS Hotkeys** – Change Roblox's FPS limit using Hotkeys
 
-### Themes
-
-* **25 Themes** – Midnight, Ocean, Hacker, Amethyst, Onyx, Nord, Dracula, Monokai, Solarized, Rose Pine, Catppuccin, Gruvbox, Tokyo Night, Synthwave, Forest, Ruby, Amber, Arctic, Lavender, Coffee, Slate, Cyber, Sunset, Mint, Deep Blue
-* **Custom Theme** – Create your own custom color theme
-
-### RoUtils AI
-
-* **RoUtils AI Chat** – Ask questions directly inside RoUtils (Add Gemini API Key on settings to use) (Powered by Gemini AI)
-
 ### Windows / Startup
 
 * **System Tray** – Run RoUtils from the Windows notification area
@@ -230,9 +229,11 @@ The purpose of Server Viewer is to let you inspect a server before deciding whet
 
 ## Installation
 
-1. Open `RoUtils.exe`
-2. Done :) (easy right?)
+1. Download or Clone Repositoriy
+2. Open `RoUtils.exe`
+3. Done :) (easy right?)
 
 ## Credits
 
 * `offp001` (If you encounter any issues, feel free to contact me on Discord👍)
+* `Discord` [Please join to my discord server if you want to support me✅](https://discord.com/invite/849VtrYhm2)
