@@ -1,6 +1,6 @@
-# 🛠️ RoUtils (Version 4.0)
+# 🛠️ RoUtils (Version 4.1)
 
-<img width="1361" height="755" alt="routils" src="https://github.com/user-attachments/assets/efaa27ce-97fe-422c-9fdc-b267e1125e2b" />
+<img width="1744" height="913" alt="routils" src="https://github.com/user-attachments/assets/20f380e6-b860-4eba-8ce1-36e3908c52a0" />
 
 ## Features
 
@@ -219,6 +219,12 @@ The purpose of Server Viewer is to let you inspect a server before deciding whet
 * **Client Information** – Show CPU/RAM usage and current Game ID/JobID
 * **FPS Changer** – Change Roblox's FPS limit
 * **FPS Hotkeys** – Change Roblox's FPS limit using Hotkeys
+
+### Plugins
+* **Import Custom Plugins** - You can import custom plugins to use more things
+* **Plugin Guide and example plugin** ;
+* [Example Plugin](https://cdn.discordapp.com/attachments/1549063956901924895/1549063959598858360/example.py?ex=6aa955bc&is=6aa8043c&hm=bdc1fd10a3ae58797f59a3b130e9a0a0015edc0aa16ee2532e6fa5b43c462fe8&)
+* [Plugin Guide](https://cdn.discordapp.com/attachments/1549063956901924895/1549063958110015669/Plugin_Guide_Python.txt?ex=6aa955bb&is=6aa8043b&hm=3cf9c3ae0541237ffa2affacdde12e4892f5873911a780457a3ae77a43f19533&)
 
 ### Windows / Startup
 
