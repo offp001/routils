@@ -22,6 +22,7 @@ import subprocess
 import zipfile
 import base64
 import traceback
+import importlib.util
 import winreg
 import threading
 import time
@@ -35,6 +36,11 @@ from typing import Iterable
 from tkinter import filedialog, simpledialog, messagebox, ttk
 from tkinter import font as tkfont
 from typing import Dict, List, Optional, Tuple
+
+try:
+    import sv_ttk
+except Exception:
+    sv_ttk = None
 from urllib.parse import parse_qs, urlparse, urljoin
 
 UI_THEME = "clam"
@@ -107,7 +113,7 @@ _LOCAL_APPDATA = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
 DATA_DIR = os.path.join(_LOCAL_APPDATA, "RoUtils")
 os.makedirs(DATA_DIR, exist_ok=True)
 
-APP_VERSION = "4.0"
+APP_VERSION = "4.1"
 HISTORY_PATH = os.path.join(DATA_DIR, "history.json")
 SETTINGS_PATH = os.path.join(DATA_DIR, "routils_settings.json")
 ERROR_REPORT_DIR = os.path.join(DATA_DIR, "errors")
@@ -4000,7 +4006,7 @@ def apply_visual_polish(root: tk.Tk, theme: Optional[str] = "system",
                         palette: Optional[Dict[str, str]] = None):
     global _CURRENT_PALETTE
     try:
-        root.tk.call("tk", "scaling", 1.25)
+        root.tk.call("tk", "scaling", float(getattr(root, "_dpi_scale", 1.0)))
     except Exception:
         pass
 
@@ -4017,14 +4023,25 @@ def apply_visual_polish(root: tk.Tk, theme: Optional[str] = "system",
         p.update(palette)
 
     style = ttk.Style(root)
-    
-    for t in ("clam", "alt", "default", "classic"):
-        if t in style.theme_names():
-            try:
-                style.theme_use(t)
-            except Exception:
-                pass
-            break
+
+                                                                            
+                                                                              
+                                                                      
+    use_sv_ttk = sv_ttk is not None
+    if use_sv_ttk:
+        try:
+            sv_ttk.set_theme("dark")
+        except Exception:
+            use_sv_ttk = False
+
+    if not use_sv_ttk:
+        for t in ("clam", "alt", "default", "classic"):
+            if t in style.theme_names():
+                try:
+                    style.theme_use(t)
+                except Exception:
+                    pass
+                break
 
     try:
         tkfont.nametofont("TkDefaultFont").configure(family="Comic Sans MS", size=10)
@@ -4085,23 +4102,29 @@ def apply_visual_polish(root: tk.Tk, theme: Optional[str] = "system",
     style.configure("TLabelframe", background=bg_dark, foreground=fg_white, bordercolor=border)
     style.configure("TLabelframe.Label", background=bg_dark, foreground=fg_white, padding=(4, 0))
 
+    _ui_scale = max(0.5, min(2.0, float(getattr(root, "_dpi_scale", 1.0))))
+    _btn_pad = (max(2, int(6 * _ui_scale)), max(2, int(5 * _ui_scale)))
+    _ctrl_pad = max(2, int(3 * _ui_scale))
+    _check_pad = (max(2, int(4 * _ui_scale)), max(1, int(2 * _ui_scale)))
+    _small_font = max(8, int(round(9 * _ui_scale)))
+    _label_font = max(9, int(round(10 * _ui_scale)))
     style.configure("TButton", background=bg_light, foreground=fg_white, bordercolor=border,
-                    focusthickness=0, padding=(12, 7), relief="flat", font=("Comic Sans MS", 9, "bold"))
+                    focusthickness=0, padding=_btn_pad, relief="flat", font=("Comic Sans MS", _small_font, "bold"))
     style.map("TButton",
               background=[("pressed", accent), ("active", bg_hover), ("disabled", bg_medium)],
               foreground=[("disabled", "#6f6f6f")],
               bordercolor=[("active", accent)])
 
-    style.configure("TCheckbutton", background=bg_dark, foreground=fg_white)
+    style.configure("TCheckbutton", background=bg_dark, foreground=fg_white, padding=_check_pad, font=("Comic Sans MS", _small_font))
     style.map("TCheckbutton", background=[("active", bg_dark)], foreground=[("active", fg_white)])
-    style.configure("TRadiobutton", background=bg_dark, foreground=fg_white)
+    style.configure("TRadiobutton", background=bg_dark, foreground=fg_white, padding=_check_pad, font=("Comic Sans MS", _small_font))
     style.map("TRadiobutton", background=[("active", bg_dark)], foreground=[("active", fg_white)])
 
     style.configure("TEntry", fieldbackground=bg_medium, foreground=fg_white,
-                    insertcolor="#ffffff", bordercolor=border, padding=3)
+                    insertcolor="#ffffff", bordercolor=border, padding=_ctrl_pad)
     style.map("TEntry", fieldbackground=[("focus", bg_medium)], bordercolor=[("focus", accent)])
     style.configure("TCombobox", fieldbackground=bg_medium, background=bg_light, foreground=fg_white,
-                    arrowcolor=fg_white, bordercolor=border, padding=3)
+                    arrowcolor=fg_white, bordercolor=border, padding=_ctrl_pad)
     style.map("TCombobox",
               fieldbackground=[("readonly", bg_medium)],
               background=[("readonly", bg_light)],
@@ -4124,10 +4147,10 @@ def apply_visual_polish(root: tk.Tk, theme: Optional[str] = "system",
               background=[("selected", accent)], foreground=[("selected", "#ffffff")],
               expand=[("selected", (2, 0, 2, 0))])
 
-    style.configure("Treeview", rowheight=23, font=("Consolas", 9), background=bg_medium,
+    style.configure("Treeview", rowheight=max(18, int(23 * _ui_scale)), font=("Consolas", _small_font), background=bg_medium,
                     foreground=fg_white, fieldbackground=bg_medium, bordercolor=border)
     style.configure("Treeview.Heading", background=bg_light, foreground=fg_white,
-                    font=("Segoe UI Semibold", 10), padding=(6, 4, 6, 4))
+                    font=("Segoe UI Semibold", _label_font), padding=(max(3, int(6*_ui_scale)), max(2, int(4*_ui_scale)), max(3, int(6*_ui_scale)), max(2, int(4*_ui_scale))))
     style.map("Treeview", background=[("selected", accent)], foreground=[("selected", "#ffffff")])
 
     root._palette = p
@@ -4180,6 +4203,94 @@ def _set_pane_minsize(paned: ttk.PanedWindow, pane, size: int) -> None:
         paned.paneconfigure(pane, minsize=size)
     except Exception:
         pass
+
+def _setup_toplevel_custom_titlebar(win):
+    if not isinstance(win, tk.Toplevel) or getattr(win, "_routils_custom_titlebar", False):
+        return
+    win._routils_custom_titlebar = True
+    try:
+        win.overrideredirect(False)
+    except Exception:
+        pass
+    try:
+        _prepare_borderless_appwindow(win)
+    except Exception:
+        pass
+    bar = tk.Frame(win, bg="#080808", height=38, bd=0, highlightthickness=0)
+    bar.pack(fill="x", side="top")
+    bar.pack_propagate(False)
+    canvas = tk.Canvas(bar, bg="#080808", bd=0, highlightthickness=0, height=38)
+    canvas.pack(fill="both", expand=True)
+    canvas.create_text(0,19,text=win.title() or "RoUtils",anchor="center",
+                       fill="#f2f2f2",font=("Segoe UI Semibold",10),tags=("title",))
+    buttons={}
+    actions=(("close","#ff5f57",lambda: win.destroy()),
+             ("max","#28c840",lambda: _toggle_toplevel_maximize(win)),
+             ("min","#febc2e",lambda: win.iconify()))
+    for name,color,cmd in actions:
+        item=canvas.create_oval(0,0,14,14,fill=color,outline="",tags=(f"btn_{name}",))
+        buttons[name]=(item,cmd)
+    state={"drag":None,"max":False,"restore":None}
+    def layout(_e=None):
+        try:
+            w=max(160,canvas.winfo_width())
+            canvas.coords("title",w/2,19)
+            x=w-25
+            for name in ("close","max","min"):
+                canvas.coords(buttons[name][0],x,12,x+14,26); x-=23
+        except Exception: pass
+    def hit(x,y):
+        for name,(item,_) in buttons.items():
+            c=canvas.coords(item)
+            if c and c[0]<=x<=c[2] and c[1]<=y<=c[3]: return name
+        return None
+    def press(e):
+        n=hit(e.x,e.y)
+        if n: state["drag"]=("button",n); return "break"
+        state["drag"]=("drag",e.x_root,e.y_root,win.winfo_x(),win.winfo_y()); return "break"
+    def drag(e):
+        d=state["drag"]
+        if d and d[0]=="drag":
+            _,sx,sy,ox,oy=d
+            win.geometry(f"+{ox+e.x_root-sx}+{oy+e.y_root-sy}")
+        return "break"
+    def release(e):
+        d=state["drag"]; state["drag"]=None
+        if d and d[0]=="button":
+            n=d[1]
+            if n=="close": win.destroy()
+            elif n=="min": win.iconify()
+            else: _toggle_toplevel_maximize(win,state)
+        return "break"
+    def motion(e):
+        canvas.configure(cursor="hand2" if hit(e.x,e.y) else "")
+    canvas.bind("<Configure>",layout,add="+")
+    canvas.bind("<Button-1>",press,add="+")
+    canvas.bind("<B1-Motion>",drag,add="+")
+    canvas.bind("<ButtonRelease-1>",release,add="+")
+    canvas.bind("<Motion>",motion,add="+")
+    win._routils_titlebar = bar
+    win._routils_titlebar_canvas = canvas
+    win.after_idle(lambda: _prepare_borderless_appwindow(win))
+    win.after_idle(lambda: _apply_native_titlebar_theme(win))
+
+
+def _toggle_toplevel_maximize(win, state=None):
+    try:
+        if state is None:
+            state = getattr(win, "_routils_max_state", {"max":False,"restore":None})
+        if win.state()=="zoomed" or state.get("max"):
+            win.state("normal")
+            if state.get("restore"): win.geometry(state["restore"])
+            state["max"]=False
+        else:
+            state["restore"]=win.geometry()
+            win.state("zoomed")
+            state["max"]=True
+        win._routils_max_state=state
+    except Exception:
+        pass
+
 
 def theme_toplevel(win) -> None:
     
@@ -7111,11 +7222,14 @@ class ReplacerPane(ttk.Frame):
         dialog.transient(self)
         dialog.grab_set()
         theme_toplevel(dialog)
+        body = ttk.Frame(dialog, padding=0)
+        body.pack(fill="both", expand=True)
+        body.columnconfigure(1, weight=1)
 
-        ttk.Label(dialog, text="Hash saves:").grid(row=0, column=0, sticky="w", padx=10, pady=(12, 4))
+        ttk.Label(body, text="Hash saves:").grid(row=0, column=0, sticky="w", padx=10, pady=(12, 4))
         hs = self._scan_hash_saves()
         hash_names = [name for (name, _h, _p) in hs]
-        hash_combo = ttk.Combobox(dialog, values=hash_names, state="readonly", width=38)
+        hash_combo = ttk.Combobox(body, values=hash_names, state="readonly", width=38)
         hash_combo.grid(row=0, column=1, sticky="we", padx=10, pady=(12, 4))
         if hash_names:
             hash_combo.current(0)
@@ -7130,12 +7244,12 @@ class ReplacerPane(ttk.Frame):
             elif ch is not None:
                 chosen_hash["hex"] = None
 
-        ttk.Button(dialog, text="Input Custom Hash", command=ask_custom_hash).grid(row=0, column=2, padx=10, pady=(12, 4))
+        ttk.Button(body, text="Input Custom Hash", command=ask_custom_hash).grid(row=0, column=2, padx=10, pady=(12, 4))
 
-        ttk.Label(dialog, text="File saves:").grid(row=1, column=0, sticky="w", padx=10, pady=4)
+        ttk.Label(body, text="File saves:").grid(row=1, column=0, sticky="w", padx=10, pady=4)
         fs = self._scan_file_saves()
         file_names = [name for (name, _p) in fs]
-        file_combo = ttk.Combobox(dialog, values=file_names, state="readonly", width=38)
+        file_combo = ttk.Combobox(body, values=file_names, state="readonly", width=38)
         file_combo.grid(row=1, column=1, sticky="we", padx=10, pady=4)
         if file_names:
             file_combo.current(0)
@@ -7148,13 +7262,13 @@ class ReplacerPane(ttk.Frame):
                 chosen_file["path"] = p
                 messagebox.showinfo("Info", f"Selected file:\n{p}", parent=dialog)
 
-        ttk.Button(dialog, text="Input Custom File", command=pick_custom_file).grid(row=1, column=2, padx=10, pady=4)
+        ttk.Button(body, text="Input Custom File", command=pick_custom_file).grid(row=1, column=2, padx=10, pady=4)
 
-        ttk.Label(dialog, text="Enter display name:").grid(row=2, column=0, sticky="w", padx=10, pady=(8, 4))
-        entry_name = ttk.Entry(dialog, width=40)
+        ttk.Label(body, text="Enter display name:").grid(row=2, column=0, sticky="w", padx=10, pady=(8, 4))
+        entry_name = ttk.Entry(body, width=40)
         entry_name.grid(row=2, column=1, columnspan=2, sticky="we", padx=10, pady=(8, 4))
 
-        btnf = ttk.Frame(dialog)
+        btnf = ttk.Frame(body)
         btnf.grid(row=3, column=0, columnspan=3, pady=12)
 
         def on_ok():
@@ -7237,7 +7351,7 @@ class ReplacerPane(ttk.Frame):
         ttk.Button(btnf, text="OK", command=on_ok).pack(side="left", padx=6)
         ttk.Button(btnf, text="Cancel", command=dialog.destroy).pack(side="left", padx=6)
 
-        dialog.columnconfigure(1, weight=1)
+        body.columnconfigure(1, weight=1)
         entry_name.focus_set()
         dialog.wait_window()
 
@@ -8154,8 +8268,8 @@ class _MacNotification:
             ]
 
             win = tk.Toplevel(parent)
-            win.overrideredirect(True)
-            win.attributes("-topmost", True)
+            win.attributes("-topmost", False)
+            win.transient(parent)
             win.configure(bg=glow_colors[3])
 
             layer = win
@@ -8174,7 +8288,9 @@ class _MacNotification:
             for i, c in enumerate(("#ff5f57", "#28c840", "#febc2e")):
                 x = 8 + i * 14
                 dots.create_oval(x, 10, x + 8, 18, fill=c, outline=c)
-            tk.Label(bar, text=str(title), bg="#090909", fg="#eeeeee", font=("Comic Sans MS", 9, "bold")).pack(side="left", padx=4)
+            tk.Label(bar, text=str(title), bg="#090909", fg="#eeeeee",
+                     font=("Comic Sans MS", 9, "bold")).pack(side="left", padx=4, fill="x", expand=True)
+            bar.bind("<Button-1>", lambda _e: win.focus_force())
             body = tk.Frame(outer, bg="#111111", padx=14, pady=11)
             body.pack(fill="both", expand=True)
             tk.Label(body, text=str(message), bg="#111111", fg="#e5e5e5", justify="left", anchor="w",
@@ -8194,8 +8310,8 @@ class _MacNotification:
             pw, ph = parent.winfo_width(), parent.winfo_height()
             px, py = parent.winfo_rootx(), parent.winfo_rooty()
             ww, wh = win.winfo_width(), win.winfo_height()
-            x = px + max(10, pw - ww - 18)
-            y = py + max(10, ph - wh - 18)
+            x = px + max(10, (pw - ww) // 2)
+            y = py + max(10, (ph - wh) // 2)
             win.geometry(f"{ww}x{wh}+{x}+{y}")
             cls._active.append(win)
         except Exception:
@@ -8291,6 +8407,92 @@ class _ConsoleStream:
             pass
 
 
+
+def _win32_root_hwnd(win):
+    if sys.platform != "win32":
+        return 0
+    try:
+        user32 = ctypes.windll.user32
+        raw = int(win.winfo_id())
+        return int(user32.GetAncestor(raw, 2) or raw)
+    except Exception:
+        return 0
+
+
+def _prepare_borderless_appwindow(win):
+    """Create a borderless-looking real Windows app window without overrideredirect.
+    Keeps taskbar/Alt+Tab identity while removing the bright non-client frame.
+    """
+    if sys.platform != "win32":
+        return
+    hwnd = _win32_root_hwnd(win)
+    if not hwnd:
+        return
+    try:
+        user32 = ctypes.windll.user32
+        GWL_STYLE = -16
+        GWL_EXSTYLE = -20
+        GWL_HWNDPARENT = -8
+        WS_POPUP = 0x80000000
+        WS_THICKFRAME = 0x00040000
+        WS_MINIMIZEBOX = 0x00020000
+        WS_MAXIMIZEBOX = 0x00010000
+        WS_SYSMENU = 0x00080000
+        WS_EX_APPWINDOW = 0x00040000
+        WS_EX_TOOLWINDOW = 0x00000080
+        WS_EX_NOACTIVATE = 0x08000000
+        get_style = getattr(user32, "GetWindowLongPtrW", user32.GetWindowLongW)
+        set_style = getattr(user32, "SetWindowLongPtrW", user32.SetWindowLongW)
+        style = int(get_style(hwnd, GWL_STYLE))
+                                                                                 
+        style = (style | WS_POPUP | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU)
+        style &= ~0x00C00000              
+        style &= ~0x00800000             
+        set_style(hwnd, GWL_STYLE, style)
+        ex = int(get_style(hwnd, GWL_EXSTYLE))
+        ex = (ex | WS_EX_APPWINDOW) & ~WS_EX_TOOLWINDOW & ~WS_EX_NOACTIVATE
+        set_style(hwnd, GWL_EXSTYLE, ex)
+        try:
+            set_style(hwnd, GWL_HWNDPARENT, 0)
+        except Exception:
+            pass
+        SWP_NOSIZE, SWP_NOMOVE, SWP_NOZORDER, SWP_NOACTIVATE, SWP_FRAMECHANGED = 1,2,4,16,32
+        user32.SetWindowPos(hwnd, 0, 0, 0, 0, 0,
+                            SWP_NOSIZE|SWP_NOMOVE|SWP_NOZORDER|SWP_NOACTIVATE|SWP_FRAMECHANGED)
+    except Exception:
+        pass
+
+def _apply_native_titlebar_theme(win):
+    """Make the remaining DWM frame black and disable expensive transitions."""
+    if sys.platform != "win32":
+        return
+    hwnd = _win32_root_hwnd(win)
+    if not hwnd:
+        return
+    try:
+        dwm = ctypes.windll.dwmapi
+                                                                            
+        attrs = {
+            33: 2,                                                  
+            34: 0x00000000,                             
+            35: 0x00000000,                              
+            36: 0x00FFFFFF,                           
+            20: 1,                                              
+            38: 0,                                            
+            2: 2,                                               
+            3: 1,                                                   
+        }
+        for attr, value in attrs.items():
+            try:
+                val = ctypes.c_int(int(value))
+                dwm.DwmSetWindowAttribute(hwnd, attr, ctypes.byref(val), ctypes.sizeof(val))
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+
+
 class App(tk.Tk):
     def report_callback_exception(self, exc_type, exc_value, exc_tb):
         _report_rotools_error(exc_type, exc_value, exc_tb, self)
@@ -8328,6 +8530,19 @@ class App(tk.Tk):
         self._reset_version_file()
         self._history_last_game = None
 
+        try:
+            self._dpi_scale = max(0.50, min(2.00, int(self.settings.get("dpi_percent", 100)) / 100.0))
+        except Exception:
+            self._dpi_scale = 1.0
+
+                                                                            
+                                                                             
+                                                                           
+        try:
+            self.tk.call("tk", "scaling", self._dpi_scale)
+        except Exception:
+            pass
+
         _t = self.settings.get("theme", DEFAULT_THEME)
         apply_visual_polish(self, theme=UI_THEME, palette=THEMES.get(_t, THEMES[DEFAULT_THEME]))
         self.title("RoUtils")
@@ -8343,8 +8558,9 @@ class App(tk.Tk):
         self.minsize(700, 420)
         self.resizable(True, True)
         self._setup_custom_titlebar()
-
-
+        self.after(120, self._restore_windows_taskbar_presence)
+        if not bool(self.settings.get("launch_on_tray", False)):
+            self.after(220, self._startup_focus_cycle)
 
         self.bind("<Map>", lambda _e: self.after_idle(self._restore_windows_taskbar_presence), add="+")
         self.bind("<Map>", lambda _e: self.after(250, self._apply_streamer_mode), add="+")
@@ -8369,25 +8585,47 @@ class App(tk.Tk):
             })
         self.fps_hotkeys = default_fps_hotkeys
         saved_slots = self.settings.get("fps_hotkey_slots", [])
-        if isinstance(saved_slots, list) and len(saved_slots) == 5:
-            self.fps_hotkey_slots = [
-                {"fps": int(x.get("fps", 0) or 0), "key": str(x.get("key", "") or "").upper()}
-                for x in saved_slots if isinstance(x, dict)
-            ]
+        if isinstance(saved_slots, list):
+            configured = []
+            for x in saved_slots:
+                if isinstance(x, dict) and (x.get("fps") or x.get("key")):
+                    configured.append({"fps": int(x.get("fps", 0) or 0), "key": str(x.get("key", "") or "").upper()})
+            self.fps_hotkey_slots = configured[:15] or [{"fps": 0, "key": ""}]
         else:
-            old = [(int(fps), key) for fps, key in self.fps_hotkeys.items() if key]
-            self.fps_hotkey_slots = [{"fps": fps, "key": str(key).upper()} for fps, key in old[:5]]
-            self.fps_hotkey_slots += [{"fps": 0, "key": ""}] * (5 - len(self.fps_hotkey_slots))
+            self.fps_hotkey_slots = [{"fps": 0, "key": ""}]
         self._sync_fps_hotkey_slots()
         self._hotkey_prev = {}
         self._hotkey_thread = None
-        self._quick_panel_enabled = False
-        self._quick_panel_visible = False
+        self._quick_panel_enabled = True
+        self._quick_panel_visible = True
         self._quick_panel_restore_geometry = None
         self._quick_panel_grace_until = 0.0
 
         self._cache_built = False
-        self.nb = ttk.Notebook(self)
+
+                                                                                
+                                                                                    
+        style = ttk.Style(self)
+        try:
+                                                                      
+                                                                              
+            style.layout("RoUtils.Hidden.TNotebook.Tab", [])
+            style.configure(
+                "RoUtils.Hidden.TNotebook",
+                tabmargins=0,
+                padding=0,
+                borderwidth=0,
+            )
+        except Exception:
+            pass
+
+        self._tab_nav = ttk.Frame(self)
+        self._tab_nav.pack(fill="x", side="top", padx=8, pady=(6, 4))
+        self._tab_nav_inner = ttk.Frame(self._tab_nav)
+        self._tab_nav_inner.pack(anchor="center")
+        self._setup_tab_nav_styles()
+
+        self.nb = ttk.Notebook(self, style="RoUtils.Hidden.TNotebook")
         self.nb.pack(fill="both", expand=True, padx=8, pady=(0, 8))
 
         self.tab_viewer = ttk.Frame(self.nb)
@@ -8473,6 +8711,7 @@ class App(tk.Tk):
         self.launch_on_startup = tk.BooleanVar(value=self.settings.get("launch_on_startup", False))
         self.launch_on_tray = tk.BooleanVar(value=self.settings.get("launch_on_tray", False))
         self.hide_to_tray_on_close = tk.BooleanVar(value=self.settings.get("hide_to_tray_on_close", False))
+        self.after_idle(self._update_kill_routils_visibility)
         self.auto_update = tk.BooleanVar(value=self.settings.get("auto_update", False))
         self._latest_version = None
         self._auto_update_in_progress = False
@@ -8482,6 +8721,13 @@ class App(tk.Tk):
         self._tray_starting = False
         self._tray_hidden = False
         self.gemini_api_key = tk.StringVar(value=str(self.settings.get("gemini_api_key", "")))
+        self.plugins_dir = os.path.join(DATA_DIR, "plugins")
+        os.makedirs(self.plugins_dir, exist_ok=True)
+        self._plugins = []
+        self._plugin_modules = {}
+        self._plugin_cleanup = {}
+        self._plugin_tabs = {}
+        self._plugin_enabled = dict(self.settings.get("plugin_enabled", {})) if isinstance(self.settings.get("plugin_enabled", {}), dict) else {}
         self._load_fflag_flags()
         self._sync_fps_flag_to_manager()
 
@@ -8494,18 +8740,19 @@ class App(tk.Tk):
             "Cache": self._lazy_build_cache,
             "FFlags": self._build_fflag_tab,
             "Modifications": self._build_utils_tab,
-            "CConfigs": self._build_cconfigs_tab,
+            "Configs": self._build_cconfigs_tab,
             "Subplace Joiner": self._build_subplace_joiner_tab,
             "Server Viewer": self._build_server_viewer_tab,
             "History": self._build_history_tab,
             "Client": self._build_client_tab,
             "Themes": self._build_themes_tab,
             "Settings": self._build_settings_tab,
+            "Plugins": self._build_plugins_tab,
             "Console": self._build_console_tab,
         }
 
-        for tab_name in ("Cache", "FFlags", "Modifications", "CConfigs", "Subplace Joiner",
-                         "Server Viewer", "History", "Client", "Themes", "Settings", "Console"):
+        for tab_name in ("Cache", "FFlags", "Configs", "Modifications", "Subplace Joiner",
+                         "Server Viewer", "History", "Client", "Themes", "Settings", "Plugins", "Console"):
             if tab_name == "Cache":
                 tab = self.tab_viewer
             else:
@@ -8517,12 +8764,18 @@ class App(tk.Tk):
                 ttk.Label(tab, text="Loading...", foreground="#9aa0a6").pack(expand=True)
 
         self._reorder_tabs()
-        self.nb.select(self.nb.tabs()[0])
+        self._refresh_tab_nav()
+        if self.nb.tabs():
+            home_id = next(
+                (tid for tid in self.nb.tabs()
+                 if self.nb.tab(tid, "text") == "Home"),
+                self.nb.tabs()[0],
+            )
+            self.nb.select(home_id)
         self.after_idle(self._lazy_tab_changed)
 
 
         self.after_idle(self._install_global_scroll_support)
-        self.after_idle(self._apply_stay_on_top)
         self._start_history_watcher()
         self._detect_roblox_profile()
         self._start_profile_detection()
@@ -8549,6 +8802,7 @@ class App(tk.Tk):
         self.after_idle(self._update_status)
 
     def _lazy_tab_changed(self, _event=None):
+        self._refresh_tab_nav()
         try:
             tab_id = self.nb.select()
         except Exception:
@@ -8567,6 +8821,7 @@ class App(tk.Tk):
                 placeholder.destroy()
                 builder()
                 self._reorder_tabs()
+                self._refresh_tab_nav()
             else:
                 builder()
         except Exception:
@@ -8685,9 +8940,9 @@ class App(tk.Tk):
             self.attributes("-fullscreen", False)
             if self._quick_panel_restore_geometry:
                 self.geometry(self._quick_panel_restore_geometry)
-            self.attributes("-topmost", True)
             self.deiconify()
             self.lift()
+            self.wm_attributes("-topmost", bool(self.stay_on_top.get()))
             self.focus_force()
             if sys.platform == "win32":
                 try:
@@ -8707,11 +8962,16 @@ class App(tk.Tk):
             self.attributes("-topmost", bool(self.stay_on_top.get()))
             if self._quick_panel_restore_geometry:
                 self.geometry(self._quick_panel_restore_geometry)
-            self.withdraw()
             self._quick_panel_visible = False
             if to_tray:
+                self.withdraw()
                 self._start_tray()
                 self._tray_hidden = True
+            else:
+                                                                             
+                                                                              
+                                                                      
+                self.iconify()
         except Exception:
             self._quick_panel_visible = False
 
@@ -8721,7 +8981,7 @@ class App(tk.Tk):
             return
         if self._quick_panel_enabled:
             self._quick_panel_enabled = False
-            self._hide_quick_panel(to_tray=True)
+            self._hide_quick_panel(to_tray=bool(self.hide_to_tray_on_close.get()))
             return
         self._quick_panel_enabled = True
         self._show_quick_panel()
@@ -8871,17 +9131,53 @@ class App(tk.Tk):
     def _refresh_fps_hotkey_buttons(self):
         if not hasattr(self, "_fps_hotkey_buttons"):
             return
-        for index, button in self._fps_hotkey_buttons.items():
+        for index, button in list(self._fps_hotkey_buttons.items()):
+            if index >= len(self.fps_hotkey_slots):
+                try: button.destroy()
+                except Exception: pass
+                self._fps_hotkey_buttons.pop(index, None)
+                continue
             item = self.fps_hotkey_slots[index]
             fps, key = item.get("fps", 0), str(item.get("key", "") or "").upper()
-            button.config(text=f"{fps} FPS  [{key}]" if fps and key else "Empty FPS Hotkey")
+            button.config(text=f"{fps} FPS [{key}]" if fps and key else "Empty")
+
+    def _add_fps_hotkey_slot(self):
+        if len(self.fps_hotkey_slots) >= 15:
+            return
+        self.fps_hotkey_slots.append({"fps": 0, "key": ""})
+        self._sync_fps_hotkey_slots()
+        self._save_settings()
+        self._build_fps_hotkey_buttons()
+
+    def _build_fps_hotkey_buttons(self):
+        frame = getattr(self, "_fps_hotkey_frame", None)
+        if frame is None:
+            return
+        for child in frame.winfo_children():
+            child.destroy()
+        self._fps_hotkey_buttons = {}
+        for index in range(len(self.fps_hotkey_slots)):
+            button = ttk.Button(frame, text="Empty", width=9,
+                                command=lambda slot=index: self._fps_slot_editor(slot),
+                                padding=(3, 1))
+            button.grid(row=index // 5, column=index % 5, padx=2, pady=2, sticky="ew")
+            self._fps_hotkey_buttons[index] = button
+        plus_col = len(self.fps_hotkey_slots) % 5
+        plus_row = len(self.fps_hotkey_slots) // 5
+        if len(self.fps_hotkey_slots) < 15:
+            plus = ttk.Button(frame, text="+", width=3, command=self._add_fps_hotkey_slot,
+                              padding=(2, 1))
+            plus.grid(row=plus_row, column=plus_col, padx=2, pady=2, sticky="ew")
+        for col in range(5):
+            frame.columnconfigure(col, weight=1)
+        self._refresh_fps_hotkey_buttons()
 
     def _reset_fps_hotkeys(self):
-        self.fps_hotkey_slots = [{"fps": 0, "key": ""} for _ in range(5)]
+        self.fps_hotkey_slots = [{"fps": 0, "key": ""}]
         self._sync_fps_hotkey_slots()
         self._hotkey_prev.clear()
         self._save_settings()
-        self._refresh_fps_hotkey_buttons()
+        self._build_fps_hotkey_buttons()
 
     def _handle_fflag_hotkey(self, binding):
         flag_name = fflag_strip_prefix(str(binding.get("flag", "")).strip())
@@ -9153,175 +9449,300 @@ class App(tk.Tk):
                 except Exception:
                     pass
 
-    def _restore_windows_taskbar_presence(self):
-        """Keep this exact Tk root as a normal Windows taskbar/Alt+Tab app.
-        Never withdraw/deiconify here: doing that can create a ghost/second taskbar
-        entry and can make a frameless Tk window disappear from Alt+Tab.
-        """
-        if sys.platform != "win32" or not self.winfo_exists():
-            return
+    def _startup_focus_cycle(self):
         try:
-            hwnd = int(self.winfo_id())
-            user32 = ctypes.windll.user32
-            GWL_EXSTYLE = -20
-            WS_EX_APPWINDOW = 0x00040000
-            WS_EX_TOOLWINDOW = 0x00000080
-            SWP_NOSIZE = 0x0001
-            SWP_NOMOVE = 0x0002
-            SWP_NOZORDER = 0x0004
-            SWP_NOACTIVATE = 0x0010
-            SWP_FRAMECHANGED = 0x0020
-            get_ex = getattr(user32, "GetWindowLongPtrW", user32.GetWindowLongW)
-            set_ex = getattr(user32, "SetWindowLongPtrW", user32.SetWindowLongW)
-            ex = int(get_ex(hwnd, GWL_EXSTYLE))
-            ex = (ex | WS_EX_APPWINDOW) & ~WS_EX_TOOLWINDOW
-            set_ex(hwnd, GWL_EXSTYLE, ex)
-            user32.SetWindowPos(hwnd, 0, 0, 0, 0, 0,
-                                SWP_NOSIZE | SWP_NOMOVE | SWP_NOZORDER |
-                                SWP_NOACTIVATE | SWP_FRAMECHANGED)
-
-            if os.path.isfile(ICON_PATH):
-                IMAGE_ICON = 1
-                LR_LOADFROMFILE = 0x00000010
-                LR_DEFAULTSIZE = 0x00000040
-                hicon = user32.LoadImageW(None, ICON_PATH, IMAGE_ICON, 32, 32,
-                                          LR_LOADFROMFILE | LR_DEFAULTSIZE)
-                if hicon:
-                    WM_SETICON = 0x0080
-                    ICON_SMALL = 0
-                    ICON_BIG = 1
-                    user32.SendMessageW(hwnd, WM_SETICON, ICON_BIG, hicon)
-                    user32.SendMessageW(hwnd, WM_SETICON, ICON_SMALL, hicon)
+            if self.state() != "normal":
+                return
+            self._restore_windows_taskbar_presence()
+            self.iconify()
+            self.after(180, lambda: (self.deiconify(), self._restore_windows_taskbar_presence()))
         except Exception:
             pass
 
-    def _make_native_borderless_window(self):
-        if sys.platform != "win32":
+    def _restore_windows_taskbar_presence(self):
+        if sys.platform != "win32" or not self.winfo_exists():
             return
         try:
-            hwnd = int(self.winfo_id())
-            user32 = ctypes.windll.user32
-            GWL_STYLE = -16
-            GWL_EXSTYLE = -20
-            WS_CAPTION = 0x00C00000
-            WS_THICKFRAME = 0x00040000
-            WS_MINIMIZEBOX = 0x00020000
-            WS_MAXIMIZEBOX = 0x00010000
-            WS_SYSMENU = 0x00080000
-            WS_EX_APPWINDOW = 0x00040000
-            WS_EX_TOOLWINDOW = 0x00000080
-            SWP_NOSIZE = 0x0001
-            SWP_NOMOVE = 0x0002
-            SWP_NOZORDER = 0x0004
-            SWP_NOACTIVATE = 0x0010
-            SWP_FRAMECHANGED = 0x0020
-
-            get_style = getattr(user32, "GetWindowLongPtrW", user32.GetWindowLongW)
-            set_style = getattr(user32, "SetWindowLongPtrW", user32.SetWindowLongW)
-            style = int(get_style(hwnd, GWL_STYLE))
-            style &= ~WS_CAPTION
-            style |= WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX
-            style &= ~WS_THICKFRAME
-            set_style(hwnd, GWL_STYLE, style)
-
-            ex = int(get_style(hwnd, GWL_EXSTYLE))
-            ex = (ex | WS_EX_APPWINDOW) & ~WS_EX_TOOLWINDOW
-            set_style(hwnd, GWL_EXSTYLE, ex)
-
-            user32.SetWindowPos(hwnd, 0, 0, 0, 0, 0,
-                                SWP_NOSIZE | SWP_NOMOVE | SWP_NOZORDER |
-                                SWP_NOACTIVATE | SWP_FRAMECHANGED)
+            _prepare_borderless_appwindow(self)
+            _apply_native_titlebar_theme(self)
+            if os.path.isfile(ICON_PATH):
+                user32 = ctypes.windll.user32
+                hwnd = _win32_root_hwnd(self)
+                hicon = user32.LoadImageW(None, ICON_PATH, 1, 32, 32, 0x10 | 0x40)
+                if hicon and hwnd:
+                    user32.SendMessageW(hwnd, 0x0080, 1, hicon)
+                    user32.SendMessageW(hwnd, 0x0080, 0, hicon)
         except Exception:
             pass
 
     def _setup_custom_titlebar(self):
-
-
-
-        self._make_native_borderless_window()
-        self._window_maximized = False
-        self._restore_geometry = None
-        palette = _CURRENT_PALETTE
-        self._titlebar = tk.Frame(self, bg=palette["bg_dark"], height=42, bd=0, highlightthickness=0)
+        self._prepare_borderless = True
+        self._titlebar = tk.Frame(self, bg="#080808", height=38, bd=0, highlightthickness=0)
         self._titlebar.pack(fill="x", side="top")
         self._titlebar.pack_propagate(False)
+        self._titlebar_canvas = tk.Canvas(self._titlebar, bg="#080808", bd=0, highlightthickness=0, height=38)
+        self._titlebar_canvas.pack(fill="both", expand=True)
+        self._titlebar_canvas.create_text(0, 19, text="RoUtils", anchor="center",
+                                          fill="#f2f2f2", font=("Segoe UI Semibold", 10), tags=("title",))
+        self._titlebar_buttons = {}
+        self._kill_ro_utils_items = None
+        controls = (("close","#ff5f57",self._titlebar_close),
+                    ("max","#28c840",self._titlebar_toggle_maximize),
+                    ("min","#febc2e",self._titlebar_minimize))
+        for name,color,command in controls:
+            item=self._titlebar_canvas.create_oval(0,0,14,14,fill=color,outline="",tags=(f"btn_{name}",))
+            self._titlebar_buttons[name]=(item,command,color)
+        self._titlebar_canvas.bind("<Configure>", self._layout_titlebar, add="+")
+        self._titlebar_canvas.bind("<Button-1>", self._titlebar_press, add="+")
+        self._titlebar_canvas.bind("<B1-Motion>", self._titlebar_drag, add="+")
+        self._titlebar_canvas.bind("<ButtonRelease-1>", self._titlebar_release, add="+")
+        self._titlebar_canvas.bind("<Motion>", self._titlebar_motion, add="+")
+        self._titlebar_drag_data=None
+        self._titlebar_last_xy = None
+        self._titlebar_last_layout_width = 0
+        self._titlebar_drag_job = None
+        self.after_idle(self._restore_windows_taskbar_presence)
 
+    def _update_kill_routils_visibility(self):
+        try:
+            enabled = bool(self.hide_to_tray_on_close.get())
+        except Exception:
+            enabled = bool(self.settings.get("hide_to_tray_on_close", False))
+        try:
+            if enabled and not getattr(self, "_kill_ro_utils_items", None):
+                dot = self._titlebar_canvas.create_oval(0, 0, 14, 14, fill="#ff3b30", outline="", tags=("kill_ro_utils",))
+                label = self._titlebar_canvas.create_text(0, 19, text="Kill RoUtils", anchor="w",
+                                                          fill="#f2f2f2", font=("Segoe UI Semibold", 9),
+                                                          tags=("kill_ro_utils",))
+                self._kill_ro_utils_items = (dot, label)
+                self._titlebar_canvas.tag_bind(dot, "<Button-1>", lambda e: self._kill_ro_utils(), add="+")
+                self._titlebar_canvas.tag_bind(dot, "<ButtonRelease-1>", lambda e: self._kill_ro_utils(), add="+")
+                self._titlebar_canvas.tag_bind(label, "<Button-1>", lambda e: self._kill_ro_utils(), add="+")
+                self._titlebar_canvas.tag_bind(label, "<ButtonRelease-1>", lambda e: self._kill_ro_utils(), add="+")
+            elif not enabled and getattr(self, "_kill_ro_utils_items", None):
+                for item in self._kill_ro_utils_items:
+                    self._titlebar_canvas.delete(item)
+                self._kill_ro_utils_items = None
+            self._layout_titlebar(force=True)
+        except Exception:
+            pass
 
-        controls = tk.Frame(self._titlebar, bg=palette["bg_dark"], bd=0, highlightthickness=0)
-        controls.pack(side="right", padx=(0, 14))
-        self._titlebar_controls = controls
+    def _kill_ro_utils(self):
+        try:
+            pid = os.getpid()
+            if os.name == "nt":
+                PROCESS_TERMINATE = 0x0001
+                kernel32 = ctypes.windll.kernel32
+                kernel32.OpenProcess.restype = ctypes.wintypes.HANDLE
+                kernel32.OpenProcess.argtypes = [ctypes.wintypes.DWORD, ctypes.wintypes.BOOL, ctypes.wintypes.DWORD]
+                kernel32.TerminateProcess.argtypes = [ctypes.wintypes.HANDLE, ctypes.wintypes.UINT]
+                kernel32.TerminateProcess.restype = ctypes.wintypes.BOOL
+                kernel32.CloseHandle.argtypes = [ctypes.wintypes.HANDLE]
+                kernel32.CloseHandle.restype = ctypes.wintypes.BOOL
+                handle = kernel32.OpenProcess(PROCESS_TERMINATE, False, pid)
+                if handle:
+                    kernel32.TerminateProcess(handle, 1)
+                    kernel32.CloseHandle(handle)
+                    return
+            os._exit(1)
+        except BaseException:
+            try:
+                os._exit(1)
+            except BaseException:
+                pass
 
-        def dot(parent, fill, command, symbol=""):
-            c = tk.Canvas(parent, width=16, height=16, bg=palette["bg_dark"], bd=0,
-                          highlightthickness=0, cursor="hand2")
-            c.pack(side="left", padx=4)
-            c.create_oval(2, 2, 14, 14, fill=fill, outline=fill)
-            if symbol:
-                c.create_text(8, 8, text=symbol, fill="#202020", font=("Arial", 7, "bold"))
-            c.bind("<Button-1>", lambda _e: command())
-            return c
+    def _layout_titlebar(self, event=None, force=False):
+        try:
+            w=max(160,self._titlebar_canvas.winfo_width())
+            if w == getattr(self, "_titlebar_last_layout_width", 0) and not force:
+                return
+            self._titlebar_last_layout_width = w
+            self._titlebar_canvas.coords("title",w/2,19)
+            kill_items = getattr(self, "_kill_ro_utils_items", None)
+            if kill_items:
+                self._titlebar_canvas.coords(kill_items[0], 10, 12, 24, 26)
+                self._titlebar_canvas.coords(kill_items[1], 31, 19)
+            x=w-25
+            for name in ("close","max","min"):
+                item=self._titlebar_buttons[name][0]
+                self._titlebar_canvas.coords(item,x,12,x+14,26)
+                x-=23
+        except Exception: pass
 
-        self._minimize_dot = dot(controls, "#28c840", self._titlebar_minimize, "−")
-        self._resize_dot = dot(controls, "#febc2e", self._titlebar_toggle_maximize, "↕")
-        self._close_dot = dot(controls, "#ff5f57", self._titlebar_close, "×")
+    def _apply_custom_titlebar_theme(self):
+        try:
+            self._titlebar.configure(bg="#080808")
+            self._titlebar_canvas.configure(bg="#080808")
+        except Exception: pass
 
-        self._titlebar_title = tk.Label(self._titlebar, text="RoUtils", bg=palette["bg_dark"],
-                                        fg=palette["fg"], font=("Comic Sans MS", 13, "bold"))
-        self._titlebar_title.place(relx=0.5, rely=0.5, anchor="center")
-        self._titlebar.bind("<ButtonPress-1>", self._titlebar_press)
-        self._titlebar.bind("<B1-Motion>", self._titlebar_drag)
-        self._titlebar.bind("<Double-Button-1>", lambda _e: self._titlebar_toggle_maximize())
-        self._titlebar_title.bind("<ButtonPress-1>", self._titlebar_press)
-        self._titlebar_title.bind("<B1-Motion>", self._titlebar_drag)
-        self._titlebar_title.bind("<Double-Button-1>", lambda _e: self._titlebar_toggle_maximize())
+    def _titlebar_hit(self,x,y):
+        kill_items = getattr(self, "_kill_ro_utils_items", None)
+        if kill_items:
+            for item in kill_items:
+                box = self._titlebar_canvas.bbox(item)
+                if box and box[0] - 6 <= x <= box[2] + 6 and box[1] - 6 <= y <= box[3] + 6:
+                    return "kill_ro_utils", self._kill_ro_utils
+        for name,(item,command,_color) in self._titlebar_buttons.items():
+            coords=self._titlebar_canvas.coords(item)
+            if coords and coords[0]<=x<=coords[2] and coords[1]<=y<=coords[3]:
+                return name,command
+        return None,None
 
-    def _titlebar_press(self, event):
-        self._drag_x = event.x_root - self.winfo_x()
-        self._drag_y = event.y_root - self.winfo_y()
+    def _titlebar_press(self,event):
+        name,_=self._titlebar_hit(event.x,event.y)
+        if name:
+            self._titlebar_drag_data=("button",name)
+            return "break"
+        if getattr(self,"_custom_maximized",False):
+            return "break"
+        self._titlebar_drag_data=("drag",event.x_root,event.y_root,self.winfo_x(),self.winfo_y())
+        return "break"
 
-    def _titlebar_drag(self, event):
-        if getattr(self, "_window_maximized", False):
-            return
-        x = event.x_root - getattr(self, "_drag_x", 0)
-        y = event.y_root - getattr(self, "_drag_y", 0)
-        self.geometry(f"+{x}+{y}")
+    def _titlebar_drag(self,event):
+        data=self._titlebar_drag_data
+        if not data or data[0]!="drag": return "break"
+        _,sx,sy,ox,oy=data
+        self._titlebar_pending_xy = (int(ox + event.x_root - sx), int(oy + event.y_root - sy))
+        if self._titlebar_drag_job is None:
+            def apply_drag():
+                self._titlebar_drag_job = None
+                xy = getattr(self, "_titlebar_pending_xy", None)
+                if not xy or xy == self._titlebar_last_xy:
+                    return
+                self._titlebar_last_xy = xy
+                try:
+                    if sys.platform == "win32":
+                        hwnd = _win32_root_hwnd(self)
+                        if hwnd:
+                            ctypes.windll.user32.SetWindowPos(hwnd, 0, xy[0], xy[1], 0, 0,
+                                0x0001 | 0x0004 | 0x0010)                              
+                            return
+                    self.geometry(f"+{xy[0]}+{xy[1]}")
+                except Exception:
+                    pass
+                                                                            
+                                                      
+            self._titlebar_drag_job = self.after(16, apply_drag)
+        return "break"
 
-    def _titlebar_close(self):
-        self._on_close()
+    def _titlebar_release(self,event):
+        data=self._titlebar_drag_data
+        self._titlebar_drag_data=None
+        if self._titlebar_drag_job is not None:
+            try: self.after_cancel(self._titlebar_drag_job)
+            except Exception: pass
+            self._titlebar_drag_job = None
+        if data and data[0]=="drag":
+            xy = getattr(self, "_titlebar_pending_xy", None)
+            if xy and xy != getattr(self, "_titlebar_last_xy", None):
+                try:
+                    if sys.platform == "win32":
+                        hwnd = _win32_root_hwnd(self)
+                        if hwnd:
+                            ctypes.windll.user32.SetWindowPos(hwnd, 0, int(xy[0]), int(xy[1]), 0, 0, 0x0001|0x0004|0x0010)
+                        else:
+                            self.geometry(f"+{int(xy[0])}+{int(xy[1])}")
+                    else:
+                        self.geometry(f"+{int(xy[0])}+{int(xy[1])}")
+                except Exception: pass
+            return "break"
+        if data and data[0]=="button":
+            name=data[1]
+            if name=="close": self._titlebar_close()
+            elif name=="max": self._titlebar_toggle_maximize()
+            elif name=="min": self._titlebar_minimize()
+        return "break"
+
+    def _titlebar_motion(self,event):
+        name,_=self._titlebar_hit(event.x,event.y)
+        self._titlebar_canvas.configure(cursor="hand2" if name else "")
+        return "break"
+
+    def _titlebar_close(self): self._on_close()
 
     def _titlebar_minimize(self):
-        """Minimize the one real root window; never withdraw it."""
         try:
             self.iconify()
         except Exception:
-            try:
-                self.state("iconic")
-            except Exception:
-                pass
+            try: self.state("iconic")
+            except Exception: pass
 
     def _titlebar_toggle_maximize(self):
         try:
-            if not self._window_maximized:
-                self._restore_geometry = self.geometry()
-                self.state("zoomed")
-                self._window_maximized = True
+            if self.state()=="zoomed" or getattr(self,"_custom_maximized",False):
+                self.state("normal"); self._custom_maximized=False
             else:
-                self.state("normal")
-                self.after_idle(self._restore_windows_taskbar_presence)
-                if self._restore_geometry:
-                    self.geometry(self._restore_geometry)
-                self._window_maximized = False
-        except Exception:
-            try:
-                if self._window_maximized and self._restore_geometry:
-                    self.geometry(self._restore_geometry)
-                    self._window_maximized = False
+                self.state("zoomed"); self._custom_maximized=True
+        except Exception: pass
+
+    def _refresh_tab_nav(self):
+        if not hasattr(self, "_tab_nav_inner") or not hasattr(self, "nb"):
+            return
+        try:
+            active_id = str(self.nb.select()) if self.nb.select() else ""
+            current_tabs = list(self.nb.tabs())
+            buttons = getattr(self, "_tab_nav_buttons", {})
+
+                                                           
+            for tab_id in tuple(buttons):
+                if tab_id not in current_tabs:
+                    try:
+                        buttons[tab_id].destroy()
+                    except Exception:
+                        pass
+                    buttons.pop(tab_id, None)
+
+                                                                             
+                                                                         
+            for tab_id in current_tabs:
+                name = str(self.nb.tab(tab_id, "text"))
+                button = buttons.get(tab_id)
+                if button is None or not button.winfo_exists():
+                    button = ttk.Button(
+                        self._tab_nav_inner,
+                        text=name,
+                        takefocus=False,
+                        style="RoUtils.Nav.TButton",
+                        command=lambda tid=tab_id: self.nb.select(tid),
+                    )
+                    buttons[tab_id] = button
                 else:
-                    self._restore_geometry = self.geometry()
-                    self.geometry(f"{self.winfo_screenwidth()}x{self.winfo_screenheight()}+0+0")
-                    self._window_maximized = True
-            except Exception:
-                pass
+                    button.configure(text=name)
+
+            self._tab_nav_buttons = buttons
+
+                                                                              
+                                                                        
+            for tab_id in current_tabs:
+                button = buttons[tab_id]
+                button.pack_forget()
+                button.pack(side="left", padx=2, pady=0)
+
+            for tab_id, button in buttons.items():
+                selected = tab_id == active_id
+                button.configure(
+                    style=("RoUtils.ActiveNav.TButton" if selected else "RoUtils.Nav.TButton")
+                )
+        except Exception:
+            pass
+
+    def _setup_tab_nav_styles(self):
+        style = ttk.Style(self)
+        self._tab_nav_buttons = {}
+        try:
+            style.configure(
+                "RoUtils.Nav.TButton",
+                padding=(7, 4),
+                font=("Segoe UI Semibold", 9),
+            )
+            style.configure(
+                "RoUtils.ActiveNav.TButton",
+                padding=(7, 4),
+                font=("Segoe UI Semibold", 9),
+                foreground=_CURRENT_PALETTE.get("accent", "#7f8cff"),
+            )
+        except Exception:
+            pass
 
     def _install_global_scroll_support(self):
 
@@ -9355,23 +9776,9 @@ class App(tk.Tk):
                                 target = child.canvas
                                 break
                 if target is None:
-                    def find_scroll_canvas(parent):
-                        try:
-                            for child in parent.winfo_children():
-                                if isinstance(child, tk.Canvas):
-                                    cx, cy = child.winfo_rootx(), child.winfo_rooty()
-                                    cw, ch = child.winfo_width(), child.winfo_height()
-                                    if (cx <= x <= cx + cw and cy <= y <= cy + ch
-                                            and child.cget("yscrollcommand")):
-                                        return child
-                                found = find_scroll_canvas(child)
-                                if found is not None:
-                                    return found
-                        except Exception:
-                            pass
-                        return None
-                    target = find_scroll_canvas(self)
-                if target is None:
+                                                                              
+                                                                                  
+                                                       
                     return
                 if getattr(event, 'delta', 0):
                     steps = int(-event.delta / 120)
@@ -9489,22 +9896,25 @@ class App(tk.Tk):
         attach_middle_tag(self)
 
     def _apply_titlebar_theme(self):
-        if not hasattr(self, "_titlebar"):
-            return
-        p = _CURRENT_PALETTE
+                                                                             
+                                                                         
         try:
-            self._titlebar.configure(bg=p["bg_dark"])
-            self._titlebar_title.configure(bg=p["bg_dark"], fg=p["fg"])
-            self._titlebar_controls.configure(bg=p["bg_dark"])
-            for dot in (self._close_dot, self._minimize_dot, self._resize_dot):
-                dot.configure(bg=p["bg_dark"])
+            _apply_native_titlebar_theme(self)
         except Exception:
             pass
+        try:
+            style = ttk.Style(self)
+            style.configure(
+                "RoUtils.ActiveNav.TButton",
+                foreground=_CURRENT_PALETTE.get("accent", "#7f8cff"),
+            )
+        except Exception:
+            pass
+        self._refresh_tab_nav()
 
     def _build_themes_tab(self):
-        tab_outer = _ScrollableTab(self.nb, padding=0)
-        tab = tab_outer.inner
-        self.nb.add(tab_outer, text="Themes")
+        tab = ttk.Frame(self.nb, padding=12)
+        self.nb.add(tab, text="Themes")
         ttk.Label(tab, text="Themes", font=("Segoe UI Semibold", 15)).pack(anchor="w")
         ttk.Label(tab, text="Choose a complete UI palette or create your own.", foreground="#9aa0a6").pack(anchor="w", pady=(0,10))
         outer=ttk.Frame(tab); outer.pack(fill="both",expand=True)
@@ -9546,6 +9956,7 @@ class App(tk.Tk):
             apply_visual_polish(self, theme=UI_THEME, palette=palette)
         except Exception:
             pass
+        self._apply_titlebar_theme()
         darken_menus(self._collect_menus())
         for w in (self._ctx, self._colmenu, getattr(self.replacer, "ctx_menu", None)):
             if w is not None:
@@ -10050,13 +10461,13 @@ class App(tk.Tk):
 
     def _build_cconfigs_tab(self):
         tab = ttk.Frame(self.nb, padding=0)
-        self.nb.add(tab, text="CConfigs")
+        self.nb.add(tab, text="Configs")
         tab.columnconfigure(0, weight=1)
         tab.rowconfigure(2, weight=1)
 
         head = ttk.Frame(tab)
         head.grid(row=0, column=0, sticky="ew", pady=(0, 8))
-        ttk.Label(head, text="CConfigs", font=("Segoe UI Semibold", 15)).pack(side="left")
+        ttk.Label(head, text="Configs", font=("Segoe UI Semibold", 15)).pack(side="left")
         self.cc_cache_count_label = ttk.Label(
             head,
             text=f"Current applied caches: {len(self.cc_applied_caches)}",
@@ -10646,12 +11057,13 @@ class App(tk.Tk):
 
 
     def _reorder_tabs(self):
-        order=["Home","Cache","FFlags","Modifications","CConfigs","Subplace Joiner","Server Viewer","History","Client","Themes","Console","Settings"]
+        order=["Home","Cache","FFlags","Configs","Modifications","Subplace Joiner","Server Viewer","History","Client","Themes","Plugins","Console","Settings"]
         for i,name in enumerate(order):
             for tab_id in self.nb.tabs():
                 if self.nb.tab(tab_id,"text")==name:
                     self.nb.insert(i,tab_id)
                     break
+        self._refresh_tab_nav()
 
     def _fflag_json_editor(self):
         dlg=tk.Toplevel(self); dlg.title("JSON Editor"); dlg.geometry("620x460"); theme_toplevel(dlg)
@@ -11206,18 +11618,8 @@ class App(tk.Tk):
 
         fps_hotkey_frame = ttk.Frame(fps_box)
         fps_hotkey_frame.pack(fill="x", pady=(8, 0))
-        self._fps_hotkey_buttons = {}
-        for index in range(5):
-            button = ttk.Button(
-                fps_hotkey_frame,
-                text="Empty FPS Hotkey",
-                command=lambda slot=index: self._fps_slot_editor(slot)
-            )
-            button.grid(row=index // 3, column=index % 3, sticky="ew", padx=(0 if index % 3 == 0 else 4, 0), pady=(0 if index < 3 else 4, 0))
-            self._fps_hotkey_buttons[index] = button
-
-        for column in range(3):
-            fps_hotkey_frame.columnconfigure(column, weight=1)
+        self._fps_hotkey_frame = fps_hotkey_frame
+        self._build_fps_hotkey_buttons()
 
         fps_hotkey_actions = ttk.Frame(fps_box)
         fps_hotkey_actions.pack(fill="x", pady=(6, 0))
@@ -11815,9 +12217,6 @@ class App(tk.Tk):
             button = ttk.Button(bar, text=text, command=cmd)
             button.pack(side="left", padx=(0, 5))
             self._fflag_toolbar.append(button)
-        self._fflag_apply_selected_btn = ttk.Button(bar, text="Apply Selected Json", command=self._apply_selected_json)
-        self._fflag_apply_selected_btn.pack(side="right")
-        self._fflag_toolbar.append(self._fflag_apply_selected_btn)
         bar.bind("<Configure>", self._responsive_fflag_toolbar, add="+")
         self._fflag_toolbar_frame = bar
 
@@ -11837,18 +12236,23 @@ class App(tk.Tk):
         ent.pack(side="left", fill="x", expand=True, padx=6)
         self.fflag_search.trace_add("write", lambda *_: self._refresh_fflag_list())
 
-        cols = ("name", "type", "value")
+        cols = ("name", "type", "value", "remove")
         self.fflag_tree = ttk.Treeview(left, columns=cols, show="headings", selectmode="browse")
         self.fflag_tree.heading("name", text="NAME")
         self.fflag_tree.heading("type", text="TYPE")
         self.fflag_tree.heading("value", text="VALUE")
-        self.fflag_tree.column("name", width=460, anchor="w")
-        self.fflag_tree.column("type", width=90, anchor="center")
-        self.fflag_tree.column("value", width=220, anchor="w")
+        self.fflag_tree.heading("remove", text="")
+        self.fflag_tree.column("name", width=430, anchor="w")
+        self.fflag_tree.column("type", width=85, anchor="center", stretch=False)
+        self.fflag_tree.column("value", width=200, anchor="w")
+        self.fflag_tree.column("remove", width=28, minwidth=28, stretch=False, anchor="center")
         self.fflag_tree.grid(row=1, column=0, sticky="nsew")
         self.fflag_tree.bind("<Double-1>", self._fflag_inline_edit)
+        self.fflag_tree.bind("<Button-1>", self._fflag_tree_click_remove, add="+")
 
-        ttk.Label(right, text="Saved JSONs", font=("Segoe UI Semibold", 10)).pack(anchor="w", padx=8, pady=(4, 6))
+        self._fflag_apply_selected_btn = ttk.Button(right, text="Apply Selected Json", command=self._apply_selected_json)
+        self._fflag_apply_selected_btn.pack(fill="x", padx=8, pady=(4, 6))
+        ttk.Label(right, text="Saved JSONs", font=("Segoe UI Semibold", 10)).pack(anchor="w", padx=8, pady=(0, 6))
         self.json_tree = tk.Listbox(right, bg=_CURRENT_PALETTE["bg_medium"], fg=_CURRENT_PALETTE["fg"], relief="flat", bd=0, highlightthickness=0)
         self.json_tree.pack(fill="both", expand=True, padx=8, pady=(0, 8))
         self.json_tree.bind("<Double-1>", lambda _e: self._apply_selected_json())
@@ -11871,10 +12275,12 @@ class App(tk.Tk):
             return
         try:
             narrow = bar.winfo_width() > 0 and bar.winfo_width() < 1050
-            for button in buttons:
-                button.pack_forget()
+            if narrow == getattr(self, "_fflag_toolbar_narrow", None):
+                return
+            self._fflag_toolbar_narrow = narrow
             if narrow:
                 for index, button in enumerate(buttons):
+                    button.pack_forget()
                     button.grid(row=index // 4, column=index % 4, sticky="ew", padx=(0, 5), pady=(0, 3))
                 for col in range(4):
                     bar.columnconfigure(col, weight=1)
@@ -11892,7 +12298,23 @@ class App(tk.Tk):
         for i, flag in enumerate(self.fflag_flags):
             if filt and filt not in flag.get("name", "").lower():
                 continue
-            self.fflag_tree.insert("", "end", iid=str(i), values=(flag.get("name", ""), flag.get("type", ""), flag.get("value", "")))
+            self.fflag_tree.insert("", "end", iid=str(i), values=(flag.get("name", ""), flag.get("type", ""), flag.get("value", ""), "×"))
+
+    def _fflag_tree_click_remove(self, event):
+        try:
+            row = self.fflag_tree.identify_row(event.y)
+            col = self.fflag_tree.identify_column(event.x)
+            if row and col == "#4":
+                idx = int(row)
+                if 0 <= idx < len(self.fflag_flags):
+                    self.fflag_flags.pop(idx)
+                    self._save_fflag_flags()
+                    self._refresh_fflag_list()
+                    self._console_log("Removed FFlag")
+                return "break"
+        except Exception:
+            pass
+        return None
 
     def _fflag_add_dialog(self):
         dlg = tk.Toplevel(self)
@@ -11973,7 +12395,7 @@ class App(tk.Tk):
         body = ttk.Frame(dlg); body.pack(fill="both", expand=True, padx=12, pady=4)
         canvas = tk.Canvas(body, bg=_CURRENT_PALETTE["bg_medium"], highlightthickness=0, bd=0)
         scroll = ttk.Scrollbar(body, orient="vertical", command=canvas.yview)
-        inner = ttk.Frame(canvas)
+        inner = ttk.Frame(canvas, style="RoUtils.Settings.TFrame")
         canvas.configure(yscrollcommand=scroll.set)
         canvas.pack(side="left", fill="both", expand=True); scroll.pack(side="right", fill="y")
         window = canvas.create_window((0, 0), window=inner, anchor="nw")
@@ -12297,14 +12719,188 @@ class App(tk.Tk):
     def _fflag_auto_apply_tick(self):
         return
 
+
+    def _plugin_files(self):
+        try:
+            return sorted(os.path.join(self.plugins_dir, name) for name in os.listdir(self.plugins_dir) if name.lower().endswith(".py"))
+        except Exception:
+            return []
+
+
+    def _plugin_load_python(self, path):
+        module_name = "routils_plugin_" + re.sub(r"[^a-zA-Z0-9_]", "_", os.path.splitext(os.path.basename(path))[0]) + "_" + uuid.uuid4().hex[:8]
+        spec = importlib.util.spec_from_file_location(module_name, path)
+        if spec is None or spec.loader is None:
+            raise ValueError("Could not create a Python plugin loader.")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        if not callable(getattr(module, "register", None)):
+            raise ValueError("Python plugin must define register(app).")
+        return module
+
+    def _plugin_forget_tabs(self, name):
+        """Remove every tab currently owned by a plugin, even if its module object is gone."""
+        tabs = list(self._plugin_tabs.pop(name, []) or [])
+        module = self._plugin_modules.get(name)
+        if module is not None:
+            tabs.extend(list(getattr(module, "ROUTILS_PLUGIN_TABS", []) or []))
+        seen = set()
+        for tab in tabs:
+            key = str(tab)
+            if key in seen:
+                continue
+            seen.add(key)
+            try:
+                if tab in self.nb.tabs():
+                    self.nb.forget(tab)
+            except Exception:
+                try:
+                    self.nb.forget(tab)
+                except Exception:
+                    pass
+
+    def _plugin_enable(self, path, enabled=True):
+        name = os.path.basename(path)
+        enabled = bool(enabled)
+
+        if not enabled:
+            cleanup = self._plugin_cleanup.pop(name, None)
+            if callable(cleanup):
+                try:
+                    cleanup()
+                except Exception:
+                    pass
+
+            self._plugin_forget_tabs(name)
+            self._plugin_modules.pop(name, None)
+            self._plugin_enabled[name] = False
+            self._save_settings()
+            self._reorder_tabs()
+            return
+
+        if self._plugin_enabled.get(name, False) and name in self._plugin_modules:
+            return
+
+        try:
+            self._plugin_forget_tabs(name)
+            old_module = self._plugin_modules.pop(name, None)
+            self._plugin_cleanup.pop(name, None)
+
+            before_tabs = set(self.nb.tabs())
+            module = self._plugin_load_python(path)
+            result = module.register(self)
+
+            plugin_tabs = []
+            if isinstance(result, dict) and isinstance(result.get("tabs"), (list, tuple)):
+                plugin_tabs.extend(result["tabs"])
+            plugin_tabs.extend(tab for tab in self.nb.tabs() if tab not in before_tabs)
+
+            unique_tabs = []
+            seen = set()
+            for tab in plugin_tabs:
+                key = str(tab)
+                if key not in seen:
+                    seen.add(key)
+                    unique_tabs.append(tab)
+
+            module.ROUTILS_PLUGIN_TABS = unique_tabs
+            self._plugin_tabs[name] = unique_tabs
+            self._plugin_modules[name] = module
+
+            cleanup = result.get("cleanup") if isinstance(result, dict) else None
+            if callable(cleanup):
+                self._plugin_cleanup[name] = cleanup
+
+            self._plugin_enabled[name] = True
+            self._save_settings()
+            self._reorder_tabs()
+        except Exception as exc:
+            self._plugin_forget_tabs(name)
+            self._plugin_modules.pop(name, None)
+            self._plugin_cleanup.pop(name, None)
+            self._plugin_enabled[name] = False
+            self._save_settings()
+            messagebox.showerror("Plugin", f"Could not enable {name}:\n{exc}", parent=self)
+
+    def _plugin_open_guide(self,path):
+        try:
+            with open(path,"r",encoding="utf-8") as f: text=f.read()
+            win=tk.Toplevel(self); win.title(os.path.basename(path)); win.geometry("850x650"); win.transient(self)
+            txt=tk.Text(win,wrap="word",font=("Consolas",10),bg=_CURRENT_PALETTE["bg_medium"],fg=_CURRENT_PALETTE["fg"],insertbackground=_CURRENT_PALETTE["fg"],bd=0,padx=14,pady=14)
+            txt.pack(fill="both",expand=True); txt.insert("1.0",text); txt.configure(state="disabled")
+        except Exception as exc: messagebox.showerror("Plugin",f"Could not open guide:\n{exc}",parent=self)
+
+    def _build_plugins_tab(self):
+        tab=ttk.Frame(self.nb,padding=14); self.nb.add(tab,text="Plugins")
+        header=ttk.Frame(tab); header.pack(fill="x",pady=(0,10))
+        ttk.Label(header,text="Plugins",font=("Segoe UI Semibold",16)).pack(side="left")
+        ttk.Button(header,text="Import Python",command=self._import_plugin_file).pack(side="right")
+        ttk.Label(tab,text="(Only use trusted plugins cause Plugins has adminastor permissions.)",foreground="#9aa0a6",wraplength=950).pack(anchor="w",pady=(0,10))
+        body=ttk.Frame(tab); body.pack(fill="both",expand=True)
+        files=self._plugin_files()
+        if not files:
+            ttk.Label(body,text="No plugins installed yet.\nImport a .py plugin.",foreground="#9aa0a6",justify="center").pack(expand=True); return
+        for path in files:
+            name=os.path.basename(path); card=ttk.LabelFrame(body,text=os.path.splitext(name)[0]); card.pack(fill="x",pady=5)
+            if path.lower().endswith(".txt"):
+                ttk.Label(card,text="Documentation / development guide",foreground="#9aa0a6").pack(anchor="w",padx=10,pady=7)
+                ttk.Button(card,text="Open Guide",command=lambda p=path:self._plugin_open_guide(p)).pack(anchor="w",padx=8,pady=(0,8))
+            else:
+                module=self._plugin_modules.get(name)
+                desc=str(getattr(module,"PLUGIN_DESCRIPTION","Python plugin") if module else "Python plugin")
+                ttk.Label(card,text=desc,foreground="#9aa0a6",wraplength=950).pack(anchor="w",padx=10,pady=7)
+                row=ttk.Frame(card); row.pack(fill="x",padx=8,pady=(0,8))
+                enabled=tk.BooleanVar(value=bool(self._plugin_enabled.get(name,False)))
+                ttk.Checkbutton(row,text="Enable",variable=enabled,command=lambda p=path,v=enabled:self._plugin_enable(p,v.get())).pack(side="left")
+                if self._plugin_enabled.get(name,False) and name not in self._plugin_modules:
+                    self._plugin_enable(path,True)
+
+    def _import_plugin_file(self):
+        path=filedialog.askopenfilename(parent=self,title="Import RoUtils Python Plugin",filetypes=[("Python plugin","*.py")])
+        if not path:return
+        try:
+            if path.lower().endswith(".py"):
+                with open(path,"r",encoding="utf-8") as f: compile(f.read(),path,"exec")
+            target=os.path.join(self.plugins_dir,os.path.basename(path)); shutil.copy2(path,target)
+            self._reload_lazy_tab("Plugins"); messagebox.showinfo("Plugin",f"Imported {os.path.basename(path)}.\nEnable it from the Plugins tab to load Python code.",parent=self)
+        except Exception as exc: messagebox.showerror("Plugin",f"Could not import plugin:\n{exc}",parent=self)
+
+    def _reload_lazy_tab(self,tab_name):
+        for tab_id in list(self.nb.tabs()):
+            if str(self.nb.tab(tab_id,"text"))==tab_name:
+                try:self.nb.forget(tab_id)
+                except Exception:pass
+                break
+        self._lazy_tabs={k:v for k,v in self._lazy_tabs.items() if v[0]!=tab_name}; self._lazy_tab_ids.pop(tab_name,None); self._recreate_special_tab(tab_name)
+
+    def _recreate_special_tab(self,tab_name):
+        builder={"Plugins":self._build_plugins_tab}.get(tab_name)
+        if builder:
+            builder(); self._reorder_tabs(); self._refresh_tab_nav()
+
+                                                           
+
     def _build_settings_tab(self):
-        tab_root = ttk.Frame(self.nb, padding=0)
+                                                                              
+                                                                             
+                                             
+        try:
+            st = ttk.Style(self)
+            st.configure("RoUtils.Settings.TFrame", background=_CURRENT_PALETTE["bg_dark"])
+            st.configure("RoUtils.Settings.TLabel", background=_CURRENT_PALETTE["bg_dark"], foreground=_CURRENT_PALETTE["fg"])
+            st.configure("RoUtils.Settings.TLabelframe", background=_CURRENT_PALETTE["bg_dark"], foreground=_CURRENT_PALETTE["fg"], bordercolor=_CURRENT_PALETTE["border"])
+            st.configure("RoUtils.Settings.TLabelframe.Label", background=_CURRENT_PALETTE["bg_dark"], foreground=_CURRENT_PALETTE["fg"])
+            st.configure("RoUtils.Settings.TCheckbutton", background=_CURRENT_PALETTE["bg_dark"], foreground=_CURRENT_PALETTE["fg"])
+            st.map("RoUtils.Settings.TCheckbutton", background=[("active", _CURRENT_PALETTE["bg_dark"])])
+        except Exception:
+            pass
+        tab_root = ttk.Frame(self.nb, padding=0, style="RoUtils.Settings.TFrame")
         self.nb.add(tab_root, text="Settings")
-        shell = ttk.Frame(tab_root)
+        shell = ttk.Frame(tab_root, style="RoUtils.Settings.TFrame")
         shell.pack(fill="both", expand=True)
         canvas = tk.Canvas(shell, bg=_CURRENT_PALETTE["bg_dark"], highlightthickness=0, bd=0)
         scrollbar = ttk.Scrollbar(shell, orient="vertical", command=canvas.yview)
-        inner = ttk.Frame(canvas)
+        inner = ttk.Frame(canvas, style="RoUtils.Settings.TFrame")
         window_id = canvas.create_window((0, 0), window=inner, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
         canvas.pack(side="left", fill="both", expand=True)
@@ -12333,32 +12929,87 @@ class App(tk.Tk):
         def middle_release(_event):
             middle["y"] = None
             return "break"
+        middle_tag = f"RoUtilsSettingsMiddle_{id(canvas)}"
+        canvas.bind_class(middle_tag, "<Button-2>", middle_press)
+        canvas.bind_class(middle_tag, "<B2-Motion>", middle_drag)
+        canvas.bind_class(middle_tag, "<ButtonRelease-2>", middle_release)
+        def attach_middle_scroll(parent):
+            for child in parent.winfo_children():
+                try:
+                    tags = list(child.bindtags())
+                    if middle_tag not in tags:
+                        child.bindtags((middle_tag, *tags))
+                except Exception:
+                    pass
+                attach_middle_scroll(child)
+        attach_middle_scroll(inner)
         for widget in (canvas, inner):
-            widget.bind("<Button-2>", middle_press)
-            widget.bind("<B2-Motion>", middle_drag)
-            widget.bind("<ButtonRelease-2>", middle_release)
+            widget.bind("<Button-2>", middle_press, add="+")
+            widget.bind("<B2-Motion>", middle_drag, add="+")
+            widget.bind("<ButtonRelease-2>", middle_release, add="+")
         tab = inner
-        ttk.Label(tab, text="Settings & Options", font=("Segoe UI Semibold", 12)).pack(anchor="w")
-        ttk.Label(tab, text="General options.", foreground="#9aa0a6").pack(anchor="w", pady=(0, 10))
+        ttk.Label(tab, style="RoUtils.Settings.TLabel", text="Settings & Options", font=("Segoe UI Semibold", 12)).pack(anchor="w")
+        ttk.Label(tab, style="RoUtils.Settings.TLabel", text="General options.", foreground="#9aa0a6").pack(anchor="w", pady=(0, 10))
 
-        box = ttk.LabelFrame(tab, text="Cache Viewer")
+        dpi_box = ttk.LabelFrame(tab, style="RoUtils.Settings.TLabelframe", text="Interface Scale")
+        dpi_box.pack(fill="x", pady=6)
+        try:
+            _saved_dpi = int(self.settings.get("dpi_percent", 100) or 100)
+        except Exception:
+            _saved_dpi = 100
+        _saved_dpi = max(50, min(200, _saved_dpi))
+        self.dpi_percent = tk.IntVar(value=_saved_dpi)
+        dpi_row = ttk.Frame(dpi_box); dpi_row.pack(fill="x", padx=8, pady=8)
+        ttk.Label(dpi_row, style="RoUtils.Settings.TLabel", text="DPI Scale").pack(side="left")
+        dpi_combo = ttk.Combobox(
+            dpi_row, textvariable=self.dpi_percent, state="readonly", width=8,
+            values=(50,60,70,75,80,90,100,110,125,150,175,200)
+        )
+        dpi_combo.pack(side="left", padx=(12,8))
+        ttk.Label(
+            dpi_row,
+            style="RoUtils.Settings.TLabel",
+            text="Window size stays the same; only the interface scales.",
+            foreground="#9aa0a6"
+        ).pack(side="left")
+        ttk.Label(
+            dpi_box,
+            style="RoUtils.Settings.TLabel",
+            text="You Should Restart it to Apply DPI Scale",
+            foreground="#ffb84d"
+        ).pack(anchor="w", padx=8, pady=(0,8))
+        dpi_combo.bind("<<ComboboxSelected>>", lambda _e: self._save_dpi_setting_only())
+
+        box = ttk.LabelFrame(tab, style="RoUtils.Settings.TLabelframe", text="Cache Viewer")
         box.pack(fill="x", pady=6)
-        ttk.Checkbutton(box, text="Start watching for new assets on launch", variable=self.autostart_watch, command=self._save_settings).pack(anchor="w", padx=8, pady=2)
-        ttk.Checkbutton(box, text="Auto-scroll to newest row", variable=self.autoscroll, command=self._save_settings).pack(anchor="w", padx=8, pady=2)
-        ttk.Checkbutton(box, text="Hide ticket assets", variable=self.hide_tickets, command=self._apply_filter).pack(anchor="w", padx=8, pady=2)
+        ttk.Checkbutton(box, style="RoUtils.Settings.TCheckbutton", text="Start watching for new assets on launch", variable=self.autostart_watch, command=self._save_settings).pack(anchor="w", padx=8, pady=2)
+        ttk.Checkbutton(box, style="RoUtils.Settings.TCheckbutton", text="Auto-scroll to newest row", variable=self.autoscroll, command=self._save_settings).pack(anchor="w", padx=8, pady=2)
+        ttk.Checkbutton(box, style="RoUtils.Settings.TCheckbutton", text="Hide ticket assets", variable=self.hide_tickets, command=self._apply_filter).pack(anchor="w", padx=8, pady=2)
         ttk.Label(box, text="Show lines (wireframe) for the Preview", foreground="#c8c8c8").pack(anchor="w", padx=8, pady=(6, 0))
-        ttk.Checkbutton(box, text="Wireframe lines on", variable=self.show_lines, command=self._apply_show_lines).pack(anchor="w", padx=8, pady=2)
+        ttk.Checkbutton(box, style="RoUtils.Settings.TCheckbutton", text="Wireframe lines on", variable=self.show_lines, command=self._apply_show_lines).pack(anchor="w", padx=8, pady=2)
 
-        startup = ttk.LabelFrame(tab, text="Startup")
+        self.mesh_preview_vertices = tk.BooleanVar(
+            value=bool(self.settings.get("preview_optimize_vertices", True))
+        )
+        ttk.Checkbutton(
+            box,
+            style="RoUtils.Settings.TCheckbutton",
+            text="Optimize Mesh Preview Vertices (>500)",
+            variable=self.mesh_preview_vertices,
+            command=self._apply_mesh_preview_vertices_setting,
+        ).pack(anchor="w", padx=8, pady=2)
+
+        startup = ttk.LabelFrame(tab, style="RoUtils.Settings.TLabelframe", text="Startup")
         startup.pack(fill="x", pady=6)
-        ttk.Checkbutton(startup, text="Launch on Tray", variable=self.launch_on_tray, command=self._startup_setting_changed).pack(anchor="w", padx=8, pady=2)
-        ttk.Checkbutton(startup, text="Launch on Boot", variable=self.launch_on_startup, command=self._startup_setting_changed).pack(anchor="w", padx=8, pady=2)
-        ttk.Checkbutton(startup, text="Hide to Tray when Close (F7 to Hide/Show)", variable=self.hide_to_tray_on_close, command=self._save_settings).pack(anchor="w", padx=8, pady=2)
+        ttk.Checkbutton(startup, style="RoUtils.Settings.TCheckbutton", text="Launch on Tray", variable=self.launch_on_tray, command=self._startup_setting_changed).pack(anchor="w", padx=8, pady=2)
+        ttk.Checkbutton(startup, style="RoUtils.Settings.TCheckbutton", text="Launch on Boot", variable=self.launch_on_startup, command=self._startup_setting_changed).pack(anchor="w", padx=8, pady=2)
+        ttk.Checkbutton(startup, style="RoUtils.Settings.TCheckbutton", text="Hide to Tray when Close (F7 to Hide/Show)", variable=self.hide_to_tray_on_close, command=self._startup_setting_changed).pack(anchor="w", padx=8, pady=2)
 
-        streamer = ttk.LabelFrame(tab, text="Streamer Mode")
+        streamer = ttk.LabelFrame(tab, style="RoUtils.Settings.TLabelframe", text="Streamer Mode")
         streamer.pack(fill="x", pady=6)
         ttk.Checkbutton(
             streamer,
+            style="RoUtils.Settings.TCheckbutton",
             text="Hide RoUtils from screen sharing and recording",
             variable=self.streamer_mode,
             command=self._apply_streamer_mode,
@@ -12369,10 +13020,11 @@ class App(tk.Tk):
             foreground="#9aa0a6",
         ).pack(anchor="w", padx=8, pady=(0, 6))
 
-        updates = ttk.LabelFrame(tab, text="Updates")
+        updates = ttk.LabelFrame(tab, style="RoUtils.Settings.TLabelframe", text="Updates")
         updates.pack(fill="x", pady=6)
         ttk.Checkbutton(
             updates,
+            style="RoUtils.Settings.TCheckbutton",
             text="Auto Update",
             variable=self.auto_update,
             command=self._save_settings,
@@ -12383,7 +13035,7 @@ class App(tk.Tk):
             foreground="#9aa0a6",
         ).pack(anchor="w", padx=8, pady=(0, 7))
 
-        gemini = ttk.LabelFrame(tab, text="Gemini AI")
+        gemini = ttk.LabelFrame(tab, style="RoUtils.Settings.TLabelframe", text="Gemini AI")
         gemini.pack(fill="x", pady=6)
         ttk.Label(gemini, text="Gemini API Key").grid(row=0, column=0, sticky="w", padx=8, pady=(8, 4))
         key_entry = ttk.Entry(gemini, textvariable=self.gemini_api_key, show="•")
@@ -12392,14 +13044,22 @@ class App(tk.Tk):
         ttk.Button(gemini, text="Tutorial", command=lambda: _open_webview2_process("https://raw.githubusercontent.com/offp001/routils/refs/heads/main/src/API%20Key%20Tutorial.txt", "Gemini API Key Tutorial")).grid(row=2, column=0, sticky="w", padx=8, pady=(0, 8))
         ttk.Button(gemini, text="Add Key", command=self._save_gemini_api_key).grid(row=2, column=1, sticky="e", padx=8, pady=(0, 8))
 
-        db = ttk.LabelFrame(tab, text="Database")
+        db = ttk.LabelFrame(tab, style="RoUtils.Settings.TLabelframe", text="Database")
         db.pack(fill="x", pady=6)
         ttk.Button(db, text="Choose DB File…", command=self._choose_db).pack(anchor="w", padx=8, pady=4)
         ttk.Button(db, text="Choose Shard Root…", command=self._choose_shard_root).pack(anchor="w", padx=8, pady=4)
-        settings_box = ttk.LabelFrame(tab, text="Settings Backup")
+        settings_box = ttk.LabelFrame(tab, style="RoUtils.Settings.TLabelframe", text="Settings Backup")
         settings_box.pack(fill="x", pady=6)
         ttk.Button(settings_box, text="Export Settings…", command=self._export_settings).pack(side="left", padx=8, pady=8)
         ttk.Button(settings_box, text="Import Settings…", command=self._import_settings).pack(side="left", padx=(0, 8), pady=8)
+
+    def _save_dpi_setting_only(self):
+        try:
+            percent = max(50, min(200, int(self.dpi_percent.get())))
+            self.settings["dpi_percent"] = percent
+            self._save_settings()
+        except Exception as exc:
+            self._console_log(f"DPI setting error: {exc}")
 
     def _export_settings(self):
         self._save_settings()
@@ -12808,7 +13468,7 @@ class App(tk.Tk):
         self._console_log(f"Deleted config {matches[0].get('name', '')}")
 
     def _console_apply_config(self, query):
-        self._console_select_tab("CConfigs")
+        self._console_select_tab("Configs")
         def apply():
             candidates = self._cc_scan_packages()
             q = str(query).lower()
@@ -13161,10 +13821,10 @@ class App(tk.Tk):
         top.pack(fill="x")
         self._cache_top = top
 
-        ttk.Checkbutton(top, text="Auto-scroll", variable=self.autoscroll).grid(row=0, column=0, sticky="w")
-        ttk.Checkbutton(top, text="Hide tickets", variable=self.hide_tickets, command=self._apply_filter).grid(row=0, column=1, sticky="w", padx=(4, 0))
-        ttk.Checkbutton(top, text="Stay on top", variable=self.stay_on_top, command=self._apply_stay_on_top).grid(row=0, column=2, sticky="w", padx=(4, 0))
-        ttk.Checkbutton(top, text="Show lines", variable=self.show_lines, command=self._apply_show_lines).grid(row=0, column=3, sticky="w", padx=(4, 0))
+        ttk.Checkbutton(top, style="TCheckbutton", text="Auto-scroll", variable=self.autoscroll).grid(row=0, column=0, sticky="w")
+        ttk.Checkbutton(top, style="TCheckbutton", text="Hide tickets", variable=self.hide_tickets, command=self._apply_filter).grid(row=0, column=1, sticky="w", padx=(4, 0))
+        ttk.Checkbutton(top, style="TCheckbutton", text="Stay on top", variable=self.stay_on_top, command=self._apply_stay_on_top).grid(row=0, column=2, sticky="w", padx=(4, 0))
+        ttk.Checkbutton(top, style="TCheckbutton", text="Show lines", variable=self.show_lines, command=self._apply_show_lines).grid(row=0, column=3, sticky="w", padx=(4, 0))
 
         self.btn_clear = ttk.Button(top, text="Clear rbx-storage", command=self._clear_storage_now)
         self.btn_clear.grid(row=0, column=5, sticky="e", padx=(0, 6))
@@ -13333,6 +13993,12 @@ class App(tk.Tk):
             return
         narrow = False
         try:
+                                                                             
+                                                                               
+                                                                                 
+            if getattr(self, "_cache_toolbar_layout_applied", False):
+                return
+            self._cache_toolbar_layout_applied = True
             toggles = sorted(
                 [w for w in top.grid_slaves(row=0) if w not in (self.btn_clear, self.btn_delete_type, self.toggle_btn, self.btn_dump)],
                 key=lambda w: int(w.grid_info().get("column", 0)),
@@ -13450,15 +14116,32 @@ class App(tk.Tk):
     def _on_geometry_configure(self, event=None):
         if event is not None and event.widget is not self:
             return
+        try:
+            geom = self.geometry()
+            if geom == getattr(self, "_last_geometry_seen", None):
+                return
+            self._last_geometry_seen = geom
+        except Exception:
+            pass
         if self._geometry_save_job is not None:
             try:
                 self.after_cancel(self._geometry_save_job)
             except Exception:
                 pass
         try:
-            self._geometry_save_job = self.after(650, self._save_settings)
+            self._geometry_save_job = self.after(1200, self._save_settings)
         except Exception:
             self._geometry_save_job = None
+
+    def _apply_mesh_preview_vertices_setting(self):
+        value = bool(self.mesh_preview_vertices.get())
+        self.settings["preview_optimize_vertices"] = value
+        try:
+            if hasattr(self, "viewport_3d"):
+                self.viewport_3d.reduce_polys.set(value)
+        except Exception:
+            pass
+        self._save_settings()
 
     def _save_settings(self):
         data = {
@@ -13483,6 +14166,8 @@ class App(tk.Tk):
             "launch_on_startup": self.launch_on_startup.get() if hasattr(self, "launch_on_startup") else self.settings.get("launch_on_startup", False),
             "hide_to_tray_on_close": self.hide_to_tray_on_close.get() if hasattr(self, "hide_to_tray_on_close") else self.settings.get("hide_to_tray_on_close", False),
             "auto_update": self.auto_update.get() if hasattr(self, "auto_update") else self.settings.get("auto_update", False),
+            "dpi_percent": int(self.dpi_percent.get()) if hasattr(self, "dpi_percent") else int(getattr(self, "_dpi_scale", 1.0) * 100),
+            "plugin_enabled": getattr(self, "_plugin_enabled", self.settings.get("plugin_enabled", {})),
             "roblox_path": self.settings.get("roblox_path",""),
             "roblox_username": self.settings.get("roblox_username",""),
             "roblox_user_id": self.settings.get("roblox_user_id",""),
@@ -14468,7 +15153,6 @@ class App(tk.Tk):
             return
         if not self._img_preview_win or not self._img_preview_win.winfo_exists():
             self._img_preview_win = tk.Toplevel(self)
-            self._img_preview_win.wm_overrideredirect(True)
             theme_toplevel(self._img_preview_win)
             self._img_preview_label = ttk.Label(self._img_preview_win)
             self._img_preview_label.pack()
@@ -15450,6 +16134,7 @@ class App(tk.Tk):
 
     def _startup_setting_changed(self):
         self._save_settings(); self._install_startup_shortcut()
+        self._update_kill_routils_visibility()
 
     def _install_startup_shortcut(self):
         if os.name!="nt": return
