@@ -1,4 +1,4 @@
-# 🛠️ RoUtils (Version 4.1.1)
+# 🛠️ RoUtils (Version 4.2)
 
 <img width="1744" height="913" alt="routils" src="https://github.com/user-attachments/assets/20f380e6-b860-4eba-8ce1-36e3908c52a0" />
 
