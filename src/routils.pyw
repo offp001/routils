@@ -61,7 +61,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 _LOCAL_APPDATA = os.environ.get('LOCALAPPDATA') or os.path.expanduser('~')
 DATA_DIR = os.path.join(_LOCAL_APPDATA, 'RoUtils')
 os.makedirs(DATA_DIR, exist_ok=True)
-APP_VERSION = '4.1.1'
+APP_VERSION = '4.2'
 HISTORY_PATH = os.path.join(DATA_DIR, 'history.json')
 SETTINGS_PATH = os.path.join(DATA_DIR, 'routils_settings.json')
 ERROR_REPORT_DIR = os.path.join(DATA_DIR, 'errors')
@@ -3983,7 +3983,7 @@ class ScanItem:
     name: str = ''
     id_bytes: bytes = field(repr=False, default=b'')
 
-def scan_db_once(db_path: str, shard_root: str, seen: set, max_rows: Optional[int]=None) -> List[ScanItem]:
+def scan_db_once(db_path: str, shard_root: str, seen: set, max_rows: Optional[int]=None, offset: int=0) -> List[ScanItem]:
     out: List[ScanItem] = []
     try:
         conn = connect_ro(db_path)
@@ -3991,7 +3991,7 @@ def scan_db_once(db_path: str, shard_root: str, seen: set, max_rows: Optional[in
         return out
     try:
         cur = conn.cursor()
-        cur.execute('SELECT id, content FROM files')
+        cur.execute('SELECT id, content FROM files LIMIT ? OFFSET ?', (max_rows or -1, max(0, int(offset))))
         cnt = 0
         for row in cur:
             cnt += 1
@@ -4026,48 +4026,6 @@ def scan_db_once(db_path: str, shard_root: str, seen: set, max_rows: Optional[in
             pass
     return out
 
-@dataclass
-class Keyframe:
-    time: float
-    pose_by_part_name: Dict[str, Dict]
-
-def parse_xml_animation(anim_data: bytes) -> List[Keyframe]:
-    try:
-        anim_data = _decompress_document(anim_data)
-        text = anim_data.decode('utf-8-sig', errors='replace')
-        text = re.sub('[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]', '', text)
-        root = ET.fromstring(text)
-    except Exception:
-        return []
-    keys: List[Keyframe] = []
-    for item in root.iter('Item'):
-        if item.attrib.get('class') != 'Keyframe':
-            continue
-        props = item.find('Properties')
-        if props is None:
-            continue
-        t_elem = props.find("float[@name='Time']")
-        t = float(t_elem.text if t_elem is not None and t_elem.text else '0')
-        poses: Dict[str, Dict] = {}
-        for pose_item in item.iter('Item'):
-            if pose_item.attrib.get('class') != 'Pose':
-                continue
-            pprops = pose_item.find('Properties')
-            if pprops is None:
-                continue
-            pname_elem = pprops.find("string[@name='Name']")
-            cf_elem = pprops.find("CoordinateFrame[@name='CFrame']") or pprops.find("CFrame[@name='CFrame']")
-            if pname_elem is None or cf_elem is None:
-                continue
-            pname = pname_elem.text or ''
-            cf_d = {}
-            for comp in cf_elem:
-                cf_d[comp.tag] = comp.text
-            pos = _cf_position(cf_d)
-            poses[pname] = {'pos': pos, 'cf': cf_d}
-        keys.append(Keyframe(t, poses))
-    keys.sort(key=lambda k: k.time)
-    return keys
 
 def _safe_number(value, default=0.0) -> float:
     try:
@@ -4075,279 +4033,8 @@ def _safe_number(value, default=0.0) -> float:
     except (TypeError, ValueError):
         return default
 
-def parse_binary_animation(data: bytes) -> List[Keyframe]:
-    data = _decompress_document(data)
-    instances = {}
-    try:
-        instances = parse_rbxm(data)
-    except Exception:
-        instances = {}
 
-    def _collect_poses(node, out):
-        for child in node.children:
-            if child.class_name in ('Pose', 'NumberPose'):
-                name = child.properties.get('Name')
-                cf = child.properties.get('CFrame')
-                pos = _cf_position(cf)
-                if name:
-                    out[name] = {'pos': pos, 'cf': cf}
-            _collect_poses(child, out)
-    keyframes: List[Keyframe] = []
-    for kf in sorted((i for i in instances.values() if i.class_name == 'Keyframe'), key=lambda i: _safe_number(i.properties.get('Time', 0.0))):
-        poses: Dict[str, Dict] = {}
-        _collect_poses(kf, poses)
-        cf = kf.properties.get('CFrame')
-        if not poses:
-            poses['__frame__'] = {'pos': _cf_position(cf), 'cf': cf}
-        keyframes.append(Keyframe(_safe_number(kf.properties.get('Time', 0.0)), poses))
-    if not keyframes and _RbxmDeserializer is not None:
 
-        def _props(d: dict) -> dict:
-            out = {}
-            for k, v in d.items():
-                nm = k.name if hasattr(k, 'name') else str(k)
-                out[nm] = v.value if hasattr(v, 'value') else v
-            return out
-
-        def _collect(node, out: dict):
-            for child in node.children:
-                if child.class_name in ('Pose', 'NumberPose'):
-                    p = _props(child.properties)
-                    name = p.get('Name')
-                    if name:
-                        out[name] = {'pos': _cf_position(p.get('CFrame')), 'cf': p.get('CFrame')}
-                _collect(child, out)
-        try:
-            doc = _RbxmDeserializer().deserialize(data)
-        except Exception:
-            doc = None
-        if doc is not None:
-            for kf in sorted((i for i in doc.instances.values() if i.class_name == 'Keyframe'), key=lambda i: _safe_number(_props(i.properties).get('Time', 0.0))):
-                p = _props(kf.properties)
-                poses: Dict[str, Dict] = {}
-                _collect(kf, poses)
-                if not poses:
-                    poses['__frame__'] = {'pos': _cf_position(p.get('CFrame')), 'cf': p.get('CFrame')}
-                keyframes.append(Keyframe(_safe_number(p.get('Time', 0.0)), poses))
-            keyframes.sort(key=lambda k: k.time)
-    return keyframes
-
-def parse_animation(data: bytes) -> List[Keyframe]:
-    if not data:
-        return []
-    try:
-        if b'CurveAnimation' in data:
-            keys = parse_curve_animation(data)
-            if keys:
-                return keys
-    except Exception:
-        pass
-    raw = data
-    try:
-        raw = _decompress_document(raw)
-    except Exception:
-        pass
-    stripped = raw.lstrip(b'\xef\xbb\xbf \t\r\n')
-    if stripped.startswith(b'<roblox!'):
-        try:
-            keys = parse_binary_animation(stripped)
-            if keys:
-                return keys
-        except Exception:
-            pass
-        try:
-            keys = parse_xml_animation(_normalize_roblox_document(stripped))
-            if keys:
-                return keys
-        except Exception:
-            pass
-    return parse_xml_animation(stripped)
-
-def parse_curve_animation(anim_data: bytes) -> List[Keyframe]:
-    import base64 as _b64
-    import struct as _struct
-    TICKS = 14400.0
-    bone_curves: Dict[str, dict] = {}
-
-    def _empty_bc():
-        return {'px': [], 'py': [], 'pz': [], 'rx': [], 'ry': [], 'rz': []}
-
-    def _vat(raw_b: bytes):
-        if len(raw_b) < 8:
-            return []
-        _, n = _struct.unpack_from('<II', raw_b)
-        if not n:
-            return []
-        off_t = 8 + n * 14
-        if off_t + 8 + n * 4 > len(raw_b):
-            return []
-        _, sn = _struct.unpack_from('<II', raw_b, off_t)
-        out = []
-        for i in range(min(n, sn)):
-            v = _struct.unpack_from('<f', raw_b, 8 + i * 14 + 2)[0]
-            tk = _struct.unpack_from('<I', raw_b, off_t + 8 + i * 4)[0]
-            out.append((tk / TICKS, v))
-        return out
-
-    def _lerp(tv, t):
-        if not tv:
-            return 0.0
-        if t <= tv[0][0]:
-            return tv[0][1]
-        if t >= tv[-1][0]:
-            return tv[-1][1]
-        for i in range(len(tv) - 1):
-            t0, v0 = tv[i]
-            t1, v1 = tv[i + 1]
-            if t0 <= t <= t1:
-                f = (t - t0) / (t1 - t0) if t1 > t0 else 0.0
-                return v0 + f * (v1 - v0)
-        return tv[-1][1]
-    if anim_data.lstrip().startswith(b'<roblox!'):
-        try:
-            if _RbxmDeserializer is None:
-                return []
-            tree = _RbxmDeserializer().deserialize(_decompress_document(anim_data))
-        except Exception:
-            return []
-
-        def _prop(inst, key):
-            for k, v in inst.properties.items():
-                pk = k.name if hasattr(k, 'name') else str(k)
-                if pk == key:
-                    return v.value if hasattr(v, 'value') else v
-            return None
-
-        def _vat_rbxm(inst):
-            for k, v in inst.properties.items():
-                pk = k.name if hasattr(k, 'name') else str(k)
-                if pk == 'ValuesAndTimes':
-                    raw = v.value if hasattr(v, 'value') else v
-                    if raw:
-                        rb = raw.encode('latin-1') if isinstance(raw, str) else bytes(raw)
-                        return _vat(rb)
-            return []
-
-        def _walk_rbxm(inst):
-            nonlocal bone_curves
-            if inst.class_name == 'Folder':
-                name = _prop(inst, 'Name') or ''
-                if name:
-                    bc = _empty_bc()
-                    for child in inst.children:
-                        ccls = child.class_name
-                        if ccls == 'Vector3Curve':
-                            for fc in child.children:
-                                if fc.class_name != 'FloatCurve':
-                                    continue
-                                axis = (_prop(fc, 'Name') or '').upper()
-                                tv = _vat_rbxm(fc)
-                                if axis == 'X':
-                                    bc['px'] = tv
-                                elif axis == 'Y':
-                                    bc['py'] = tv
-                                elif axis == 'Z':
-                                    bc['pz'] = tv
-                        elif ccls == 'EulerRotationCurve':
-                            for fc in child.children:
-                                if fc.class_name != 'FloatCurve':
-                                    continue
-                                axis = (_prop(fc, 'Name') or '').upper()
-                                tv = _vat_rbxm(fc)
-                                if axis == 'X':
-                                    bc['rx'] = tv
-                                elif axis == 'Y':
-                                    bc['ry'] = tv
-                                elif axis == 'Z':
-                                    bc['rz'] = tv
-                        elif ccls == 'Folder':
-                            _walk_rbxm(child)
-                    if any((bc[k] for k in bc)):
-                        bone_curves[name] = bc
-            elif inst.class_name == 'CurveAnimation':
-                for child in inst.children:
-                    _walk_rbxm(child)
-        for root_inst in getattr(tree, 'roots', []):
-            _walk_rbxm(root_inst)
-    else:
-        try:
-            text = anim_data.decode('utf-8-sig', errors='replace')
-            text = re.sub('[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]', '', text)
-            root = ET.fromstring(text)
-        except Exception:
-            return []
-
-        def _vat_xml(fc_item):
-            for bs in fc_item.iter('BinaryString'):
-                if bs.get('name') == 'ValuesAndTimes' and bs.text:
-                    try:
-                        return _vat(_b64.b64decode(bs.text.strip()))
-                    except Exception:
-                        pass
-            return []
-
-        def _walk_xml(item):
-            nonlocal bone_curves
-            cls = item.get('class', '')
-            if cls == 'Folder':
-                props = item.find('Properties')
-                name = ''
-                if props is not None:
-                    ne = props.find("string[@name='Name']")
-                    if ne is not None:
-                        name = ne.text or ''
-                if name:
-                    bc = _empty_bc()
-                    for child in item:
-                        ccls = child.get('class', '')
-                        if ccls == 'Vector3Curve':
-                            for fc in child:
-                                if fc.get('class') != 'FloatCurve':
-                                    continue
-                                fcp = fc.find('Properties')
-                                if fcp is None:
-                                    continue
-                                ae = fcp.find("string[@name='Name']")
-                                axis = (ae.text or '').upper() if ae is not None else ''
-                                bc['px' if axis == 'X' else 'py' if axis == 'Y' else 'pz' if axis == 'Z' else axis.lower()] = _vat_xml(fc)
-                        elif ccls == 'EulerRotationCurve':
-                            for fc in child:
-                                if fc.get('class') != 'FloatCurve':
-                                    continue
-                                fcp = fc.find('Properties')
-                                if fcp is None:
-                                    continue
-                                ae = fcp.find("string[@name='Name']")
-                                axis = (ae.text or '').upper() if ae is not None else ''
-                                bc['rx' if axis == 'X' else 'ry' if axis == 'Y' else 'rz' if axis == 'Z' else axis.lower()] = _vat_xml(fc)
-                        elif ccls == 'Folder':
-                            _walk_xml(child)
-                    if any((bc[k] for k in bc)):
-                        bone_curves[name] = bc
-            elif cls == 'CurveAnimation':
-                for child in item:
-                    _walk_xml(child)
-        for item in root.iter('Item'):
-            if item.get('class') == 'CurveAnimation':
-                _walk_xml(item)
-                break
-    if not bone_curves:
-        return []
-    times_set: set = set()
-    for bc in bone_curves.values():
-        for tv in bc.values():
-            for t, _ in tv:
-                times_set.add(round(t, 6))
-    if not times_set:
-        return []
-    all_times = sorted(times_set)
-    keys: List[Keyframe] = []
-    for t in all_times:
-        poses: Dict[str, Dict] = {}
-        for name, bc in bone_curves.items():
-            poses[name] = {'pos': (_lerp(bc['px'], t), _lerp(bc['py'], t), _lerp(bc['pz'], t)), 'rot': (_lerp(bc['rx'], t), _lerp(bc['ry'], t), _lerp(bc['rz'], t))}
-        keys.append(Keyframe(t, poses))
-    return keys
 
 def _cf_position(cf) -> Tuple[float, float, float]:
     if isinstance(cf, dict):
@@ -4641,10 +4328,6 @@ class Viewport3DPanel(ttk.Frame):
         self.angle_y = 0.5
         self.cam_distance = 7.0
         self.model_scale = 1.0
-        self.is_playing = False
-        self.anim_time = 0.0
-        self.anim_job = None
-        self.keyframes: List[Keyframe] = []
         self.mesh_vertices: List[Tuple[float, float, float]] = []
         self.mesh_faces: List[List[int]] = []
         self.mesh_info: str = ''
@@ -4666,8 +4349,6 @@ class Viewport3DPanel(ttk.Frame):
         self.canvas.pack(fill='both', expand=True, padx=4, pady=2)
         self.controls = ttk.Frame(self)
         self.controls.pack(fill='x', padx=4, pady=4)
-        self.btn_play = ttk.Button(self.controls, text='▶ Play', width=7, command=self.toggle_play)
-        self.btn_play.pack(side='left', padx=2)
         self.lbl_mode = ttk.Label(self.controls, text='Mode: Idle')
         self.lbl_mode.pack(side='left', padx=6)
         ttk.Checkbutton(self.controls, text='Wireframe lines', variable=self.show_wireframe, command=self.draw_frame).pack(side='left', padx=6)
@@ -4714,8 +4395,7 @@ class Viewport3DPanel(ttk.Frame):
             self.pan_x -= step
         self.draw_frame()
 
-    def set_asset_data_from_temp(self, temp_file_path: str, is_anim=False, is_mesh=False, is_model=False, is_audio=False):
-        self.keyframes = []
+    def set_asset_data_from_temp(self, temp_file_path: str, is_mesh=False, is_model=False, is_audio=False):
         self.mesh_vertices = []
         self.mesh_faces = []
         self.mesh_info = ''
@@ -4730,10 +4410,7 @@ class Viewport3DPanel(ttk.Frame):
             data = _decompress_document(data)
         except Exception:
             pass
-        if is_anim:
-            self.keyframes = parse_animation(data)
-            self.mesh_info = f'{len(self.keyframes)} keyframes'
-        elif is_mesh:
+        if is_mesh:
             self._load_mesh(data)
         elif is_model:
             self._load_model(data)
@@ -4835,28 +4512,11 @@ class Viewport3DPanel(ttk.Frame):
         else:
             self.pack(fill='x', padx=8, pady=4)
         self.canvas.focus_set()
-        self.is_playing = is_anim
-        self.btn_play.config(state='normal' if is_anim or self.audio_path else 'disabled')
-        if is_anim and (not self.anim_job):
-            self._animate_loop()
-        else:
-            self.draw_frame()
+        self.draw_frame()
 
     def hide(self):
-        self.is_playing = False
-        if self.anim_job:
-            self.after_cancel(self.anim_job)
-            self.anim_job = None
         self.pack_forget()
 
-    def toggle_play(self):
-        if self.audio_path and os.path.isfile(self.audio_path):
-            self._toggle_audio_play()
-            return
-        self.is_playing = not self.is_playing
-        self.btn_play.config(text='⏸ Pause' if self.is_playing else '▶ Play')
-        if self.is_playing and (not self.anim_job):
-            self._animate_loop()
 
     def _on_mouse_down(self, event):
         self._last_mouse = (event.x, event.y)
@@ -4869,13 +4529,6 @@ class Viewport3DPanel(ttk.Frame):
         self._last_mouse = (event.x, event.y)
         self.draw_frame()
 
-    def _animate_loop(self):
-        if not self.winfo_ismapped() or not self.is_playing:
-            self.anim_job = None
-            return
-        self.anim_time += 0.03
-        self.draw_frame()
-        self.anim_job = self.after(33, self._animate_loop)
 
     def draw_frame(self):
         self.canvas.delete('all')
@@ -4891,13 +4544,11 @@ class Viewport3DPanel(ttk.Frame):
             if self.mesh_info:
                 self.canvas.create_text(8, 8, text=self.mesh_info, anchor='nw', fill='#8ad0ff', font=('Consolas', 8))
             return
-        if self.keyframes:
-            self._draw_skeleton(w, h)
-        elif self.audio_path and self.mesh_info:
+        if self.audio_path and self.mesh_info:
             self.canvas.create_text(w / 2, h / 2, text=self.mesh_info, fill='#8ad0ff', font=('Segoe UI', 10))
             self.canvas.create_text(w / 2, h / 2 + 26, text='Press ▶ to play via your system audio player', fill='#c8c8c8', font=('Segoe UI', 9))
         else:
-            self.canvas.create_text(w / 2, h / 2, text='Animation: no keyframes to draw a skeleton (0 keyframe)', fill='#007acc', font=('Segoe UI', 10))
+            self.canvas.create_text(w / 2, h / 2, text='No preview available for this asset', fill='#007acc', font=('Segoe UI', 10))
     BONES = [('Head', 'UpperTorso'), ('Head', 'Torso'), ('UpperTorso', 'LowerTorso'), ('Torso', 'LowerTorso'), ('LowerTorso', 'UpperTorso'), ('UpperTorso', 'UpperArm'), ('UpperArm', 'LowerArm'), ('LowerArm', 'Hand'), ('UpperTorso', 'LeftUpperArm'), ('LeftUpperArm', 'LeftLowerArm'), ('LeftLowerArm', 'LeftHand'), ('UpperTorso', 'RightUpperArm'), ('RightUpperArm', 'RightLowerArm'), ('RightLowerArm', 'RightHand'), ('UpperArm', 'LeftUpperArm'), ('UpperArm', 'RightUpperArm'), ('LowerTorso', 'UpperLeg'), ('UpperLeg', 'LowerLeg'), ('LowerLeg', 'Foot'), ('LowerTorso', 'LeftUpperLeg'), ('LeftUpperLeg', 'LeftLowerLeg'), ('LeftLowerLeg', 'LeftFoot'), ('LowerTorso', 'RightUpperLeg'), ('RightUpperLeg', 'RightLowerLeg'), ('RightLowerLeg', 'RightFoot'), ('UpperLeg', 'LeftUpperLeg'), ('UpperLeg', 'RightUpperLeg')]
 
     def _project_point(self, pos, cx, cy, scale, mirror_y=True):
@@ -4978,39 +4629,6 @@ class Viewport3DPanel(ttk.Frame):
         except Exception:
             pass
 
-    def _draw_skeleton(self, w, h):
-        n = len(self.keyframes)
-        idx = int(self.anim_time * 30.0) % n if self.is_playing and n else 0
-        kf = self.keyframes[idx]
-        t = kf.time
-        cx, cy = (w / 2 + self.pan_x, h / 2 + self.pan_y + 10)
-        scale = max(0.05, min(w, h) / 4.0) * self.zoom
-        default_r6 = {'Head': (0, 3.1, 0), 'Torso': (0, 1.8, 0), 'Left Arm': (-1.5, 1.8, 0), 'Right Arm': (1.5, 1.8, 0), 'Left Leg': (-0.55, 0.0, 0), 'Right Leg': (0.55, 0.0, 0)}
-        default_r15 = {'Head': (0, 3.2, 0), 'UpperTorso': (0, 2.25, 0), 'LowerTorso': (0, 1.55, 0), 'LeftUpperArm': (-0.8, 2.25, 0), 'LeftLowerArm': (-1.35, 1.75, 0), 'LeftHand': (-1.65, 1.35, 0), 'RightUpperArm': (0.8, 2.25, 0), 'RightLowerArm': (1.35, 1.75, 0), 'RightHand': (1.65, 1.35, 0), 'LeftUpperLeg': (-0.45, 0.9, 0), 'LeftLowerLeg': (-0.45, 0.15, 0), 'LeftFoot': (-0.45, -0.55, 0), 'RightUpperLeg': (0.45, 0.9, 0), 'RightLowerLeg': (0.45, 0.15, 0), 'RightFoot': (0.45, -0.55, 0)}
-        points = {}
-        has_geo = False
-        for name, pdata in kf.pose_by_part_name.items():
-            pos = pdata.get('pos')
-            if pos and any((abs(float(v)) > 1e-05 for v in pos)):
-                points[name] = self._project_point(pos, cx, cy, scale)
-                has_geo = True
-            else:
-                fallback = default_r15.get(name) or default_r6.get(name)
-                if fallback:
-                    points[name] = self._project_point(fallback, cx, cy, scale)
-        bone_pts = set()
-        for a, b in self.BONES:
-            if a in points and b in points:
-                self.canvas.create_line(points[a][0], points[a][1], points[b][0], points[b][1], fill='#9aa0a6', width=3)
-                bone_pts.add(a)
-                bone_pts.add(b)
-        for name, (px, py) in points.items():
-            fill = '#ffd54f' if name in bone_pts else '#90a4ae'
-            self.canvas.create_oval(px - 4, py - 4, px + 4, py + 4, fill=fill, outline='')
-        info = f'Animation: {n} keyframes @ t={t:.2f}s | joints: {len(points)}'
-        self.canvas.create_text(8, 8, text=info, anchor='nw', fill='#8ad0ff', font=('Consolas', 8))
-        if not has_geo:
-            self.canvas.create_text(w / 2, h / 2, text='No pose position data in skeleton (keyframe count shown above)', fill='#78909c', font=('Segoe UI', 9))
 
     def _draw_mesh(self, w, h):
         verts = self.mesh_vertices
@@ -5570,7 +5188,6 @@ class ReplacerPane(ttk.Frame):
         dialog = tk.Toplevel(self)
         dialog.title('Create Cache')
         dialog.transient(self)
-        dialog.grab_set()
         theme_toplevel(dialog)
         body = ttk.Frame(dialog, padding=0)
         body.pack(fill='both', expand=True)
@@ -5689,13 +5306,11 @@ class ReplacerPane(ttk.Frame):
         ttk.Button(btnf, text='Cancel', command=dialog.destroy).pack(side='left', padx=6)
         body.columnconfigure(1, weight=1)
         entry_name.focus_set()
-        dialog.wait_window()
 
     def save_hash(self):
         dialog = tk.Toplevel(self)
         dialog.title('Save Hash')
         dialog.transient(self)
-        dialog.grab_set()
         theme_toplevel(dialog)
         ttk.Label(dialog, text='Hash:').grid(row=0, column=0, padx=10, pady=(12, 4), sticky='w')
         entry_hash = ttk.Entry(dialog, width=40)
@@ -5746,13 +5361,11 @@ class ReplacerPane(ttk.Frame):
         ttk.Button(btn_frame, text='OK', command=on_ok).pack(side='left', padx=6)
         ttk.Button(btn_frame, text='Cancel', command=dialog.destroy).pack(side='left', padx=6)
         entry_hash.focus_set()
-        dialog.wait_window()
 
     def save_file(self):
         dialog = tk.Toplevel(self)
         dialog.title('Save File')
         dialog.transient(self)
-        dialog.grab_set()
         theme_toplevel(dialog)
         chosen = {'path': None}
 
@@ -5825,7 +5438,6 @@ class ReplacerPane(ttk.Frame):
         ttk.Button(btn_frame, text='OK', command=on_ok).pack(side='left', padx=6)
         ttk.Button(btn_frame, text='Cancel', command=dialog.destroy).pack(side='left', padx=6)
         entry_name.focus_set()
-        dialog.wait_window()
 
     def _clean_hex(self, s: str) -> str:
         s = s.strip()
@@ -6878,6 +6490,11 @@ class App(tk.Tk):
         self.watching = False
         self.stop_event = threading.Event()
         self.scan_thread: Optional[threading.Thread] = None
+        self._tree_render_pending = []
+        self._tree_render_job = None
+        self._blob_cache = {}
+        self._blob_cache_order = []
+        self._blob_cache_limit = 8
         self.autoscroll = tk.BooleanVar(value=self.settings.get('autoscroll', True))
         self.hide_tickets = tk.BooleanVar(value=self.settings.get('hide_tickets', True))
         self.stay_on_top = tk.BooleanVar(value=self.settings.get('stay_on_top', False))
@@ -6963,13 +6580,13 @@ class App(tk.Tk):
         if self.nb.tabs():
             home_id = next((tid for tid in self.nb.tabs() if self.nb.tab(tid, 'text') == 'Home'), self.nb.tabs()[0])
             self.nb.select(home_id)
-        self.after_idle(self._lazy_tab_changed)
+
+        self.after(40, self._lazy_tab_changed)
         self.after_idle(self._install_global_scroll_support)
-        self._start_history_watcher()
-        self._detect_roblox_profile()
-        self._start_profile_detection()
-        self._start_version_check()
-        self._install_startup_shortcut()
+
+        self.after(350, self._start_history_watcher)
+        self.after(900, self._start_version_check)
+        self.after(1100, self._install_startup_shortcut)
         if self.launch_on_tray.get():
             self.after_idle(self._hide_to_tray)
         self._start_global_hotkeys()
@@ -6977,8 +6594,9 @@ class App(tk.Tk):
         self.after(UI_QUICK_PANEL_INTERVAL_MS, self._quick_panel_tick)
         if self.settings.get('viewer_collapsed'):
             self.after(250, self._apply_saved_viewer_state)
-        self.after(UI_QUEUE_INTERVAL_MS, self._drain_queue)
-        self.after(200, self._save_settings)
+        self.after(75, self._drain_queue)
+
+
         self.after(6000, self._fflag_auto_apply_tick)
 
     def _schedule_ui(self, key, delay_ms, callback):
@@ -7011,6 +6629,8 @@ class App(tk.Tk):
         self.after_idle(self._update_status)
 
     def _lazy_tab_changed(self, _event=None):
+
+
         self._refresh_tab_nav()
         try:
             tab_id = self.nb.select()
@@ -7018,54 +6638,54 @@ class App(tk.Tk):
             return
         if not tab_id:
             return
-        info = self._lazy_tabs.get(str(tab_id))
+        key = str(tab_id)
+        info = self._lazy_tabs.get(key)
         if not info:
             return
-        tab_name, builder, placeholder = info
-        target_name = tab_name
-        try:
-            self.nb.unbind('<<NotebookTabChanged>>')
-            if tab_name != 'Cache':
-                self.nb.forget(placeholder)
-                placeholder.destroy()
-                builder()
-                self._reorder_tabs()
-                self._refresh_tab_nav()
-            else:
-                builder()
-        except Exception:
-            try:
-                if tab_name != 'Cache' and placeholder.winfo_exists():
-                    placeholder.destroy()
-            except Exception:
-                pass
-        finally:
-            try:
-                self.nb.bind('<<NotebookTabChanged>>', self._lazy_tab_changed, add='+')
-            except Exception:
-                pass
-        self._lazy_tabs.pop(str(tab_id), None)
-        self._client_tab_active = target_name == 'Client'
-        try:
-            for current_id in self.nb.tabs():
-                if self.nb.tab(current_id, 'text') == target_name:
-                    self.nb.select(current_id)
-                    break
-        except Exception:
-            pass
-        try:
-            self.after_idle(self._install_global_scroll_support)
-        except Exception:
-            pass
-
-    def _apply_saved_viewer_state(self):
-        if not getattr(self, '_cache_built', False):
+        if getattr(self, '_lazy_tab_jobs', None) is None:
+            self._lazy_tab_jobs = set()
+        if key in self._lazy_tab_jobs:
             return
-        try:
-            if self.settings.get('viewer_collapsed'):
-                self._toggle_viewer_pane()
-        except Exception:
-            pass
+        self._lazy_tab_jobs.add(key)
+        self._lazy_tabs.pop(key, None)
+        tab_name, builder, placeholder = info
+
+        def build_selected_tab():
+            self._lazy_tab_jobs.discard(key)
+            self._tab_building = True
+            try:
+                if tab_name != 'Cache':
+                    if placeholder.winfo_exists():
+                        self.nb.forget(placeholder)
+                        placeholder.destroy()
+                    builder()
+                    self._reorder_tabs()
+                    self._refresh_tab_nav()
+                else:
+                    builder()
+            except Exception:
+                try:
+                    if tab_name != 'Cache' and placeholder.winfo_exists():
+                        placeholder.destroy()
+                except Exception:
+                    pass
+            self._client_tab_active = tab_name == 'Client'
+            try:
+                for current_id in self.nb.tabs():
+                    if self.nb.tab(current_id, 'text') == tab_name:
+                        self.nb.select(current_id)
+                        break
+            except Exception:
+                pass
+            try:
+                self.after_idle(self._install_global_scroll_support)
+            except Exception:
+                pass
+            finally:
+                self._tab_building = False
+
+
+        self.after(1, build_selected_tab)
 
     def _start_global_hotkeys(self):
         if self._hotkey_thread and self._hotkey_thread.is_alive():
@@ -7389,7 +7009,6 @@ class App(tk.Tk):
         dlg = tk.Toplevel(parent)
         dlg.title('FFlag Hotkey')
         dlg.transient(parent)
-        dlg.grab_set()
         theme_toplevel(dlg)
         existing = self.fflag_hotkeys[index] if index is not None else {}
         key_var = tk.StringVar(value=str(existing.get('key', '')))
@@ -7452,7 +7071,7 @@ class App(tk.Tk):
         if sys.platform != 'win32' or not self.winfo_exists():
             return
         try:
-            self.update_idletasks()
+
             user32 = ctypes.WinDLL('user32', use_last_error=True)
             SetWindowDisplayAffinity = user32.SetWindowDisplayAffinity
             SetWindowDisplayAffinity.argtypes = [ctypes.wintypes.HWND, ctypes.wintypes.DWORD]
@@ -7539,6 +7158,8 @@ class App(tk.Tk):
         self._titlebar_last_xy = None
         self._titlebar_last_layout_width = 0
         self._titlebar_drag_job = None
+        self._titlebar_drag_interval_ms = 16
+        self._titlebar_move_step_px = 4
         self.after_idle(self._restore_windows_taskbar_presence)
 
     def _update_kill_routils_visibility(self):
@@ -7634,13 +7255,19 @@ class App(tk.Tk):
         if not data or data[0] != 'drag':
             return 'break'
         _, sx, sy, ox, oy = data
-        self._titlebar_pending_xy = (int(ox + event.x_root - sx), int(oy + event.y_root - sy))
+        new_x = int(ox + event.x_root - sx)
+        new_y = int(oy + event.y_root - sy)
+        step = max(1, int(getattr(self, '_titlebar_move_step_px', 4)))
+        self._titlebar_pending_xy = (round(new_x / step) * step, round(new_y / step) * step)
         if self._titlebar_drag_job is None:
 
             def apply_drag():
                 self._titlebar_drag_job = None
                 xy = getattr(self, '_titlebar_pending_xy', None)
                 if not xy or xy == self._titlebar_last_xy:
+                    return
+                last = getattr(self, '_titlebar_last_xy', None)
+                if last and abs(xy[0] - last[0]) < 2 and abs(xy[1] - last[1]) < 2:
                     return
                 self._titlebar_last_xy = xy
                 try:
@@ -7652,7 +7279,7 @@ class App(tk.Tk):
                     self.geometry(f'+{xy[0]}+{xy[1]}')
                 except Exception:
                     pass
-            self._titlebar_drag_job = self.after(16, apply_drag)
+            self._titlebar_drag_job = self.after(getattr(self, '_titlebar_drag_interval_ms', 42), apply_drag)
         return 'break'
 
     def _titlebar_release(self, event):
@@ -7666,7 +7293,8 @@ class App(tk.Tk):
             self._titlebar_drag_job = None
         if data and data[0] == 'drag':
             xy = getattr(self, '_titlebar_pending_xy', None)
-            if xy and xy != getattr(self, '_titlebar_last_xy', None):
+            last = getattr(self, '_titlebar_last_xy', None)
+            if xy and (last is None or abs(xy[0] - last[0]) >= 1 or abs(xy[1] - last[1]) >= 1):
                 try:
                     if sys.platform == 'win32':
                         hwnd = _win32_root_hwnd(self)
@@ -8608,57 +8236,6 @@ class App(tk.Tk):
         except Exception:
             pass
 
-    def _extract_profile_from_cookies(self):
-        path = os.path.join(os.environ.get('LOCALAPPDATA', ''), 'Roblox', 'LocalStorage', 'RobloxCookies.dat')
-        if not os.path.isfile(path):
-            return (None, None)
-        try:
-            raw = open(path, 'rb').read()
-            text = raw.decode('utf-8', errors='ignore')
-            uid = None
-            username = None
-            for pat in ('"userId"\\s*[:=]\\s*"?(\\d+)', '"UserId"\\s*[:=]\\s*"?(\\d+)', 'userid[^0-9]{0,30}(\\d+)'):
-                m = re.search(pat, text, re.I)
-                if m:
-                    uid = m.group(1)
-                    break
-            for pat in ('"username"\\s*[:=]\\s*"([^"\\\\]+)', '"name"\\s*[:=]\\s*"([^"\\\\]+)'):
-                m = re.search(pat, text, re.I)
-                if m:
-                    username = m.group(1)
-                    break
-            if not uid:
-                for token in re.findall('[A-Za-z0-9+/=]{24,}', text):
-                    try:
-                        t = base64.b64decode(token).decode('utf-8', errors='ignore')
-                        m = re.search('"(?:userId|UserId)"\\s*:\\s*"?(\\d+)', t)
-                        if m:
-                            uid = m.group(1)
-                        m2 = re.search('"(?:username|name)"\\s*:\\s*"([^"\\\\]+)', t, re.I)
-                        if m2:
-                            username = m2.group(1)
-                        if uid:
-                            break
-                    except Exception:
-                        pass
-            return (username, uid)
-        except Exception:
-            return (None, None)
-
-    def _detect_roblox_profile(self):
-        username, uid = self._extract_profile_from_cookies()
-        if username:
-            self.settings['roblox_username'] = username
-        if uid:
-            self.settings['roblox_user_id'] = uid
-        save_settings(self.settings)
-
-    def _start_profile_detection(self):
-
-        def worker():
-            self._detect_roblox_profile()
-        threading.Thread(target=worker, daemon=True).start()
-
     @staticmethod
     def _version_tuple(version):
         parts = re.findall('\\d+', str(version or ''))
@@ -8678,7 +8255,6 @@ class App(tk.Tk):
             dlg.title('RoUtils is Outdated')
             dlg.resizable(False, False)
             dlg.transient(self)
-            dlg.grab_set()
             theme_toplevel(dlg)
             width, height = (440, 230)
             self.update_idletasks()
@@ -9956,19 +9532,48 @@ class App(tk.Tk):
     def _refresh_fflag_list(self):
         if not hasattr(self, 'fflag_tree'):
             return
-        self.fflag_tree.delete(*self.fflag_tree.get_children())
+        old_job = getattr(self, '_fflag_render_job', None)
+        if old_job:
+            try:
+                self.after_cancel(old_job)
+            except Exception:
+                pass
+            self._fflag_render_job = None
+        tree = self.fflag_tree
+        tree.delete(*tree.get_children())
         filt = self.fflag_search.get().strip().lower() if hasattr(self, 'fflag_search') else ''
         conflicts = self._fflag_conflicts()
         try:
-            self.fflag_tree.tag_configure('conflict', background='#8b1e1e', foreground='#ffffff')
+            tree.tag_configure('conflict', background='#8b1e1e', foreground='#ffffff')
         except Exception:
             pass
+
+        rows = []
         for i, flag in enumerate(self.fflag_flags):
             name = fflag_strip_prefix(str(flag.get('name', '')))
             if filt and filt not in name.lower():
                 continue
             tags = ('conflict',) if name.lower() in conflicts else ()
-            self.fflag_tree.insert('', 'end', iid=str(i), values=(name, flag.get('type', ''), flag.get('value', ''), '×'), tags=tags)
+            rows.append((i, name, flag.get('type', ''), flag.get('value', ''), tags))
+
+        batch_size = 150
+        state = {'index': 0}
+
+        def insert_batch():
+            start = state['index']
+            end = min(start + batch_size, len(rows))
+            for i, name, flag_type, value, tags in rows[start:end]:
+                try:
+                    tree.insert('', 'end', iid=str(i), values=(name, flag_type, value, '×'), tags=tags)
+                except tk.TclError:
+                    return
+            state['index'] = end
+            if end < len(rows):
+                self._fflag_render_job = self.after(1, insert_batch)
+            else:
+                self._fflag_render_job = None
+
+        insert_batch()
 
     def _fflag_tree_click_remove(self, event):
         try:
@@ -9990,7 +9595,6 @@ class App(tk.Tk):
         dlg = tk.Toplevel(self)
         dlg.title('Add FFlag')
         dlg.transient(self)
-        dlg.grab_set()
         theme_toplevel(dlg)
         ttk.Label(dlg, text='FFlag name').grid(row=0, column=0, padx=10, pady=(10, 4), sticky='w')
         name = ttk.Entry(dlg, width=48)
@@ -10214,7 +9818,6 @@ class App(tk.Tk):
         dialog.geometry('470x170')
         dialog.minsize(430, 150)
         dialog.transient(self)
-        dialog.grab_set()
         theme_toplevel(dialog)
         ttk.Label(dialog, text='Export name', font=('Segoe UI Semibold', 10)).pack(anchor='w', padx=14, pady=(14, 4))
         name_var = tk.StringVar(value=f"fflags_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
@@ -10500,13 +10103,13 @@ class App(tk.Tk):
             win = tk.Toplevel(self)
             win.title(os.path.basename(path))
             win.geometry('850x650')
-            win.transient(self)
+            win.transient(None)
             txt = tk.Text(win, wrap='word', font=('Consolas', 10), bg=_CURRENT_PALETTE['bg_medium'], fg=_CURRENT_PALETTE['fg'], insertbackground=_CURRENT_PALETTE['fg'], bd=0, padx=14, pady=14)
             txt.pack(fill='both', expand=True)
             txt.insert('1.0', text)
             txt.configure(state='disabled')
         except Exception as exc:
-            messagebox.showerror('Plugin', f'Could not open guide:\n{exc}', parent=self)
+            messagebox.showerror('Plugin', f'could not open guide:\n{exc}', parent=self)
 
     def _build_plugins_tab(self):
         tab = ttk.Frame(self.nb, padding=14)
@@ -10527,8 +10130,8 @@ class App(tk.Tk):
             card = ttk.LabelFrame(body, text=os.path.splitext(name)[0])
             card.pack(fill='x', pady=5)
             if path.lower().endswith('.txt'):
-                ttk.Label(card, text='Documentation / development guide', foreground='#9aa0a6').pack(anchor='w', padx=10, pady=7)
-                ttk.Button(card, text='Open Guide', command=lambda p=path: self._plugin_open_guide(p)).pack(anchor='w', padx=8, pady=(0, 8))
+                ttk.Label(card, text='documentation / development guide', foreground='#9aa0a6').pack(anchor='w', padx=10, pady=7)
+                ttk.Button(card, text='open guide', command=lambda p=path: self._plugin_open_guide(p)).pack(anchor='w', padx=8, pady=(0, 8))
             else:
                 module = self._plugin_modules.get(name)
                 desc = str(getattr(module, 'PLUGIN_DESCRIPTION', 'Python plugin') if module else 'Python plugin')
@@ -11195,238 +10798,427 @@ class App(tk.Tk):
             canvas.itemconfigure(window_id, width=width)
 
     def _open_ai_chat(self):
+        existing = getattr(self, '_ai_chat_window', None)
+        if existing is not None:
+            try:
+                if existing.winfo_exists():
+                    existing.destroy()
+            except tk.TclError:
+                pass
+            self._ai_chat_window = None
         self._console_log('Opened RoUtils AI')
         key = self.gemini_api_key.get().strip()
         if not key:
             messagebox.showwarning('Gemini AI', "You didn't add Gemini API Key.\nAdd API Key on Settings Tab.", parent=self)
             return
+
         win = tk.Toplevel(self)
-        win.title('RoUtils AI')
-        win.geometry('760x680')
-        win.minsize(600, 520)
-        win.transient(self)
+        self._ai_chat_window = win
+        win.title('RoUtils AI • Updated')
+        screen_w, screen_h = win.winfo_screenwidth(), win.winfo_screenheight()
+        initial_w = min(1100, max(760, int(screen_w * 0.72)))
+        initial_h = min(850, max(580, int(screen_h * 0.76)))
+        win.geometry(f'{initial_w}x{initial_h}')
+        win.minsize(760, 560)
+        win.transient(None)
+        win.resizable(True, True)
+        win.attributes('-topmost', False)
+        win.grab_release()
         theme_toplevel(win)
-        header = ttk.Frame(win, padding=(16, 12))
-        header.pack(fill='x')
+
+        root = ttk.Frame(win, padding=0)
+        root.pack(fill='both', expand=True)
+        root.rowconfigure(1, weight=1)
+        root.columnconfigure(0, weight=1)
+
+        header = ttk.Frame(root, padding=(16, 12))
+        header.grid(row=0, column=0, sticky='ew')
         ttk.Label(header, text='RoUtils AI', font=('Segoe UI Semibold', 16)).pack(side='left')
         ttk.Label(header, text='Powered by Gemini', foreground='#9aa0a6').pack(side='left', padx=8)
-        model_names = {'Gemini 3.8 Flash': 'gemini-3.8-flash', 'Gemini 3.7 Flash': 'gemini-3.7-flash', 'Gemini 3.6 Flash': 'gemini-3.6-flash', 'Gemini 3.5 Flash': 'gemini-3.5-flash', 'Gemini 3.5 Flash-Lite': 'gemini-3.5-flash-lite', 'Gemini 3.1 Flash-Lite': 'gemini-3.1-flash-lite', 'Gemini 3.1 Pro': 'gemini-3.1-pro-preview', 'Gemini 2.5 Pro': 'gemini-2.5-pro', 'Gemini 2.5 Flash': 'gemini-2.5-flash', 'Gemini 2.5 Flash-Lite': 'gemini-2.5-flash-lite'}
+        model_names = {
+            'Gemini 3.8 Flash': 'gemini-3.8-flash',
+            'Gemini 3.7 Flash': 'gemini-3.7-flash',
+            'Gemini 3.6 Flash': 'gemini-3.6-flash',
+            'Gemini 3.5 Flash': 'gemini-3.5-flash',
+            'Gemini 3.5 Flash-Lite': 'gemini-3.5-flash-lite',
+            'Gemini 3.1 Flash-Lite': 'gemini-3.1-flash-lite',
+            'Gemini 3.1 Pro': 'gemini-3.1-pro-preview',
+            'Gemini 2.5 Pro': 'gemini-2.5-pro',
+            'Gemini 2.5 Flash': 'gemini-2.5-flash',
+            'Gemini 2.5 Flash-Lite': 'gemini-2.5-flash-lite'
+        }
         model_var = tk.StringVar(value='Gemini 3.5 Flash-Lite')
         model_box = ttk.Combobox(header, textvariable=model_var, values=list(model_names.keys()), state='readonly', width=24)
         model_box.pack(side='right')
         ttk.Label(header, text='Model', foreground='#9aa0a6').pack(side='right', padx=(0, 8))
-        body = ttk.Frame(win)
-        body.pack(fill='both', expand=True, padx=12, pady=(0, 8))
+
+        body = ttk.Frame(root)
+        body.grid(row=1, column=0, sticky='nsew', padx=12, pady=(0, 8))
         body.rowconfigure(0, weight=1)
         body.columnconfigure(0, weight=1)
-        canvas = tk.Canvas(body, bg=_CURRENT_PALETTE['bg_dark'], highlightthickness=0, bd=0)
-        scroll = ttk.Scrollbar(body, orient='vertical', command=canvas.yview)
-        messages = ttk.Frame(canvas)
+        body.columnconfigure(1, weight=0, minsize=230)
+
+        chat_area = tk.Frame(body, bg=_CURRENT_PALETTE['bg_dark'])
+        chat_area.grid(row=0, column=0, sticky='nsew')
+        chat_area.rowconfigure(0, weight=1)
+        chat_area.columnconfigure(0, weight=1)
+        canvas = tk.Canvas(chat_area, bg=_CURRENT_PALETTE['bg_dark'], highlightthickness=0, bd=0)
+        scroll = ttk.Scrollbar(chat_area, orient='vertical', command=canvas.yview)
+        messages = tk.Frame(canvas, bg=_CURRENT_PALETTE['bg_dark'])
+        messages.columnconfigure(0, weight=1)
         canvas.configure(yscrollcommand=scroll.set)
         canvas.grid(row=0, column=0, sticky='nsew')
         scroll.grid(row=0, column=1, sticky='ns')
         window_id = canvas.create_window((0, 0), window=messages, anchor='nw')
-        messages.bind('<Configure>', lambda _e: self._schedule_ui(f'ai_region_{id(canvas)}', 30, lambda: canvas.configure(scrollregion=canvas.bbox('all'))))
-        canvas.bind('<Configure>', lambda e: self._ai_canvas_resize(canvas, window_id, e))
-        middle_scroll = {'y': None, 'start': None}
 
-        def middle_press(event):
-            middle_scroll['y'] = event.y
-            middle_scroll['start'] = canvas.yview()[0]
-            canvas.configure(cursor='fleur')
+        def refresh_scrollregion(_event=None):
+            try:
+                canvas.configure(scrollregion=canvas.bbox('all'))
+            except tk.TclError:
+                pass
+
+        def refresh_width(event=None):
+            try:
+                canvas.itemconfigure(window_id, width=max(1, canvas.winfo_width()))
+                for item in messages.winfo_children():
+                    item.event_generate('<Configure>')
+            except tk.TclError:
+                pass
+
+        messages.bind('<Configure>', refresh_scrollregion)
+        canvas.bind('<Configure>', refresh_width)
+
+        def wheel(event):
+            if getattr(event, 'delta', 0):
+                canvas.yview_scroll(-int(event.delta / 120), 'units')
             return 'break'
 
-        def middle_drag(event):
-            if middle_scroll['y'] is None:
-                return 'break'
-            first, last = canvas.yview()
-            span = max(last - first, 0.001)
-            height = max(canvas.winfo_height(), 1)
-            delta = (middle_scroll['y'] - event.y) / height
-            canvas.yview_moveto(max(0.0, min(1.0 - span, middle_scroll['start'] + delta)))
-            return 'break'
+        canvas.bind('<MouseWheel>', wheel, add='+')
+        messages.bind('<MouseWheel>', wheel, add='+')
 
-        def middle_release(event):
-            middle_scroll['y'] = None
-            middle_scroll['start'] = None
-            canvas.configure(cursor='')
-            return 'break'
-        canvas.bind('<Button-2>', middle_press)
-        canvas.bind('<B2-Motion>', middle_drag)
-        canvas.bind('<ButtonRelease-2>', middle_release)
-        messages.bind('<Button-2>', middle_press)
-        messages.bind('<B2-Motion>', middle_drag)
-        messages.bind('<ButtonRelease-2>', middle_release)
-        history = []
+        history_panel = tk.Frame(body, bg=_CURRENT_PALETTE['bg_medium'], width=230)
+        history_panel.grid(row=0, column=1, sticky='nsew', padx=(10, 0))
+        history_panel.grid_propagate(False)
+        history_panel.rowconfigure(1, weight=1)
+        history_panel.columnconfigure(0, weight=1)
+        history_top = tk.Frame(history_panel, bg=_CURRENT_PALETTE['bg_medium'])
+        history_top.grid(row=0, column=0, sticky='ew', padx=8, pady=8)
+        history_top.columnconfigure(0, weight=1)
+        tk.Label(history_top, text='Chat history', bg=_CURRENT_PALETTE['bg_medium'], fg=_CURRENT_PALETTE['fg'], font=('Segoe UI Semibold', 10)).grid(row=0, column=0, sticky='w')
+        history_canvas = tk.Canvas(history_panel, bg=_CURRENT_PALETTE['bg_dark'], highlightthickness=0, bd=0)
+        history_scroll = ttk.Scrollbar(history_panel, orient='vertical', command=history_canvas.yview)
+        history_list = tk.Frame(history_canvas, bg=_CURRENT_PALETTE['bg_dark'])
+        history_list.columnconfigure(0, weight=1)
+        history_window = history_canvas.create_window((0, 0), window=history_list, anchor='nw')
+        history_canvas.configure(yscrollcommand=history_scroll.set)
+        history_canvas.grid(row=1, column=0, sticky='nsew', padx=(8, 0), pady=(0, 8))
+        history_scroll.grid(row=1, column=1, sticky='ns', padx=(0, 8), pady=(0, 8))
+        history_list.bind('<Configure>', lambda _e: history_canvas.configure(scrollregion=history_canvas.bbox('all')))
+        history_canvas.bind('<Configure>', lambda e: history_canvas.itemconfigure(history_window, width=max(1, e.width)))
+        new_chat_btn = ttk.Button(history_top, text='+ New chat')
+        new_chat_btn.grid(row=1, column=0, sticky='ew', pady=(8, 0))
+
+        composer = ttk.Frame(root, padding=(12, 4, 12, 12))
+        composer.grid(row=2, column=0, sticky='ew')
+        composer.columnconfigure(0, weight=1)
+        input_box = tk.Text(composer, height=4, wrap='word', font=('Segoe UI', 10), bg=_CURRENT_PALETTE['bg_medium'], fg=_CURRENT_PALETTE['fg'], insertbackground='#ffffff', relief='flat', bd=0, padx=10, pady=8)
+        input_box.grid(row=0, column=0, sticky='ew', padx=(0, 8))
+        attached_files = []
+        attach_btn = ttk.Button(composer, text='+', width=3)
+        attach_btn.grid(row=0, column=1, sticky='se', padx=(0, 5))
+        send_btn = ttk.Button(composer, text='➤  Send', width=12)
+        send_btn.grid(row=0, column=2, sticky='se')
+
+        sessions = []
+        active = {'index': 0}
         busy = {'value': False}
+        thinking_box = {'widget': None}
+        bubble_refs = []
+
+        def session_title(session):
+            title = str(session.get('title') or 'New chat').strip()
+            return title if title else 'New chat'
+
+        def refresh_history_list():
+            for child in history_list.winfo_children():
+                child.destroy()
+            for index, session in enumerate(sessions):
+                selected = index == active['index']
+                row_bg = '#164a9c' if selected else _CURRENT_PALETTE['bg_dark']
+                row = tk.Frame(history_list, bg=row_bg, padx=5, pady=4)
+                row.grid(row=index, column=0, sticky='ew', pady=(0, 4))
+                row.columnconfigure(0, weight=1)
+                title = tk.Label(row, text=('●  ' if selected else '   ') + session_title(session), bg=row_bg, fg='#ffffff', anchor='w', justify='left', font=('Segoe UI', 9), cursor='hand2')
+                title.grid(row=0, column=0, sticky='ew', padx=(4, 5))
+                rename_btn = ttk.Button(row, text='✎', width=3, command=lambda i=index: rename_session(i))
+                rename_btn.grid(row=0, column=1, sticky='e')
+                title.bind('<Button-1>', lambda _e, i=index: load_session(i) if not busy['value'] else None)
+                row.bind('<Button-1>', lambda _e, i=index: load_session(i) if not busy['value'] else None)
+
+        def clear_messages():
+            for child in messages.winfo_children():
+                child.destroy()
+            bubble_refs.clear()
+
+        def add_code(parent, code, language=''):
+            box = tk.Frame(parent, bg='#202124', highlightthickness=1, highlightbackground='#55575c')
+            box.pack(fill='x', padx=12, pady=(5, 8))
+            top = tk.Frame(box, bg='#292b2f')
+            top.pack(fill='x')
+            tk.Label(top, text=language or 'code', bg='#292b2f', fg='#aeb3ba', font=('Segoe UI', 8)).pack(side='left', padx=9, pady=5)
+            tk.Button(top, text='Copy', command=lambda: copy_code(code), bg='#3a3d42', fg='#eeeeee', activebackground='#484b51', activeforeground='#ffffff', relief='flat', bd=0, padx=9, pady=2, font=('Segoe UI Semibold', 8)).pack(side='right', padx=5, pady=4)
+            code_box = tk.Text(box, height=max(2, min(18, code.count('\n') + 2)), wrap='none', bg='#202124', fg='#eeeeee', insertbackground='#ffffff', relief='flat', bd=0, padx=10, pady=8, font=('Consolas', 9))
+            code_box.insert('1.0', code)
+            code_box.configure(state='disabled')
+            code_box.pack(fill='x')
 
         def copy_code(code):
             try:
                 win.clipboard_clear()
                 win.clipboard_append(code)
-                win.update_idletasks()
             except Exception:
                 pass
 
-        def add_code_block(parent, code, language=''):
-            box = tk.Frame(parent, bg='#202124', highlightthickness=1, highlightbackground='#55575c')
-            box.pack(fill='x', pady=(7, 5))
-            top = tk.Frame(box, bg='#292b2f', height=30)
-            top.pack(fill='x')
-            top.pack_propagate(False)
-            tk.Label(top, text=language or 'code', bg='#292b2f', fg='#aeb3ba', font=('Segoe UI', 8)).pack(side='left', padx=9)
-            tk.Button(top, text='Copy', command=lambda c=code: copy_code(c), bg='#3a3d42', fg='#eeeeee', activebackground='#484b51', activeforeground='#ffffff', relief='flat', bd=0, padx=9, pady=2, cursor='hand2', font=('Segoe UI Semibold', 8)).pack(side='right', padx=5, pady=4)
-            txt = tk.Text(box, height=max(2, min(14, code.count('\n') + 2)), wrap='none', bg='#202124', fg='#eeeeee', insertbackground='#ffffff', relief='flat', bd=0, padx=10, pady=8, font=('Consolas', 9))
-            txt.insert('1.0', code)
-            txt.configure(state='disabled')
-            txt.pack(fill='x')
+        def add_message(text, role, persist=True):
+            if text is None:
+                return
+            text = str(text).replace('\r\n', '\n').replace('\r', '\n')
+            is_user = role == 'user'
+            outer = tk.Frame(messages, bg=_CURRENT_PALETTE['bg_dark'])
+            outer.pack(fill='x', pady=(5, 5), padx=8)
+            bubble_bg = _CURRENT_PALETTE['accent'] if is_user else '#f4f4f5'
+            bubble_fg = '#ffffff' if is_user else '#202124'
+            anchor = 'e' if is_user else 'w'
+            bubble = tk.Frame(outer, bg=bubble_bg, padx=12, pady=9)
+            bubble.pack(anchor=anchor, fill='x' if not is_user else None, padx=(70, 0) if is_user else (0, 70))
+            bubble.columnconfigure(0, weight=1)
+            text_box = tk.Text(bubble, wrap='word', height=1, width=72, bg=bubble_bg, fg=bubble_fg, insertbackground=bubble_fg, selectbackground=_CURRENT_PALETTE['accent'], relief='flat', bd=0, padx=0, pady=0, highlightthickness=0, font=('Segoe UI', 10), spacing1=2, spacing3=2)
+            text_box.grid(row=0, column=0, sticky='ew')
+            text_box.tag_configure('bold', font=('Segoe UI', 10, 'bold'))
+            text_box.tag_configure('italic', font=('Segoe UI', 10, 'italic'))
+            text_box.tag_configure('code', font=('Consolas', 9), background='#252526', foreground='#d4d4d4')
+            text_box.tag_configure('link', foreground='#4da3ff', underline=True)
+            text_box.tag_configure('heading', font=('Segoe UI Semibold', 11, 'bold'))
+            link_index = {'value': 0}
 
-        def add_rich_line(parent, text, pady=1):
-            line = tk.Text(parent, height=1, wrap='word', bg='#4a4a4a', fg='#e6e6e6', relief='flat', bd=0, highlightthickness=0, padx=0, pady=0, font=('Segoe UI', 10), cursor='arrow')
-            line.pack(fill='x', pady=pady)
-            line.tag_configure('bold', font=('Segoe UI Semibold', 10), foreground='#ffffff')
-            line.tag_configure('inline', font=('Consolas', 9), foreground='#e6e6e6')
-            tokens = re.split('(\\*\\*.*?\\*\\*|__.*?__|`[^`]+`)', text)
-            for token in tokens:
-                if not token:
-                    continue
-                bold = token.startswith('**') and token.endswith('**') or (token.startswith('__') and token.endswith('__'))
-                inline = token.startswith('`') and token.endswith('`') and (len(token) >= 2)
-                value = token[2:-2] if bold else token[1:-1] if inline else token
-                line.insert('end', value, 'bold' if bold else 'inline' if inline else '')
+            def insert_formatted(value, code_mode=False):
+                if not value:
+                    return
+                if code_mode:
+                    text_box.insert('end', value, 'code')
+                    return
+                pattern = re.compile(r'(\[[^\]\n]+\]\((?:https?://|www\.)[^)\s]+\)|https?://[^\s<>]+|^[ \t]*#{1,6}[ \t]+[^\n]+$|\*\*[^*\n]+\*\*|`[^`\n]+`|(?<!\*)\*[^*\n]+\*)', re.M)
+                cursor = 0
+                for match in pattern.finditer(value):
+                    if match.start() > cursor:
+                        text_box.insert('end', value[cursor:match.start()])
+                    token = match.group(0)
+                    if re.match(r'^[ \t]*#{1,6}[ \t]+', token):
+                        heading_text = re.sub(r'^[ \t]*#{1,6}[ \t]+', '', token).strip()
+                        text_box.insert('end', heading_text + ('\n' if token.endswith('\n') else ''), 'heading')
+                    elif token.startswith('[') and '](' in token:
+                        label, url = token[1:].split('](', 1)
+                        url = url.rstrip(')')
+                        if url.startswith('www.'):
+                            url = 'https://' + url
+                        tag = f'link_{link_index["value"]}'
+                        link_index['value'] += 1
+                        text_box.insert('end', label, ('link', tag))
+                        text_box.tag_bind(tag, '<Button-1>', lambda _event, target=url: webbrowser.open(target))
+                        text_box.tag_bind(tag, '<Enter>', lambda _event: text_box.configure(cursor='hand2'))
+                        text_box.tag_bind(tag, '<Leave>', lambda _event: text_box.configure(cursor='xterm'))
+                    elif token.startswith('http://') or token.startswith('https://'):
+                        url = token.rstrip('.,;:!?)]}')
+                        tag = f'link_{link_index["value"]}'
+                        link_index['value'] += 1
+                        text_box.insert('end', url, ('link', tag))
+                        text_box.tag_bind(tag, '<Button-1>', lambda _event, target=url: webbrowser.open(target))
+                        text_box.tag_bind(tag, '<Enter>', lambda _event: text_box.configure(cursor='hand2'))
+                        text_box.tag_bind(tag, '<Leave>', lambda _event: text_box.configure(cursor='xterm'))
+                    elif token.startswith('**'):
+                        text_box.insert('end', token[2:-2], 'bold')
+                    elif token.startswith('`'):
+                        text_box.insert('end', token[1:-1], 'code')
+                    else:
+                        text_box.insert('end', token[1:-1], 'italic')
+                    cursor = match.end()
+                if cursor < len(value):
+                    text_box.insert('end', value[cursor:])
 
-            def update_height(_event=None):
+            code_pattern = re.compile(r'```(?:[\w+-]*)\n?(.*?)```', re.S)
+            cursor = 0
+            for match in code_pattern.finditer(text):
+                insert_formatted(re.sub(r'(?m)^[ \t]*(?:[-*]|\d+[.)])[ \t]+', '• ', text[cursor:match.start()]))
+                insert_formatted(match.group(1).rstrip('\n'), True)
+                if match.end() < len(text):
+                    text_box.insert('end', '\n')
+                cursor = match.end()
+            insert_formatted(re.sub(r'(?m)^[ \t]*(?:[-*]|\d+[.)])[ \t]+', '• ', text[cursor:]))
+            text_box.configure(state='disabled')
+
+            def fit_text(_event=None):
                 try:
-                    line.update_idletasks()
-                    display_lines = line.count('1.0', 'end-1c', 'displaylines')[0]
-                    line.configure(height=max(1, display_lines))
+                    text_box.update_idletasks()
+                    line_count = int(text_box.count('1.0', 'end-1c', 'displaylines')[0]) if text_box.get('1.0', 'end-1c') else 1
+                    text_box.configure(height=max(1, min(line_count, 120)))
+                except (tk.TclError, TypeError, IndexError):
+                    pass
+
+            text_box.bind('<Configure>', fit_text)
+            text_box.after_idle(fit_text)
+            bubble_refs.append((bubble, text, is_user))
+            canvas.after_idle(lambda: canvas.yview_moveto(1.0))
+
+        def load_session(index):
+            if not (0 <= index < len(sessions)):
+                return
+            active['index'] = index
+            clear_messages()
+            for item in sessions[index].get('messages', []):
+                try:
+                    role = item.get('role', 'model')
+                    value = ''.join(str(part.get('text', '')) for part in item.get('parts', []))
+                    if value:
+                        add_message(value, role, persist=False)
                 except Exception:
                     pass
-            line.configure(state='disabled')
-            line.bind('<Configure>', update_height)
-            line.bind('<Button-2>', lambda e: 'break')
-            line.after_idle(update_height)
-            return line
+            refresh_history_list()
 
-        def add_markdown_message(parent, text):
-            lines = text.replace('\r\n', '\n').replace('\r', '\n').split('\n')
-            i = 0
-            while i < len(lines):
-                line = lines[i]
-                stripped = line.strip()
-                if stripped.startswith('```'):
-                    language = stripped[3:].strip()
-                    i += 1
-                    code = []
-                    while i < len(lines) and (not lines[i].strip().startswith('```')):
-                        code.append(lines[i])
-                        i += 1
-                    if i < len(lines):
-                        i += 1
-                    add_code_block(parent, '\n'.join(code), language)
-                    continue
-                heading = re.match('^#{1,6}\\s+(.+)$', stripped)
-                if heading:
-                    w = add_rich_line(parent, heading.group(1), pady=(5, 5))
-                    w.configure(state='normal')
-                    w.tag_configure('heading', font=('Segoe UI Semibold', 12 if stripped.startswith('# ') else 11), foreground='#ffffff')
-                    w.tag_add('heading', '1.0', 'end')
-                    w.configure(state='disabled')
-                    i += 1
-                    continue
-                if i + 1 < len(lines) and '|' in line and re.match('^\\s*\\|?\\s*:?-+:?\\s*(\\|\\s*:?-+:?\\s*)+\\|?\\s*$', lines[i + 1].strip()):
-                    rows = [[x.strip() for x in line.strip().strip('|').split('|')]]
-                    i += 2
-                    while i < len(lines) and '|' in lines[i] and lines[i].strip():
-                        rows.append([x.strip() for x in lines[i].strip().strip('|').split('|')])
-                        i += 1
-                    table = tk.Frame(parent, bg='#66686c')
-                    table.pack(fill='x', pady=6)
-                    cols = max((len(r) for r in rows))
-                    for r, row_data in enumerate(rows):
-                        for c in range(cols):
-                            value = row_data[c] if c < len(row_data) else ''
-                            tk.Label(table, text=value, bg='#55575b' if r == 0 else '#3f4145', fg='#ffffff', justify='left', anchor='w', padx=7, pady=5, wraplength=220, font=('Segoe UI Semibold' if r == 0 else 'Segoe UI', 9)).grid(row=r, column=c, sticky='nsew', padx=1, pady=1)
-                    for c in range(cols):
-                        table.grid_columnconfigure(c, weight=1)
-                    continue
-                if stripped:
-                    bullet = re.match('^[-*]\\s+(.+)$', stripped)
-                    if bullet:
-                        stripped = '• ' + bullet.group(1)
-                    add_rich_line(parent, stripped)
-                else:
-                    tk.Frame(parent, bg='#4a4a4a', height=5).pack(fill='x')
-                i += 1
+        def new_chat():
+            if busy['value']:
+                return
+            sessions.append({'title': 'New chat', 'messages': []})
+            active['index'] = len(sessions) - 1
+            load_session(active['index'])
+            input_box.focus_set()
 
-        def add_message(text, role):
-            row = tk.Frame(messages, bg=_CURRENT_PALETTE['bg_dark'])
-            row.pack(fill='x', padx=8, pady=6)
-            if role == 'user':
-                bubble = tk.Label(row, text=text, bg=_CURRENT_PALETTE['accent'], fg='#ffffff', padx=12, pady=8, justify='left', anchor='w', wraplength=500, font=('Segoe UI', 10))
-                bubble.pack(side='right', anchor='e')
-            else:
-                bubble = tk.Frame(row, bg='#4a4a4a', padx=12, pady=8)
-                bubble.pack(side='left', anchor='w')
-                add_markdown_message(bubble, text)
-            canvas.update_idletasks()
-            canvas.yview_moveto(1.0)
+        def rename_session(index):
+            if busy['value'] or not (0 <= index < len(sessions)):
+                return
+            current = session_title(sessions[index])
+            new_title = simpledialog.askstring('Rename chat', 'Enter a new chat name:', initialvalue=current, parent=win)
+            if new_title is None:
+                return
+            new_title = ' '.join(str(new_title).split()).strip()[:80]
+            if not new_title:
+                return
+            sessions[index]['title'] = new_title
+            refresh_history_list()
+
+        def attach_file():
+            paths = filedialog.askopenfilenames(parent=win, title='Attach files')
+            if not paths:
+                return
+            attached_files.clear()
+            attached_files.extend(paths[:5])
+            attach_btn.configure(text=f'+ {len(attached_files)}')
+
+        def finish(answer, generated_title=None):
+            if not win.winfo_exists():
+                return
+            pending = thinking_box.get('widget')
+            if pending is not None:
+                try:
+                    pending.destroy()
+                except tk.TclError:
+                    pass
+                thinking_box['widget'] = None
+            current = sessions[active['index']]
+            current['messages'].append({'role': 'model', 'parts': [{'text': answer}]})
+            if generated_title and session_title(current) == 'New chat':
+                current['title'] = generated_title
+            add_message(answer, 'model')
+            refresh_history_list()
+            busy['value'] = False
+            send_btn.configure(state='normal')
+            attach_btn.configure(state='normal')
+            input_box.configure(state='normal')
+            input_box.focus_set()
 
         def send():
             if busy['value']:
                 return
             text = input_box.get('1.0', 'end-1c').strip()
+            if attached_files:
+                file_context = []
+                for path in attached_files:
+                    try:
+                        size = os.path.getsize(path)
+                        if size <= 300000:
+                            content = Path(path).read_text(encoding='utf-8', errors='replace')
+                            file_context.append(f'\n[Attached file: {os.path.basename(path)}]\n{content[:120000]}')
+                        else:
+                            file_context.append(f'\n[Attached file: {os.path.basename(path)}; too large to read]')
+                    except Exception as exc:
+                        file_context.append(f'\n[Attached file: {os.path.basename(path)}; unavailable: {exc}]')
+                text += ''.join(file_context)
             if not text:
                 return
+            session = sessions[active['index']]
             input_box.delete('1.0', 'end')
             add_message(text, 'user')
-            history.append({'role': 'user', 'parts': [{'text': text}]})
+            session['messages'].append({'role': 'user', 'parts': [{'text': text}]})
+            refresh_history_list()
             busy['value'] = True
-            send_btn.config(state='disabled')
-            input_box.config(state='disabled')
-            add_message('Thinking...', 'model')
+            send_btn.configure(state='disabled')
+            attach_btn.configure(state='disabled')
+            input_box.configure(state='disabled')
+            add_message('Thinking ...', 'model')
+            try:
+                thinking_box['widget'] = messages.winfo_children()[-1]
+            except (IndexError, tk.TclError):
+                thinking_box['widget'] = None
+            selected_model = model_names.get(model_var.get(), 'gemini-3.5-flash-lite')
+            request_history = list(session['messages'])
 
             def worker():
                 try:
-                    payload = {'systemInstruction': {'parts': [{'text': 'You are RoUtils AI. Help the user with Roblox, FastFlags, RoUtils, Windows, programming, and general questions. Be concise, accurate, and practical. When the user asks for a FastFlag, explain how to apply it specifically in RoUtils: tell them to open the FFlags tab, click JSON Editor, paste the JSON you provide, click Add, and then click Apply. Always provide the exact FastFlag JSON when you know the correct flag and value. If you are unsure of a flag, say so rather than inventing one. Use Markdown headings, bold (**text**), inline code (`text`), lists, and fenced code blocks when useful.'}]}, 'contents': history}
-                    req = urllib.request.Request('https://generativelanguage.googleapis.com/v1beta/models/' + model_names[model_var.get()] + ':generateContent', data=json.dumps(payload).encode('utf-8'), headers={'Content-Type': 'application/json', 'x-goog-api-key': key}, method='POST')
+                    system_text = "You are RoUtils AI, the built-in assistant for the RoUtils desktop application. Answer questions about RoUtils features, Cache, FFlags, Modifications, Configs, Themes, Console, Settings, plugins, macros, Roblox, Windows, programming, and general topics. Use the current conversation history. Do not explain how to apply a FastFlag unless the user explicitly asks how to apply it. If the user asks about RoUtils, use the known application context instead of claiming that you do not know the app. Be concise, accurate, practical, and honest about uncertainty. Use clean Markdown and preserve newlines in code and structured text."
+                    payload = {'systemInstruction': {'parts': [{'text': system_text}]}, 'contents': request_history}
+                    req = urllib.request.Request('https://generativelanguage.googleapis.com/v1beta/models/' + selected_model + ':generateContent', data=json.dumps(payload).encode('utf-8'), headers={'Content-Type': 'application/json', 'x-goog-api-key': key}, method='POST')
                     with urllib.request.urlopen(req, timeout=60) as response:
                         result = json.loads(response.read().decode('utf-8'))
                     parts = result.get('candidates', [{}])[0].get('content', {}).get('parts', [])
-                    answer = ''.join((str(part.get('text', '')) for part in parts)).strip()
+                    answer = ''.join(str(part.get('text', '')) for part in parts).strip()
                     if not answer:
                         raise RuntimeError('Gemini returned an empty response.')
-                    history.append({'role': 'model', 'parts': [{'text': answer}]})
-                    win.after(0, lambda: finish(answer))
-                except Exception as e:
-                    err_text = str(e)
-                    win.after(0, lambda err_text=err_text: finish(f'Error: {err_text}'))
+                    generated = None
+                    if session_title(session) == 'New chat':
+                        first_request = session['messages'][0]['parts'][0].get('text', '')[:1200]
+                        try:
+                            title_payload = {'contents': [{'role': 'user', 'parts': [{'text': 'Create a short natural chat title in the same language as this request. Return only the title, without quotes, markdown, or explanation. Maximum 45 characters. Request: ' + first_request}]}]}
+                            title_req = urllib.request.Request('https://generativelanguage.googleapis.com/v1beta/models/' + selected_model + ':generateContent', data=json.dumps(title_payload).encode('utf-8'), headers={'Content-Type': 'application/json', 'x-goog-api-key': key}, method='POST')
+                            with urllib.request.urlopen(title_req, timeout=20) as title_response:
+                                title_result = json.loads(title_response.read().decode('utf-8'))
+                            title_parts = title_result.get('candidates', [{}])[0].get('content', {}).get('parts', [])
+                            generated = ''.join(str(part.get('text', '')) for part in title_parts).strip().replace('\n', ' ')
+                            generated = re.sub(r'["\'`]+', '', generated).strip(' .:;,-')[:45] or None
+                        except Exception:
+                            generated = None
+                    win.after(0, lambda result=answer, title=generated: finish(result, title))
+                except Exception as exc:
+                    win.after(0, lambda error=str(exc): finish('Error: ' + error))
+
             threading.Thread(target=worker, daemon=True).start()
 
-        def finish(answer):
-            for child in reversed(messages.winfo_children()):
-                try:
-                    labels = [x for x in child.winfo_children() if isinstance(x, tk.Label)]
-                    if labels and labels[0].cget('text') == 'Thinking...':
-                        child.destroy()
-                        break
-                except Exception:
-                    pass
-            add_message(answer, 'model')
-            busy['value'] = False
-            send_btn.config(state='normal')
-            input_box.config(state='normal')
-            input_box.focus_set()
-        composer = ttk.Frame(win, padding=(12, 4, 12, 12))
-        composer.pack(fill='x')
-        composer.columnconfigure(0, weight=1)
-        input_box = tk.Text(composer, height=4, wrap='word', font=('Segoe UI', 10), bg=_CURRENT_PALETTE['bg_medium'], fg=_CURRENT_PALETTE['fg'], insertbackground='#ffffff', relief='flat', bd=0, padx=10, pady=8)
-        input_box.grid(row=0, column=0, sticky='ew', padx=(0, 8))
-        send_btn = ttk.Button(composer, text='Send', command=send, width=10)
-        send_btn.grid(row=0, column=1, sticky='se')
+        new_chat_btn.configure(command=new_chat)
+        attach_btn.configure(command=attach_file)
+        send_btn.configure(command=send)
         input_box.bind('<Control-Return>', lambda _e: (send(), 'break')[1])
-        add_message("Hi! I'm RoUtils AI. How can I help?", 'model')
+        sessions[:] = [{'title': 'New chat', 'messages': []}]
+        active['index'] = 0
+        refresh_history_list()
+        load_session(active['index'])
         input_box.focus_set()
+
+        def close_ai_chat():
+            try:
+                win.destroy()
+            except tk.TclError:
+                pass
+            self._ai_chat_window = None
+
+        win.protocol('WM_DELETE_WINDOW', close_ai_chat)
 
     def _build_viewer_widgets(self):
         top = ttk.Frame(self.viewer_root, padding=(8, 6))
@@ -11683,6 +11475,34 @@ class App(tk.Tk):
             self.collapse_btn.config(text='▶')
             self._save_settings()
 
+    def _set_resize_redraw(self, enabled):
+
+        if sys.platform != 'win32':
+            return
+        try:
+            user32 = ctypes.windll.user32
+            WM_SETREDRAW = 0x000B
+            widgets = [getattr(self, 'tree', None), getattr(self, 'details_text', None)]
+            for widget in widgets:
+                if widget is None:
+                    continue
+                target = widget.canvas if hasattr(widget, 'canvas') else widget
+                try:
+                    hwnd = int(target.winfo_id())
+                    user32.SendMessageW(hwnd, WM_SETREDRAW, 1 if enabled else 0, 0)
+                    if enabled and widget is getattr(self, 'tree', None):
+                        user32.InvalidateRect(hwnd, None, True)
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+    def _finish_live_resize(self):
+        self._resize_restore_job = None
+        if getattr(self, '_resize_redraw_suspended', False):
+            self._resize_redraw_suspended = False
+            self._set_resize_redraw(True)
+
     def _on_geometry_configure(self, event=None):
         if event is not None and event.widget is not self:
             return
@@ -11691,15 +11511,37 @@ class App(tk.Tk):
             if geom == getattr(self, '_last_geometry_seen', None):
                 return
             self._last_geometry_seen = geom
+            match = re.match(r'^(\d+)x(\d+)', geom)
+            if match:
+                size = (int(match.group(1)), int(match.group(2)))
+                previous = getattr(self, '_last_resize_size', None)
+                if previous is not None and abs(size[0] - previous[0]) < 12 and abs(size[1] - previous[1]) < 12:
+                    return
+                self._last_resize_size = size
         except Exception:
             pass
+
+
+        if not getattr(self, '_resize_redraw_suspended', False):
+            self._resize_redraw_suspended = True
+            self._set_resize_redraw(False)
+        old_job = getattr(self, '_resize_restore_job', None)
+        if old_job is not None:
+            try:
+                self.after_cancel(old_job)
+            except Exception:
+                pass
+        self._resize_restore_job = self.after(150, self._finish_live_resize)
         if self._geometry_save_job is not None:
             try:
                 self.after_cancel(self._geometry_save_job)
             except Exception:
                 pass
         try:
-            self._geometry_save_job = self.after(1200, self._save_settings)
+            def save_geometry_once():
+                self._geometry_save_job = None
+                self._save_settings()
+            self._geometry_save_job = self.after(1200, save_geometry_once)
         except Exception:
             self._geometry_save_job = None
 
@@ -11714,7 +11556,7 @@ class App(tk.Tk):
         self._save_settings()
 
     def _save_settings(self):
-        data = {'autoscroll': self.autoscroll.get(), 'hide_tickets': self.hide_tickets.get(), 'stay_on_top': self.stay_on_top.get(), 'show_lines': self.show_lines.get(), 'preview_optimize_vertices': self.viewport_3d.reduce_polys.get() if hasattr(self, 'viewport_3d') else self.settings.get('preview_optimize_vertices', True), 'streamer_mode': self.streamer_mode.get() if hasattr(self, 'streamer_mode') else self.settings.get('streamer_mode', False), 'fps_limit': self.fps_limit.get() if hasattr(self, 'fps_limit') else self.settings.get('fps_limit', 0), 'autostart_watch': self.autostart_watch.get() if hasattr(self, 'autostart_watch') else self.settings.get('autostart_watch', False), 'max_rows': self.max_rows.get() if hasattr(self, 'max_rows') else self.settings.get('max_rows', 0), 'type_filter': self.type_filter.get(), 'columns': {c: var.get() for c, var in getattr(self, '_col_vars', {}).items()}, 'viewer_collapsed': self.viewer_collapsed, 'theme': self.theme_var.get() if hasattr(self, 'theme_var') else self.settings.get('theme', DEFAULT_THEME), 'fflag_hotkeys': self.fflag_hotkeys, 'fps_hotkeys': self.fps_hotkeys, 'fps_hotkey_slots': self.fps_hotkey_slots, 'fflag_auto_apply': self.fflag_auto_apply.get() if hasattr(self, 'fflag_auto_apply') else self.settings.get('fflag_auto_apply', False), 'launch_on_tray': self.launch_on_tray.get() if hasattr(self, 'launch_on_tray') else self.settings.get('launch_on_tray', False), 'launch_on_startup': self.launch_on_startup.get() if hasattr(self, 'launch_on_startup') else self.settings.get('launch_on_startup', False), 'hide_to_tray_on_close': self.hide_to_tray_on_close.get() if hasattr(self, 'hide_to_tray_on_close') else self.settings.get('hide_to_tray_on_close', False), 'auto_update': self.auto_update.get() if hasattr(self, 'auto_update') else self.settings.get('auto_update', False), 'dpi_percent': int(self.dpi_percent.get()) if hasattr(self, 'dpi_percent') else int(getattr(self, '_dpi_scale', 1.0) * 100), 'plugin_enabled': getattr(self, '_plugin_enabled', self.settings.get('plugin_enabled', {})), 'roblox_path': self.settings.get('roblox_path', ''), 'roblox_username': self.settings.get('roblox_username', ''), 'roblox_user_id': self.settings.get('roblox_user_id', ''), 'gemini_api_key': self.gemini_api_key.get().strip() if hasattr(self, 'gemini_api_key') else self.settings.get('gemini_api_key', ''), 'custom_theme': self.settings.get('custom_theme', {}), 'db_path': getattr(self, 'db_path', self.settings.get('db_path', '')), 'shard_root': getattr(self, 'shard_root', self.settings.get('shard_root', '')), 'window_geometry': self.geometry() if self.winfo_exists() else self.settings.get('window_geometry', STARTUP_GEOMETRY)}
+        data = {'autoscroll': self.autoscroll.get(), 'hide_tickets': self.hide_tickets.get(), 'stay_on_top': self.stay_on_top.get(), 'show_lines': self.show_lines.get(), 'preview_optimize_vertices': self.viewport_3d.reduce_polys.get() if hasattr(self, 'viewport_3d') else self.settings.get('preview_optimize_vertices', True), 'streamer_mode': self.streamer_mode.get() if hasattr(self, 'streamer_mode') else self.settings.get('streamer_mode', False), 'fps_limit': self.fps_limit.get() if hasattr(self, 'fps_limit') else self.settings.get('fps_limit', 0), 'autostart_watch': self.autostart_watch.get() if hasattr(self, 'autostart_watch') else self.settings.get('autostart_watch', False), 'max_rows': self.max_rows.get() if hasattr(self, 'max_rows') else self.settings.get('max_rows', 0), 'type_filter': self.type_filter.get(), 'columns': {c: var.get() for c, var in getattr(self, '_col_vars', {}).items()}, 'viewer_collapsed': self.viewer_collapsed, 'theme': self.theme_var.get() if hasattr(self, 'theme_var') else self.settings.get('theme', DEFAULT_THEME), 'fflag_hotkeys': self.fflag_hotkeys, 'fps_hotkeys': self.fps_hotkeys, 'fps_hotkey_slots': self.fps_hotkey_slots, 'fflag_auto_apply': self.fflag_auto_apply.get() if hasattr(self, 'fflag_auto_apply') else self.settings.get('fflag_auto_apply', False), 'launch_on_tray': self.launch_on_tray.get() if hasattr(self, 'launch_on_tray') else self.settings.get('launch_on_tray', False), 'launch_on_startup': self.launch_on_startup.get() if hasattr(self, 'launch_on_startup') else self.settings.get('launch_on_startup', False), 'hide_to_tray_on_close': self.hide_to_tray_on_close.get() if hasattr(self, 'hide_to_tray_on_close') else self.settings.get('hide_to_tray_on_close', False), 'auto_update': self.auto_update.get() if hasattr(self, 'auto_update') else self.settings.get('auto_update', False), 'dpi_percent': int(self.dpi_percent.get()) if hasattr(self, 'dpi_percent') else int(getattr(self, '_dpi_scale', 1.0) * 100), 'plugin_enabled': getattr(self, '_plugin_enabled', self.settings.get('plugin_enabled', {})), 'roblox_path': self.settings.get('roblox_path', ''), 'gemini_api_key': self.gemini_api_key.get().strip() if hasattr(self, 'gemini_api_key') else self.settings.get('gemini_api_key', ''), 'custom_theme': self.settings.get('custom_theme', {}), 'db_path': getattr(self, 'db_path', self.settings.get('db_path', '')), 'shard_root': getattr(self, 'shard_root', self.settings.get('shard_root', '')), 'window_geometry': self.geometry() if self.winfo_exists() else self.settings.get('window_geometry', STARTUP_GEOMETRY)}
         save_settings(data)
         self.settings = data
 
@@ -11742,7 +11584,7 @@ class App(tk.Tk):
             except Exception:
                 w = 80
             for i, iid in enumerate(self.tree.get_children('')):
-                if i > 500:
+                if i > 120:
                     break
                 text = str(self.tree.set(iid, c))
                 w = max(w, tkfont.Font().measure(text))
@@ -11960,6 +11802,9 @@ class App(tk.Tk):
             return False
         body, meta = self._dump_blob_body(blob)
         if not body:
+            body = blob
+            meta = {}
+        if not body:
             return False
         cat = str(it.kind or 'Unknown').split(' ', 1)[0].strip()
         cat_low = cat.lower()
@@ -12032,20 +11877,151 @@ class App(tk.Tk):
         return True
 
     def _dump_all_caches(self):
-        try:
-            if getattr(sys, 'frozen', False):
-                command = [sys.executable, '--dump-caches']
+        if getattr(self, '_dump_running', False):
+            return
+        dialog = tk.Toplevel(self)
+        dialog.title('Dump Caches')
+        dialog.transient(self)
+        dialog.geometry('620x300')
+        dialog.minsize(520, 250)
+        dialog.resizable(True, True)
+        theme_toplevel(dialog)
+        frame = ttk.Frame(dialog, padding=16)
+        frame.pack(fill='both', expand=True)
+        frame.rowconfigure(4, weight=1)
+        frame.columnconfigure(0, weight=1)
+        status = tk.StringVar(value='Preparing cache dump...')
+        ttk.Label(frame, text='Dump Caches', font=('Segoe UI', 13, 'bold')).grid(row=0, column=0, sticky='w')
+        ttk.Label(frame, textvariable=status, wraplength=560).grid(row=1, column=0, sticky='ew', pady=(8, 10))
+        progress = ttk.Progressbar(frame, mode='determinate')
+        progress.grid(row=2, column=0, sticky='ew', pady=(0, 6))
+        details_frame = ttk.Frame(frame)
+        details_frame.grid(row=4, column=0, sticky='nsew', pady=(10, 0))
+        details_frame.rowconfigure(0, weight=1)
+        details_frame.columnconfigure(0, weight=1)
+        details = tk.Text(details_frame, wrap='word', height=8, state='disabled', bg='#252526', fg='#d4d4d4', insertbackground='#ffffff', relief='flat', bd=0, font=('Consolas', 9))
+        details_scroll = ttk.Scrollbar(details_frame, orient='vertical', command=details.yview)
+        details.configure(yscrollcommand=details_scroll.set)
+        details.grid(row=0, column=0, sticky='nsew')
+        details_scroll.grid(row=0, column=1, sticky='ns')
+        details_frame.grid_remove()
+        controls = ttk.Frame(frame)
+        controls.grid(row=5, column=0, sticky='e', pady=(12, 0))
+        details_button = ttk.Button(controls, text='Details')
+        details_button.pack(side='left', padx=(0, 8))
+        close_button = ttk.Button(controls, text='Close')
+        close_button.pack(side='left')
+        self._dump_running = True
+        cancel = threading.Event()
+        closed = threading.Event()
+        expanded = {'value': False}
+
+        def append_detail(message):
+            if closed.is_set() or not dialog.winfo_exists():
+                return
+            details.configure(state='normal')
+            details.insert('end', str(message) + '\n')
+            details.see('end')
+            details.configure(state='disabled')
+
+        def safe_ui(callback):
+            if closed.is_set():
+                return
+            try:
+                if dialog.winfo_exists():
+                    dialog.after(0, callback)
+            except tk.TclError:
+                pass
+
+        def finish():
+            self._dump_running = False
+            if closed.is_set():
+                return
+            try:
+                close_button.configure(state='normal', text='Close')
+                status.set(status.get() if status.get().startswith(('Finished', 'Error', 'Cancelled')) else 'Finished.')
+            except tk.TclError:
+                pass
+
+        def close_dialog():
+            if self._dump_running:
+                cancel.set()
+                status.set('Cancelling...')
+            closed.set()
+            try:
+                dialog.destroy()
+            except tk.TclError:
+                pass
+
+        def toggle_details():
+            expanded['value'] = not expanded['value']
+            if expanded['value']:
+                details_frame.grid()
+                dialog.geometry('760x600')
+                details_button.configure(text='Hide details')
             else:
-                pyexe = sys.executable
-                base = os.path.basename(pyexe).lower()
-                if base == 'pythonw.exe':
-                    candidate = os.path.join(os.path.dirname(pyexe), 'python.exe')
-                    if os.path.isfile(candidate):
-                        pyexe = candidate
-                command = [pyexe, os.path.abspath(__file__), '--dump-caches']
-            subprocess.Popen(['cmd.exe', '/k'] + command, creationflags=getattr(subprocess, 'CREATE_NEW_CONSOLE', 0), close_fds=True)
-        except Exception as e:
-            messagebox.showerror('Dump Caches', f'Could not open dump CMD:\n{e}', parent=self)
+                details_frame.grid_remove()
+                dialog.geometry('620x300')
+                details_button.configure(text='Details')
+
+        details_button.configure(command=toggle_details)
+        close_button.configure(command=close_dialog)
+        dialog.protocol('WM_DELETE_WINDOW', close_dialog)
+
+        def worker():
+            dump_root = os.path.join(DATA_DIR, 'Dump')
+            os.makedirs(dump_root, exist_ok=True)
+            db_path, shard_root = default_paths()
+            if not os.path.isfile(db_path):
+                safe_ui(lambda: status.set('rbx-storage.db was not found.'))
+                safe_ui(finish)
+                return
+            helper = object.__new__(App)
+            helper.db_path = db_path
+            helper.shard_root = shard_root
+            helper._blob_cache = {}
+            helper._blob_cache_order = []
+            helper._blob_cache_limit = 256
+            try:
+                safe_ui(lambda: append_detail(f'Database: {db_path}'))
+                safe_ui(lambda: append_detail(f'Output: {dump_root}'))
+                safe_ui(lambda: append_detail('Scanning cache database...'))
+                items = scan_db_once(db_path, shard_root, set(), None)
+                total = len(items)
+                dumped = 0
+                failed = 0
+                safe_ui(lambda n=total: (progress.configure(maximum=max(1, n), value=0), status.set(f'Found {n} cache(s).'), append_detail(f'Found {n} cache(s).')))
+                for index, item in enumerate(items, 1):
+                    if cancel.is_set():
+                        safe_ui(lambda: status.set('Cancelled.'))
+                        break
+                    ok = False
+                    error_text = ''
+                    try:
+                        ok = bool(App._dump_one_cache(helper, item, dump_root))
+                    except Exception as exc:
+                        error_text = str(exc)
+                    if ok:
+                        dumped += 1
+                        result_text = f'{index}/{total} dumped: {item.name or item.hash}'
+                    else:
+                        failed += 1
+                        result_text = f'{index}/{total} failed: {item.name or item.hash}' + (f' | {error_text}' if error_text else '')
+                    if index % 5 == 0 or index == total:
+                        safe_ui(lambda i=index, n=total, d=dumped, f=failed, msg=result_text: (progress.configure(value=i), status.set(f'Processed {i}/{n} | dumped={d} | failed={f}'), append_detail(msg)))
+                if cancel.is_set():
+                    safe_ui(lambda: append_detail('Dump cancelled by user.'))
+                else:
+                    safe_ui(lambda d=dumped, f=failed: (status.set(f'Finished. Dumped: {d} | Failed: {f}'), append_detail(f'Finished. Dumped: {d} | Failed: {f}')))
+            except Exception as exc:
+                safe_ui(lambda e=str(exc): (status.set(f'Error: {e}'), append_detail(f'Error: {e}')))
+            finally:
+                try:
+                    self.after(0, finish)
+                except tk.TclError:
+                    self._dump_running = False
+
+        threading.Thread(target=worker, daemon=True, name='RoUtilsDumpWorker').start()
 
     def _run_dump_caches_cli(self):
         if os.name == 'nt':
@@ -12066,6 +12042,9 @@ class App(tk.Tk):
         helper = object.__new__(App)
         helper.db_path = db_path
         helper.shard_root = shard_root
+        helper._blob_cache = {}
+        helper._blob_cache_order = []
+        helper._blob_cache_limit = 256
         try:
             items = scan_db_once(db_path, shard_root, set(), None)
         except Exception as e:
@@ -12122,6 +12101,7 @@ class App(tk.Tk):
         self.seen_hashes.clear()
         self.items_by_iid.clear()
         self.items_by_hash.clear()
+        self._tree_displayed_iids = set()
         self.tree.delete(*self.tree.get_children())
         self._update_status()
         self._console_log(f"Cleared rbx-storage: {deleted_shards} shard(s), DB={('yes' if deleted_db else 'no')}")
@@ -12252,23 +12232,54 @@ class App(tk.Tk):
         self.scan_thread.start()
 
     def _scan_loop(self):
+
+
+        batch_size = 250
+        offset = 0
         while not self.stop_event.is_set():
-            items = scan_db_once(self.db_path, self.shard_root, self.seen_hashes, None if self.max_rows.get() <= 0 else self.max_rows.get())
+            try:
+                configured_limit = int(self.max_rows.get())
+            except Exception:
+                configured_limit = 0
+            limit = configured_limit if configured_limit > 0 else batch_size
+            limit = max(50, min(limit, batch_size))
+            items = scan_db_once(self.db_path, self.shard_root, self.seen_hashes, limit, offset)
+            offset += limit
             if items:
                 self.new_items_q.put(items)
-            self.stop_event.wait(WATCH_INTERVAL_SEC)
+                self.stop_event.wait(0.02)
+            else:
+
+
+                offset = 0
+                self.stop_event.wait(WATCH_INTERVAL_SEC)
 
     def _drain_queue(self):
+
+
+        try:
+            active_id = self.nb.select()
+            active_name = self.nb.tab(active_id, 'text') if active_id else ''
+        except Exception:
+            active_name = ''
+
+        tab_busy = bool(getattr(self, '_tab_building', False))
+        cache_visible = active_name == 'Cache' and not tab_busy
         processed = 0
         try:
-            while processed < 8:
+
+
+            while processed < (1 if cache_visible else 2):
                 items = self.new_items_q.get_nowait()
-                self._insert_items(items)
+                for it in items:
+                    self.items_by_hash[it.hash] = it
+                if cache_visible:
+                    self._queue_tree_render(items)
                 processed += 1
         except queue.Empty:
             pass
         finally:
-            self.after(UI_QUEUE_INTERVAL_MS, self._drain_queue)
+            self.after(220 if not cache_visible else 90, self._drain_queue)
 
     def _should_display(self, it: ScanItem, filt: str) -> bool:
         if self.hide_tickets.get() and it.is_ticket:
@@ -12287,37 +12298,77 @@ class App(tk.Tk):
             return False
         return True
 
-    def _insert_items(self, items: List[ScanItem]):
+    def _queue_tree_render(self, items):
+
+
+        if not hasattr(self, '_tree_displayed_iids'):
+            self._tree_displayed_iids = set()
+        if not hasattr(self, '_tree_render_limit'):
+            self._tree_render_limit = 1800
+
+
+        pending = getattr(self, '_tree_render_pending', None)
+        if pending is None:
+            pending = self._tree_render_pending = []
+        pending.extend(items)
+        if not getattr(self, '_tree_render_job', None):
+            self._tree_render_job = self.after_idle(self._render_tree_batch)
+
+    def _render_tree_batch(self):
+        self._tree_render_job = None
+        pending = getattr(self, '_tree_render_pending', None) or []
+        if not pending:
+            return
         filt = self.filter_text.get().lower().strip()
-        for it in items:
-            self.items_by_hash[it.hash] = it
+        cursor = getattr(self, '_tree_render_cursor', 0)
+        limit = getattr(self, '_tree_render_limit', 3000)
+        batch = pending[cursor:cursor + 35]
+        self._tree_render_cursor = cursor + len(batch)
+        displayed = getattr(self, '_tree_displayed_iids', set())
+        rendered = len(displayed)
+        for it in batch:
+            if rendered >= limit:
+                break
             if not self._should_display(it, filt):
                 continue
             iid = it.hash
-            self.tree.insert('', 'end', iid=iid, values=(it.time, it.name, it.hash, human_size(it.size), it.kind, it.src))
+            if iid in displayed:
+                continue
+            self.tree.insert('', 'end', iid=iid,
+                             values=(it.time, it.name, it.hash,
+                                     human_size(it.size), it.kind, it.src))
+            displayed.add(iid)
             self.items_by_iid[iid] = it
-        if self.autoscroll.get():
-            try:
-                last = self.tree.get_children()[-1]
-                self.tree.see(last)
-            except IndexError:
-                pass
-        self._update_status()
+            rendered += 1
+        if self._tree_render_cursor < len(pending) and rendered < limit:
+            self._tree_render_job = self.after(8, self._render_tree_batch)
+        else:
+            if self.autoscroll.get():
+                children = self.tree.get_children()
+                if children:
+                    self.tree.see(children[-1])
+            self._update_status()
+
+    def _insert_items(self, items: List[ScanItem]):
+        for it in items:
+            self.items_by_hash[it.hash] = it
+        self._queue_tree_render(items)
 
     def _apply_filter(self):
-        self.tree.delete(*self.tree.get_children())
-        filt = self.filter_text.get().lower().strip()
-        for _, it in self.items_by_hash.items():
-            if not self._should_display(it, filt):
-                continue
-            self.tree.insert('', 'end', iid=it.hash, values=(it.time, it.name, it.hash, human_size(it.size), it.kind, it.src))
-        if self.autoscroll.get():
+        if getattr(self, '_tree_render_job', None):
             try:
-                last = self.tree.get_children()[-1]
-                self.tree.see(last)
-            except IndexError:
+                self.after_cancel(self._tree_render_job)
+            except Exception:
                 pass
-        self._update_status()
+            self._tree_render_job = None
+        self._tree_render_pending = []
+        self._tree_render_cursor = 0
+        self._tree_displayed_iids = set()
+        children = self.tree.get_children()
+        if children:
+            self.tree.delete(*children)
+        self.items_by_iid.clear()
+        self._queue_tree_render(list(self.items_by_hash.values()))
 
     def _apply_stay_on_top(self):
         self.wm_attributes('-topmost', self.stay_on_top.get())
@@ -12379,40 +12430,25 @@ class App(tk.Tk):
         body = meta.get('body') or b''
         cat = it.kind.split(' ', 1)[0]
         is_mesh = cat == 'Mesh'
-        is_anim = cat == 'Animation' or (cat in ('RBXM', 'Model') and any((marker in body[:262144] for marker in (b'Keyframe', b'CurveAnimation', b'KeyframeSequence', b'AnimationClip'))))
         is_audio = cat == 'Sound'
         is_model = cat in ('Model', 'RBXM', 'rbxl (place)')
-        if not (is_mesh or is_anim or is_audio or is_model):
+        if not (is_mesh or is_audio or is_model):
             self.viewport_3d.hide()
             return
-        if is_anim:
-            self.viewport_3d.hide()
-            return
-        self._close_animation_preview()
         temp_pkg_path = os.path.join(TEMP_EMU_DIR, f'preview_{it.hash}.bin')
         try:
             with open(temp_pkg_path, 'wb') as f:
                 f.write(body)
         except Exception:
             pass
-        self.viewport_3d.set_asset_data_from_temp(temp_pkg_path, is_anim=is_anim, is_mesh=is_mesh, is_model=is_model, is_audio=is_audio)
-        if is_anim:
-            self.viewport_3d.show(is_anim=True, mode_label='Animation View')
-        elif is_mesh:
+        self.viewport_3d.set_asset_data_from_temp(temp_pkg_path, is_mesh=is_mesh, is_model=is_model, is_audio=is_audio)
+        if is_mesh:
             self.viewport_3d.show(is_anim=False, mode_label='Mesh View')
         elif is_model:
             self.viewport_3d.show(is_anim=False, mode_label='Model View')
         else:
             self.viewport_3d.show(is_anim=False, mode_label='Audio View')
 
-    def _close_animation_preview(self):
-        win = getattr(self, '_animation_preview_win', None)
-        if win is not None:
-            try:
-                if win.winfo_exists():
-                    win.withdraw()
-            except Exception:
-                pass
 
     def _update_displaycolumns(self, save: bool=True):
         cols = [c for c in self.columns if self._col_vars[c].get()]
@@ -12593,6 +12629,16 @@ class App(tk.Tk):
         self._img_preview_fade_job = self.after(25, self._fade_preview, target, step)
 
     def _fetch_full_blob(self, it: ScanItem) -> Optional[bytes]:
+        cached = self._blob_cache.get(it.hash)
+        if cached is not None:
+            try:
+                self._blob_cache_order.remove(it.hash)
+            except ValueError:
+                pass
+            self._blob_cache_order.append(it.hash)
+            return cached
+        conn = None
+        row = None
         try:
             conn = connect_ro(self.db_path)
             cur = conn.cursor()
@@ -12606,11 +12652,20 @@ class App(tk.Tk):
             except Exception:
                 pass
         if row is None:
-            return read_shard_bytes(self.shard_root, it.hash)
-        content = row[0]
+            content = read_shard_bytes(self.shard_root, it.hash)
+        else:
+            content = row[0] if row[0] is not None else read_shard_bytes(self.shard_root, it.hash)
         if content is not None:
-            return content
-        return read_shard_bytes(self.shard_root, it.hash)
+            self._blob_cache[it.hash] = content
+            try:
+                self._blob_cache_order.remove(it.hash)
+            except ValueError:
+                pass
+            self._blob_cache_order.append(it.hash)
+            while len(self._blob_cache_order) > self._blob_cache_limit:
+                old_hash = self._blob_cache_order.pop(0)
+                self._blob_cache.pop(old_hash, None)
+        return content
 
     def _export_selected_full(self):
         items = self._get_selected_items()
@@ -13531,7 +13586,7 @@ def main():
         except Exception as e:
             print(f'ERROR: {e}', flush=True)
             code = 1
-        input('\nPress Enter to close...')
+        input('\npress enter to close')
         raise SystemExit(code)
     try:
         app = App()
