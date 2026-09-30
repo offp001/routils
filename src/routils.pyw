@@ -1,6 +1,5 @@
 import gzip
 import hashlib
-import html
 import io
 import math
 import os
@@ -23,7 +22,6 @@ import zipfile
 import base64
 import traceback
 import importlib.util
-import winreg
 import threading
 import time
 UI_HOTKEY_INTERVAL_MS = 75
@@ -45,6 +43,12 @@ try:
 except Exception:
     sv_ttk = None
 from urllib.parse import parse_qs, urlparse, urljoin
+def _silent_dialog(*_args, **_kwargs):
+    return None
+
+messagebox.showerror = _silent_dialog
+messagebox.showwarning = _silent_dialog
+
 UI_THEME = 'clam'
 THEMES = {'Midnight': {'bg_dark': '#1b1b1c', 'bg_medium': '#252526', 'bg_light': '#3a3a3c', 'bg_hover': '#464648', 'fg': '#dcdcdc', 'accent': '#7f8cff', 'border': '#444446'}, 'Ocean': {'bg_dark': '#0f2436', 'bg_medium': '#153248', 'bg_light': '#1f425e', 'bg_hover': '#2a5474', 'fg': '#d7e6f0', 'accent': '#3aa0ff', 'border': '#28506e'}, 'Hacker': {'bg_dark': '#0a0f0a', 'bg_medium': '#0f180f', 'bg_light': '#1a2a1a', 'bg_hover': '#223522', 'fg': '#b8ffb0', 'accent': '#2fff2f', 'border': '#2a4a2a'}, 'Amethyst': {'bg_dark': '#1a1423', 'bg_medium': '#241b31', 'bg_light': '#35284a', 'bg_hover': '#453665', 'fg': '#e0d6f0', 'accent': '#b06bff', 'border': '#4a3a63'}, 'Onyx': {'bg_dark': '#101010', 'bg_medium': '#171717', 'bg_light': '#262626', 'bg_hover': '#303030', 'fg': '#cfcfcf', 'accent': '#c0c0c0', 'border': '#333333'}}
 THEMES.update({'Nord': {'bg_dark': '#1e2430', 'bg_medium': '#252d3a', 'bg_light': '#303a4a', 'bg_hover': '#3a4658', 'fg': '#d8dee9', 'accent': '#88c0d0', 'border': '#414b5d'}, 'Dracula': {'bg_dark': '#282a36', 'bg_medium': '#303241', 'bg_light': '#44475a', 'bg_hover': '#565a70', 'fg': '#f8f8f2', 'accent': '#bd93f9', 'border': '#44475a'}, 'Monokai': {'bg_dark': '#272822', 'bg_medium': '#2e2f2a', 'bg_light': '#3e3d32', 'bg_hover': '#49483e', 'fg': '#f8f8f2', 'accent': '#a6e22e', 'border': '#49483e'}, 'Solarized': {'bg_dark': '#002b36', 'bg_medium': '#073642', 'bg_light': '#586e75', 'bg_hover': '#657b83', 'fg': '#eee8d5', 'accent': '#2aa198', 'border': '#586e75'}, 'Rose Pine': {'bg_dark': '#191724', 'bg_medium': '#1f1d2e', 'bg_light': '#26233a', 'bg_hover': '#403d52', 'fg': '#e0def4', 'accent': '#ebbcba', 'border': '#403d52'}, 'Catppuccin': {'bg_dark': '#1e1e2e', 'bg_medium': '#313244', 'bg_light': '#45475a', 'bg_hover': '#585b70', 'fg': '#cdd6f4', 'accent': '#cba6f7', 'border': '#45475a'}, 'Gruvbox': {'bg_dark': '#282828', 'bg_medium': '#3c3836', 'bg_light': '#504945', 'bg_hover': '#665c54', 'fg': '#ebdbb2', 'accent': '#fabd2f', 'border': '#504945'}, 'Tokyo Night': {'bg_dark': '#16161e', 'bg_medium': '#1f2335', 'bg_light': '#292e42', 'bg_hover': '#3b4261', 'fg': '#c0caf5', 'accent': '#7aa2f7', 'border': '#3b4261'}, 'Synthwave': {'bg_dark': '#241b2f', 'bg_medium': '#30233d', 'bg_light': '#45304f', 'bg_hover': '#5a3e64', 'fg': '#f5d7fe', 'accent': '#ff7edb', 'border': '#5a3e64'}, 'Forest': {'bg_dark': '#102018', 'bg_medium': '#183025', 'bg_light': '#254638', 'bg_hover': '#315a48', 'fg': '#d8f3dc', 'accent': '#74c69d', 'border': '#315a48'}, 'Ruby': {'bg_dark': '#241417', 'bg_medium': '#351b20', 'bg_light': '#4a252d', 'bg_hover': '#63323d', 'fg': '#f7dfe3', 'accent': '#ff6b81', 'border': '#63323d'}, 'Amber': {'bg_dark': '#211a0e', 'bg_medium': '#33270f', 'bg_light': '#4a3815', 'bg_hover': '#61491d', 'fg': '#fff0c2', 'accent': '#ffb84d', 'border': '#61491d'}, 'Arctic': {'bg_dark': '#17212b', 'bg_medium': '#21303d', 'bg_light': '#304554', 'bg_hover': '#405b6d', 'fg': '#e7f5ff', 'accent': '#66c7ff', 'border': '#405b6d'}, 'Lavender': {'bg_dark': '#211d2b', 'bg_medium': '#2d263b', 'bg_light': '#3c3350', 'bg_hover': '#514466', 'fg': '#eee7ff', 'accent': '#c4a7ff', 'border': '#514466'}, 'Coffee': {'bg_dark': '#211915', 'bg_medium': '#30231d', 'bg_light': '#45332a', 'bg_hover': '#5b4437', 'fg': '#f1dfd0', 'accent': '#d69e78', 'border': '#5b4437'}, 'Slate': {'bg_dark': '#181c20', 'bg_medium': '#232a30', 'bg_light': '#313a42', 'bg_hover': '#414c56', 'fg': '#d9e1e8', 'accent': '#8ab4c7', 'border': '#414c56'}, 'Cyber': {'bg_dark': '#080b12', 'bg_medium': '#101522', 'bg_light': '#182033', 'bg_hover': '#26334d', 'fg': '#d9f7ff', 'accent': '#00e5ff', 'border': '#26334d'}, 'Sunset': {'bg_dark': '#241516', 'bg_medium': '#35201e', 'bg_light': '#4a2b27', 'bg_hover': '#633b35', 'fg': '#ffe4d6', 'accent': '#ff8a65', 'border': '#633b35'}, 'Mint': {'bg_dark': '#10211e', 'bg_medium': '#17312c', 'bg_light': '#24473f', 'bg_hover': '#315d52', 'fg': '#dcfff5', 'accent': '#62e6c8', 'border': '#315d52'}, 'Deep Blue': {'bg_dark': '#0b1424', 'bg_medium': '#10213a', 'bg_light': '#193153', 'bg_hover': '#24446f', 'fg': '#dcecff', 'accent': '#5ca9ff', 'border': '#24446f'}, 'Obsidian': {'bg_dark': '#111318', 'bg_medium': '#1a1d24', 'bg_light': '#292e38', 'bg_hover': '#363d49', 'fg': '#e6e9ef', 'accent': '#8ab4f8', 'border': '#3b4351'}, 'Aurora': {'bg_dark': '#101820', 'bg_medium': '#172633', 'bg_light': '#234353', 'bg_hover': '#2d5c6d', 'fg': '#e4fbff', 'accent': '#66e3d4', 'border': '#376878'}, 'Plasma': {'bg_dark': '#160d24', 'bg_medium': '#24143b', 'bg_light': '#38215b', 'bg_hover': '#4d2b79', 'fg': '#f4eaff', 'accent': '#e38cff', 'border': '#5d3d83'}, 'Ember': {'bg_dark': '#20110d', 'bg_medium': '#321a14', 'bg_light': '#4a2820', 'bg_hover': '#63362a', 'fg': '#ffede5', 'accent': '#ff9d5c', 'border': '#714334'}, 'Meadow': {'bg_dark': '#0d1b16', 'bg_medium': '#142a20', 'bg_light': '#204433', 'bg_hover': '#2c5c43', 'fg': '#e4ffef', 'accent': '#8be28b', 'border': '#38694e'}})
@@ -61,7 +65,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 _LOCAL_APPDATA = os.environ.get('LOCALAPPDATA') or os.path.expanduser('~')
 DATA_DIR = os.path.join(_LOCAL_APPDATA, 'RoUtils')
 os.makedirs(DATA_DIR, exist_ok=True)
-APP_VERSION = '4.2'
+APP_VERSION = '4.2.1'
 HISTORY_PATH = os.path.join(DATA_DIR, 'history.json')
 SETTINGS_PATH = os.path.join(DATA_DIR, 'routils_settings.json')
 ERROR_REPORT_DIR = os.path.join(DATA_DIR, 'errors')
@@ -1840,7 +1844,6 @@ def _quat_to_matrix(x: float, y: float, z: float, w: float) -> tuple[float, ...]
     wx, wy, wz = (w * x, w * y, w * z)
     return (1 - 2 * (yy + zz), 2 * (xy - wz), 2 * (xz + wy), 2 * (xy + wz), 1 - 2 * (xx + zz), 2 * (yz - wx), 2 * (xz - wy), 2 * (yz + wx), 1 - 2 * (xx + yy))
 import struct
-import zlib
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 import lz4.block
@@ -2173,7 +2176,7 @@ def read_vertices(data: bytes, offset: int, count: int, vsize: int) -> tuple[lis
     return (verts, pos)
 
 def write_obj_data(v_lines: list[str], n_lines: list[str], t_lines: list[str], f_lines: list[str]) -> str:
-    lines = ['# Converted from Roblox mesh format\n']
+    lines = ['# Converted from mesh\n']
     lines.append(f'# Vertices: {len(v_lines)}, Faces: {len(f_lines)}\n\n')
     lines.extend((line + '\n' for line in v_lines))
     lines.append('\n')
@@ -3420,24 +3423,24 @@ def parse_rbxh(blob: bytes) -> Dict:
     try:
         pos = 0
         version, url_len = struct.unpack_from('<II', data, pos)
-        pos += 8
+        pos += 16
         if version < 1 or version > 16 or url_len > len(data) - pos:
             res['body'] = bytes(data)
             return res
         url = bytes(data[pos:pos + url_len]).decode('utf-8', 'replace')
         pos += url_len
-        if pos + 1 + 4 + 4 + 4 + 4 + 8 > len(data):
+        if pos + 1 + 2 + 4 + 8 + 16 + 32 > len(data):
             res['body'] = bytes(data)
             return res
         pos += 1
         status = struct.unpack_from('<I', data, pos)[0]
         pos += 4
         header_len = struct.unpack_from('<I', data, pos)[0]
-        pos += 4
-        pos += 4
-        content_len = struct.unpack_from('<I', data, pos)[0]
-        pos += 4
         pos += 8
+        pos += 8
+        content_len = struct.unpack_from('<I', data, pos)[0]
+        pos += 16
+        pos += 16
         if header_len > len(data) - pos:
             res['body'] = bytes(data)
             return res
@@ -6531,13 +6534,11 @@ class App(tk.Tk):
         self._img_preview_photo = None
         self._img_preview_fade_job: Optional[str] = None
         self._tree_hover_iid: Optional[str] = None
-        self.fflag_engine = RobloxFFlagEngine()
-        self.fflag_flags = []
-        self.fflag_offsets = {}
-        self.fflag_presets = []
-        self.fflag_pid = 0
-        self.fflag_original_values = {}
-        self.fflag_auto_apply = tk.BooleanVar(value=self.settings.get('fflag_auto_apply', False))
+        self.fastflag_runtime = RobloxFFlagEngine()
+        self.fastflag_store = []
+        self.fastflag_process_id = 0
+        self.fastflag_originals = {}
+        self.fastflag_auto = tk.BooleanVar(value=self.settings.get('fastflag_auto', False))
         self.launch_on_startup = tk.BooleanVar(value=self.settings.get('launch_on_startup', False))
         self.launch_on_tray = tk.BooleanVar(value=self.settings.get('launch_on_tray', False))
         self.hide_to_tray_on_close = tk.BooleanVar(value=self.settings.get('hide_to_tray_on_close', False))
@@ -6937,24 +6938,24 @@ class App(tk.Tk):
         new_value = value2 if state else value1
         actual['state'] = not state
         found = None
-        for flag in self.fflag_flags:
+        for flag in self.fastflag_store:
             if fflag_strip_prefix(flag.get('name', '')) == flag_name:
                 found = flag
                 break
         if found is None:
             found = {'name': flag_name, 'value': new_value, 'type': fflag_infer_type(new_value)}
-            self.fflag_flags.append(found)
+            self.fastflag_store.append(found)
         else:
             found['value'] = new_value
             found['type'] = fflag_infer_type(new_value)
         self._save_fflag_flags()
         self._save_settings()
         self._refresh_fflag_list()
-        if self.fflag_pid and self.fflag_engine.handle:
+        if self.fastflag_process_id and self.fastflag_runtime.handle:
             try:
-                self.fflag_engine.get_singleton()
-                self.fflag_engine.set_flag_with_prefixes(flag_name, new_value)
-                self.fflag_status.config(text=f'{flag_name} = {new_value}', foreground='#65d98b')
+                self.fastflag_runtime.get_singleton()
+                self.fastflag_runtime.set_flag_with_prefixes(flag_name, new_value)
+                self.fastflag_status_label.config(text=f'{flag_name} = {new_value}', foreground='#65d98b')
             except Exception:
                 pass
 
@@ -7020,7 +7021,7 @@ class App(tk.Tk):
         key_entry = ttk.Entry(dlg, textvariable=key_var, width=20)
         key_entry.grid(row=1, column=0, padx=10, sticky='ew')
         ttk.Label(dlg, text='FFlag:').grid(row=2, column=0, padx=10, pady=(8, 4), sticky='w')
-        flag_combo = ttk.Combobox(dlg, textvariable=flag_var, values=[x.get('name', '') for x in self.fflag_flags], width=48)
+        flag_combo = ttk.Combobox(dlg, textvariable=flag_var, values=[x.get('name', '') for x in self.fastflag_store], width=48)
         flag_combo.grid(row=3, column=0, padx=10, sticky='ew')
         ttk.Label(dlg, text='Action:').grid(row=4, column=0, padx=10, pady=(8, 4), sticky='w')
         mode_combo = ttk.Combobox(dlg, textvariable=mode_var, values=['Toggle'], state='readonly', width=20)
@@ -7652,14 +7653,14 @@ class App(tk.Tk):
         try:
             with open(self._fflag_path(), 'r', encoding='utf-8') as f:
                 data = json.load(f)
-            self.fflag_flags = data if isinstance(data, list) else []
+            self.fastflag_store = data if isinstance(data, list) else []
         except Exception:
-            self.fflag_flags = []
+            self.fastflag_store = []
 
     def _save_fflag_flags(self):
         try:
             with open(self._fflag_path(), 'w', encoding='utf-8') as f:
-                json.dump(self.fflag_flags, f, ensure_ascii=False, indent=2)
+                json.dump(self.fastflag_store, f, ensure_ascii=False, indent=2)
         except Exception as e:
             messagebox.showerror('FFlags', f'Failed to save flags:\n{e}', parent=self)
 
@@ -8420,11 +8421,11 @@ class App(tk.Tk):
             return
         if isinstance(data, dict):
             for n, v in data.items():
-                self.fflag_flags.append({'name': fflag_strip_prefix(str(n)), 'value': str(v).lower() if isinstance(v, bool) else str(v), 'type': fflag_infer_type(v)})
+                self.fastflag_store.append({'name': fflag_strip_prefix(str(n)), 'value': str(v).lower() if isinstance(v, bool) else str(v), 'type': fflag_infer_type(v)})
         else:
             for x in data:
                 if isinstance(x, dict) and x.get('name') is not None:
-                    self.fflag_flags.append({'name': fflag_strip_prefix(str(x['name'])), 'value': str(x.get('value', '')), 'type': x.get('type') or fflag_infer_type(x.get('value', ''))})
+                    self.fastflag_store.append({'name': fflag_strip_prefix(str(x['name'])), 'value': str(x.get('value', '')), 'type': x.get('type') or fflag_infer_type(x.get('value', ''))})
         self._save_fflag_flags()
         self._refresh_fflag_list()
         dlg.destroy()
@@ -8454,7 +8455,7 @@ class App(tk.Tk):
                 flags = [{'name': fflag_strip_prefix(str(x['name'])), 'value': str(x.get('value', '')), 'type': x.get('type') or fflag_infer_type(x.get('value', ''))} for x in data if isinstance(x, dict) and x.get('name') is not None]
             else:
                 raise ValueError('JSON must be an object or array.')
-            self.fflag_flags = flags
+            self.fastflag_store = flags
             self._save_fflag_flags()
             self._refresh_fflag_list()
             messagebox.showinfo('FFlags', f'Applied {len(flags)} flags from {os.path.basename(path)}.', parent=self)
@@ -9440,8 +9441,8 @@ class App(tk.Tk):
         head = ttk.Frame(tab)
         head.grid(row=0, column=0, sticky='ew', pady=(0, 8))
         ttk.Label(head, text='FFlags', font=('Segoe UI Semibold', 15)).pack(side='left')
-        self.fflag_status = ttk.Label(head, text='Waiting for Roblox...', foreground='#9aa0a6')
-        self.fflag_status.pack(side='right', padx=(8, 0))
+        self.fastflag_status_label = ttk.Label(head, text='Waiting for Roblox...', foreground='#9aa0a6')
+        self.fastflag_status_label.pack(side='right', padx=(8, 0))
         bar = ttk.Frame(tab)
         bar.grid(row=1, column=0, sticky='ew', pady=(0, 8))
         buttons = [('+ Add', self._fflag_add_dialog), ('Remove', self._fflag_remove), ('Remove All', self._fflag_remove_all), ('Presets', self._fflag_presets_dialog), ('Import', self._fflag_import), ('Export', self._fflag_export), ('Hotkeys', self._fflag_hotkeys_dialog), ('JSON Editor', self._fflag_json_editor), ('Default FFlag Values', self._open_default_fflag_values), ('Latest FFlag List', self._open_latest_fflag_list)]
@@ -9463,23 +9464,23 @@ class App(tk.Tk):
         search_row = ttk.Frame(left)
         search_row.grid(row=0, column=0, sticky='ew', pady=(0, 6))
         ttk.Label(search_row, text='Search:').pack(side='left')
-        self.fflag_search = tk.StringVar()
-        ent = ttk.Entry(search_row, textvariable=self.fflag_search)
+        self.fastflag_search = tk.StringVar()
+        ent = ttk.Entry(search_row, textvariable=self.fastflag_search)
         ent.pack(side='left', fill='x', expand=True, padx=6)
-        self.fflag_search.trace_add('write', lambda *_: self._refresh_fflag_list())
+        self.fastflag_search.trace_add('write', lambda *_: self._refresh_fflag_list())
         cols = ('name', 'type', 'value', 'remove')
-        self.fflag_tree = ttk.Treeview(left, columns=cols, show='headings', selectmode='browse')
-        self.fflag_tree.heading('name', text='NAME')
-        self.fflag_tree.heading('type', text='TYPE')
-        self.fflag_tree.heading('value', text='VALUE')
-        self.fflag_tree.heading('remove', text='')
-        self.fflag_tree.column('name', width=430, anchor='w')
-        self.fflag_tree.column('type', width=85, anchor='center', stretch=False)
-        self.fflag_tree.column('value', width=200, anchor='w')
-        self.fflag_tree.column('remove', width=28, minwidth=28, stretch=False, anchor='center')
-        self.fflag_tree.grid(row=1, column=0, sticky='nsew')
-        self.fflag_tree.bind('<Double-1>', self._fflag_inline_edit)
-        self.fflag_tree.bind('<Button-1>', self._fflag_tree_click_remove, add='+')
+        self.fastflag_tree = ttk.Treeview(left, columns=cols, show='headings', selectmode='browse')
+        self.fastflag_tree.heading('name', text='NAME')
+        self.fastflag_tree.heading('type', text='TYPE')
+        self.fastflag_tree.heading('value', text='VALUE')
+        self.fastflag_tree.heading('remove', text='')
+        self.fastflag_tree.column('name', width=430, anchor='w')
+        self.fastflag_tree.column('type', width=85, anchor='center', stretch=False)
+        self.fastflag_tree.column('value', width=200, anchor='w')
+        self.fastflag_tree.column('remove', width=28, minwidth=28, stretch=False, anchor='center')
+        self.fastflag_tree.grid(row=1, column=0, sticky='nsew')
+        self.fastflag_tree.bind('<Double-1>', self._fflag_inline_edit)
+        self.fastflag_tree.bind('<Button-1>', self._fflag_tree_click_remove, add='+')
         self._fflag_apply_selected_btn = ttk.Button(right, text='Apply Selected Json', command=self._apply_selected_json)
         self._fflag_apply_selected_btn.pack(fill='x', padx=8, pady=(4, 6))
         ttk.Label(right, text='Saved JSONs', font=('Segoe UI Semibold', 10)).pack(anchor='w', padx=8, pady=(0, 6))
@@ -9522,7 +9523,7 @@ class App(tk.Tk):
 
     def _fflag_conflicts(self):
         counts = {}
-        for flag in self.fflag_flags:
+        for flag in self.fastflag_store:
             name = fflag_strip_prefix(str(flag.get('name', '')).strip())
             if name:
                 key = name.lower()
@@ -9530,7 +9531,7 @@ class App(tk.Tk):
         return {name for name, count in counts.items() if count > 1}
 
     def _refresh_fflag_list(self):
-        if not hasattr(self, 'fflag_tree'):
+        if not hasattr(self, 'fastflag_tree'):
             return
         old_job = getattr(self, '_fflag_render_job', None)
         if old_job:
@@ -9539,9 +9540,9 @@ class App(tk.Tk):
             except Exception:
                 pass
             self._fflag_render_job = None
-        tree = self.fflag_tree
+        tree = self.fastflag_tree
         tree.delete(*tree.get_children())
-        filt = self.fflag_search.get().strip().lower() if hasattr(self, 'fflag_search') else ''
+        filt = self.fastflag_search.get().strip().lower() if hasattr(self, 'fastflag_search') else ''
         conflicts = self._fflag_conflicts()
         try:
             tree.tag_configure('conflict', background='#8b1e1e', foreground='#ffffff')
@@ -9549,7 +9550,7 @@ class App(tk.Tk):
             pass
 
         rows = []
-        for i, flag in enumerate(self.fflag_flags):
+        for i, flag in enumerate(self.fastflag_store):
             name = fflag_strip_prefix(str(flag.get('name', '')))
             if filt and filt not in name.lower():
                 continue
@@ -9577,12 +9578,12 @@ class App(tk.Tk):
 
     def _fflag_tree_click_remove(self, event):
         try:
-            row = self.fflag_tree.identify_row(event.y)
-            col = self.fflag_tree.identify_column(event.x)
+            row = self.fastflag_tree.identify_row(event.y)
+            col = self.fastflag_tree.identify_column(event.x)
             if row and col == '#4':
                 idx = int(row)
-                if 0 <= idx < len(self.fflag_flags):
-                    self.fflag_flags.pop(idx)
+                if 0 <= idx < len(self.fastflag_store):
+                    self.fastflag_store.pop(idx)
                     self._save_fflag_flags()
                     self._refresh_fflag_list()
                     self._console_log('Removed FFlag')
@@ -9608,7 +9609,7 @@ class App(tk.Tk):
             if not n or not v:
                 return
             bare = fflag_strip_prefix(n)
-            self.fflag_flags.append({'name': bare, 'value': v, 'type': fflag_infer_type(v)})
+            self.fastflag_store.append({'name': bare, 'value': v, 'type': fflag_infer_type(v)})
             self._save_fflag_flags()
             self._refresh_fflag_list()
             self._fflag_apply(silent=True)
@@ -9622,7 +9623,7 @@ class App(tk.Tk):
         name.focus_set()
 
     def _fflag_inline_edit(self, event):
-        tree = self.fflag_tree
+        tree = self.fastflag_tree
         row = tree.identify_row(event.y)
         col = tree.identify_column(event.x)
         if not row or col not in ('#1', '#3'):
@@ -9635,15 +9636,15 @@ class App(tk.Tk):
         x, y, w, h = bbox
         entry = ttk.Entry(tree)
         entry.place(x=x, y=y, width=w, height=h)
-        entry.insert(0, str(self.fflag_flags[idx].get(column, '')))
+        entry.insert(0, str(self.fastflag_store[idx].get(column, '')))
         entry.focus_set()
         entry.selection_range(0, 'end')
 
         def save(_=None):
             value = entry.get().strip()
             if value:
-                self.fflag_flags[idx][column] = fflag_strip_prefix(value) if column == 'name' else value
-                self.fflag_flags[idx]['type'] = fflag_infer_type(self.fflag_flags[idx].get('value', ''))
+                self.fastflag_store[idx][column] = fflag_strip_prefix(value) if column == 'name' else value
+                self.fastflag_store[idx]['type'] = fflag_infer_type(self.fastflag_store[idx].get('value', ''))
                 self._save_fflag_flags()
                 self._refresh_fflag_list()
                 self._fflag_apply(silent=True)
@@ -9653,19 +9654,19 @@ class App(tk.Tk):
         entry.bind('<Escape>', lambda _e: entry.destroy())
 
     def _fflag_remove(self):
-        sel = self.fflag_tree.selection()
+        sel = self.fastflag_tree.selection()
         if not sel:
             return
-        removed = self.fflag_flags[int(sel[0])].get('name', '')
-        del self.fflag_flags[int(sel[0])]
+        removed = self.fastflag_store[int(sel[0])].get('name', '')
+        del self.fastflag_store[int(sel[0])]
         self._save_fflag_flags()
         self._refresh_fflag_list()
         self._console_log(f'Removed FFlag {removed}')
 
     def _fflag_remove_all(self):
-        if not self.fflag_flags or not messagebox.askyesno('FFlags', 'Remove all flags?', parent=self):
+        if not self.fastflag_store or not messagebox.askyesno('FFlags', 'Remove all flags?', parent=self):
             return
-        self.fflag_flags.clear()
+        self.fastflag_store.clear()
         self._save_fflag_flags()
         self._refresh_fflag_list()
         self._console_log('Removed all FFlags')
@@ -9702,29 +9703,29 @@ class App(tk.Tk):
                 if not flags:
                     raise ValueError('Preset JSON did not contain any FFlags.')
                 if add_to_current:
-                    existing = {str(x.get('name', '')): i for i, x in enumerate(self.fflag_flags)}
+                    existing = {str(x.get('name', '')): i for i, x in enumerate(self.fastflag_store)}
                     added = 0
                     updated = 0
                     for flag in flags:
                         name = str(flag.get('name', ''))
                         if name in existing:
-                            self.fflag_flags[existing[name]] = flag
+                            self.fastflag_store[existing[name]] = flag
                             updated += 1
                         else:
-                            self.fflag_flags.append(flag)
-                            existing[name] = len(self.fflag_flags) - 1
+                            self.fastflag_store.append(flag)
+                            existing[name] = len(self.fastflag_store) - 1
                             added += 1
                     self._save_fflag_flags()
                     self._refresh_fflag_list()
-                    if self.fflag_pid and self.fflag_engine.handle and self.fflag_auto_apply.get():
+                    if self.fastflag_process_id and self.fastflag_runtime.handle and self.fastflag_auto.get():
                         self._fflag_apply(silent=True)
                     messagebox.showinfo('FFlag Preset', f'Added {added} FFlags and updated {updated} existing FFlags from {filename}.', parent=dlg)
                     self._console_log(f'Preset {filename}: added {added}, updated {updated} FFlags')
                 else:
-                    self.fflag_flags = flags
+                    self.fastflag_store = flags
                     self._save_fflag_flags()
                     self._refresh_fflag_list()
-                    if self.fflag_pid and self.fflag_engine.handle and self.fflag_auto_apply.get():
+                    if self.fastflag_process_id and self.fastflag_runtime.handle and self.fastflag_auto.get():
                         self._fflag_apply(silent=True)
                     messagebox.showinfo('FFlag Preset', f'Applied {len(flags)} FFlags from {filename}.', parent=dlg)
                     self._console_log(f'Applied FFlag preset {filename}: {len(flags)} flags')
@@ -9789,18 +9790,18 @@ class App(tk.Tk):
             if isinstance(data, dict):
                 for n, v in data.items():
                     bare = fflag_strip_prefix(n)
-                    found = next((x for x in self.fflag_flags if x.get('name') == bare), None)
+                    found = next((x for x in self.fastflag_store if x.get('name') == bare), None)
                     item = {'name': bare, 'value': str(v).lower() if isinstance(v, bool) else str(v), 'type': fflag_infer_type(v)}
                     if found:
                         found.update(item)
                     else:
-                        self.fflag_flags.append(item)
+                        self.fastflag_store.append(item)
                     count += 1
             elif isinstance(data, list):
                 for x in data:
                     if isinstance(x, dict) and x.get('name') is not None:
                         item = {'name': fflag_strip_prefix(x['name']), 'value': str(x.get('value', '')), 'type': x.get('type') or fflag_infer_type(x.get('value', ''))}
-                        self.fflag_flags.append(item)
+                        self.fastflag_store.append(item)
                         count += 1
             self._save_fflag_flags()
             self._refresh_fflag_list()
@@ -9810,9 +9811,9 @@ class App(tk.Tk):
             messagebox.showerror('FFlags', f'Import failed:\n{e}', parent=self)
 
     def _fflag_export(self):
-        if not self.fflag_flags:
+        if not self.fastflag_store:
             return
-        data = {x['name']: x['value'] for x in self.fflag_flags}
+        data = {x['name']: x['value'] for x in self.fastflag_store}
         dialog = tk.Toplevel(self)
         dialog.title('Export FFlags')
         dialog.geometry('470x170')
@@ -9858,32 +9859,32 @@ class App(tk.Tk):
 
     def _fflag_refresh_process(self):
         pid = _fflag_find_pid()
-        if pid and pid != self.fflag_pid:
-            self.fflag_original_values.clear()
-            self.fflag_pid = pid
+        if pid and pid != self.fastflag_process_id:
+            self.fastflag_originals.clear()
+            self.fastflag_process_id = pid
             exe_path = _get_process_exe_path(pid)
             if exe_path and os.path.basename(exe_path).lower() == 'robloxplayerbeta.exe':
                 self.settings['roblox_path'] = exe_path
                 self._save_settings()
                 if hasattr(self, 'roblox_path_var'):
                     self.roblox_path_var.set(exe_path)
-            if self.fflag_engine.attach(pid):
-                self.fflag_status.config(text=f'Roblox attached  PID {pid}', foreground='#65d98b')
+            if self.fastflag_runtime.attach(pid):
+                self.fastflag_status_label.config(text=f'Roblox attached  PID {pid}', foreground='#65d98b')
                 self._console_log(f'Roblox Detected: PID {pid}')
                 if hasattr(self, 'fps_pid_label'):
                     self.fps_pid_label.config(text=f'PID: {pid} selected', foreground='#65d98b')
-                if self.fflag_auto_apply.get():
+                if self.fastflag_auto.get():
                     self.after(6000, self._fflag_apply)
             else:
-                self.fflag_status.config(text='Roblox found, attach failed', foreground='#ff6b6b')
+                self.fastflag_status_label.config(text='Roblox found, attach failed', foreground='#ff6b6b')
                 self._console_log(f'Roblox Detected but attach failed: PID {pid}')
         elif not pid:
-            had_pid = self.fflag_pid
+            had_pid = self.fastflag_process_id
             if had_pid:
-                self.fflag_engine.close()
-            self.fflag_original_values.clear()
-            self.fflag_pid = 0
-            self.fflag_status.config(text='Waiting for Roblox...', foreground='#9aa0a6')
+                self.fastflag_runtime.close()
+            self.fastflag_originals.clear()
+            self.fastflag_process_id = 0
+            self.fastflag_status_label.config(text='Waiting for Roblox...', foreground='#9aa0a6')
             if had_pid:
                 self._console_log('Roblox process closed; FFlag attachment removed')
             if hasattr(self, 'fps_pid_label'):
@@ -9900,7 +9901,7 @@ class App(tk.Tk):
         value = self._fps_flag_value()
         fps_entry = None
         cleaned_flags = []
-        for flag in self.fflag_flags:
+        for flag in self.fastflag_store:
             flag_name = str(flag.get('name', '')).strip()
             if fflag_strip_prefix(flag_name) == normalized_name:
                 if fps_entry is None:
@@ -9914,19 +9915,19 @@ class App(tk.Tk):
         if fps_entry is None:
             fps_entry = {'name': full_name, 'value': value, 'type': 'int'}
             cleaned_flags.append(fps_entry)
-        self.fflag_flags = cleaned_flags
+        self.fastflag_store = cleaned_flags
         self._save_fflag_flags()
-        if hasattr(self, 'fflag_tree'):
+        if hasattr(self, 'fastflag_tree'):
             self._refresh_fflag_list()
 
     def _apply_fps_flag(self, silent=True):
         self._sync_fps_flag_to_manager()
-        if not self.fflag_pid or not self.fflag_engine.handle:
+        if not self.fastflag_process_id or not self.fastflag_runtime.handle:
             return False
-        if not self.fflag_engine.get_singleton():
+        if not self.fastflag_runtime.get_singleton():
             return False
         value = self._fps_flag_value()
-        return bool(self.fflag_engine.set_flag_with_prefixes('DFIntTaskSchedulerTargetFps', value))
+        return bool(self.fastflag_runtime.set_flag_with_prefixes('DFIntTaskSchedulerTargetFps', value))
 
     def _apply_fps_after_slider(self):
         self._fps_release_job = None
@@ -9943,7 +9944,7 @@ class App(tk.Tk):
     def _fflag_apply(self, silent=False):
         conflicts = self._fflag_conflicts()
         if conflicts:
-            names = [fflag_strip_prefix(str(f.get('name', ''))) for f in self.fflag_flags if fflag_strip_prefix(str(f.get('name', ''))).lower() in conflicts]
+            names = [fflag_strip_prefix(str(f.get('name', ''))) for f in self.fastflag_store if fflag_strip_prefix(str(f.get('name', ''))).lower() in conflicts]
             unique_names = []
             seen = set()
             for name in names:
@@ -9955,52 +9956,52 @@ class App(tk.Tk):
             if not silent:
                 messagebox.showerror('FFlags', 'FFlags conflict.', parent=self)
             return
-        if not self.fflag_pid or not self.fflag_engine.handle:
+        if not self.fastflag_process_id or not self.fastflag_runtime.handle:
             self._console_log('FFlag injection skipped: Roblox is not attached')
             if not silent:
                 messagebox.showwarning('FFlags', 'Roblox is not attached.', parent=self)
             return
-        if not self.fflag_engine.get_singleton():
-            self.fflag_status.config(text='Singleton not found', foreground='#ff6b6b')
-            self._console_log(f'FFlag injection failed: singleton not found for PID {self.fflag_pid}')
+        if not self.fastflag_runtime.get_singleton():
+            self.fastflag_status_label.config(text='Singleton not found', foreground='#ff6b6b')
+            self._console_log(f'FFlag injection failed: singleton not found for PID {self.fastflag_process_id}')
             return
         ok = 0
-        for flag in self.fflag_flags:
+        for flag in self.fastflag_store:
             name = fflag_strip_prefix(str(flag.get('name', '')))
             if not name:
                 continue
-            address = self.fflag_engine.get_flag_address_with_prefixes(name)
-            if address and address not in self.fflag_original_values:
-                original = self.fflag_engine._read(address, 4)
+            address = self.fastflag_runtime.get_flag_address_with_prefixes(name)
+            if address and address not in self.fastflag_originals:
+                original = self.fastflag_runtime._read(address, 4)
                 if original is not None:
-                    self.fflag_original_values[address] = original
-            if self.fflag_engine.set_flag_with_prefixes(name, str(flag.get('value', ''))):
+                    self.fastflag_originals[address] = original
+            if self.fastflag_runtime.set_flag_with_prefixes(name, str(flag.get('value', ''))):
                 ok += 1
         self._apply_fps_flag(silent=True)
-        self.fflag_status.config(text=f'Applied {ok}/{len(self.fflag_flags)} flags', foreground='#65d98b')
-        self._console_log(f'FFlag injection complete: {ok}/{len(self.fflag_flags)} flags applied to PID {self.fflag_pid}')
+        self.fastflag_status_label.config(text=f'Applied {ok}/{len(self.fastflag_store)} flags', foreground='#65d98b')
+        self._console_log(f'FFlag injection complete: {ok}/{len(self.fastflag_store)} flags applied to PID {self.fastflag_process_id}')
 
     def _fflag_unapply(self):
-        self.fflag_auto_apply.set(False)
-        if not self.fflag_pid or not self.fflag_engine.handle:
-            self.fflag_original_values.clear()
+        self.fastflag_auto.set(False)
+        if not self.fastflag_process_id or not self.fastflag_runtime.handle:
+            self.fastflag_originals.clear()
             messagebox.showwarning('FFlags', 'Roblox is not attached.', parent=self)
             return
         restored = 0
         failed = 0
-        snapshots = list(self.fflag_original_values.items())
+        snapshots = list(self.fastflag_originals.items())
         for address, original in snapshots:
             try:
                 written = ctypes.c_size_t()
-                ok = ctypes.windll.kernel32.WriteProcessMemory(self.fflag_engine.handle, ctypes.c_void_p(address), original, len(original), ctypes.byref(written))
+                ok = ctypes.windll.kernel32.WriteProcessMemory(self.fastflag_runtime.handle, ctypes.c_void_p(address), original, len(original), ctypes.byref(written))
                 if ok and written.value == len(original):
                     restored += 1
                 else:
                     failed += 1
             except Exception:
                 failed += 1
-        self.fflag_original_values.clear()
-        self.fflag_status.config(text=f'Unapplied {restored} flag(s)' + (f', {failed} failed' if failed else ''), foreground='#65d98b' if not failed else '#ff6b6b')
+        self.fastflag_originals.clear()
+        self.fastflag_status_label.config(text=f'Unapplied {restored} flag(s)' + (f', {failed} failed' if failed else ''), foreground='#65d98b' if not failed else '#ff6b6b')
         self._console_log(f'FFlag restore complete: {restored} restored, {failed} failed')
 
     def _fflag_auto_apply_tick(self):
@@ -10096,20 +10097,6 @@ class App(tk.Tk):
             self._save_settings()
             messagebox.showerror('Plugin', f'Could not enable {name}:\n{exc}', parent=self)
 
-    def _plugin_open_guide(self, path):
-        try:
-            with open(path, 'r', encoding='utf-8') as f:
-                text = f.read()
-            win = tk.Toplevel(self)
-            win.title(os.path.basename(path))
-            win.geometry('850x650')
-            win.transient(None)
-            txt = tk.Text(win, wrap='word', font=('Consolas', 10), bg=_CURRENT_PALETTE['bg_medium'], fg=_CURRENT_PALETTE['fg'], insertbackground=_CURRENT_PALETTE['fg'], bd=0, padx=14, pady=14)
-            txt.pack(fill='both', expand=True)
-            txt.insert('1.0', text)
-            txt.configure(state='disabled')
-        except Exception as exc:
-            messagebox.showerror('Plugin', f'could not open guide:\n{exc}', parent=self)
 
     def _build_plugins_tab(self):
         tab = ttk.Frame(self.nb, padding=14)
@@ -10130,8 +10117,8 @@ class App(tk.Tk):
             card = ttk.LabelFrame(body, text=os.path.splitext(name)[0])
             card.pack(fill='x', pady=5)
             if path.lower().endswith('.txt'):
-                ttk.Label(card, text='documentation / development guide', foreground='#9aa0a6').pack(anchor='w', padx=10, pady=7)
-                ttk.Button(card, text='open guide', command=lambda p=path: self._plugin_open_guide(p)).pack(anchor='w', padx=8, pady=(0, 8))
+                card.destroy()
+                continue
             else:
                 module = self._plugin_modules.get(name)
                 desc = str(getattr(module, 'PLUGIN_DESCRIPTION', 'Python plugin') if module else 'Python plugin')
@@ -10404,7 +10391,7 @@ class App(tk.Tk):
             return
         kind, payload = self._console_undo_stack.pop()
         if kind == 'fflags':
-            self.fflag_flags = payload
+            self.fastflag_store = payload
             self._save_fflag_flags()
             self._refresh_fflag_list()
             self._console_log('Undid the last FFlag change.')
@@ -10495,20 +10482,20 @@ class App(tk.Tk):
             elif command == 'cache' and values and (values[0].lower() == 'search'):
                 self._console_cache_search(' '.join(values[1:]))
             elif command == 'fflag' and len(values) >= 2 and (values[0].lower() not in ('delete', 'list', 'clear')):
-                self._console_undo_stack.append(('fflags', json.loads(json.dumps(self.fflag_flags))))
+                self._console_undo_stack.append(('fflags', json.loads(json.dumps(self.fastflag_store))))
                 name, value = (fflag_strip_prefix(values[0]), values[1])
-                self.fflag_flags = [x for x in self.fflag_flags if fflag_strip_prefix(x.get('name', '')).lower() != name.lower()]
-                self.fflag_flags.append({'name': name, 'value': value, 'type': fflag_infer_type(value)})
+                self.fastflag_store = [x for x in self.fastflag_store if fflag_strip_prefix(x.get('name', '')).lower() != name.lower()]
+                self.fastflag_store.append({'name': name, 'value': value, 'type': fflag_infer_type(value)})
                 self._save_fflag_flags()
                 self._refresh_fflag_list()
                 self._fflag_apply(silent=True)
                 self._console_log(f'Applied FFlag {name} = {value}')
             elif command == 'fflag' and values and (values[0].lower() == 'delete') and (len(values) >= 2):
-                self._console_undo_stack.append(('fflags', json.loads(json.dumps(self.fflag_flags))))
+                self._console_undo_stack.append(('fflags', json.loads(json.dumps(self.fastflag_store))))
                 self._console_delete_fflag(values[1])
             elif command == 'fflag' and values and (values[0].lower() == 'clear'):
-                self._console_undo_stack.append(('fflags', json.loads(json.dumps(self.fflag_flags))))
-                self.fflag_flags = []
+                self._console_undo_stack.append(('fflags', json.loads(json.dumps(self.fastflag_store))))
+                self.fastflag_store = []
                 self._save_fflag_flags()
                 self._refresh_fflag_list()
                 self._fflag_apply(silent=True)
@@ -10587,7 +10574,7 @@ class App(tk.Tk):
                     raise ValueError(f'Tab not found: {tab_name}')
                 self._console_log(f'Opened tab {tab_name}')
             elif command == 'status':
-                self._console_log(f"Roblox PID: {self.fflag_pid or 'not attached'}\nCache watcher: {('running' if self.watching else 'stopped')}\nDatabase: {self.db_path}")
+                self._console_log(f"Roblox PID: {self.fastflag_process_id or 'not attached'}\nCache watcher: {('running' if self.watching else 'stopped')}\nDatabase: {self.db_path}")
             elif command == 'clear':
                 self._console_history = []
                 self._save_console_history()
@@ -10672,17 +10659,17 @@ class App(tk.Tk):
 
     def _console_delete_fflag(self, query):
         query = fflag_strip_prefix(str(query)).lower()
-        matches = [x for x in self.fflag_flags if fflag_strip_prefix(x.get('name', '')).lower() == query]
+        matches = [x for x in self.fastflag_store if fflag_strip_prefix(x.get('name', '')).lower() == query]
         if len(matches) != 1:
             raise ValueError('FFlag was not found or is ambiguous.')
-        self.fflag_flags = [x for x in self.fflag_flags if fflag_strip_prefix(x.get('name', '')).lower() != query]
+        self.fastflag_store = [x for x in self.fastflag_store if fflag_strip_prefix(x.get('name', '')).lower() != query]
         self._save_fflag_flags()
         self._refresh_fflag_list()
         self._fflag_apply(silent=True)
         self._console_log(f'Deleted FFlag {query}')
 
     def _console_list_fflags(self):
-        rows = [f"{x.get('name', '')} = {x.get('value', '')}" for x in self.fflag_flags]
+        rows = [f"{x.get('name', '')} = {x.get('value', '')}" for x in self.fastflag_store]
         self._console_log('FFlags:\n' + ('\n'.join(rows) if rows else '(none)'))
 
     def _console_list_configs(self):
@@ -11556,7 +11543,7 @@ class App(tk.Tk):
         self._save_settings()
 
     def _save_settings(self):
-        data = {'autoscroll': self.autoscroll.get(), 'hide_tickets': self.hide_tickets.get(), 'stay_on_top': self.stay_on_top.get(), 'show_lines': self.show_lines.get(), 'preview_optimize_vertices': self.viewport_3d.reduce_polys.get() if hasattr(self, 'viewport_3d') else self.settings.get('preview_optimize_vertices', True), 'streamer_mode': self.streamer_mode.get() if hasattr(self, 'streamer_mode') else self.settings.get('streamer_mode', False), 'fps_limit': self.fps_limit.get() if hasattr(self, 'fps_limit') else self.settings.get('fps_limit', 0), 'autostart_watch': self.autostart_watch.get() if hasattr(self, 'autostart_watch') else self.settings.get('autostart_watch', False), 'max_rows': self.max_rows.get() if hasattr(self, 'max_rows') else self.settings.get('max_rows', 0), 'type_filter': self.type_filter.get(), 'columns': {c: var.get() for c, var in getattr(self, '_col_vars', {}).items()}, 'viewer_collapsed': self.viewer_collapsed, 'theme': self.theme_var.get() if hasattr(self, 'theme_var') else self.settings.get('theme', DEFAULT_THEME), 'fflag_hotkeys': self.fflag_hotkeys, 'fps_hotkeys': self.fps_hotkeys, 'fps_hotkey_slots': self.fps_hotkey_slots, 'fflag_auto_apply': self.fflag_auto_apply.get() if hasattr(self, 'fflag_auto_apply') else self.settings.get('fflag_auto_apply', False), 'launch_on_tray': self.launch_on_tray.get() if hasattr(self, 'launch_on_tray') else self.settings.get('launch_on_tray', False), 'launch_on_startup': self.launch_on_startup.get() if hasattr(self, 'launch_on_startup') else self.settings.get('launch_on_startup', False), 'hide_to_tray_on_close': self.hide_to_tray_on_close.get() if hasattr(self, 'hide_to_tray_on_close') else self.settings.get('hide_to_tray_on_close', False), 'auto_update': self.auto_update.get() if hasattr(self, 'auto_update') else self.settings.get('auto_update', False), 'dpi_percent': int(self.dpi_percent.get()) if hasattr(self, 'dpi_percent') else int(getattr(self, '_dpi_scale', 1.0) * 100), 'plugin_enabled': getattr(self, '_plugin_enabled', self.settings.get('plugin_enabled', {})), 'roblox_path': self.settings.get('roblox_path', ''), 'gemini_api_key': self.gemini_api_key.get().strip() if hasattr(self, 'gemini_api_key') else self.settings.get('gemini_api_key', ''), 'custom_theme': self.settings.get('custom_theme', {}), 'db_path': getattr(self, 'db_path', self.settings.get('db_path', '')), 'shard_root': getattr(self, 'shard_root', self.settings.get('shard_root', '')), 'window_geometry': self.geometry() if self.winfo_exists() else self.settings.get('window_geometry', STARTUP_GEOMETRY)}
+        data = {'autoscroll': self.autoscroll.get(), 'hide_tickets': self.hide_tickets.get(), 'stay_on_top': self.stay_on_top.get(), 'show_lines': self.show_lines.get(), 'preview_optimize_vertices': self.viewport_3d.reduce_polys.get() if hasattr(self, 'viewport_3d') else self.settings.get('preview_optimize_vertices', True), 'streamer_mode': self.streamer_mode.get() if hasattr(self, 'streamer_mode') else self.settings.get('streamer_mode', False), 'fps_limit': self.fps_limit.get() if hasattr(self, 'fps_limit') else self.settings.get('fps_limit', 0), 'autostart_watch': self.autostart_watch.get() if hasattr(self, 'autostart_watch') else self.settings.get('autostart_watch', False), 'max_rows': self.max_rows.get() if hasattr(self, 'max_rows') else self.settings.get('max_rows', 0), 'type_filter': self.type_filter.get(), 'columns': {c: var.get() for c, var in getattr(self, '_col_vars', {}).items()}, 'viewer_collapsed': self.viewer_collapsed, 'theme': self.theme_var.get() if hasattr(self, 'theme_var') else self.settings.get('theme', DEFAULT_THEME), 'fflag_hotkeys': self.fflag_hotkeys, 'fps_hotkeys': self.fps_hotkeys, 'fps_hotkey_slots': self.fps_hotkey_slots, 'fastflag_auto': self.fastflag_auto.get() if hasattr(self, 'fastflag_auto') else self.settings.get('fastflag_auto', False), 'launch_on_tray': self.launch_on_tray.get() if hasattr(self, 'launch_on_tray') else self.settings.get('launch_on_tray', False), 'launch_on_startup': self.launch_on_startup.get() if hasattr(self, 'launch_on_startup') else self.settings.get('launch_on_startup', False), 'hide_to_tray_on_close': self.hide_to_tray_on_close.get() if hasattr(self, 'hide_to_tray_on_close') else self.settings.get('hide_to_tray_on_close', False), 'auto_update': self.auto_update.get() if hasattr(self, 'auto_update') else self.settings.get('auto_update', False), 'dpi_percent': int(self.dpi_percent.get()) if hasattr(self, 'dpi_percent') else int(getattr(self, '_dpi_scale', 1.0) * 100), 'plugin_enabled': getattr(self, '_plugin_enabled', self.settings.get('plugin_enabled', {})), 'roblox_path': self.settings.get('roblox_path', ''), 'gemini_api_key': self.gemini_api_key.get().strip() if hasattr(self, 'gemini_api_key') else self.settings.get('gemini_api_key', ''), 'custom_theme': self.settings.get('custom_theme', {}), 'db_path': getattr(self, 'db_path', self.settings.get('db_path', '')), 'shard_root': getattr(self, 'shard_root', self.settings.get('shard_root', '')), 'window_geometry': self.geometry() if self.winfo_exists() else self.settings.get('window_geometry', STARTUP_GEOMETRY)}
         save_settings(data)
         self.settings = data
 
@@ -13553,7 +13540,7 @@ class App(tk.Tk):
         except Exception:
             pass
         try:
-            self.fflag_engine.close()
+            self.fastflag_runtime.close()
         except Exception:
             pass
         try:
