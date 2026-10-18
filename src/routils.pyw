@@ -1,5 +1,7 @@
 import gzip
+import heapq
 import hashlib
+import html
 import io
 import math
 import os
@@ -22,6 +24,7 @@ import zipfile
 import base64
 import traceback
 import importlib.util
+import winreg
 import threading
 import time
 UI_HOTKEY_INTERVAL_MS = 75
@@ -42,13 +45,12 @@ try:
     import sv_ttk
 except Exception:
     sv_ttk = None
+try:
+    import ttkbootstrap as ttkbootstrap
+except Exception:
+    ttkbootstrap = None
+_TkAppBase = tk.Tk
 from urllib.parse import parse_qs, urlparse, urljoin
-def _silent_dialog(*_args, **_kwargs):
-    return None
-
-messagebox.showerror = _silent_dialog
-messagebox.showwarning = _silent_dialog
-
 UI_THEME = 'clam'
 THEMES = {'Midnight': {'bg_dark': '#1b1b1c', 'bg_medium': '#252526', 'bg_light': '#3a3a3c', 'bg_hover': '#464648', 'fg': '#dcdcdc', 'accent': '#7f8cff', 'border': '#444446'}, 'Ocean': {'bg_dark': '#0f2436', 'bg_medium': '#153248', 'bg_light': '#1f425e', 'bg_hover': '#2a5474', 'fg': '#d7e6f0', 'accent': '#3aa0ff', 'border': '#28506e'}, 'Hacker': {'bg_dark': '#0a0f0a', 'bg_medium': '#0f180f', 'bg_light': '#1a2a1a', 'bg_hover': '#223522', 'fg': '#b8ffb0', 'accent': '#2fff2f', 'border': '#2a4a2a'}, 'Amethyst': {'bg_dark': '#1a1423', 'bg_medium': '#241b31', 'bg_light': '#35284a', 'bg_hover': '#453665', 'fg': '#e0d6f0', 'accent': '#b06bff', 'border': '#4a3a63'}, 'Onyx': {'bg_dark': '#101010', 'bg_medium': '#171717', 'bg_light': '#262626', 'bg_hover': '#303030', 'fg': '#cfcfcf', 'accent': '#c0c0c0', 'border': '#333333'}}
 THEMES.update({'Nord': {'bg_dark': '#1e2430', 'bg_medium': '#252d3a', 'bg_light': '#303a4a', 'bg_hover': '#3a4658', 'fg': '#d8dee9', 'accent': '#88c0d0', 'border': '#414b5d'}, 'Dracula': {'bg_dark': '#282a36', 'bg_medium': '#303241', 'bg_light': '#44475a', 'bg_hover': '#565a70', 'fg': '#f8f8f2', 'accent': '#bd93f9', 'border': '#44475a'}, 'Monokai': {'bg_dark': '#272822', 'bg_medium': '#2e2f2a', 'bg_light': '#3e3d32', 'bg_hover': '#49483e', 'fg': '#f8f8f2', 'accent': '#a6e22e', 'border': '#49483e'}, 'Solarized': {'bg_dark': '#002b36', 'bg_medium': '#073642', 'bg_light': '#586e75', 'bg_hover': '#657b83', 'fg': '#eee8d5', 'accent': '#2aa198', 'border': '#586e75'}, 'Rose Pine': {'bg_dark': '#191724', 'bg_medium': '#1f1d2e', 'bg_light': '#26233a', 'bg_hover': '#403d52', 'fg': '#e0def4', 'accent': '#ebbcba', 'border': '#403d52'}, 'Catppuccin': {'bg_dark': '#1e1e2e', 'bg_medium': '#313244', 'bg_light': '#45475a', 'bg_hover': '#585b70', 'fg': '#cdd6f4', 'accent': '#cba6f7', 'border': '#45475a'}, 'Gruvbox': {'bg_dark': '#282828', 'bg_medium': '#3c3836', 'bg_light': '#504945', 'bg_hover': '#665c54', 'fg': '#ebdbb2', 'accent': '#fabd2f', 'border': '#504945'}, 'Tokyo Night': {'bg_dark': '#16161e', 'bg_medium': '#1f2335', 'bg_light': '#292e42', 'bg_hover': '#3b4261', 'fg': '#c0caf5', 'accent': '#7aa2f7', 'border': '#3b4261'}, 'Synthwave': {'bg_dark': '#241b2f', 'bg_medium': '#30233d', 'bg_light': '#45304f', 'bg_hover': '#5a3e64', 'fg': '#f5d7fe', 'accent': '#ff7edb', 'border': '#5a3e64'}, 'Forest': {'bg_dark': '#102018', 'bg_medium': '#183025', 'bg_light': '#254638', 'bg_hover': '#315a48', 'fg': '#d8f3dc', 'accent': '#74c69d', 'border': '#315a48'}, 'Ruby': {'bg_dark': '#241417', 'bg_medium': '#351b20', 'bg_light': '#4a252d', 'bg_hover': '#63323d', 'fg': '#f7dfe3', 'accent': '#ff6b81', 'border': '#63323d'}, 'Amber': {'bg_dark': '#211a0e', 'bg_medium': '#33270f', 'bg_light': '#4a3815', 'bg_hover': '#61491d', 'fg': '#fff0c2', 'accent': '#ffb84d', 'border': '#61491d'}, 'Arctic': {'bg_dark': '#17212b', 'bg_medium': '#21303d', 'bg_light': '#304554', 'bg_hover': '#405b6d', 'fg': '#e7f5ff', 'accent': '#66c7ff', 'border': '#405b6d'}, 'Lavender': {'bg_dark': '#211d2b', 'bg_medium': '#2d263b', 'bg_light': '#3c3350', 'bg_hover': '#514466', 'fg': '#eee7ff', 'accent': '#c4a7ff', 'border': '#514466'}, 'Coffee': {'bg_dark': '#211915', 'bg_medium': '#30231d', 'bg_light': '#45332a', 'bg_hover': '#5b4437', 'fg': '#f1dfd0', 'accent': '#d69e78', 'border': '#5b4437'}, 'Slate': {'bg_dark': '#181c20', 'bg_medium': '#232a30', 'bg_light': '#313a42', 'bg_hover': '#414c56', 'fg': '#d9e1e8', 'accent': '#8ab4c7', 'border': '#414c56'}, 'Cyber': {'bg_dark': '#080b12', 'bg_medium': '#101522', 'bg_light': '#182033', 'bg_hover': '#26334d', 'fg': '#d9f7ff', 'accent': '#00e5ff', 'border': '#26334d'}, 'Sunset': {'bg_dark': '#241516', 'bg_medium': '#35201e', 'bg_light': '#4a2b27', 'bg_hover': '#633b35', 'fg': '#ffe4d6', 'accent': '#ff8a65', 'border': '#633b35'}, 'Mint': {'bg_dark': '#10211e', 'bg_medium': '#17312c', 'bg_light': '#24473f', 'bg_hover': '#315d52', 'fg': '#dcfff5', 'accent': '#62e6c8', 'border': '#315d52'}, 'Deep Blue': {'bg_dark': '#0b1424', 'bg_medium': '#10213a', 'bg_light': '#193153', 'bg_hover': '#24446f', 'fg': '#dcecff', 'accent': '#5ca9ff', 'border': '#24446f'}, 'Obsidian': {'bg_dark': '#111318', 'bg_medium': '#1a1d24', 'bg_light': '#292e38', 'bg_hover': '#363d49', 'fg': '#e6e9ef', 'accent': '#8ab4f8', 'border': '#3b4351'}, 'Aurora': {'bg_dark': '#101820', 'bg_medium': '#172633', 'bg_light': '#234353', 'bg_hover': '#2d5c6d', 'fg': '#e4fbff', 'accent': '#66e3d4', 'border': '#376878'}, 'Plasma': {'bg_dark': '#160d24', 'bg_medium': '#24143b', 'bg_light': '#38215b', 'bg_hover': '#4d2b79', 'fg': '#f4eaff', 'accent': '#e38cff', 'border': '#5d3d83'}, 'Ember': {'bg_dark': '#20110d', 'bg_medium': '#321a14', 'bg_light': '#4a2820', 'bg_hover': '#63362a', 'fg': '#ffede5', 'accent': '#ff9d5c', 'border': '#714334'}, 'Meadow': {'bg_dark': '#0d1b16', 'bg_medium': '#142a20', 'bg_light': '#204433', 'bg_hover': '#2c5c43', 'fg': '#e4ffef', 'accent': '#8be28b', 'border': '#38694e'}})
@@ -65,12 +67,63 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 _LOCAL_APPDATA = os.environ.get('LOCALAPPDATA') or os.path.expanduser('~')
 DATA_DIR = os.path.join(_LOCAL_APPDATA, 'RoUtils')
 os.makedirs(DATA_DIR, exist_ok=True)
-APP_VERSION = '4.2.1'
+SPLASH_DIR = os.path.join(DATA_DIR, 'src')
+SPLASH_IMAGE_PATH = os.path.join(SPLASH_DIR, 'routils.png')
+SPLASH_IMAGE_URL = 'https://raw.githubusercontent.com/offp001/routils/refs/heads/main/src/routils.png'
+APP_VERSION = '5.0.0'
 HISTORY_PATH = os.path.join(DATA_DIR, 'history.json')
 SETTINGS_PATH = os.path.join(DATA_DIR, 'routils_settings.json')
 ERROR_REPORT_DIR = os.path.join(DATA_DIR, 'errors')
 _ACTIVE_APP = None
 _ERROR_REPORTING = False
+
+
+def _routils_darken_color(color, amount=0.2):
+    try:
+        value = str(color).lstrip('#')
+        if len(value) == 3:
+            value = ''.join(char * 2 for char in value)
+        if len(value) != 6:
+            return color
+        channels = [int(value[index:index + 2], 16) for index in (0, 2, 4)]
+        factor = max(0.0, min(1.0, 1.0 - float(amount)))
+        return '#%02x%02x%02x' % tuple(round(channel * factor) for channel in channels)
+    except Exception:
+        return color
+
+
+def _ensure_splash_image_file():
+    os.makedirs(SPLASH_DIR, exist_ok=True)
+    if os.path.isfile(SPLASH_IMAGE_PATH):
+        try:
+            with Image.open(SPLASH_IMAGE_PATH) as source:
+                source.verify()
+            return True
+        except Exception:
+            try:
+                os.remove(SPLASH_IMAGE_PATH)
+            except Exception:
+                pass
+    temporary = SPLASH_IMAGE_PATH + '.download'
+    try:
+        request = urllib.request.Request(SPLASH_IMAGE_URL, headers={'User-Agent': 'RoUtils/4.1.1'})
+        with urllib.request.urlopen(request, timeout=12) as response:
+            data = response.read(8 * 1024 * 1024 + 1)
+        if not data or len(data) > 8 * 1024 * 1024:
+            return False
+        with Image.open(io.BytesIO(data)) as source:
+            source.verify()
+        with open(temporary, 'wb') as output:
+            output.write(data)
+        os.replace(temporary, SPLASH_IMAGE_PATH)
+        return True
+    except Exception:
+        try:
+            if os.path.exists(temporary):
+                os.remove(temporary)
+        except Exception:
+            pass
+        return False
 
 def _report_rotools_error(exc_type, exc_value, exc_tb, app=None):
     global _ERROR_REPORTING
@@ -1844,6 +1897,7 @@ def _quat_to_matrix(x: float, y: float, z: float, w: float) -> tuple[float, ...]
     wx, wy, wz = (w * x, w * y, w * z)
     return (1 - 2 * (yy + zz), 2 * (xy - wz), 2 * (xz + wy), 2 * (xy + wz), 1 - 2 * (xx + zz), 2 * (yz - wx), 2 * (xz - wy), 2 * (yz + wx), 1 - 2 * (xx + yy))
 import struct
+import zlib
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 import lz4.block
@@ -2176,7 +2230,7 @@ def read_vertices(data: bytes, offset: int, count: int, vsize: int) -> tuple[lis
     return (verts, pos)
 
 def write_obj_data(v_lines: list[str], n_lines: list[str], t_lines: list[str], f_lines: list[str]) -> str:
-    lines = ['# Converted from mesh\n']
+    lines = ['# Converted from Roblox mesh format\n']
     lines.append(f'# Vertices: {len(v_lines)}, Faces: {len(f_lines)}\n\n')
     lines.extend((line + '\n' for line in v_lines))
     lines.append('\n')
@@ -2948,26 +3002,43 @@ def apply_visual_polish(root: tk.Tk, theme: Optional[str]='system', palette: Opt
     if palette:
         p.update(palette)
     style = ttk.Style(root)
-    use_sv_ttk = sv_ttk is not None
-    if use_sv_ttk:
+    use_external_theme = False
+    if ttkbootstrap is not None:
         try:
-            sv_ttk.set_theme('dark')
-        except Exception:
-            use_sv_ttk = False
-    if not use_sv_ttk:
-        for t in ('clam', 'alt', 'default', 'classic'):
-            if t in style.theme_names():
+            bootstrap_style = getattr(root, '_routils_bootstrap_style', None)
+            if bootstrap_style is None:
                 try:
-                    style.theme_use(t)
-                except Exception:
-                    pass
-                break
+                    bootstrap_style = ttkbootstrap.Style(master=root, theme='darkly')
+                except TypeError:
+                    bootstrap_style = ttkbootstrap.Style(theme='darkly')
+                root._routils_bootstrap_style = bootstrap_style
+            else:
+                bootstrap_style.theme_use('darkly')
+            style = ttk.Style(root)
+            use_external_theme = True
+        except Exception:
+            use_external_theme = False
+    if not use_external_theme:
+        use_sv_ttk = sv_ttk is not None
+        if use_sv_ttk:
+            try:
+                sv_ttk.set_theme('dark')
+            except Exception:
+                use_sv_ttk = False
+        if not use_sv_ttk:
+            for t in ('clam', 'alt', 'default', 'classic'):
+                if t in style.theme_names():
+                    try:
+                        style.theme_use(t)
+                    except Exception:
+                        pass
+                    break
     try:
-        tkfont.nametofont('TkDefaultFont').configure(family='Comic Sans MS', size=10)
+        tkfont.nametofont('TkDefaultFont').configure(family='Segoe UI', size=10)
         tkfont.nametofont('TkTextFont').configure(family='Consolas', size=10)
         tkfont.nametofont('TkFixedFont').configure(family='Consolas', size=10)
-        tkfont.nametofont('TkMenuFont').configure(family='Comic Sans MS', size=10)
-        tkfont.nametofont('TkHeadingFont').configure(family='Comic Sans MS', size=10, weight='bold')
+        tkfont.nametofont('TkMenuFont').configure(family='Segoe UI', size=10)
+        tkfont.nametofont('TkHeadingFont').configure(family='Segoe UI', size=10, weight='bold')
     except Exception:
         pass
     _CURRENT_PALETTE = p
@@ -2986,7 +3057,7 @@ def apply_visual_polish(root: tk.Tk, theme: Optional[str]='system', palette: Opt
             pass
     style.configure('.', background=bg_dark, foreground=fg_white, fieldbackground=bg_medium, bordercolor=border, lightcolor=bg_medium, darkcolor=bg_medium, troughcolor=bg_medium, activebackground=bg_hover, selectbackground=accent, selectforeground='#ffffff')
     style.configure('TFrame', background=bg_dark)
-    style.configure('TLabel', background=bg_dark, foreground=fg_white, font=('Comic Sans MS', 10))
+    style.configure('TLabel', background=bg_dark, foreground=fg_white, font=('Segoe UI', 10))
     style.configure('TLabelframe', background=bg_dark, foreground=fg_white, bordercolor=border)
     style.configure('TLabelframe.Label', background=bg_dark, foreground=fg_white, padding=(4, 0))
     _ui_scale = max(0.5, min(2.0, float(getattr(root, '_dpi_scale', 1.0))))
@@ -2995,11 +3066,11 @@ def apply_visual_polish(root: tk.Tk, theme: Optional[str]='system', palette: Opt
     _check_pad = (max(2, int(4 * _ui_scale)), max(1, int(2 * _ui_scale)))
     _small_font = max(8, int(round(9 * _ui_scale)))
     _label_font = max(9, int(round(10 * _ui_scale)))
-    style.configure('TButton', background=bg_light, foreground=fg_white, bordercolor=border, focusthickness=0, padding=_btn_pad, relief='flat', font=('Comic Sans MS', _small_font, 'bold'))
+    style.configure('TButton', background=bg_light, foreground=fg_white, bordercolor=border, focusthickness=0, padding=_btn_pad, relief='flat', font=('Segoe UI', _small_font, 'bold'))
     style.map('TButton', background=[('pressed', accent), ('active', bg_hover), ('disabled', bg_medium)], foreground=[('disabled', '#6f6f6f')], bordercolor=[('active', accent)])
-    style.configure('TCheckbutton', background=bg_dark, foreground=fg_white, padding=_check_pad, font=('Comic Sans MS', _small_font))
+    style.configure('TCheckbutton', background=bg_dark, foreground=fg_white, padding=_check_pad, font=('Segoe UI', _small_font))
     style.map('TCheckbutton', background=[('active', bg_dark)], foreground=[('active', fg_white)])
-    style.configure('TRadiobutton', background=bg_dark, foreground=fg_white, padding=_check_pad, font=('Comic Sans MS', _small_font))
+    style.configure('TRadiobutton', background=bg_dark, foreground=fg_white, padding=_check_pad, font=('Segoe UI', _small_font))
     style.map('TRadiobutton', background=[('active', bg_dark)], foreground=[('active', fg_white)])
     style.configure('TEntry', fieldbackground=bg_medium, foreground=fg_white, insertcolor='#ffffff', bordercolor=border, padding=_ctrl_pad)
     style.map('TEntry', fieldbackground=[('focus', bg_medium)], bordercolor=[('focus', accent)])
@@ -3115,9 +3186,8 @@ def theme_toplevel(win) -> None:
 def _theme_on_map(event) -> None:
     try:
         widget = event.widget
-        top = widget.winfo_toplevel()
-        if top is not widget or isinstance(top, tk.Toplevel):
-            theme_toplevel(top)
+        if isinstance(widget, tk.Toplevel):
+            theme_toplevel(widget)
     except Exception:
         pass
 
@@ -3351,7 +3421,7 @@ def _launch_webview2(url: str, title: str) -> None:
             pass
 
 def _get_latest_offsets_webview_url() -> str:
-    return 'https://offsets.imtheo.lol/FFlags.hpp'
+    return 'https://imtheo.lol/Offsets/FFlags.hpp'
 
 def _open_webview2_process(url: str, title: str) -> None:
     try:
@@ -3423,24 +3493,24 @@ def parse_rbxh(blob: bytes) -> Dict:
     try:
         pos = 0
         version, url_len = struct.unpack_from('<II', data, pos)
-        pos += 16
+        pos += 8
         if version < 1 or version > 16 or url_len > len(data) - pos:
             res['body'] = bytes(data)
             return res
         url = bytes(data[pos:pos + url_len]).decode('utf-8', 'replace')
         pos += url_len
-        if pos + 1 + 2 + 4 + 8 + 16 + 32 > len(data):
+        if pos + 1 + 4 + 4 + 4 + 4 + 8 > len(data):
             res['body'] = bytes(data)
             return res
         pos += 1
         status = struct.unpack_from('<I', data, pos)[0]
         pos += 4
         header_len = struct.unpack_from('<I', data, pos)[0]
-        pos += 8
-        pos += 8
+        pos += 4
+        pos += 4
         content_len = struct.unpack_from('<I', data, pos)[0]
-        pos += 16
-        pos += 16
+        pos += 4
+        pos += 8
         if header_len > len(data) - pos:
             res['body'] = bytes(data)
             return res
@@ -3986,7 +4056,7 @@ class ScanItem:
     name: str = ''
     id_bytes: bytes = field(repr=False, default=b'')
 
-def scan_db_once(db_path: str, shard_root: str, seen: set, max_rows: Optional[int]=None, offset: int=0) -> List[ScanItem]:
+def scan_db_once(db_path: str, shard_root: str, seen: set, max_rows: Optional[int]=None) -> List[ScanItem]:
     out: List[ScanItem] = []
     try:
         conn = connect_ro(db_path)
@@ -3994,7 +4064,7 @@ def scan_db_once(db_path: str, shard_root: str, seen: set, max_rows: Optional[in
         return out
     try:
         cur = conn.cursor()
-        cur.execute('SELECT id, content FROM files LIMIT ? OFFSET ?', (max_rows or -1, max(0, int(offset))))
+        cur.execute('SELECT id, content FROM files')
         cnt = 0
         for row in cur:
             cnt += 1
@@ -4029,6 +4099,48 @@ def scan_db_once(db_path: str, shard_root: str, seen: set, max_rows: Optional[in
             pass
     return out
 
+@dataclass
+class Keyframe:
+    time: float
+    pose_by_part_name: Dict[str, Dict]
+
+def parse_xml_animation(anim_data: bytes) -> List[Keyframe]:
+    try:
+        anim_data = _decompress_document(anim_data)
+        text = anim_data.decode('utf-8-sig', errors='replace')
+        text = re.sub('[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]', '', text)
+        root = ET.fromstring(text)
+    except Exception:
+        return []
+    keys: List[Keyframe] = []
+    for item in root.iter('Item'):
+        if item.attrib.get('class') != 'Keyframe':
+            continue
+        props = item.find('Properties')
+        if props is None:
+            continue
+        t_elem = props.find("float[@name='Time']")
+        t = float(t_elem.text if t_elem is not None and t_elem.text else '0')
+        poses: Dict[str, Dict] = {}
+        for pose_item in item.iter('Item'):
+            if pose_item.attrib.get('class') != 'Pose':
+                continue
+            pprops = pose_item.find('Properties')
+            if pprops is None:
+                continue
+            pname_elem = pprops.find("string[@name='Name']")
+            cf_elem = pprops.find("CoordinateFrame[@name='CFrame']") or pprops.find("CFrame[@name='CFrame']")
+            if pname_elem is None or cf_elem is None:
+                continue
+            pname = pname_elem.text or ''
+            cf_d = {}
+            for comp in cf_elem:
+                cf_d[comp.tag] = comp.text
+            pos = _cf_position(cf_d)
+            poses[pname] = {'pos': pos, 'cf': cf_d}
+        keys.append(Keyframe(t, poses))
+    keys.sort(key=lambda k: k.time)
+    return keys
 
 def _safe_number(value, default=0.0) -> float:
     try:
@@ -4036,8 +4148,279 @@ def _safe_number(value, default=0.0) -> float:
     except (TypeError, ValueError):
         return default
 
+def parse_binary_animation(data: bytes) -> List[Keyframe]:
+    data = _decompress_document(data)
+    instances = {}
+    try:
+        instances = parse_rbxm(data)
+    except Exception:
+        instances = {}
 
+    def _collect_poses(node, out):
+        for child in node.children:
+            if child.class_name in ('Pose', 'NumberPose'):
+                name = child.properties.get('Name')
+                cf = child.properties.get('CFrame')
+                pos = _cf_position(cf)
+                if name:
+                    out[name] = {'pos': pos, 'cf': cf}
+            _collect_poses(child, out)
+    keyframes: List[Keyframe] = []
+    for kf in sorted((i for i in instances.values() if i.class_name == 'Keyframe'), key=lambda i: _safe_number(i.properties.get('Time', 0.0))):
+        poses: Dict[str, Dict] = {}
+        _collect_poses(kf, poses)
+        cf = kf.properties.get('CFrame')
+        if not poses:
+            poses['__frame__'] = {'pos': _cf_position(cf), 'cf': cf}
+        keyframes.append(Keyframe(_safe_number(kf.properties.get('Time', 0.0)), poses))
+    if not keyframes and _RbxmDeserializer is not None:
 
+        def _props(d: dict) -> dict:
+            out = {}
+            for k, v in d.items():
+                nm = k.name if hasattr(k, 'name') else str(k)
+                out[nm] = v.value if hasattr(v, 'value') else v
+            return out
+
+        def _collect(node, out: dict):
+            for child in node.children:
+                if child.class_name in ('Pose', 'NumberPose'):
+                    p = _props(child.properties)
+                    name = p.get('Name')
+                    if name:
+                        out[name] = {'pos': _cf_position(p.get('CFrame')), 'cf': p.get('CFrame')}
+                _collect(child, out)
+        try:
+            doc = _RbxmDeserializer().deserialize(data)
+        except Exception:
+            doc = None
+        if doc is not None:
+            for kf in sorted((i for i in doc.instances.values() if i.class_name == 'Keyframe'), key=lambda i: _safe_number(_props(i.properties).get('Time', 0.0))):
+                p = _props(kf.properties)
+                poses: Dict[str, Dict] = {}
+                _collect(kf, poses)
+                if not poses:
+                    poses['__frame__'] = {'pos': _cf_position(p.get('CFrame')), 'cf': p.get('CFrame')}
+                keyframes.append(Keyframe(_safe_number(p.get('Time', 0.0)), poses))
+            keyframes.sort(key=lambda k: k.time)
+    return keyframes
+
+def parse_animation(data: bytes) -> List[Keyframe]:
+    if not data:
+        return []
+    try:
+        if b'CurveAnimation' in data:
+            keys = parse_curve_animation(data)
+            if keys:
+                return keys
+    except Exception:
+        pass
+    raw = data
+    try:
+        raw = _decompress_document(raw)
+    except Exception:
+        pass
+    stripped = raw.lstrip(b'\xef\xbb\xbf \t\r\n')
+    if stripped.startswith(b'<roblox!'):
+        try:
+            keys = parse_binary_animation(stripped)
+            if keys:
+                return keys
+        except Exception:
+            pass
+        try:
+            keys = parse_xml_animation(_normalize_roblox_document(stripped))
+            if keys:
+                return keys
+        except Exception:
+            pass
+    return parse_xml_animation(stripped)
+
+def parse_curve_animation(anim_data: bytes) -> List[Keyframe]:
+    import base64 as _b64
+    import struct as _struct
+    TICKS = 14400.0
+    bone_curves: Dict[str, dict] = {}
+
+    def _empty_bc():
+        return {'px': [], 'py': [], 'pz': [], 'rx': [], 'ry': [], 'rz': []}
+
+    def _vat(raw_b: bytes):
+        if len(raw_b) < 8:
+            return []
+        _, n = _struct.unpack_from('<II', raw_b)
+        if not n:
+            return []
+        off_t = 8 + n * 14
+        if off_t + 8 + n * 4 > len(raw_b):
+            return []
+        _, sn = _struct.unpack_from('<II', raw_b, off_t)
+        out = []
+        for i in range(min(n, sn)):
+            v = _struct.unpack_from('<f', raw_b, 8 + i * 14 + 2)[0]
+            tk = _struct.unpack_from('<I', raw_b, off_t + 8 + i * 4)[0]
+            out.append((tk / TICKS, v))
+        return out
+
+    def _lerp(tv, t):
+        if not tv:
+            return 0.0
+        if t <= tv[0][0]:
+            return tv[0][1]
+        if t >= tv[-1][0]:
+            return tv[-1][1]
+        for i in range(len(tv) - 1):
+            t0, v0 = tv[i]
+            t1, v1 = tv[i + 1]
+            if t0 <= t <= t1:
+                f = (t - t0) / (t1 - t0) if t1 > t0 else 0.0
+                return v0 + f * (v1 - v0)
+        return tv[-1][1]
+    if anim_data.lstrip().startswith(b'<roblox!'):
+        try:
+            if _RbxmDeserializer is None:
+                return []
+            tree = _RbxmDeserializer().deserialize(_decompress_document(anim_data))
+        except Exception:
+            return []
+
+        def _prop(inst, key):
+            for k, v in inst.properties.items():
+                pk = k.name if hasattr(k, 'name') else str(k)
+                if pk == key:
+                    return v.value if hasattr(v, 'value') else v
+            return None
+
+        def _vat_rbxm(inst):
+            for k, v in inst.properties.items():
+                pk = k.name if hasattr(k, 'name') else str(k)
+                if pk == 'ValuesAndTimes':
+                    raw = v.value if hasattr(v, 'value') else v
+                    if raw:
+                        rb = raw.encode('latin-1') if isinstance(raw, str) else bytes(raw)
+                        return _vat(rb)
+            return []
+
+        def _walk_rbxm(inst):
+            nonlocal bone_curves
+            if inst.class_name == 'Folder':
+                name = _prop(inst, 'Name') or ''
+                if name:
+                    bc = _empty_bc()
+                    for child in inst.children:
+                        ccls = child.class_name
+                        if ccls == 'Vector3Curve':
+                            for fc in child.children:
+                                if fc.class_name != 'FloatCurve':
+                                    continue
+                                axis = (_prop(fc, 'Name') or '').upper()
+                                tv = _vat_rbxm(fc)
+                                if axis == 'X':
+                                    bc['px'] = tv
+                                elif axis == 'Y':
+                                    bc['py'] = tv
+                                elif axis == 'Z':
+                                    bc['pz'] = tv
+                        elif ccls == 'EulerRotationCurve':
+                            for fc in child.children:
+                                if fc.class_name != 'FloatCurve':
+                                    continue
+                                axis = (_prop(fc, 'Name') or '').upper()
+                                tv = _vat_rbxm(fc)
+                                if axis == 'X':
+                                    bc['rx'] = tv
+                                elif axis == 'Y':
+                                    bc['ry'] = tv
+                                elif axis == 'Z':
+                                    bc['rz'] = tv
+                        elif ccls == 'Folder':
+                            _walk_rbxm(child)
+                    if any((bc[k] for k in bc)):
+                        bone_curves[name] = bc
+            elif inst.class_name == 'CurveAnimation':
+                for child in inst.children:
+                    _walk_rbxm(child)
+        for root_inst in getattr(tree, 'roots', []):
+            _walk_rbxm(root_inst)
+    else:
+        try:
+            text = anim_data.decode('utf-8-sig', errors='replace')
+            text = re.sub('[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]', '', text)
+            root = ET.fromstring(text)
+        except Exception:
+            return []
+
+        def _vat_xml(fc_item):
+            for bs in fc_item.iter('BinaryString'):
+                if bs.get('name') == 'ValuesAndTimes' and bs.text:
+                    try:
+                        return _vat(_b64.b64decode(bs.text.strip()))
+                    except Exception:
+                        pass
+            return []
+
+        def _walk_xml(item):
+            nonlocal bone_curves
+            cls = item.get('class', '')
+            if cls == 'Folder':
+                props = item.find('Properties')
+                name = ''
+                if props is not None:
+                    ne = props.find("string[@name='Name']")
+                    if ne is not None:
+                        name = ne.text or ''
+                if name:
+                    bc = _empty_bc()
+                    for child in item:
+                        ccls = child.get('class', '')
+                        if ccls == 'Vector3Curve':
+                            for fc in child:
+                                if fc.get('class') != 'FloatCurve':
+                                    continue
+                                fcp = fc.find('Properties')
+                                if fcp is None:
+                                    continue
+                                ae = fcp.find("string[@name='Name']")
+                                axis = (ae.text or '').upper() if ae is not None else ''
+                                bc['px' if axis == 'X' else 'py' if axis == 'Y' else 'pz' if axis == 'Z' else axis.lower()] = _vat_xml(fc)
+                        elif ccls == 'EulerRotationCurve':
+                            for fc in child:
+                                if fc.get('class') != 'FloatCurve':
+                                    continue
+                                fcp = fc.find('Properties')
+                                if fcp is None:
+                                    continue
+                                ae = fcp.find("string[@name='Name']")
+                                axis = (ae.text or '').upper() if ae is not None else ''
+                                bc['rx' if axis == 'X' else 'ry' if axis == 'Y' else 'rz' if axis == 'Z' else axis.lower()] = _vat_xml(fc)
+                        elif ccls == 'Folder':
+                            _walk_xml(child)
+                    if any((bc[k] for k in bc)):
+                        bone_curves[name] = bc
+            elif cls == 'CurveAnimation':
+                for child in item:
+                    _walk_xml(child)
+        for item in root.iter('Item'):
+            if item.get('class') == 'CurveAnimation':
+                _walk_xml(item)
+                break
+    if not bone_curves:
+        return []
+    times_set: set = set()
+    for bc in bone_curves.values():
+        for tv in bc.values():
+            for t, _ in tv:
+                times_set.add(round(t, 6))
+    if not times_set:
+        return []
+    all_times = sorted(times_set)
+    keys: List[Keyframe] = []
+    for t in all_times:
+        poses: Dict[str, Dict] = {}
+        for name, bc in bone_curves.items():
+            poses[name] = {'pos': (_lerp(bc['px'], t), _lerp(bc['py'], t), _lerp(bc['pz'], t)), 'rot': (_lerp(bc['rx'], t), _lerp(bc['ry'], t), _lerp(bc['rz'], t))}
+        keys.append(Keyframe(t, poses))
+    return keys
 
 def _cf_position(cf) -> Tuple[float, float, float]:
     if isinstance(cf, dict):
@@ -4331,9 +4714,16 @@ class Viewport3DPanel(ttk.Frame):
         self.angle_y = 0.5
         self.cam_distance = 7.0
         self.model_scale = 1.0
+        self.is_playing = False
+        self.anim_time = 0.0
+        self.anim_job = None
+        self.keyframes: List[Keyframe] = []
         self.mesh_vertices: List[Tuple[float, float, float]] = []
         self.mesh_faces: List[List[int]] = []
         self.mesh_info: str = ''
+        self._mesh_bounds_cache = None
+        self._resize_preview_mode = False
+        self._resize_quiet_until = 0.0
         self.model_parts: List[Dict] = []
         self.audio_path: Optional[str] = None
         self._last_mouse = (0, 0)
@@ -4344,18 +4734,34 @@ class Viewport3DPanel(ttk.Frame):
         self.pan_y = 0.0
         self.zoom = 1.0
         self.header = ttk.Frame(self)
-        self.header.pack(fill='x', padx=4, pady=2)
+        self.header.pack(fill='x', padx=4, pady=(3, 1))
         ttk.Label(self.header, text='Preview', font=('Segoe UI Semibold', 9)).pack(side='left')
         self.btn_close = ttk.Button(self.header, text='✕', width=3, command=self.hide)
-        self.btn_close.pack(side='right')
-        self.canvas = tk.Canvas(self, bg='#18181a', highlightthickness=0, height=220)
-        self.canvas.pack(fill='both', expand=True, padx=4, pady=2)
+        self.btn_close.pack(side='right', padx=(4, 0))
+        self.btn_play = ttk.Button(self.header, text='▶ Play', width=7, command=self.toggle_play, style='Preview.Play.TButton')
+        try:
+            ttk.Style(self).configure('Preview.Play.TButton', padding=(5, 2), font=('Segoe UI', 8))
+        except Exception:
+            pass
+        self.btn_play.pack(side='right', padx=(4, 0), pady=0)
         self.controls = ttk.Frame(self)
-        self.controls.pack(fill='x', padx=4, pady=4)
-        self.lbl_mode = ttk.Label(self.controls, text='Mode: Idle')
-        self.lbl_mode.pack(side='left', padx=6)
-        ttk.Checkbutton(self.controls, text='Wireframe lines', variable=self.show_wireframe, command=self.draw_frame).pack(side='left', padx=6)
-        ttk.Checkbutton(self.controls, text='Optimize >500 vertices', variable=self.reduce_polys, command=self.draw_frame).pack(side='left', padx=6)
+        self.controls.pack(fill='x', padx=4, pady=(2, 2), side='top')
+        self.controls.columnconfigure(0, weight=0)
+        self.controls.columnconfigure(1, weight=1)
+        self.controls.columnconfigure(2, weight=1)
+        self.canvas = tk.Canvas(self, bg='#18181a', highlightthickness=0, height=150)
+        self.canvas.pack(fill='both', expand=True, padx=4, pady=2)
+        self.lbl_mode = ttk.Label(self.controls, text='')
+        self._model_controls_visible = False
+        self.lbl_mode.grid(row=0, column=0, sticky='w', padx=3, pady=1)
+        self.chk_wireframe = ttk.Checkbutton(self.controls, text='Wireframe lines', variable=self.show_wireframe, command=self.draw_frame)
+        self.chk_wireframe.grid(row=0, column=1, sticky='w', padx=3, pady=1)
+        self.chk_optimize = ttk.Checkbutton(self.controls, text='Optimize >500 vertices', variable=self.reduce_polys, command=self.draw_frame)
+        self.chk_optimize.grid(row=0, column=2, sticky='w', padx=3, pady=1)
+        self.controls.bind('<Configure>', self._layout_controls, add='+')
+        self.canvas.bind('<Configure>', self._on_canvas_configure, add='+')
+        self._resize_draw_job = None
+        self._controls_narrow = None
         self.canvas.bind('<Button-1>', self._on_mouse_down)
         self.canvas.bind('<B1-Motion>', self._on_mouse_drag)
         self.canvas.bind('<MouseWheel>', self._on_mouse_wheel)
@@ -4367,6 +4773,67 @@ class Viewport3DPanel(ttk.Frame):
         self.canvas.bind('<KeyRelease>', self._on_key_release)
         self._keys_held = set()
         self.pack_forget()
+
+    def _layout_controls(self, event=None):
+        width = event.width if event is not None else self.controls.winfo_width()
+        if not getattr(self, '_model_controls_visible', False):
+            return
+        narrow = width < 520
+        if narrow == self._controls_narrow:
+            return
+        try:
+            if getattr(self.winfo_toplevel(), '_resize_active', False):
+                self._controls_layout_pending = True
+                return
+        except Exception:
+            pass
+        self._controls_narrow = narrow
+        if narrow:
+            self.lbl_mode.grid_configure(row=0, column=0, columnspan=2, sticky='w', padx=3)
+            self.chk_wireframe.grid_configure(row=1, column=0, columnspan=2, sticky='w', padx=3)
+            self.chk_optimize.grid_configure(row=2, column=0, columnspan=2, sticky='w', padx=3)
+        else:
+            self.lbl_mode.grid_configure(row=0, column=0, sticky='w', padx=3)
+            self.chk_wireframe.grid_configure(row=0, column=1, sticky='w', padx=3)
+            self.chk_optimize.grid_configure(row=0, column=2, sticky='w', padx=3)
+
+    def _on_canvas_configure(self, _event=None):
+        self._resize_preview_mode = True
+        self._resize_quiet_until = time.monotonic() + 0.48
+        try:
+            root = self.winfo_toplevel()
+            if getattr(root, '_resize_active', False) or getattr(root, '_native_resize_in_progress', False):
+                self._resize_draw_pending = True
+                if self._resize_draw_job is not None:
+                    try:
+                        self.after_cancel(self._resize_draw_job)
+                    except Exception:
+                        pass
+                    self._resize_draw_job = None
+                return
+        except Exception:
+            pass
+        if self._resize_draw_job is not None:
+            try:
+                self.after_cancel(self._resize_draw_job)
+            except Exception:
+                pass
+        self._resize_draw_job = self.after(500, self._redraw_after_resize)
+
+    def _redraw_after_resize(self):
+        self._resize_draw_job = None
+        try:
+            root = self.winfo_toplevel()
+            if getattr(root, '_resize_active', False) or getattr(root, '_native_resize_in_progress', False):
+                self._resize_draw_pending = True
+                return
+        except Exception:
+            pass
+        self._resize_draw_pending = False
+        self._resize_preview_mode = False
+        self._resize_quiet_until = 0.0
+        if not self.is_playing:
+            self.draw_frame()
 
     def _zoom_by(self, factor: float) -> None:
         self.zoom = max(0.05, min(20.0, self.zoom * factor))
@@ -4398,9 +4865,11 @@ class Viewport3DPanel(ttk.Frame):
             self.pan_x -= step
         self.draw_frame()
 
-    def set_asset_data_from_temp(self, temp_file_path: str, is_mesh=False, is_model=False, is_audio=False):
+    def set_asset_data_from_temp(self, temp_file_path: str, is_anim=False, is_mesh=False, is_model=False, is_audio=False):
+        self.keyframes = []
         self.mesh_vertices = []
         self.mesh_faces = []
+        self._mesh_bounds_cache = None
         self.mesh_info = ''
         self.model_parts = []
         self.audio_path = None
@@ -4413,7 +4882,10 @@ class Viewport3DPanel(ttk.Frame):
             data = _decompress_document(data)
         except Exception:
             pass
-        if is_mesh:
+        if is_anim:
+            self.keyframes = parse_animation(data)
+            self.mesh_info = f'{len(self.keyframes)} keyframes'
+        elif is_mesh:
             self._load_mesh(data)
         elif is_model:
             self._load_model(data)
@@ -4437,7 +4909,7 @@ class Viewport3DPanel(ttk.Frame):
             self.mesh_info = 'Audio present, but no playable stream was found'
             return
         import tempfile as _tf
-        self.audio_path = os.path.join(_tf.gettempdir(), f'rdbm_preview_{abs(hash(payload)):x}.{ext}')
+        self.audio_path = os.path.join(_tf.gettempdir(), f'routils_preview_{hashlib.sha256(payload).hexdigest()[:16]}.{ext}')
         try:
             with open(self.audio_path, 'wb') as f:
                 f.write(payload)
@@ -4506,20 +4978,52 @@ class Viewport3DPanel(ttk.Frame):
                     faces.append(idx)
         self.mesh_vertices = verts
         self.mesh_faces = faces
+        self._mesh_bounds_cache = None
         self.mesh_info = f'Vertices: {len(verts):,} · Faces: {len(faces):,}'
 
     def show(self, is_anim=True, mode_label='Mesh'):
-        self.lbl_mode.config(text=f'Mode: {mode_label}')
+        self.lbl_mode.config(text=str(mode_label))
+        if str(mode_label).lower().startswith('audio'):
+            self.lbl_mode.grid_remove()
+        else:
+            self.lbl_mode.grid()
+        model_preview = bool((self.mesh_vertices and self.mesh_faces) or self.model_parts)
+        self._model_controls_visible = model_preview
+        if model_preview:
+            self.chk_wireframe.grid()
+            self.chk_optimize.grid()
+        else:
+            self.chk_wireframe.grid_remove()
+            self.chk_optimize.grid_remove()
         if self.is_own_host:
             self.pack(fill='both', expand=True)
         else:
             self.pack(fill='x', padx=8, pady=4)
         self.canvas.focus_set()
+        self.is_playing = False
+        playable = bool(self.keyframes) or bool(self.audio_path and os.path.isfile(self.audio_path))
+        self.btn_play.config(text='▶ Play', state='normal' if playable else 'disabled', width=8)
         self.draw_frame()
 
     def hide(self):
+        self.is_playing = False
+        if self.anim_job:
+            self.after_cancel(self.anim_job)
+            self.anim_job = None
         self.pack_forget()
 
+    def toggle_play(self):
+        if self.audio_path and os.path.isfile(self.audio_path):
+            self._toggle_audio_play()
+            return
+        if not self.keyframes:
+            self.is_playing = False
+            self.btn_play.config(text='▶ Play', state='disabled', width=8)
+            return
+        self.is_playing = not self.is_playing
+        self.btn_play.config(text='⏸ Pause' if self.is_playing else '▶ Play')
+        if self.is_playing and not self.anim_job:
+            self._animate_loop()
 
     def _on_mouse_down(self, event):
         self._last_mouse = (event.x, event.y)
@@ -4532,6 +5036,30 @@ class Viewport3DPanel(ttk.Frame):
         self._last_mouse = (event.x, event.y)
         self.draw_frame()
 
+    def _animate_loop(self):
+        if not self.winfo_ismapped() or not self.is_playing or not self.keyframes:
+            self.anim_job = None
+            if not self.keyframes:
+                self.is_playing = False
+                try:
+                    self.btn_play.config(text='▶ Play', state='disabled', width=8)
+                except Exception:
+                    pass
+            return
+        try:
+            canvas_size = (self.canvas.winfo_width(), self.canvas.winfo_height())
+            if canvas_size != getattr(self, '_animation_canvas_size', None):
+                self._animation_canvas_size = canvas_size
+                self._resize_preview_mode = True
+                self._resize_quiet_until = time.monotonic() + 0.48
+            if self._resize_preview_mode or time.monotonic() < getattr(self, '_resize_quiet_until', 0.0) or getattr(self.winfo_toplevel(), '_resize_active', False):
+                self.anim_job = self.after(90, self._animate_loop)
+                return
+        except Exception:
+            pass
+        self.anim_time += 0.03
+        self.draw_frame()
+        self.anim_job = self.after(33, self._animate_loop)
 
     def draw_frame(self):
         self.canvas.delete('all')
@@ -4540,18 +5068,20 @@ class Viewport3DPanel(ttk.Frame):
         if self.mesh_vertices and self.mesh_faces:
             self._draw_mesh(w, h)
             if self.mesh_info:
-                self.canvas.create_text(8, 8, text=self.mesh_info, anchor='nw', fill='#8ad0ff', font=('Consolas', 8))
+                self.canvas.create_text(w / 2, 8, text=self.mesh_info, anchor='n', justify='center', width=max(80, w - 24), fill='#8ad0ff', font=('Consolas', 8))
             return
         if self.model_parts:
             self._draw_model(w, h)
             if self.mesh_info:
-                self.canvas.create_text(8, 8, text=self.mesh_info, anchor='nw', fill='#8ad0ff', font=('Consolas', 8))
+                self.canvas.create_text(w / 2, 8, text=self.mesh_info, anchor='n', justify='center', width=max(80, w - 24), fill='#8ad0ff', font=('Consolas', 8))
             return
-        if self.audio_path and self.mesh_info:
+        if self.keyframes:
+            self._draw_skeleton(w, h)
+        elif self.audio_path and self.mesh_info:
             self.canvas.create_text(w / 2, h / 2, text=self.mesh_info, fill='#8ad0ff', font=('Segoe UI', 10))
-            self.canvas.create_text(w / 2, h / 2 + 26, text='Press ▶ to play via your system audio player', fill='#c8c8c8', font=('Segoe UI', 9))
+            self.canvas.create_text(w / 2, h / 2 + 26, text='Press ▶ to play Audio', fill='#c8c8c8', font=('Segoe UI', 9))
         else:
-            self.canvas.create_text(w / 2, h / 2, text='No preview available for this asset', fill='#007acc', font=('Segoe UI', 10))
+            self.canvas.create_text(w / 2, h / 2, text='Animation: no keyframes to draw a skeleton (0 keyframe)', fill='#007acc', font=('Segoe UI', 10))
     BONES = [('Head', 'UpperTorso'), ('Head', 'Torso'), ('UpperTorso', 'LowerTorso'), ('Torso', 'LowerTorso'), ('LowerTorso', 'UpperTorso'), ('UpperTorso', 'UpperArm'), ('UpperArm', 'LowerArm'), ('LowerArm', 'Hand'), ('UpperTorso', 'LeftUpperArm'), ('LeftUpperArm', 'LeftLowerArm'), ('LeftLowerArm', 'LeftHand'), ('UpperTorso', 'RightUpperArm'), ('RightUpperArm', 'RightLowerArm'), ('RightLowerArm', 'RightHand'), ('UpperArm', 'LeftUpperArm'), ('UpperArm', 'RightUpperArm'), ('LowerTorso', 'UpperLeg'), ('UpperLeg', 'LowerLeg'), ('LowerLeg', 'Foot'), ('LowerTorso', 'LeftUpperLeg'), ('LeftUpperLeg', 'LeftLowerLeg'), ('LeftLowerLeg', 'LeftFoot'), ('LowerTorso', 'RightUpperLeg'), ('RightUpperLeg', 'RightLowerLeg'), ('RightLowerLeg', 'RightFoot'), ('UpperLeg', 'LeftUpperLeg'), ('UpperLeg', 'RightUpperLeg')]
 
     def _project_point(self, pos, cx, cy, scale, mirror_y=True):
@@ -4566,10 +5096,15 @@ class Viewport3DPanel(ttk.Frame):
     def _draw_model(self, w, h):
         if not self.model_parts:
             return
+        preview = bool(self._resize_preview_mode or getattr(self.winfo_toplevel(), '_resize_active', False))
+        render_parts = self.model_parts
+        if preview and len(render_parts) > 48:
+            stride = max(1, (len(render_parts) + 47) // 48)
+            render_parts = render_parts[::stride][:48]
         ax, ay = (self.angle_x, self.angle_y)
         cx, cy = (w / 2 + self.pan_x, h / 2 + self.pan_y)
         base = max(40.0, min(w, h) / 3) * self.zoom
-        all_pos = [p['pos'] for p in self.model_parts]
+        all_pos = [part['pos'] for part in self.model_parts]
         mins = [min((v[i] for v in all_pos)) for i in range(3)]
         maxs = [max((v[i] for v in all_pos)) for i in range(3)]
         spans = [float(maxs[i] - mins[i]) for i in range(3)]
@@ -4588,14 +5123,13 @@ class Viewport3DPanel(ttk.Frame):
         corners = [(-1, -1, -1), (1, -1, -1), (1, 1, -1), (-1, 1, -1), (-1, -1, 1), (1, -1, 1), (1, 1, 1), (-1, 1, 1)]
         faces = [(0, 1, 2, 3), (4, 5, 6, 7), (0, 1, 5, 4), (2, 3, 7, 6), (0, 3, 7, 4), (1, 2, 6, 5)]
         items = []
-        for part in self.model_parts:
+        for part in render_parts:
             pos = part['pos']
             sx, sy, sz = part['size']
             sx = sx or 1.0
             sy = sy or 1.0
             sz = sz or 1.0
             depth_pts = []
-            poly_coords = []
             for face in faces:
                 coords = []
                 zd = 0.0
@@ -4615,67 +5149,140 @@ class Viewport3DPanel(ttk.Frame):
                 self.canvas.create_polygon(flat, fill=color, outline='#9aa0a6', width=1)
             else:
                 self.canvas.create_polygon(flat, fill=color, outline='')
-        try:
-            ymin = mins[1] - (maxs[1] - mins[1]) * 0.1
-            shadow_pts = []
-            for part in self.model_parts:
-                pos = part['pos']
-                sx = (part['size'][0] or 1.0) * 0.5
-                sz = (part['size'][2] or 1.0) * 0.5
-                shadow_pts.append((pos[0] - sx, ymin, pos[2] - sz))
-                shadow_pts.append((pos[0] + sx, ymin, pos[2] - sz))
-                shadow_pts.append((pos[0] + sx, ymin, pos[2] + sz))
-                shadow_pts.append((pos[0] - sx, ymin, pos[2] + sz))
-            s_xy = [_proj(x, y, z)[:2] for x, y, z in shadow_pts]
-            flat_s = [c for pt in s_xy for c in pt]
-            self.canvas.create_polygon(flat_s, fill='#000000', outline='', stipple='gray12')
-        except Exception:
-            pass
+        if not preview:
+            try:
+                ymin = mins[1] - (maxs[1] - mins[1]) * 0.1
+                shadow_pts = []
+                for part in self.model_parts:
+                    pos = part['pos']
+                    sx = (part['size'][0] or 1.0) * 0.5
+                    sz = (part['size'][2] or 1.0) * 0.5
+                    shadow_pts.append((pos[0] - sx, ymin, pos[2] - sz))
+                    shadow_pts.append((pos[0] + sx, ymin, pos[2] - sz))
+                    shadow_pts.append((pos[0] + sx, ymin, pos[2] + sz))
+                    shadow_pts.append((pos[0] - sx, ymin, pos[2] + sz))
+                s_xy = [_proj(x, y, z)[:2] for x, y, z in shadow_pts]
+                flat_s = [c for pt in s_xy for c in pt]
+                self.canvas.create_polygon(flat_s, fill='#000000', outline='', stipple='gray12')
+            except Exception:
+                pass
 
+    def _draw_skeleton(self, w, h):
+        n = len(self.keyframes)
+        idx = int(self.anim_time * 30.0) % n if self.is_playing and n else 0
+        kf = self.keyframes[idx]
+        t = kf.time
+        cx, cy = (w / 2 + self.pan_x, h / 2 + self.pan_y + 10)
+        scale = max(0.05, min(w, h) / 4.0) * self.zoom
+        default_r6 = {'Head': (0, 3.1, 0), 'Torso': (0, 1.8, 0), 'Left Arm': (-1.5, 1.8, 0), 'Right Arm': (1.5, 1.8, 0), 'Left Leg': (-0.55, 0.0, 0), 'Right Leg': (0.55, 0.0, 0)}
+        default_r15 = {'Head': (0, 3.2, 0), 'UpperTorso': (0, 2.25, 0), 'LowerTorso': (0, 1.55, 0), 'LeftUpperArm': (-0.8, 2.25, 0), 'LeftLowerArm': (-1.35, 1.75, 0), 'LeftHand': (-1.65, 1.35, 0), 'RightUpperArm': (0.8, 2.25, 0), 'RightLowerArm': (1.35, 1.75, 0), 'RightHand': (1.65, 1.35, 0), 'LeftUpperLeg': (-0.45, 0.9, 0), 'LeftLowerLeg': (-0.45, 0.15, 0), 'LeftFoot': (-0.45, -0.55, 0), 'RightUpperLeg': (0.45, 0.9, 0), 'RightLowerLeg': (0.45, 0.15, 0), 'RightFoot': (0.45, -0.55, 0)}
+        points = {}
+        has_geo = False
+        for name, pdata in kf.pose_by_part_name.items():
+            pos = pdata.get('pos')
+            if pos and any((abs(float(v)) > 1e-05 for v in pos)):
+                points[name] = self._project_point(pos, cx, cy, scale)
+                has_geo = True
+            else:
+                fallback = default_r15.get(name) or default_r6.get(name)
+                if fallback:
+                    points[name] = self._project_point(fallback, cx, cy, scale)
+        bone_pts = set()
+        for a, b in self.BONES:
+            if a in points and b in points:
+                self.canvas.create_line(points[a][0], points[a][1], points[b][0], points[b][1], fill='#9aa0a6', width=3)
+                bone_pts.add(a)
+                bone_pts.add(b)
+        for name, (px, py) in points.items():
+            fill = '#ffd54f' if name in bone_pts else '#90a4ae'
+            self.canvas.create_oval(px - 4, py - 4, px + 4, py + 4, fill=fill, outline='')
+        info = f'Animation: {n} keyframes @ t={t:.2f}s | joints: {len(points)}'
+        self.canvas.create_text(w / 2, 8, text=info, anchor='n', justify='center', width=max(80, w - 24), fill='#8ad0ff', font=('Consolas', 8))
+        if not has_geo:
+            self.canvas.create_text(w / 2, h / 2, text='No pose position data in skeleton (keyframe count shown above)', fill='#78909c', font=('Segoe UI', 9))
 
     def _draw_mesh(self, w, h):
         verts = self.mesh_vertices
         if not verts:
             return
+        preview = bool(self._resize_preview_mode or getattr(self.winfo_toplevel(), '_resize_active', False))
+        faces = self.mesh_faces
+        if preview:
+            max_faces = 48
+        elif self.reduce_polys.get() and len(verts) > 500 and len(faces) > 128:
+            max_faces = 128
+        else:
+            max_faces = len(faces)
+        if max_faces > 0 and len(faces) > max_faces:
+            stride = max(1, (len(faces) + max_faces - 1) // max_faces)
+            faces = faces[::stride][:max_faces]
+        if not faces:
+            return
+        try:
+            if self._mesh_bounds_cache is None:
+                mins = [float('inf'), float('inf'), float('inf')]
+                maxs = [float('-inf'), float('-inf'), float('-inf')]
+                for vertex in verts:
+                    for axis in range(3):
+                        value = float(vertex[axis])
+                        if value < mins[axis]:
+                            mins[axis] = value
+                        if value > maxs[axis]:
+                            maxs[axis] = value
+                self._mesh_bounds_cache = (tuple(mins), tuple(maxs))
+            mins, maxs = self._mesh_bounds_cache
+        except Exception:
+            mins = tuple(min(float(v[i]) for v in verts) for i in range(3))
+            maxs = tuple(max(float(v[i]) for v in verts) for i in range(3))
         ax, ay = (self.angle_x, self.angle_y)
         cx, cy = (w / 2 + self.pan_x, h / 2 + self.pan_y)
         base = max(20.0, min(w, h) / 4) * self.zoom
-        xs = [v[0] for v in verts]
-        ys = [v[1] for v in verts]
-        zs = [v[2] for v in verts]
-        mx, my, mz = ((max(xs) + min(xs)) / 2, (max(ys) + min(ys)) / 2, (max(zs) + min(zs)) / 2)
-        span = max(max(xs) - min(xs), max(ys) - min(ys), max(zs) - min(zs), 1e-06)
+        span = max(maxs[0] - mins[0], maxs[1] - mins[1], maxs[2] - mins[2], 1e-06)
+        mx, my, mz = ((maxs[0] + mins[0]) / 2, (maxs[1] + mins[1]) / 2, (maxs[2] + mins[2]) / 2)
         scale = base / span
         cosx, sinx, cosy, siny = (math.cos(ax), math.sin(ax), math.cos(ay), math.sin(ay))
-        pts2d, pts3d = ([], [])
-        for x, y, z in verts:
+        valid_faces = []
+        used_indices = set()
+        vertex_count = len(verts)
+        for face in faces:
+            if len(face) < 3:
+                continue
+            normalized = tuple(int(index) % vertex_count for index in face)
+            if len(normalized) < 3:
+                continue
+            valid_faces.append(normalized)
+            used_indices.update(normalized)
+        if not valid_faces:
+            return
+        pts2d = {}
+        pts3d = {}
+        for index in used_indices:
+            x, y, z = verts[index]
             px, py, pz = (x - mx, y - my, z - mz)
             x1 = px * cosy + pz * siny
             z1 = -px * siny + pz * cosy
             y2 = py * cosx - z1 * sinx
             z2 = py * sinx + z1 * cosx
-            pts2d.append((cx + x1 * scale, cy - y2 * scale))
-            pts3d.append(z2)
-        shadow_poly = []
-        for x, y, z in verts:
-            px, py, pz = (x - mx, 0.0 - my, z - mz)
-            x1 = px * cosy + pz * siny
-            z1 = -px * siny + pz * cosy
-            y2 = 0.0 * cosx - z1 * sinx
-            shadow_poly.append((cx + x1 * scale, cy - y2 * scale))
+            pts2d[index] = (cx + x1 * scale, cy - y2 * scale)
+            pts3d[index] = z2
         items = []
-        faces = self.mesh_faces
-        if self.reduce_polys.get() and len(verts) > 500 and (len(faces) > 128):
-            stride = max(1, (len(faces) + 127) // 128)
-            faces = faces[::stride]
-        for face in faces:
-            coords = [c for i in face for c in pts2d[i % len(pts2d)]]
-            depth = sum((pts3d[i % len(pts3d)] for i in face)) / len(face)
+        for face in valid_faces:
+            coords = [c for index in face for c in pts2d[index]]
+            depth = sum(pts3d[index] for index in face) / len(face)
             items.append((depth, coords))
-        try:
-            self.canvas.create_polygon(shadow_poly, fill='#000000', outline='', stipple='gray12')
-        except Exception:
-            pass
+        if not preview:
+            try:
+                shadow_poly = []
+                for index in used_indices:
+                    x, _, z = verts[index]
+                    px, pz = (x - mx, z - mz)
+                    x1 = px * cosy + pz * siny
+                    z1 = -px * siny + pz * cosy
+                    y2 = -my * cosx - z1 * sinx
+                    shadow_poly.append((cx + x1 * scale, cy - y2 * scale))
+                self.canvas.create_polygon([c for pt in shadow_poly for c in pt], fill='#000000', outline='', stipple='gray12')
+            except Exception:
+                pass
         for depth, coords in sorted(items, key=lambda t: t[0], reverse=True):
             if self.show_wireframe.get():
                 self.canvas.create_polygon(coords, fill='#2a2d31', outline='#9aa0a6', width=1)
@@ -5191,17 +5798,19 @@ class ReplacerPane(ttk.Frame):
         dialog = tk.Toplevel(self)
         dialog.title('Create Cache')
         dialog.transient(self)
+        dialog.grab_set()
         theme_toplevel(dialog)
+        dialog.geometry('620x230')
+        dialog.minsize(500, 210)
         body = ttk.Frame(dialog, padding=0)
         body.pack(fill='both', expand=True)
         body.columnconfigure(1, weight=1)
         ttk.Label(body, text='Hash saves:').grid(row=0, column=0, sticky='w', padx=10, pady=(12, 4))
-        hs = self._scan_hash_saves()
-        hash_names = [name for name, _h, _p in hs]
-        hash_combo = ttk.Combobox(body, values=hash_names, state='readonly', width=38)
+        hash_status = tk.StringVar(value='Loading…')
+        hash_combo = ttk.Combobox(body, textvariable=hash_status, values=(), state='readonly', width=38)
         hash_combo.grid(row=0, column=1, sticky='we', padx=10, pady=(12, 4))
-        if hash_names:
-            hash_combo.current(0)
+        hs = []
+        hash_names = []
         chosen_hash = {'hex': None}
 
         def ask_custom_hash():
@@ -5213,12 +5822,11 @@ class ReplacerPane(ttk.Frame):
                 chosen_hash['hex'] = None
         ttk.Button(body, text='Input Custom Hash', command=ask_custom_hash).grid(row=0, column=2, padx=10, pady=(12, 4))
         ttk.Label(body, text='File saves:').grid(row=1, column=0, sticky='w', padx=10, pady=4)
-        fs = self._scan_file_saves()
-        file_names = [name for name, _p in fs]
-        file_combo = ttk.Combobox(body, values=file_names, state='readonly', width=38)
+        file_status = tk.StringVar(value='Loading…')
+        file_combo = ttk.Combobox(body, textvariable=file_status, values=(), state='readonly', width=38)
         file_combo.grid(row=1, column=1, sticky='we', padx=10, pady=4)
-        if file_names:
-            file_combo.current(0)
+        fs = []
+        file_names = []
         chosen_file = {'path': None}
 
         def pick_custom_file():
@@ -5310,10 +5918,52 @@ class ReplacerPane(ttk.Frame):
         body.columnconfigure(1, weight=1)
         entry_name.focus_set()
 
+        def load_sources():
+            nonlocal hs, fs, hash_names, file_names
+            if not dialog.winfo_exists():
+                return
+            hash_status.set('Loading…')
+            file_status.set('Loading…')
+            dialog.update_idletasks()
+            def scan():
+                try:
+                    return self._scan_hash_saves(), self._scan_file_saves()
+                except Exception:
+                    return [], []
+            def apply_results(results):
+                nonlocal hs, fs, hash_names, file_names
+                if not dialog.winfo_exists():
+                    return
+                hs, fs = results
+                hash_names = [name for name, _h, _p in hs]
+                file_names = [name for name, _p in fs]
+                hash_combo.configure(values=hash_names)
+                file_combo.configure(values=file_names)
+                hash_status.set(hash_names[0] if hash_names else 'No saved hashes found')
+                file_status.set(file_names[0] if file_names else 'No saved files found')
+                if hash_names:
+                    hash_combo.current(0)
+                if file_names:
+                    file_combo.current(0)
+            result_queue = queue.Queue(maxsize=1)
+            threading.Thread(target=lambda: result_queue.put(scan()), daemon=True).start()
+            def poll_results():
+                if not dialog.winfo_exists():
+                    return
+                try:
+                    apply_results(result_queue.get_nowait())
+                except queue.Empty:
+                    dialog.after(35, poll_results)
+            dialog.after(35, poll_results)
+
+        dialog.after_idle(load_sources)
+        dialog.wait_window()
+
     def save_hash(self):
         dialog = tk.Toplevel(self)
         dialog.title('Save Hash')
         dialog.transient(self)
+        dialog.grab_set()
         theme_toplevel(dialog)
         ttk.Label(dialog, text='Hash:').grid(row=0, column=0, padx=10, pady=(12, 4), sticky='w')
         entry_hash = ttk.Entry(dialog, width=40)
@@ -5364,11 +6014,13 @@ class ReplacerPane(ttk.Frame):
         ttk.Button(btn_frame, text='OK', command=on_ok).pack(side='left', padx=6)
         ttk.Button(btn_frame, text='Cancel', command=dialog.destroy).pack(side='left', padx=6)
         entry_hash.focus_set()
+        dialog.wait_window()
 
     def save_file(self):
         dialog = tk.Toplevel(self)
         dialog.title('Save File')
         dialog.transient(self)
+        dialog.grab_set()
         theme_toplevel(dialog)
         chosen = {'path': None}
 
@@ -5441,6 +6093,7 @@ class ReplacerPane(ttk.Frame):
         ttk.Button(btn_frame, text='OK', command=on_ok).pack(side='left', padx=6)
         ttk.Button(btn_frame, text='Cancel', command=dialog.destroy).pack(side='left', padx=6)
         entry_name.focus_set()
+        dialog.wait_window()
 
     def _clean_hex(self, s: str) -> str:
         s = s.strip()
@@ -5809,7 +6462,7 @@ class ReplacerPane(ttk.Frame):
             messagebox.showinfo('Success', f"Created empty group '{name}'.")
         self._console_log(f"Created cache group '{name}' with {moved_count} item(s)")
 TYPE_FILTERS = [('All', lambda c: True), ('Mesh', lambda c: c == 'Mesh'), ('Audio', lambda c: c == 'Sound'), ('Animation', lambda c: c == 'Animation'), ('Image', lambda c: c in ('Image', 'Decal')), ('Video', lambda c: c == 'Video'), ('KTX Texture', lambda c: c == 'KTX Texture'), ('Model/RBXM', lambda c: c in ('Model', 'RBXM', 'rbxl (place)')), ('Font', lambda c: c == 'Font'), ('Text', lambda c: c in ('Text', 'Translations', 'Compressed', 'Ticket')), ('Unknown', lambda c: c == 'Unknown')]
-FFLAG_PREFIXES = ['DFInt', 'DFString', 'DFFlag', 'FInt', 'FString', 'FFlag', 'SFFlag', 'SFInt', 'SFString', 'DFLog', 'FLog']
+FFLAG_PREFIXES = ['DFDouble', 'DFFloat', 'DFInt', 'DFString', 'DFFlag', 'DFLog', 'FDouble', 'FFloat', 'FInt', 'FString', 'FFlag', 'FLog', 'SFDouble', 'SFFloat', 'SFFlag', 'SFInt', 'SFString', 'SFLog']
 SKYBOX_TEXTURES = ('sky512_bk.tex', 'sky512_dn.tex', 'sky512_ft.tex', 'sky512_lf.tex', 'sky512_rt.tex', 'sky512_up.tex')
 SOUND_FILES = ('action_falling.ogg', 'action_footsteps_plastic.mp3', 'action_get_up.mp3', 'action_jump.mp3', 'action_jump_land.mp3', 'action_swim.mp3', 'impact_explosion_03.mp3', 'impact_water.mp3', 'oof.ogg', 'ouch.ogg', 'volume_slider.ogg')
 FFLAG_PATTERN = bytes.fromhex('48 83 EC 38 48 8B 0D 00 00 00 00 4C 8D 05')
@@ -5892,7 +6545,7 @@ class RobloxFFlagEngine:
             if ctypes.windll.kernel32.Module32FirstW(snap, ctypes.byref(me)):
                 while True:
                     if me.szModule.lower() == wanted.lower():
-                        self.module_size = int(me.modBaseSize) or FFLAG_MODULE_SIZE
+                        self.module_size = max(int(me.modBaseSize), FFLAG_MODULE_SIZE)
                         return ctypes.cast(me.modBaseAddr, ctypes.c_void_p).value or 0
                     if not ctypes.windll.kernel32.Module32NextW(snap, ctypes.byref(me)):
                         break
@@ -6111,81 +6764,379 @@ def _fflag_find_pid() -> int:
     return 0
 _NATIVE_MESSAGEBOX = messagebox
 
-class _MacNotification:
-    _active = []
-    _host = None
+def _pady_pair(value):
+    try:
+        if isinstance(value, (tuple, list)):
+            vals = list(value)
+            if len(vals) == 1:
+                return int(float(vals[0] or 0)), int(float(vals[0] or 0))
+            return int(float(vals[0] or 0)), int(float(vals[1] or 0))
+        n = int(float(value or 0))
+        return n, n
+    except Exception:
+        return 0, 0
 
-    @staticmethod
-    @classmethod
-    def _get_host(cls, parent):
-        host = cls._host
+
+def _routils_center_popup(win):
+    try:
+        if not win.winfo_exists() or getattr(win, '_skip_popup_centering', False):
+            return
+        win.update_idletasks()
+        width = max(1, int(win.winfo_width()), int(win.winfo_reqwidth()))
+        height = max(1, int(win.winfo_height()), int(win.winfo_reqheight()))
+        screen_width = int(win.winfo_screenwidth())
+        screen_height = int(win.winfo_screenheight())
+        x = max(0, (screen_width - width) // 2)
+        y = max(0, (screen_height - height) // 2)
+        win.geometry(f'+{x}+{y}')
+    except Exception:
+        pass
+
+
+def _routils_clear_window_references(event, win):
+    if getattr(event, 'widget', None) is not win:
+        return
+    try:
+        root = tk._default_root
+        if root is not None:
+            for name, value in tuple(vars(root).items()):
+                if value is win:
+                    try:
+                        setattr(root, name, None)
+                    except Exception:
+                        pass
+            if 'Outdated' in str(win.title()):
+                try:
+                    root._outdated_dialog_shown = False
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+
+def _routils_close_popup(win):
+    try:
+        if not win.winfo_exists():
+            return
+    except Exception:
+        return
+    callback = getattr(win, '_routils_close_callback', None)
+    if callable(callback):
         try:
-            if host is not None and host.winfo_exists() and (host.winfo_toplevel() == parent.winfo_toplevel()):
-                return host
+            callback()
+            if not win.winfo_exists():
+                return
+        except Exception:
+            pass
+    try:
+        protocol = win.protocol('WM_DELETE_WINDOW')
+        if protocol:
+            win.tk.call(protocol)
+            try:
+                if not win.winfo_exists():
+                    return
+            except Exception:
+                return
+    except Exception:
+        pass
+    try:
+        win.grab_release()
+    except Exception:
+        pass
+    try:
+        win.destroy()
+    except Exception:
+        pass
+
+
+def _routils_popup_chrome(win):
+    try:
+        if not win.winfo_exists() or getattr(win, '_skip_custom_chrome', False) or getattr(win, '_routils_custom_chrome', False):
+            return
+        win._routils_custom_chrome = True
+        try:
+            title = str(win.title() or 'RoUtils')
+        except Exception:
+            title = 'RoUtils'
+        palette = _CURRENT_PALETTE if isinstance(_CURRENT_PALETTE, dict) else THEMES[DEFAULT_THEME]
+        bg = palette.get('bg_dark', '#111318')
+        fg = palette.get('fg', '#e6e9ef')
+        accent = palette.get('accent', '#8ab4f8')
+        bar_bg = _routils_darken_color(bg, 0.20)
+        height = 34
+        children = list(win.winfo_children())
+        pack_children = [child for child in children if child.winfo_manager() == 'pack']
+        grid_children = [child for child in children if child.winfo_manager() == 'grid']
+        place_children = [child for child in children if child.winfo_manager() == 'place']
+        if pack_children:
+            first = next((child for child in pack_children if str(child.pack_info().get('side', 'top')) == 'top'), pack_children[0])
+            info = first.pack_info()
+            top, bottom = _pady_pair(info.get('pady', 0))
+            first.pack_configure(pady=(top + height, bottom))
+        elif grid_children:
+            minrow = min(int(child.grid_info().get('row', 0)) for child in grid_children)
+            for child in grid_children:
+                info = child.grid_info()
+                if int(info.get('row', 0)) == minrow:
+                    top, bottom = _pady_pair(info.get('pady', 0))
+                    child.grid_configure(pady=(top + height, bottom))
+        elif place_children:
+            for child in place_children:
+                info = child.place_info()
+                try:
+                    y = int(float(info.get('y', 0))) + height
+                    child.place_configure(y=y)
+                except Exception:
+                    pass
+        try:
+            win.overrideredirect(True)
         except Exception:
             pass
         try:
-            host = tk.Frame(parent, bg=_CURRENT_PALETTE.get('bg_dark', '#111111'), bd=0, highlightthickness=0)
-            host.place(relx=1.0, rely=1.0, anchor='se', x=-14, y=-14)
-            cls._host = host
-            return host
+            win.configure(bg=accent, highlightthickness=2, highlightbackground=accent, highlightcolor=accent, bd=0, relief='flat')
         except Exception:
-            return None
+            try:
+                win.configure(bg=accent)
+            except Exception:
+                pass
+        bar = tk.Frame(win, bg=bar_bg, height=height, bd=0, highlightthickness=0)
+        bar.place(x=2, y=2, relwidth=1.0, width=-4, height=height)
+        bar.pack_propagate(False)
+        title_label = tk.Label(bar, text=title, bg=bar_bg, fg=fg, font=('Segoe UI Semibold', 9), anchor='w')
+        title_label.pack(side='left', fill='both', expand=True, padx=(11, 4))
+        close = tk.Label(bar, text='×', bg=bar_bg, fg='#ff777d', font=('Segoe UI', 16), width=3, cursor='hand2')
+        close.pack(side='right', fill='y')
+        close.bind('<Button-1>', lambda _e, w=win: _routils_close_popup(w))
+        close.bind('<Enter>', lambda _e, w=close: w.configure(bg='#542a31'))
+        close.bind('<Leave>', lambda _e, w=close, color=bar_bg: w.configure(bg=color))
+        win._routils_chrome_bar = bar
+        win._routils_chrome_title = title_label
+        win._routils_chrome_close = close
+        win._routils_chrome_colors = {'accent': accent, 'bar': bar_bg, 'fg': fg}
+        drag = {'x': 0, 'y': 0, 'wx': 0, 'wy': 0, 'pending': None, 'job': None, 'last': None}
+        def start_drag(event):
+            drag.update(x=event.x_root, y=event.y_root, wx=win.winfo_x(), wy=win.winfo_y(), last=None)
+        def apply_drag():
+            drag['job'] = None
+            position = drag.get('pending')
+            if position is None or position == drag.get('last'):
+                return
+            drag['last'] = position
+            try:
+                if sys.platform == 'win32':
+                    hwnd = _win32_root_hwnd(win)
+                    if hwnd:
+                        ctypes.windll.user32.SetWindowPos(hwnd, 0, int(position[0]), int(position[1]), 0, 0, 1 | 4 | 16)
+                        return
+                win.geometry(f'+{int(position[0])}+{int(position[1])}')
+            except Exception:
+                pass
+        def move_drag(event):
+            drag['pending'] = (int(drag['wx'] + event.x_root - drag['x']), int(drag['wy'] + event.y_root - drag['y']))
+            if drag['job'] is None:
+                try:
+                    drag['job'] = win.after(16, apply_drag)
+                except Exception:
+                    drag['job'] = None
+        def finish_drag(_event=None):
+            job = drag.get('job')
+            if job is not None:
+                try:
+                    win.after_cancel(job)
+                except Exception:
+                    pass
+                drag['job'] = None
+            apply_drag()
+        for widget in (bar, title_label):
+            widget.bind('<ButtonPress-1>', start_drag, add='+')
+            widget.bind('<B1-Motion>', move_drag, add='+')
+            widget.bind('<ButtonRelease-1>', finish_drag, add='+')
+        def sync_topmost(_event=None):
+            try:
+                root = tk._default_root
+                if root is None or not root.winfo_exists():
+                    win.attributes('-topmost', False)
+                    return
+                focus = root.focus_get()
+                focused_top = focus.winfo_toplevel() if focus is not None else None
+                is_rotools_focus = focused_top is root or focused_top is win
+                if focused_top is not None and not is_rotools_focus:
+                    try:
+                        transient = focused_top.transient()
+                        is_rotools_focus = bool(transient and str(transient) == str(root))
+                    except Exception:
+                        pass
+                win.attributes('-topmost', bool(is_rotools_focus))
+            except Exception:
+                pass
+        win.bind('<FocusIn>', sync_topmost, add='+')
+        win.bind('<FocusOut>', lambda _e: win.after(180, sync_topmost), add='+')
+        win.after_idle(lambda w=win, b=bar: (b.lift() if w.winfo_exists() and b.winfo_exists() else None))
+        win.after_idle(lambda w=win: _routils_center_popup(w))
+        win.after_idle(lambda w=win: _routils_refresh_popup_chrome(w))
+        win.after(100, sync_topmost)
+    except Exception:
+        pass
+
+
+def _routils_refresh_popup_chrome(win):
+    try:
+        if not win.winfo_exists() or not getattr(win, '_routils_custom_chrome', False):
+            return
+        palette = _CURRENT_PALETTE if isinstance(_CURRENT_PALETTE, dict) else THEMES[DEFAULT_THEME]
+        accent = palette.get('accent', '#8ab4f8')
+        bar_bg = _routils_darken_color(palette.get('bg_dark', '#111318'), 0.20)
+        fg = palette.get('fg', '#e6e9ef')
+        win.configure(bg=accent, highlightbackground=accent, highlightcolor=accent)
+        bar = getattr(win, '_routils_chrome_bar', None)
+        label = getattr(win, '_routils_chrome_title', None)
+        close = getattr(win, '_routils_chrome_close', None)
+        if bar is not None and bar.winfo_exists():
+            bar.configure(bg=bar_bg)
+        if label is not None and label.winfo_exists():
+            label.configure(bg=bar_bg, fg=fg)
+        if close is not None and close.winfo_exists():
+            close.configure(bg=bar_bg)
+        win._routils_chrome_colors = {'accent': accent, 'bar': bar_bg, 'fg': fg}
+    except Exception:
+        pass
+
+_original_toplevel_init = tk.Toplevel.__init__
+def _routils_toplevel_init(self, *args, **kwargs):
+    _original_toplevel_init(self, *args, **kwargs)
+    try:
+        self.bind('<Destroy>', lambda event, w=self: _routils_clear_window_references(event, w), add='+')
+        self.after(60, lambda w=self: _routils_popup_chrome(w) if w.winfo_exists() else None)
+    except Exception:
+        pass
+
+tk.Toplevel.__init__ = _routils_toplevel_init
+
+
+class _MacNotification:
+    _active = []
+    _pulse_jobs = {}
+
+    @classmethod
+    def _app_has_focus(cls, root):
+        try:
+            focus = root.focus_get()
+            if focus is None:
+                return False
+            top = focus.winfo_toplevel()
+            return top is root or str(top.transient()) == str(root)
+        except Exception:
+            return False
+
+    @classmethod
+    def _reposition(cls):
+        live = []
+        for win, height in cls._active:
+            try:
+                if win.winfo_exists():
+                    live.append((win, height))
+            except Exception:
+                pass
+        cls._active = live
+        for index, (win, height) in enumerate(reversed(cls._active)):
+            try:
+                width = 390
+                x = max(0, win.winfo_screenwidth() - width - 22)
+                y = max(0, win.winfo_screenheight() - height - 58 - sum(h + 12 for _, h in list(reversed(cls._active))[:index]))
+                win.geometry(f'{width}x{height}+{x}+{y}')
+            except Exception:
+                pass
 
     @classmethod
     def show(cls, title, message, parent=None, kind='info'):
         try:
-            if parent is None:
-                parent = tk._default_root
+            parent = parent or tk._default_root
             if parent is None or not parent.winfo_exists():
                 return
             root = parent.winfo_toplevel()
-            host = cls._get_host(root)
-            if host is None:
-                return
-            accent = _CURRENT_PALETTE.get('accent', '#7f8cff')
-            bg = _CURRENT_PALETTE.get('bg_dark', '#111111')
+            accent = _CURRENT_PALETTE.get('accent', '#8ab4f8')
             if kind == 'error':
-                accent = '#ff5f57'
+                accent = '#ff5f68'
             elif kind == 'warning':
-                accent = '#febc2e'
-            elif kind == 'info':
-                accent = _CURRENT_PALETTE.get('accent', '#7f8cff')
-            toast = tk.Frame(host, bg='#090909', bd=0, highlightthickness=1, highlightbackground=accent, width=390)
-            toast.pack(fill='x', pady=(0, 8))
-            toast.pack_propagate(False)
-            header = tk.Frame(toast, bg='#090909', height=28)
+                accent = '#ffc857'
+            bg = _CURRENT_PALETTE.get('bg_dark', '#111318')
+            panel = _CURRENT_PALETTE.get('bg_medium', '#1a1d24')
+            fg = _CURRENT_PALETTE.get('fg', '#e6e9ef')
+            lines = max(2, min(6, (len(str(message)) // 54) + 1))
+            height = 62 + lines * 18
+            toast = tk.Toplevel(root)
+            toast._skip_custom_chrome = True
+            toast.overrideredirect(True)
+            toast.configure(bg=accent)
+            toast.attributes('-topmost', cls._app_has_focus(root))
+            try:
+                toast.transient(root)
+            except Exception:
+                pass
+            outer = tk.Frame(toast, bg=accent, bd=0, highlightthickness=2, highlightbackground=accent)
+            outer.pack(fill='both', expand=True, padx=0, pady=0)
+            card = tk.Frame(outer, bg=panel, bd=0)
+            card.pack(fill='both', expand=True, padx=2, pady=2)
+            header = tk.Frame(card, bg=panel, height=31)
             header.pack(fill='x')
             header.pack_propagate(False)
-            tk.Label(header, text=str(title), bg='#090909', fg='#eeeeee', font=('Segoe UI Semibold', 9)).pack(side='left', padx=(10, 4), pady=5)
-            tk.Label(header, text='×', bg='#090909', fg='#888888', font=('Segoe UI', 11)).pack(side='right', padx=(4, 8))
-            body = tk.Frame(toast, bg='#111111')
-            body.pack(fill='both', expand=True)
-            tk.Label(body, text=str(message), bg='#111111', fg='#e5e5e5', justify='left', anchor='w', wraplength=360, font=('Segoe UI', 9)).pack(fill='both', expand=True, padx=10, pady=(4, 10))
-
-            def close():
+            tk.Label(header, text=str(title), bg=panel, fg=fg, font=('Segoe UI Semibold', 9), anchor='w').pack(side='left', fill='both', expand=True, padx=(12, 4))
+            close = tk.Label(header, text='×', bg=panel, fg='#ff8a90', font=('Segoe UI', 16), width=3, cursor='hand2')
+            close.pack(side='right', fill='y')
+            body = tk.Label(card, text=str(message), bg=panel, fg=fg, justify='left', anchor='w', wraplength=350, font=('Segoe UI', 9))
+            body.pack(fill='both', expand=True, padx=12, pady=(2, 12))
+            state = {'count': 0, 'closed': False}
+            def close_toast():
+                if state['closed']:
+                    return
+                state['closed'] = True
                 try:
-                    if toast in cls._active:
-                        cls._active.remove(toast)
-                    if toast.winfo_exists():
-                        toast.destroy()
-                    if host.winfo_exists() and (not cls._active):
-                        host.place_forget()
+                    job = cls._pulse_jobs.pop(toast, None)
+                    if job:
+                        toast.after_cancel(job)
                 except Exception:
                     pass
-            toast.bind('<Button-1>', lambda _e: close())
-            for child in (header, body):
-                child.bind('<Button-1>', lambda _e: close())
-            for child in header.winfo_children():
-                child.bind('<Button-1>', lambda _e: close())
-            cls._active.append(toast)
-            host.place(relx=1.0, rely=1.0, anchor='se', x=-14, y=-14)
-            toast.after(3000, close)
+                cls._active = [(w, h) for w, h in cls._active if w is not toast]
+                try:
+                    toast.destroy()
+                except Exception:
+                    pass
+                cls._reposition()
+            close.bind('<Button-1>', lambda _e: close_toast())
+            close.bind('<Enter>', lambda _e: close.configure(bg='#542a31'))
+            close.bind('<Leave>', lambda _e: close.configure(bg=panel))
+            def sync_topmost(_event=None):
+                try:
+                    toast.attributes('-topmost', cls._app_has_focus(root))
+                except Exception:
+                    pass
+            root.bind('<FocusIn>', sync_topmost, add='+')
+            root.bind('<FocusOut>', lambda _e: toast.after(180, sync_topmost), add='+')
+            toast.bind('<FocusIn>', sync_topmost, add='+')
+            toast.bind('<FocusOut>', lambda _e: toast.after(180, sync_topmost), add='+')
+            cls._active.append((toast, height))
+            cls._reposition()
+            def pulse():
+                if state['closed'] or not toast.winfo_exists():
+                    return
+                state['count'] += 1
+                color = accent if state['count'] % 2 else '#ffffff'
+                try:
+                    outer.configure(highlightbackground=color, bg=color)
+                except Exception:
+                    pass
+                if state['count'] < 8:
+                    cls._pulse_jobs[toast] = toast.after(160, pulse)
+                else:
+                    outer.configure(highlightbackground=accent, bg=accent)
+                    cls._pulse_jobs.pop(toast, None)
+            cls._pulse_jobs[toast] = toast.after(100, pulse)
+            toast.after(5200, close_toast)
         except Exception:
             pass
 
-class _DarkMessageBox:
 
+class _DarkMessageBox:
     @staticmethod
     def showinfo(title, message, parent=None, **kwargs):
         _MacNotification.show(title, message, parent, 'info')
@@ -6231,10 +7182,7 @@ class _ScrollableTab(ttk.Frame):
 
     def _update_region(self, _event=None):
         if getattr(self, '_region_job', None):
-            try:
-                self.after_cancel(self._region_job)
-            except Exception:
-                pass
+            return
         self._region_job = self.after_idle(self._apply_scroll_region)
 
     def _apply_scroll_region(self):
@@ -6248,10 +7196,21 @@ class _ScrollableTab(ttk.Frame):
             pass
 
     def _resize_inner(self, event):
-        width = int(getattr(event, 'width', 0) or 0)
-        if width != getattr(self, '_last_inner_width', -1):
-            self._last_inner_width = width
+        width = max(1, int(getattr(event, 'width', 0) or 0))
+        if width == getattr(self, '_last_inner_width', -1):
+            return
+        self._last_inner_width = width
+        try:
+            root = self.winfo_toplevel()
+            if getattr(root, '_resize_active', False) and hasattr(root, '_apply_or_defer_canvas_window_width'):
+                root._apply_or_defer_canvas_window_width(self.canvas, self.window, width, f'_scrollable_width_{id(self.canvas)}')
+                return
+        except Exception:
+            pass
+        try:
             self.canvas.itemconfigure(self.window, width=width)
+        except Exception:
+            pass
 
     def _wheel(self, event):
         if event.delta:
@@ -6355,13 +7314,259 @@ def _apply_native_titlebar_theme(win):
     except Exception:
         pass
 
-class App(tk.Tk):
+class App(_TkAppBase):
+
+    def after(self, ms, func=None, *args):
+        ui_thread = getattr(self, '_ui_thread_id', None)
+        if func is not None and ui_thread is not None and threading.get_ident() != ui_thread:
+            if getattr(self, '_ui_dispatch_closed', False):
+                return None
+            token = None
+            key = self._thread_ui_coalesce_key(func, args)
+            try:
+                with self._thread_ui_counter_lock:
+                    self._thread_ui_counter += 1
+                    token = f'__routils_thread_after_{self._thread_ui_counter}'
+                if key is not None:
+                    with self._thread_ui_coalesce_lock:
+                        previous = self._thread_ui_coalesce_tokens.get(key)
+                        if previous is not None and not self._thread_token_cancelled(previous):
+                            return previous
+                        if previous is not None:
+                            self._thread_ui_coalesce_tokens.pop(key, None)
+                            self._thread_ui_token_coalesce_keys.pop(previous, None)
+                        self._thread_ui_coalesce_tokens[key] = token
+                        self._thread_ui_token_coalesce_keys[token] = key
+                due = time.monotonic() + max(0, float(ms or 0)) / 1000.0
+                with self._thread_ui_cancel_lock:
+                    self._thread_ui_known_tokens.add(token)
+                task = (due, token, func, args)
+                try:
+                    self._thread_ui_dispatch_queue.put_nowait(task)
+                    return token
+                except queue.Full:
+                    with self._thread_ui_cancel_lock:
+                        self._thread_ui_known_tokens.discard(token)
+                        self._thread_ui_cancelled.discard(token)
+                    stored = self._store_thread_ui_overflow(task)
+                    if stored is None:
+                        self._forget_thread_ui_token(token)
+                    return stored
+            except Exception:
+                if token is not None:
+                    self._forget_thread_ui_token(token)
+                return None
+        return super().after(ms, func, *args)
+
+    def after_cancel(self, after_id):
+        if isinstance(after_id, str) and after_id.startswith('__routils_thread_after_'):
+            with self._thread_ui_cancel_lock:
+                if after_id in self._thread_ui_known_tokens:
+                    self._thread_ui_cancelled.add(after_id)
+            self._forget_thread_ui_coalesce_key(after_id)
+            return
+        if after_id is None:
+            return
+        return super().after_cancel(after_id)
+
+    def _forget_thread_ui_coalesce_key(self, token):
+        lock = getattr(self, '_thread_ui_coalesce_lock', None)
+        if lock is None:
+            return
+        with lock:
+            key = self._thread_ui_token_coalesce_keys.pop(token, None)
+            if key is not None and self._thread_ui_coalesce_tokens.get(key) == token:
+                self._thread_ui_coalesce_tokens.pop(key, None)
+
+    def _forget_thread_ui_token(self, token):
+        with self._thread_ui_cancel_lock:
+            self._thread_ui_cancelled.discard(token)
+            self._thread_ui_known_tokens.discard(token)
+        self._forget_thread_ui_coalesce_key(token)
+
+    def _thread_token_cancelled(self, token, consume=False):
+        with self._thread_ui_cancel_lock:
+            cancelled = token in self._thread_ui_cancelled
+            if cancelled and consume:
+                self._thread_ui_cancelled.discard(token)
+                self._thread_ui_known_tokens.discard(token)
+            return cancelled
+
+    def _store_thread_ui_overflow(self, task):
+        due, token, func, args = task
+        key = self._thread_ui_coalesce_key(func, args)
+        with self._thread_ui_overflow_lock:
+            if key is not None and key in self._thread_ui_overflow_keys:
+                old_token = self._thread_ui_overflow_keys[key]
+                if not self._thread_token_cancelled(old_token, consume=False):
+                    self._forget_thread_ui_token(token)
+                    return old_token
+                self._thread_ui_overflow = [item for item in self._thread_ui_overflow if item[1] != old_token]
+                heapq.heapify(self._thread_ui_overflow)
+                self._thread_ui_overflow_keys.pop(key, None)
+                self._forget_thread_ui_token(old_token)
+            if len(self._thread_ui_overflow) >= 512:
+                drop_index = next((i for i, item in enumerate(self._thread_ui_overflow) if item[4] is not None), None)
+                if drop_index is None:
+                    return None
+                dropped = self._thread_ui_overflow.pop(drop_index)
+                heapq.heapify(self._thread_ui_overflow)
+                if dropped[4] is not None and self._thread_ui_overflow_keys.get(dropped[4]) == dropped[1]:
+                    self._thread_ui_overflow_keys.pop(dropped[4], None)
+                self._forget_thread_ui_token(dropped[1])
+            with self._thread_ui_cancel_lock:
+                self._thread_ui_known_tokens.add(token)
+            heapq.heappush(self._thread_ui_overflow, (due, token, func, args, key))
+            if key is not None:
+                self._thread_ui_overflow_keys[key] = token
+        return token
+
+    def _take_thread_ui_overflow(self, limit):
+        result = []
+        with self._thread_ui_overflow_lock:
+            count = min(max(0, int(limit)), len(self._thread_ui_overflow))
+            for _ in range(count):
+                item = heapq.heappop(self._thread_ui_overflow)
+                result.append(item)
+                key, token = item[4], item[1]
+                if key is not None and self._thread_ui_overflow_keys.get(key) == token:
+                    self._thread_ui_overflow_keys.pop(key, None)
+        return result
+
+    def _thread_ui_coalesce_key(self, func, args):
+        target = getattr(func, '__func__', func)
+        name = str(getattr(target, '__name__', '') or '')
+        lower = name.lower()
+        owner = id(getattr(func, '__self__', None))
+        def part(value):
+            if value is None or isinstance(value, (str, int, float, bool, bytes)):
+                return (type(value).__name__, value)
+            if isinstance(value, (tuple, list)) and len(value) <= 8:
+                return (type(value).__name__, tuple(part(item) for item in value))
+            return (type(value).__name__, id(value))
+        try:
+            args_key = tuple(part(value) for value in args)
+        except Exception:
+            args_key = (id(args),)
+        if lower == '<lambda>':
+            code = getattr(target, '__code__', None)
+            if code is None:
+                return None
+            closure = []
+            try:
+                for cell in getattr(target, '__closure__', ()) or ():
+                    try:
+                        closure.append(part(cell.cell_contents))
+                    except Exception:
+                        closure.append(('empty',))
+            except Exception:
+                pass
+            defaults = part(getattr(target, '__defaults__', None))
+            return ('lambda', owner, id(code), tuple(closure), defaults, args_key)
+        if not name:
+            return None
+        repeatable = lower.endswith(('_loop', '_poll', '_tick', '_watch')) or lower.startswith(('_update_status', '_refresh_status', '_poll_', '_scan_loop', '_drain_queue', '_responsive_', '_watch_loop', '_animate_loop'))
+        if not repeatable:
+            return None
+        return (owner, id(target), args_key)
+
+    def _pump_thread_ui_queue(self):
+        resizing = bool(getattr(self, '_resize_active', False))
+        max_pull = 96 if resizing else 24
+        pending_limit = 384
+        pulled = 0
+        while pulled < max_pull and len(self._thread_ui_pending) < pending_limit:
+            try:
+                task = self._thread_ui_dispatch_queue.get_nowait()
+            except queue.Empty:
+                break
+            due, token, func, args = task
+            if self._thread_token_cancelled(token, consume=True):
+                self._forget_thread_ui_coalesce_key(token)
+                continue
+            key = self._thread_ui_coalesce_key(func, args)
+            if key is not None and key in self._thread_ui_pending_coalesce:
+                self._forget_thread_ui_token(token)
+                continue
+            if key is not None:
+                self._thread_ui_pending_coalesce.add(key)
+            heapq.heappush(self._thread_ui_pending, (due, token, func, args, key))
+            pulled += 1
+        if pulled < max_pull and len(self._thread_ui_pending) < pending_limit:
+            for due, token, func, args, overflow_key in self._take_thread_ui_overflow(max_pull - pulled):
+                if self._thread_token_cancelled(token, consume=True):
+                    self._forget_thread_ui_coalesce_key(token)
+                    continue
+                key = overflow_key or (self._thread_ui_coalesce_key(func, args) if resizing else None)
+                if key is not None and key in self._thread_ui_pending_coalesce:
+                    self._forget_thread_ui_token(token)
+                    continue
+                if key is not None:
+                    self._thread_ui_pending_coalesce.add(key)
+                heapq.heappush(self._thread_ui_pending, (due, token, func, args, key))
+                pulled += 1
+        if not resizing:
+            now = time.monotonic()
+            processed = 0
+            started = time.perf_counter()
+            while self._thread_ui_pending and processed < 6 and time.perf_counter() - started < 0.0045:
+                due, token, func, args, key = self._thread_ui_pending[0]
+                if self._thread_token_cancelled(token, consume=True):
+                    heapq.heappop(self._thread_ui_pending)
+                    if key is not None:
+                        self._thread_ui_pending_coalesce.discard(key)
+                    continue
+                if due > now:
+                    break
+                heapq.heappop(self._thread_ui_pending)
+                if key is not None:
+                    self._thread_ui_pending_coalesce.discard(key)
+                self._forget_thread_ui_token(token)
+                processed += 1
+                try:
+                    func(*args)
+                except Exception as exc:
+                    try:
+                        self.report_callback_exception(type(exc), exc, exc.__traceback__)
+                    except Exception:
+                        pass
+        try:
+            if self.winfo_exists():
+                busy = self._thread_ui_dispatch_queue.qsize() or self._thread_ui_overflow or self._thread_ui_pending
+                delay = 50 if resizing else 10 if busy else 35
+                self.after(delay, self._pump_thread_ui_queue)
+        except Exception:
+            pass
 
     def report_callback_exception(self, exc_type, exc_value, exc_tb):
         _report_rotools_error(exc_type, exc_value, exc_tb, self)
 
     def __init__(self):
+        self._ui_thread_id = threading.get_ident()
+        self._ui_dispatch_closed = False
+        self._thread_ui_dispatch_queue = queue.Queue(maxsize=256)
+        self._thread_ui_overflow = []
+        self._thread_ui_overflow_keys = {}
+        self._thread_ui_overflow_lock = threading.Lock()
+        self._thread_ui_coalesce_lock = threading.Lock()
+        self._thread_ui_coalesce_tokens = {}
+        self._thread_ui_token_coalesce_keys = {}
+        self._thread_ui_pending = []
+        self._thread_ui_pending_coalesce = set()
+        self._thread_ui_cancelled = set()
+        self._thread_ui_known_tokens = set()
+        self._thread_ui_cancel_lock = threading.Lock()
+        self._thread_ui_counter = 0
+        self._thread_ui_counter_lock = threading.Lock()
         super().__init__()
+        self.after(12, self._pump_thread_ui_queue)
+        self._routils_splash = None
+        self._routils_splash_canvas = None
+        self._routils_splash_photo = None
+        self._routils_splash_image_done = threading.Event()
+        self._routils_splash_image_applied = False
+        self._routils_splash_started_at = time.monotonic()
+        self._create_startup_splash()
         self._console_history = self._load_console_history()
         self._console_undo_stack = []
         self._console_save_job = None
@@ -6399,20 +7604,32 @@ class App(tk.Tk):
         apply_visual_polish(self, theme=UI_THEME, palette=THEMES.get(_t, THEMES[DEFAULT_THEME]))
         self.title('RoUtils')
         saved_geometry = str(self.settings.get('window_geometry', '') or '')
-        if re.match('^\\d+x\\d+(?:[+-]\\d+[+-]\\d+)?$', saved_geometry):
-            startup_geometry = saved_geometry
+        screen_width = max(800, int(self.winfo_screenwidth() or 1920))
+        screen_height = max(600, int(self.winfo_screenheight() or 1080))
+        if re.match(r'^\d+x\d+(?:[+-]\d+[+-]\d+)?$', saved_geometry):
+            match = re.match(r'^(\d+)x(\d+)(?:([+-]\d+)([+-]\d+))?$', saved_geometry)
+            width = min(int(match.group(1)), max(700, screen_width - 40))
+            height = min(int(match.group(2)), max(420, screen_height - 80))
+            x, y = match.group(3), match.group(4)
+            if x is None or y is None:
+                x, y = str(max(0, (screen_width-width)//2)), str(max(0, (screen_height-height)//2))
+            else:
+                x = str(max(0, min(int(x), screen_width-width)))
+                y = str(max(0, min(int(y), screen_height-height)))
+            startup_geometry = f'{width}x{height}{int(x):+d}{int(y):+d}'
         else:
-            screen_width = max(800, int(self.winfo_screenwidth() or 1920))
-            screen_height = max(600, int(self.winfo_screenheight() or 1080))
-            scale = min(screen_width / 1920.0, screen_height / 1080.0)
-            startup_geometry = f'{max(900, int(1920 * scale))}x{max(560, int(1080 * scale))}'
+            width = min(1400, max(900, screen_width - 80))
+            height = min(800, max(560, screen_height - 100))
+            startup_geometry = f'{width}x{height}+{max(0,(screen_width-width)//2)}+{max(0,(screen_height-height)//2)}'
         self.geometry(startup_geometry)
-        self.minsize(700, 420)
+        self.minsize(620, 380)
         self.resizable(True, True)
         self._setup_custom_titlebar()
         self.after(120, self._restore_windows_taskbar_presence)
-        if not bool(self.settings.get('launch_on_tray', False)):
-            self.after(220, self._startup_focus_cycle)
+        if '--tray' in sys.argv:
+            self.after(180, self._hide_to_tray)
+        else:
+            self.after(180, self._restore_windows_taskbar_presence)
         self.bind('<Map>', lambda _e: self.after_idle(self._restore_windows_taskbar_presence), add='+')
         self.bind('<Map>', lambda _e: self.after(250, self._apply_streamer_mode), add='+')
         self.after_idle(self._restore_windows_taskbar_presence)
@@ -6423,11 +7640,31 @@ class App(tk.Tk):
             pass
         self.protocol('WM_DELETE_WINDOW', self._on_close)
         self._geometry_save_job = None
+        self._geometry_configure_idle_job = None
+        self._geometry_pending_key = None
+        self._resize_idle_job = None
+        self._resize_active = False
+        self._native_resize_in_progress = False
+        self._native_size_move_active = False
+        self._resize_finish_pending = False
+        self._deferred_canvas_widths = {}
+        self._resize_deferred_jobs = {}
+        self._resize_release_jobs = []
+        self._resize_release_job = None
+        self._resize_canvas_flush_job = None
+        self._settings_save_deferred = False
+        self._native_resize_hwnd = 0
+        self._native_resize_proc = None
+        self._native_resize_api = None
+        self._native_resize_lib = None
+        self._last_geometry_dimensions = None
         self._ui_jobs = {}
         self._global_scroll_support_installed = False
         self._history_render_signature = None
         self._client_tab_active = False
         self.bind('<Configure>', self._on_geometry_configure, add='+')
+        self.bind('<FocusIn>', self._app_focus_changed, add='+')
+        self.bind('<FocusOut>', lambda _e: self.after(180, self._app_focus_changed), add='+')
         self._global_hotkey_q = queue.Queue()
         self._hotkey_stop = threading.Event()
         self.fflag_hotkeys = list(self.settings.get('fflag_hotkeys', []))
@@ -6489,15 +7726,24 @@ class App(tk.Tk):
         self.seen_hashes: set = set()
         self.items_by_iid: Dict[str, ScanItem] = {}
         self.items_by_hash: Dict[str, ScanItem] = {}
+        self._tree_insert_pending = []
+        self._tree_insert_pending_index = 0
+        self._tree_insert_pending_job = None
+        self._filter_render_job = None
+        self._filter_render_generation = 0
+        self._filter_render_phase = None
+        self._filter_render_snapshot = []
+        self._filter_render_index = 0
+        self._filter_render_text = ''
+        self._filter_clear_iids = []
+        self._filter_clear_index = 0
+        self._filter_render_last_iid = None
         self.new_items_q: 'queue.Queue[List[ScanItem]]' = queue.Queue()
         self.watching = False
         self.stop_event = threading.Event()
+        self._watch_initial_scan_done = threading.Event()
+        self._watch_loading_active = False
         self.scan_thread: Optional[threading.Thread] = None
-        self._tree_render_pending = []
-        self._tree_render_job = None
-        self._blob_cache = {}
-        self._blob_cache_order = []
-        self._blob_cache_limit = 8
         self.autoscroll = tk.BooleanVar(value=self.settings.get('autoscroll', True))
         self.hide_tickets = tk.BooleanVar(value=self.settings.get('hide_tickets', True))
         self.stay_on_top = tk.BooleanVar(value=self.settings.get('stay_on_top', False))
@@ -6515,6 +7761,8 @@ class App(tk.Tk):
         except Exception:
             saved_max_rows = 0
         self.max_rows = tk.IntVar(value=saved_max_rows)
+        self._scan_max_rows_value = max(0, int(saved_max_rows))
+        self.max_rows.trace_add('write', self._update_scan_max_rows_value)
         self.type_filter = tk.StringVar(value=self.settings.get('type_filter', 'All'))
         self.autostart_watch = tk.BooleanVar(value=self.settings.get('autostart_watch', False))
         self.autostart_watch.trace_add('write', lambda *_: self._save_settings())
@@ -6534,11 +7782,13 @@ class App(tk.Tk):
         self._img_preview_photo = None
         self._img_preview_fade_job: Optional[str] = None
         self._tree_hover_iid: Optional[str] = None
-        self.fastflag_runtime = RobloxFFlagEngine()
-        self.fastflag_store = []
-        self.fastflag_process_id = 0
-        self.fastflag_originals = {}
-        self.fastflag_auto = tk.BooleanVar(value=self.settings.get('fastflag_auto', False))
+        self.fflag_engine = RobloxFFlagEngine()
+        self.fflag_flags = []
+        self.fflag_offsets = {}
+        self.fflag_presets = []
+        self.fflag_pid = 0
+        self.fflag_original_values = {}
+        self.fflag_auto_apply = tk.BooleanVar(value=self.settings.get('fflag_auto_apply', False))
         self.launch_on_startup = tk.BooleanVar(value=self.settings.get('launch_on_startup', False))
         self.launch_on_tray = tk.BooleanVar(value=self.settings.get('launch_on_tray', False))
         self.hide_to_tray_on_close = tk.BooleanVar(value=self.settings.get('hide_to_tray_on_close', False))
@@ -6579,31 +7829,163 @@ class App(tk.Tk):
         self._reorder_tabs()
         self._refresh_tab_nav()
         if self.nb.tabs():
-            home_id = next((tid for tid in self.nb.tabs() if self.nb.tab(tid, 'text') == 'Home'), self.nb.tabs()[0])
-            self.nb.select(home_id)
-
-        self.after(40, self._lazy_tab_changed)
+            preferred = str(self.settings.get('selected_tab', 'Home'))
+            selected_id = next((tid for tid in self.nb.tabs() if self.nb.tab(tid, 'text') == preferred), None)
+            if selected_id is None:
+                selected_id = next((tid for tid in self.nb.tabs() if self.nb.tab(tid, 'text') == 'Home'), self.nb.tabs()[0])
+            self.nb.select(selected_id)
+        self.after_idle(self._lazy_tab_changed)
         self.after_idle(self._install_global_scroll_support)
-
-        self.after(350, self._start_history_watcher)
-        self.after(900, self._start_version_check)
-        self.after(1100, self._install_startup_shortcut)
-        if self.launch_on_tray.get():
+        self._start_history_watcher()
+        self._detect_roblox_profile()
+        self._start_profile_detection()
+        self._start_version_check()
+        self._install_startup_shortcut()
+        if '--tray' in sys.argv:
             self.after_idle(self._hide_to_tray)
         self._start_global_hotkeys()
         self.after(UI_HOTKEY_INTERVAL_MS, self._process_global_hotkeys)
         self.after(UI_QUICK_PANEL_INTERVAL_MS, self._quick_panel_tick)
         if self.settings.get('viewer_collapsed'):
             self.after(250, self._apply_saved_viewer_state)
-        self.after(75, self._drain_queue)
-
-
+        self.after(UI_QUEUE_INTERVAL_MS, self._drain_queue)
+        self.after(200, self._save_settings)
         self.after(6000, self._fflag_auto_apply_tick)
+        if self._routils_splash is not None:
+            self.after(420, self._finish_startup_splash)
+
+    def _create_startup_splash(self):
+        if '--tray' in sys.argv:
+            return
+        try:
+            self.withdraw()
+            splash = tk.Toplevel(self)
+            splash._skip_custom_chrome = True
+            splash._skip_popup_centering = True
+            splash.overrideredirect(True)
+            palette = _CURRENT_PALETTE if isinstance(_CURRENT_PALETTE, dict) else THEMES[DEFAULT_THEME]
+            accent = palette.get('accent', '#7f8cff')
+            bg = palette.get('bg_dark', '#1b1b1c')
+            splash.configure(bg=accent, highlightthickness=2, highlightbackground=accent, highlightcolor=accent, bd=0)
+            width, height = 419, 160
+            screen_w = int(splash.winfo_screenwidth() or 1920)
+            screen_h = int(splash.winfo_screenheight() or 1080)
+            x = max(0, (screen_w - width) // 2)
+            y = max(0, (screen_h - height) // 2)
+            splash.geometry(f'{width}x{height}+{x}+{y}')
+            try:
+                splash.attributes('-topmost', True)
+            except Exception:
+                pass
+            canvas = tk.Canvas(splash, width=width - 4, height=height - 4, bg=bg, highlightthickness=0, bd=0)
+            canvas.place(x=2, y=2, width=width - 4, height=height - 4)
+            canvas.create_rectangle(0, 0, width, height, fill=bg, outline='', tags=('splash_background',))
+            canvas.create_text((width - 4) // 2 + 1, 62, text='RoUtils', fill='#111111', font=('Segoe UI Semibold', 23), tags=('splash_shadow',))
+            canvas.create_text((width - 4) // 2, 61, text='RoUtils', fill='#ffffff', font=('Segoe UI Semibold', 23), tags=('splash_title',))
+            canvas.create_text((width - 4) // 2 + 1, 103, text='Loading...', fill='#111111', font=('Segoe UI', 10), tags=('splash_shadow',))
+            canvas.create_text((width - 4) // 2, 102, text='Loading...', fill='#ffffff', font=('Segoe UI', 10), tags=('splash_loading',))
+            self._routils_splash = splash
+            self._routils_splash_canvas = canvas
+            if os.path.isfile(SPLASH_IMAGE_PATH):
+                self._apply_startup_splash_image()
+            threading.Thread(target=self._download_startup_splash_image, daemon=True, name='RoUtilsSplashDownload').start()
+            splash.update_idletasks()
+            splash.update()
+            self.after(100, self._poll_startup_splash_image)
+        except Exception:
+            self._routils_splash = None
+            try:
+                self.deiconify()
+            except Exception:
+                pass
+
+    def _download_startup_splash_image(self):
+        try:
+            _ensure_splash_image_file()
+        finally:
+            self._routils_splash_image_done.set()
+
+    def _apply_startup_splash_image(self):
+        try:
+            splash = self._routils_splash
+            canvas = self._routils_splash_canvas
+            if splash is None or canvas is None or not splash.winfo_exists() or not os.path.isfile(SPLASH_IMAGE_PATH):
+                return
+            with Image.open(SPLASH_IMAGE_PATH) as source:
+                resampling_group = getattr(Image, 'Resampling', Image)
+                resampling = getattr(resampling_group, 'LANCZOS', getattr(resampling_group, 'BICUBIC', 3))
+                image = source.convert('RGB').resize((415, 156), resampling)
+            photo = ImageTk.PhotoImage(image, master=splash)
+            canvas.delete('splash_background')
+            canvas.create_image(0, 0, image=photo, anchor='nw', tags=('splash_background',))
+            canvas.tag_lower('splash_background')
+            self._routils_splash_photo = photo
+            self._routils_splash_image_applied = True
+        except Exception:
+            pass
+
+    def _poll_startup_splash_image(self):
+        splash = getattr(self, '_routils_splash', None)
+        if splash is None:
+            return
+        try:
+            if not splash.winfo_exists():
+                return
+            if self._routils_splash_image_done.is_set() and not self._routils_splash_image_applied:
+                self._apply_startup_splash_image()
+            self.after(100, self._poll_startup_splash_image)
+        except Exception:
+            pass
+
+    def _finish_startup_splash(self):
+        splash = getattr(self, '_routils_splash', None)
+        if splash is None:
+            return
+        try:
+            if not splash.winfo_exists():
+                self._routils_splash = None
+                return
+            elapsed = time.monotonic() - self._routils_splash_started_at
+            if elapsed < 0.55:
+                self.after(70, self._finish_startup_splash)
+                return
+            if not self._routils_splash_image_done.is_set() and elapsed < 1.65:
+                self.after(80, self._finish_startup_splash)
+                return
+            self._routils_splash = None
+            try:
+                splash.destroy()
+            except Exception:
+                pass
+            try:
+                self.attributes('-topmost', False)
+            except Exception:
+                pass
+            self._ensure_main_window_visible()
+        except Exception:
+            try:
+                if splash.winfo_exists():
+                    splash.destroy()
+            except Exception:
+                pass
+            self._routils_splash = None
+
+    def _is_resize_deferred_ui_key(self, key):
+        return key in ('cache_toolbar', 'settings_region', 'history_region') or str(key).startswith(('ai_region_', 'settings_scrollbar_'))
 
     def _schedule_ui(self, key, delay_ms, callback):
         jobs = getattr(self, '_ui_jobs', None)
         if jobs is None:
             jobs = self._ui_jobs = {}
+        if getattr(self, '_resize_active', False) and self._is_resize_deferred_ui_key(key):
+            old = jobs.pop(key, None)
+            if old:
+                try:
+                    self.after_cancel(old)
+                except Exception:
+                    pass
+            self._resize_deferred_jobs[key] = (max(0, int(delay_ms or 0)), callback)
+            return
         old = jobs.get(key)
         if old:
             try:
@@ -6616,6 +7998,9 @@ class App(tk.Tk):
         jobs = getattr(self, '_ui_jobs', None)
         if jobs is not None:
             jobs.pop(key, None)
+        if getattr(self, '_resize_active', False) and self._is_resize_deferred_ui_key(key):
+            self._resize_deferred_jobs[key] = (30, callback)
+            return
         try:
             callback()
         except Exception:
@@ -6630,8 +8015,6 @@ class App(tk.Tk):
         self.after_idle(self._update_status)
 
     def _lazy_tab_changed(self, _event=None):
-
-
         self._refresh_tab_nav()
         try:
             tab_id = self.nb.select()
@@ -6639,54 +8022,54 @@ class App(tk.Tk):
             return
         if not tab_id:
             return
-        key = str(tab_id)
-        info = self._lazy_tabs.get(key)
+        info = self._lazy_tabs.get(str(tab_id))
         if not info:
             return
-        if getattr(self, '_lazy_tab_jobs', None) is None:
-            self._lazy_tab_jobs = set()
-        if key in self._lazy_tab_jobs:
-            return
-        self._lazy_tab_jobs.add(key)
-        self._lazy_tabs.pop(key, None)
         tab_name, builder, placeholder = info
-
-        def build_selected_tab():
-            self._lazy_tab_jobs.discard(key)
-            self._tab_building = True
+        target_name = tab_name
+        try:
+            self.nb.unbind('<<NotebookTabChanged>>')
+            if tab_name != 'Cache':
+                self.nb.forget(placeholder)
+                placeholder.destroy()
+                builder()
+                self._reorder_tabs()
+                self._refresh_tab_nav()
+            else:
+                builder()
+        except Exception:
             try:
-                if tab_name != 'Cache':
-                    if placeholder.winfo_exists():
-                        self.nb.forget(placeholder)
-                        placeholder.destroy()
-                    builder()
-                    self._reorder_tabs()
-                    self._refresh_tab_nav()
-                else:
-                    builder()
-            except Exception:
-                try:
-                    if tab_name != 'Cache' and placeholder.winfo_exists():
-                        placeholder.destroy()
-                except Exception:
-                    pass
-            self._client_tab_active = tab_name == 'Client'
-            try:
-                for current_id in self.nb.tabs():
-                    if self.nb.tab(current_id, 'text') == tab_name:
-                        self.nb.select(current_id)
-                        break
+                if tab_name != 'Cache' and placeholder.winfo_exists():
+                    placeholder.destroy()
             except Exception:
                 pass
+        finally:
             try:
-                self.after_idle(self._install_global_scroll_support)
+                self.nb.bind('<<NotebookTabChanged>>', self._lazy_tab_changed, add='+')
             except Exception:
                 pass
-            finally:
-                self._tab_building = False
+        self._lazy_tabs.pop(str(tab_id), None)
+        self._client_tab_active = target_name == 'Client'
+        try:
+            for current_id in self.nb.tabs():
+                if self.nb.tab(current_id, 'text') == target_name:
+                    self.nb.select(current_id)
+                    break
+        except Exception:
+            pass
+        try:
+            self.after_idle(self._install_global_scroll_support)
+        except Exception:
+            pass
 
-
-        self.after(1, build_selected_tab)
+    def _apply_saved_viewer_state(self):
+        if not getattr(self, '_cache_built', False):
+            return
+        try:
+            if self.settings.get('viewer_collapsed'):
+                self._toggle_viewer_pane()
+        except Exception:
+            pass
 
     def _start_global_hotkeys(self):
         if self._hotkey_thread and self._hotkey_thread.is_alive():
@@ -6725,6 +8108,10 @@ class App(tk.Tk):
         self._hotkey_thread.start()
 
     def _process_global_hotkeys(self):
+        if getattr(self, '_resize_active', False):
+            if not self._hotkey_stop.is_set():
+                self.after(100, self._process_global_hotkeys)
+            return
         try:
             while True:
                 kind, binding = self._global_hotkey_q.get_nowait()
@@ -6938,24 +8325,24 @@ class App(tk.Tk):
         new_value = value2 if state else value1
         actual['state'] = not state
         found = None
-        for flag in self.fastflag_store:
+        for flag in self.fflag_flags:
             if fflag_strip_prefix(flag.get('name', '')) == flag_name:
                 found = flag
                 break
         if found is None:
             found = {'name': flag_name, 'value': new_value, 'type': fflag_infer_type(new_value)}
-            self.fastflag_store.append(found)
+            self.fflag_flags.append(found)
         else:
             found['value'] = new_value
             found['type'] = fflag_infer_type(new_value)
         self._save_fflag_flags()
         self._save_settings()
         self._refresh_fflag_list()
-        if self.fastflag_process_id and self.fastflag_runtime.handle:
+        if self.fflag_pid and self.fflag_engine.handle:
             try:
-                self.fastflag_runtime.get_singleton()
-                self.fastflag_runtime.set_flag_with_prefixes(flag_name, new_value)
-                self.fastflag_status_label.config(text=f'{flag_name} = {new_value}', foreground='#65d98b')
+                self.fflag_engine.get_singleton()
+                self.fflag_engine.set_flag_with_prefixes(flag_name, new_value)
+                self.fflag_status.config(text=f'{flag_name} = {new_value}', foreground='#65d98b')
             except Exception:
                 pass
 
@@ -7010,6 +8397,7 @@ class App(tk.Tk):
         dlg = tk.Toplevel(parent)
         dlg.title('FFlag Hotkey')
         dlg.transient(parent)
+        dlg.grab_set()
         theme_toplevel(dlg)
         existing = self.fflag_hotkeys[index] if index is not None else {}
         key_var = tk.StringVar(value=str(existing.get('key', '')))
@@ -7021,7 +8409,7 @@ class App(tk.Tk):
         key_entry = ttk.Entry(dlg, textvariable=key_var, width=20)
         key_entry.grid(row=1, column=0, padx=10, sticky='ew')
         ttk.Label(dlg, text='FFlag:').grid(row=2, column=0, padx=10, pady=(8, 4), sticky='w')
-        flag_combo = ttk.Combobox(dlg, textvariable=flag_var, values=[x.get('name', '') for x in self.fastflag_store], width=48)
+        flag_combo = ttk.Combobox(dlg, textvariable=flag_var, values=[x.get('name', '') for x in self.fflag_flags], width=48)
         flag_combo.grid(row=3, column=0, padx=10, sticky='ew')
         ttk.Label(dlg, text='Action:').grid(row=4, column=0, padx=10, pady=(8, 4), sticky='w')
         mode_combo = ttk.Combobox(dlg, textvariable=mode_var, values=['Toggle'], state='readonly', width=20)
@@ -7072,7 +8460,7 @@ class App(tk.Tk):
         if sys.platform != 'win32' or not self.winfo_exists():
             return
         try:
-
+            self.update_idletasks()
             user32 = ctypes.WinDLL('user32', use_last_error=True)
             SetWindowDisplayAffinity = user32.SetWindowDisplayAffinity
             SetWindowDisplayAffinity.argtypes = [ctypes.wintypes.HWND, ctypes.wintypes.DWORD]
@@ -7110,6 +8498,23 @@ class App(tk.Tk):
                 except Exception:
                     pass
 
+    def _ensure_main_window_visible(self):
+        try:
+            if not self.winfo_exists() or '--tray' in sys.argv:
+                return
+            self.deiconify()
+            if self.state() in ('withdrawn', 'iconic'):
+                self.state('normal')
+            self.lift()
+            self._layout_titlebar(force=True)
+            self._restore_windows_taskbar_presence()
+            try:
+                self.focus_force()
+            except Exception:
+                pass
+        except Exception:
+            pass
+
     def _startup_focus_cycle(self):
         try:
             if self.state() != 'normal':
@@ -7138,12 +8543,16 @@ class App(tk.Tk):
 
     def _setup_custom_titlebar(self):
         self._prepare_borderless = True
-        self._titlebar = tk.Frame(self, bg='#080808', height=38, bd=0, highlightthickness=0)
+        self._titlebar = tk.Frame(self, bg=_CURRENT_PALETTE.get('bg_dark', '#1b1b1c'), height=38, bd=0, highlightthickness=0)
         self._titlebar.pack(fill='x', side='top')
         self._titlebar.pack_propagate(False)
-        self._titlebar_canvas = tk.Canvas(self._titlebar, bg='#080808', bd=0, highlightthickness=0, height=38)
+        self._titlebar_canvas = tk.Canvas(self._titlebar, bg=_CURRENT_PALETTE.get('bg_dark', '#1b1b1c'), bd=0, highlightthickness=0, height=38)
         self._titlebar_canvas.pack(fill='both', expand=True)
         self._titlebar_canvas.create_text(0, 19, text='RoUtils', anchor='center', fill='#f2f2f2', font=('Segoe UI Semibold', 10), tags=('title',))
+        self._titlebar_canvas.create_text(0, 19, text='⌕ Search', anchor='w', fill='#b7c5df', font=('Segoe UI', 9), tags=('spotlight',))
+        self._titlebar_canvas.tag_bind('spotlight', '<Button-1>', lambda _e: self._open_spotlight(), add='+')
+        self._titlebar_canvas.tag_bind('spotlight', '<Enter>', lambda _e: self._titlebar_canvas.configure(cursor='hand2'), add='+')
+        self._titlebar_canvas.tag_bind('spotlight', '<Leave>', lambda _e: self._titlebar_canvas.configure(cursor=''), add='+')
         self._titlebar_buttons = {}
         self._kill_ro_utils_items = None
         controls = (('close', '#ff5f57', self._titlebar_close), ('max', '#28c840', self._titlebar_toggle_maximize), ('min', '#febc2e', self._titlebar_minimize))
@@ -7159,9 +8568,174 @@ class App(tk.Tk):
         self._titlebar_last_xy = None
         self._titlebar_last_layout_width = 0
         self._titlebar_drag_job = None
-        self._titlebar_drag_interval_ms = 16
-        self._titlebar_move_step_px = 4
         self.after_idle(self._restore_windows_taskbar_presence)
+
+    def _open_spotlight(self):
+        existing = getattr(self, '_spotlight_window', None)
+        if existing is not None:
+            try:
+                if existing.winfo_exists():
+                    existing.deiconify()
+                    existing.lift()
+                    existing.focus_force()
+                    existing._spotlight_entry.focus_set()
+                    return
+            except Exception:
+                pass
+        win = tk.Toplevel(self)
+        win._skip_custom_chrome = True
+        win._skip_popup_centering = True
+        win.title('Search RoUtils')
+        win.overrideredirect(True)
+        win.configure(bg=_CURRENT_PALETTE.get('accent', '#8ab4f8'))
+        width, height = 500, 330
+        x = max(0, (self.winfo_screenwidth() - width) // 2)
+        y = max(0, (self.winfo_screenheight() - height) // 2 - 35)
+        win.geometry(f'{width}x{height}+{x}+{y}')
+        try:
+            win.attributes('-topmost', True)
+        except Exception:
+            pass
+        card = tk.Frame(win, bg=_CURRENT_PALETTE.get('bg_dark', '#111318'), highlightthickness=1, highlightbackground=_CURRENT_PALETTE.get('accent', '#8ab4f8'))
+        card.pack(fill='both', expand=True, padx=2, pady=2)
+        top = tk.Frame(card, bg=_CURRENT_PALETTE.get('bg_medium', '#1a1d24'))
+        top.pack(fill='x', padx=10, pady=(10, 8))
+        var = tk.StringVar()
+        entry = ttk.Entry(top, textvariable=var, font=('Segoe UI', 11))
+        entry.pack(side='left', fill='x', expand=True, padx=(0, 6), ipady=4)
+        ttk.Button(top, text='×', width=3, command=win.destroy).pack(side='right')
+        results = tk.Listbox(card, bg=_CURRENT_PALETTE.get('bg_medium', '#1a1d24'), fg=_CURRENT_PALETTE.get('fg', '#e6e9ef'), selectbackground=_CURRENT_PALETTE.get('accent', '#8ab4f8'), selectforeground='#ffffff', bd=0, highlightthickness=0, activestyle='none', font=('Segoe UI', 10))
+        results.pack(fill='both', expand=True, padx=10, pady=(0, 10))
+        matches = []
+        def widget_text(widget):
+            values = []
+            for option in ('text', 'label', 'title'):
+                try:
+                    value = str(widget.cget(option) or '').strip()
+                    if value:
+                        values.append(value)
+                except Exception:
+                    pass
+            return ' '.join(values).strip()
+        def is_searchable_text(value):
+            value = re.sub(r'\s+', ' ', str(value or '')).strip()
+            if len(value) < 2 or not re.search(r'[A-Za-zÇĞİÖŞÜçğıöşü]', value):
+                return False
+            if re.search(r'\b[A-Z]{1,8}\s+VAR\s*\d+\b', value, re.I):
+                return False
+            if re.search(r'\bversion\s*:?\s*v?\d+(?:\.\d+){1,4}\b', value, re.I):
+                return False
+            if re.fullmatch(r'[vV]?\d+(?:\.\d+){1,4}', value):
+                return False
+            return True
+        def collect():
+            found = []
+            tab_aliases = {
+                'Cache': ('Cache Viewer', 'Cache Editor', 'Browse Roblox cache', 'Find cached assets', 'Replace cache assets', 'Delete cache entries', 'Watch cache changes', 'Export caches'),
+                'FFlags': ('FastFlags', 'Fast Flag Manager', 'FFlag values', 'FFlag offsets', 'Edit Roblox flags'),
+                'Configs': ('Roblox configs', 'CConfig manager', 'Save config', 'Load config', 'Import config', 'Export config'),
+                'Modifications': ('Mesh tools', 'Convert mesh', 'Replace Roblox meshes', 'Asset modifications'),
+                'Subplace Joiner': ('Join Roblox game', 'Join subplace', 'Place ID', 'Server deeplink'),
+                'Server Viewer': ('View Roblox server', 'Server deeplink', 'Job ID'),
+                'History': ('Recent games', 'Recent servers', 'Join history', 'Copy deeplink'),
+                'Client': ('Roblox client info', 'CPU usage', 'RAM usage', 'Refresh client info'),
+                'Themes': ('Appearance', 'Change theme', 'Customize colors'),
+                'Plugins': ('Manage plugins', 'Enable plugins', 'Disable plugins'),
+                'Console': ('Commands', 'Command console', 'Cache commands', 'FFlag commands'),
+                'Settings': ('Preferences', 'Performance settings', 'Startup settings', 'Hotkeys', 'Update settings')
+            }
+            for tab_id in self.nb.tabs():
+                tab_name = str(self.nb.tab(tab_id, 'text')).strip()
+                if not tab_name or tab_name.casefold() == 'home':
+                    continue
+                found.append((tab_name, tab_name, tab_id, None))
+                for alias in tab_aliases.get(tab_name, ()):
+                    found.append((alias, tab_name, tab_id, None))
+                try:
+                    root = self.nametowidget(tab_id)
+                except Exception:
+                    continue
+                stack = [root]
+                while stack:
+                    widget = stack.pop()
+                    try:
+                        stack.extend(widget.winfo_children())
+                    except Exception:
+                        pass
+                    if isinstance(widget, (ttk.Button, tk.Button, ttk.Checkbutton, tk.Checkbutton, ttk.Radiobutton, tk.Radiobutton)):
+                        text = widget_text(widget)
+                        if is_searchable_text(text):
+                            found.append((text, tab_name, tab_id, widget))
+            unique = []
+            seen = set()
+            for item in found:
+                label, tab_name = item[0], item[1]
+                key = (label.casefold(), tab_name.casefold())
+                if key not in seen:
+                    seen.add(key)
+                    unique.append(item)
+            return unique
+        all_items = collect()
+        def render(*_):
+            query = var.get().strip().lower()
+            terms = [part for part in query.split() if part]
+            matches.clear()
+            results.delete(0, 'end')
+            for item in all_items:
+                text, tab_name = item[0], item[1]
+                haystack = f'{text} {tab_name}'.lower()
+                if terms and not all(term in haystack for term in terms):
+                    continue
+                matches.append(item)
+                results.insert('end', f'{text}  ·  {tab_name}')
+                if len(matches) >= 80:
+                    break
+            if matches:
+                results.selection_set(0)
+                results.activate(0)
+        def activate(_event=None):
+            selection = results.curselection()
+            if not selection or selection[0] >= len(matches):
+                return
+            _text, _tab_name, tab_id, widget = matches[selection[0]]
+            try:
+                self.nb.select(tab_id)
+                self._lazy_tab_changed()
+                if widget is not None and widget.winfo_exists():
+                    try:
+                        widget.focus_set()
+                    except Exception:
+                        pass
+                    try:
+                        if isinstance(widget, ttk.Button):
+                            old_style = widget.cget('style')
+                            style = ttk.Style(self)
+                            style.configure('RoUtils.Spotlight.TButton', background='#f8d84a', foreground='#161616')
+                            widget.configure(style='RoUtils.Spotlight.TButton')
+                            widget.after(2000, lambda w=widget, s=old_style: w.configure(style=s) if w.winfo_exists() else None)
+                        elif isinstance(widget, (tk.Label, ttk.Label)):
+                            old_fg = widget.cget('foreground') if isinstance(widget, ttk.Label) else widget.cget('fg')
+                            if isinstance(widget, ttk.Label):
+                                widget.configure(foreground='#ffd84a')
+                                widget.after(2000, lambda w=widget, c=old_fg: w.configure(foreground=c) if w.winfo_exists() else None)
+                            else:
+                                widget.configure(fg='#ffd84a')
+                                widget.after(2000, lambda w=widget, c=old_fg: w.configure(fg=c) if w.winfo_exists() else None)
+                    except Exception:
+                        pass
+                win.destroy()
+            except Exception as exc:
+                self._console_log(f'Search failed: {exc}')
+        var.trace_add('write', render)
+        results.bind('<Double-1>', activate)
+        results.bind('<Return>', activate)
+        entry.bind('<Return>', lambda _e: (results.focus_set(), activate()))
+        entry.bind('<Escape>', lambda _e: win.destroy())
+        win.bind('<Escape>', lambda _e: win.destroy())
+        self._spotlight_window = win
+        win._spotlight_entry = entry
+        render()
+        entry.focus_set()
 
     def _update_kill_routils_visibility(self):
         try:
@@ -7215,7 +8789,8 @@ class App(tk.Tk):
             if w == getattr(self, '_titlebar_last_layout_width', 0) and (not force):
                 return
             self._titlebar_last_layout_width = w
-            self._titlebar_canvas.coords('title', w / 2, 19)
+            self._titlebar_canvas.coords('title', w / 2 - 26, 19)
+            self._titlebar_canvas.coords('spotlight', w / 2 + 26, 19)
             kill_items = getattr(self, '_kill_ro_utils_items', None)
             if kill_items:
                 self._titlebar_canvas.coords(kill_items[0], 10, 12, 24, 26)
@@ -7235,6 +8810,12 @@ class App(tk.Tk):
                 box = self._titlebar_canvas.bbox(item)
                 if box and box[0] - 6 <= x <= box[2] + 6 and (box[1] - 6 <= y <= box[3] + 6):
                     return ('kill_ro_utils', self._kill_ro_utils)
+        try:
+            box = self._titlebar_canvas.bbox('spotlight')
+            if box and box[0] <= x <= box[2] and box[1] <= y <= box[3]:
+                return ('spotlight', self._open_spotlight)
+        except Exception:
+            pass
         for name, (item, command, _color) in self._titlebar_buttons.items():
             coords = self._titlebar_canvas.coords(item)
             if coords and coords[0] <= x <= coords[2] and (coords[1] <= y <= coords[3]):
@@ -7256,19 +8837,13 @@ class App(tk.Tk):
         if not data or data[0] != 'drag':
             return 'break'
         _, sx, sy, ox, oy = data
-        new_x = int(ox + event.x_root - sx)
-        new_y = int(oy + event.y_root - sy)
-        step = max(1, int(getattr(self, '_titlebar_move_step_px', 4)))
-        self._titlebar_pending_xy = (round(new_x / step) * step, round(new_y / step) * step)
+        self._titlebar_pending_xy = (int(ox + event.x_root - sx), int(oy + event.y_root - sy))
         if self._titlebar_drag_job is None:
 
             def apply_drag():
                 self._titlebar_drag_job = None
                 xy = getattr(self, '_titlebar_pending_xy', None)
                 if not xy or xy == self._titlebar_last_xy:
-                    return
-                last = getattr(self, '_titlebar_last_xy', None)
-                if last and abs(xy[0] - last[0]) < 2 and abs(xy[1] - last[1]) < 2:
                     return
                 self._titlebar_last_xy = xy
                 try:
@@ -7280,7 +8855,7 @@ class App(tk.Tk):
                     self.geometry(f'+{xy[0]}+{xy[1]}')
                 except Exception:
                     pass
-            self._titlebar_drag_job = self.after(getattr(self, '_titlebar_drag_interval_ms', 42), apply_drag)
+            self._titlebar_drag_job = self.after(16, apply_drag)
         return 'break'
 
     def _titlebar_release(self, event):
@@ -7294,8 +8869,7 @@ class App(tk.Tk):
             self._titlebar_drag_job = None
         if data and data[0] == 'drag':
             xy = getattr(self, '_titlebar_pending_xy', None)
-            last = getattr(self, '_titlebar_last_xy', None)
-            if xy and (last is None or abs(xy[0] - last[0]) >= 1 or abs(xy[1] - last[1]) >= 1):
+            if xy and xy != getattr(self, '_titlebar_last_xy', None):
                 try:
                     if sys.platform == 'win32':
                         hwnd = _win32_root_hwnd(self)
@@ -7316,6 +8890,8 @@ class App(tk.Tk):
                 self._titlebar_toggle_maximize()
             elif name == 'min':
                 self._titlebar_minimize()
+            elif name == 'spotlight':
+                self._open_spotlight()
         return 'break'
 
     def _titlebar_motion(self, event):
@@ -7353,31 +8929,118 @@ class App(tk.Tk):
             active_id = str(self.nb.select()) if self.nb.select() else ''
             current_tabs = list(self.nb.tabs())
             buttons = getattr(self, '_tab_nav_buttons', {})
+            grips = getattr(self, '_tab_grips', {})
             for tab_id in tuple(buttons):
                 if tab_id not in current_tabs:
-                    try:
-                        buttons[tab_id].destroy()
-                    except Exception:
-                        pass
+                    for widget in (buttons.get(tab_id), grips.get(tab_id)):
+                        try:
+                            widget.destroy()
+                        except Exception:
+                            pass
                     buttons.pop(tab_id, None)
+                    grips.pop(tab_id, None)
+            try:
+                nav_width = max(self.winfo_width(), self._tab_nav.winfo_width())
+            except Exception:
+                nav_width = 1200
+            if nav_width < 760:
+                compact_names = {'Modifications': 'Mods', 'Subplace Joiner': 'Subpl.', 'Server Viewer': 'Server', 'Settings': 'Set.'}
+            elif nav_width < 1080:
+                compact_names = {'Modifications': 'Mods', 'Subplace Joiner': 'Subplace', 'Server Viewer': 'Server', 'Settings': 'Settings'}
+            else:
+                compact_names = {}
             for tab_id in current_tabs:
                 name = str(self.nb.tab(tab_id, 'text'))
+                display_name = compact_names.get(name, name)
                 button = buttons.get(tab_id)
                 if button is None or not button.winfo_exists():
-                    button = ttk.Button(self._tab_nav_inner, text=name, takefocus=False, style='RoUtils.Nav.TButton', command=lambda tid=tab_id: self.nb.select(tid))
+                    button = ttk.Button(self._tab_nav_inner, text=display_name, takefocus=False, style='RoUtils.Nav.TButton', command=lambda tid=tab_id: self.nb.select(tid))
                     buttons[tab_id] = button
                 else:
-                    button.configure(text=name)
+                    button.configure(text=display_name)
+                grip = grips.get(tab_id)
+                if grip is None or not grip.winfo_exists():
+                    grip = tk.Label(self._tab_nav_inner, text='⠿', bg=_CURRENT_PALETTE.get('bg_dark', '#111318'), fg='#8490a6', font=('Segoe UI Symbol', 10), cursor='hand2', padx=1)
+                    grip.bind('<ButtonPress-1>', lambda event, tid=tab_id: self._tab_drag_start(event, tid))
+                    grip.bind('<B1-Motion>', self._tab_drag_motion)
+                    grip.bind('<ButtonRelease-1>', self._tab_drag_release)
+                    grips[tab_id] = grip
+                else:
+                    grip.configure(bg=_CURRENT_PALETTE.get('bg_dark', '#111318'))
             self._tab_nav_buttons = buttons
+            self._tab_grips = grips
             for tab_id in current_tabs:
+                grip = grips[tab_id]
                 button = buttons[tab_id]
+                grip.pack_forget()
                 button.pack_forget()
-                button.pack(side='left', padx=2, pady=0)
+                grip.pack(side='left', padx=(3, 0), pady=0)
+                button.pack(side='left', padx=(0, 2), pady=0)
             for tab_id, button in buttons.items():
                 selected = tab_id == active_id
                 button.configure(style='RoUtils.ActiveNav.TButton' if selected else 'RoUtils.Nav.TButton')
         except Exception:
             pass
+
+    def _tab_drag_start(self, event, tab_id):
+        self._tab_drag_state = {'tab_id': str(tab_id), 'x': event.x_root, 'y': event.y_root, 'moved': False}
+        return 'break'
+
+    def _tab_drag_motion(self, event):
+        state = getattr(self, '_tab_drag_state', None)
+        if not state:
+            return 'break'
+        if abs(event.x_root - state['x']) + abs(event.y_root - state['y']) > 8:
+            state['moved'] = True
+            try:
+                self.configure(cursor='fleur')
+            except Exception:
+                pass
+        return 'break'
+
+    def _tab_drag_release(self, event):
+        state = getattr(self, '_tab_drag_state', None)
+        self._tab_drag_state = None
+        try:
+            self.configure(cursor='')
+        except Exception:
+            pass
+        if not state or not state.get('moved'):
+            return 'break'
+        tab_id = state.get('tab_id')
+        if tab_id not in self.nb.tabs():
+            return 'break'
+        try:
+            left, top = self.winfo_rootx(), self.winfo_rooty()
+            right, bottom = left + self.winfo_width(), top + self.winfo_height()
+            if event.x_root < left or event.x_root > right or event.y_root < top or event.y_root > bottom:
+                return 'break'
+            entries = []
+            for current_id in self.nb.tabs():
+                widget = self._tab_grips.get(current_id) or self._tab_nav_buttons.get(current_id)
+                if widget is None or current_id == tab_id:
+                    continue
+                try:
+                    center = widget.winfo_rootx() + widget.winfo_width() // 2
+                    entries.append((abs(event.x_root - center), center, current_id))
+                except Exception:
+                    pass
+            if entries:
+                target = min(entries)[2]
+                order = list(self.nb.tabs())
+                order.remove(tab_id)
+                index = order.index(target)
+                target_center = next(item[1] for item in entries if item[2] == target)
+                if event.x_root > target_center:
+                    index += 1
+                order.insert(index, tab_id)
+                for position, item in enumerate(order):
+                    self.nb.insert(position, item)
+                self._refresh_tab_nav()
+                self._save_settings()
+        except Exception as exc:
+            self._console_log(f'Tab move failed: {exc}')
+        return 'break'
 
     def _setup_tab_nav_styles(self):
         style = ttk.Style(self)
@@ -7620,11 +9283,15 @@ class App(tk.Tk):
         if hasattr(self, '_titlebar'):
             try:
                 self._titlebar.configure(bg=_CURRENT_PALETTE['bg_dark'])
+                self._titlebar_canvas.configure(bg=_CURRENT_PALETTE['bg_dark'])
                 for child in self._titlebar.winfo_children():
                     if isinstance(child, tk.Label):
                         child.configure(bg=_CURRENT_PALETTE['bg_dark'], fg=_CURRENT_PALETTE['fg'])
             except Exception:
                 pass
+        for popup in list(self.winfo_children()):
+            if isinstance(popup, tk.Toplevel):
+                _routils_refresh_popup_chrome(popup)
         if getattr(self, 'viewport_3d', None) is not None and self.viewport_3d.winfo_ismapped():
             self.viewport_3d.draw_frame()
         self._save_settings()
@@ -7653,14 +9320,14 @@ class App(tk.Tk):
         try:
             with open(self._fflag_path(), 'r', encoding='utf-8') as f:
                 data = json.load(f)
-            self.fastflag_store = data if isinstance(data, list) else []
+            self.fflag_flags = data if isinstance(data, list) else []
         except Exception:
-            self.fastflag_store = []
+            self.fflag_flags = []
 
     def _save_fflag_flags(self):
         try:
             with open(self._fflag_path(), 'w', encoding='utf-8') as f:
-                json.dump(self.fastflag_store, f, ensure_ascii=False, indent=2)
+                json.dump(self.fflag_flags, f, ensure_ascii=False, indent=2)
         except Exception as e:
             messagebox.showerror('FFlags', f'Failed to save flags:\n{e}', parent=self)
 
@@ -8205,10 +9872,10 @@ class App(tk.Tk):
         ttk.Separator(tab).pack(fill='x', pady=10)
         version_row = ttk.Frame(tab)
         version_row.pack(anchor='w')
-        ttk.Label(version_row, text='Version: ', font=('Comic Sans MS', 10, 'bold')).pack(side='left')
-        self.home_version_value = ttk.Label(version_row, text=self._local_version(), font=('Comic Sans MS', 10, 'bold'))
+        ttk.Label(version_row, text='Version: ', font=('Segoe UI', 10, 'bold')).pack(side='left')
+        self.home_version_value = ttk.Label(version_row, text=self._local_version(), font=('Segoe UI', 10, 'bold'))
         self.home_version_value.pack(side='left')
-        self.home_version_state = ttk.Label(version_row, text='Checking', font=('Comic Sans MS', 10, 'bold'))
+        self.home_version_state = ttk.Label(version_row, text='Checking', font=('Segoe UI', 10, 'bold'))
         self.home_version_state.pack(side='left', padx=(6, 0))
         self.home_version_var = tk.StringVar(value=f'Version: {self._local_version()} (Checking)')
         self.home_download_frame = ttk.Frame(tab)
@@ -8237,6 +9904,57 @@ class App(tk.Tk):
         except Exception:
             pass
 
+    def _extract_profile_from_cookies(self):
+        path = os.path.join(os.environ.get('LOCALAPPDATA', ''), 'Roblox', 'LocalStorage', 'RobloxCookies.dat')
+        if not os.path.isfile(path):
+            return (None, None)
+        try:
+            raw = open(path, 'rb').read()
+            text = raw.decode('utf-8', errors='ignore')
+            uid = None
+            username = None
+            for pat in ('"userId"\\s*[:=]\\s*"?(\\d+)', '"UserId"\\s*[:=]\\s*"?(\\d+)', 'userid[^0-9]{0,30}(\\d+)'):
+                m = re.search(pat, text, re.I)
+                if m:
+                    uid = m.group(1)
+                    break
+            for pat in ('"username"\\s*[:=]\\s*"([^"\\\\]+)', '"name"\\s*[:=]\\s*"([^"\\\\]+)'):
+                m = re.search(pat, text, re.I)
+                if m:
+                    username = m.group(1)
+                    break
+            if not uid:
+                for token in re.findall('[A-Za-z0-9+/=]{24,}', text):
+                    try:
+                        t = base64.b64decode(token).decode('utf-8', errors='ignore')
+                        m = re.search('"(?:userId|UserId)"\\s*:\\s*"?(\\d+)', t)
+                        if m:
+                            uid = m.group(1)
+                        m2 = re.search('"(?:username|name)"\\s*:\\s*"([^"\\\\]+)', t, re.I)
+                        if m2:
+                            username = m2.group(1)
+                        if uid:
+                            break
+                    except Exception:
+                        pass
+            return (username, uid)
+        except Exception:
+            return (None, None)
+
+    def _detect_roblox_profile(self):
+        username, uid = self._extract_profile_from_cookies()
+        if username:
+            self.settings['roblox_username'] = username
+        if uid:
+            self.settings['roblox_user_id'] = uid
+        save_settings(self.settings)
+
+    def _start_profile_detection(self):
+
+        def worker():
+            self._detect_roblox_profile()
+        threading.Thread(target=worker, daemon=True).start()
+
     @staticmethod
     def _version_tuple(version):
         parts = re.findall('\\d+', str(version or ''))
@@ -8256,6 +9974,7 @@ class App(tk.Tk):
             dlg.title('RoUtils is Outdated')
             dlg.resizable(False, False)
             dlg.transient(self)
+            dlg.grab_set()
             theme_toplevel(dlg)
             width, height = (440, 230)
             self.update_idletasks()
@@ -8291,7 +10010,9 @@ class App(tk.Tk):
                     pass
             ttk.Button(buttons, text='Download', command=download).pack(side='left', padx=6)
             ttk.Button(buttons, text='Later', command=later).pack(side='left', padx=6)
+            dlg._routils_close_callback = later
             dlg.protocol('WM_DELETE_WINDOW', later)
+            dlg.after(100, lambda d=dlg: (_routils_popup_chrome(d), d.lift(), d.focus_force()) if d.winfo_exists() else None)
             dlg.focus_force()
         except Exception:
             self._outdated_dialog_shown = False
@@ -8395,7 +10116,10 @@ class App(tk.Tk):
         threading.Thread(target=worker, daemon=True, name='RoUtils-VersionCheck').start()
 
     def _reorder_tabs(self):
-        order = ['Home', 'Cache', 'FFlags', 'Configs', 'Modifications', 'Subplace Joiner', 'Server Viewer', 'History', 'Client', 'Themes', 'Plugins', 'Console', 'Settings']
+        defaults = ['Home', 'Cache', 'FFlags', 'Configs', 'Modifications', 'Subplace Joiner', 'Server Viewer', 'History', 'Client', 'Themes', 'Plugins', 'Console', 'Settings']
+        saved = self.settings.get('tab_order', [])
+        order = [str(name) for name in saved if str(name) in defaults] if isinstance(saved, list) else []
+        order.extend(name for name in defaults if name not in order)
         for i, name in enumerate(order):
             for tab_id in self.nb.tabs():
                 if self.nb.tab(tab_id, 'text') == name:
@@ -8421,11 +10145,11 @@ class App(tk.Tk):
             return
         if isinstance(data, dict):
             for n, v in data.items():
-                self.fastflag_store.append({'name': fflag_strip_prefix(str(n)), 'value': str(v).lower() if isinstance(v, bool) else str(v), 'type': fflag_infer_type(v)})
+                self.fflag_flags.append({'name': fflag_strip_prefix(str(n)), 'value': str(v).lower() if isinstance(v, bool) else str(v), 'type': fflag_infer_type(v)})
         else:
             for x in data:
                 if isinstance(x, dict) and x.get('name') is not None:
-                    self.fastflag_store.append({'name': fflag_strip_prefix(str(x['name'])), 'value': str(x.get('value', '')), 'type': x.get('type') or fflag_infer_type(x.get('value', ''))})
+                    self.fflag_flags.append({'name': fflag_strip_prefix(str(x['name'])), 'value': str(x.get('value', '')), 'type': x.get('type') or fflag_infer_type(x.get('value', ''))})
         self._save_fflag_flags()
         self._refresh_fflag_list()
         dlg.destroy()
@@ -8455,7 +10179,7 @@ class App(tk.Tk):
                 flags = [{'name': fflag_strip_prefix(str(x['name'])), 'value': str(x.get('value', '')), 'type': x.get('type') or fflag_infer_type(x.get('value', ''))} for x in data if isinstance(x, dict) and x.get('name') is not None]
             else:
                 raise ValueError('JSON must be an object or array.')
-            self.fastflag_store = flags
+            self.fflag_flags = flags
             self._save_fflag_flags()
             self._refresh_fflag_list()
             messagebox.showinfo('FFlags', f'Applied {len(flags)} flags from {os.path.basename(path)}.', parent=self)
@@ -8829,9 +10553,7 @@ class App(tk.Tk):
 
     def _history_resize_canvas(self, event):
         width = int(getattr(event, 'width', 0) or 0)
-        if width != getattr(self, '_history_canvas_width', -1):
-            self._history_canvas_width = width
-            self.history_canvas.itemconfigure(self.history_window, width=width)
+        self._apply_or_defer_canvas_window_width(self.history_canvas, self.history_window, width, '_history_canvas_width')
 
     def _history_refresh(self):
         if not hasattr(self, 'history_inner'):
@@ -8862,7 +10584,7 @@ class App(tk.Tk):
             jid = str(entry.get('job_id') or '')
             dt = f"{entry.get('date', '')} {entry.get('time', '')}".strip()
             link = str(entry.get('deeplink') or f'roblox://experiences/start?placeId={pid}&gameInstanceId={jid}')
-            ttk.Label(row, text=game, font=('Comic Sans MS', 10, 'bold')).grid(row=0, column=0, sticky='w', padx=6, pady=5)
+            ttk.Label(row, text=game, font=('Segoe UI', 10, 'bold')).grid(row=0, column=0, sticky='w', padx=6, pady=5)
             ttk.Label(row, text=pid).grid(row=0, column=1, sticky='w', padx=6)
             ttk.Label(row, text=jid).grid(row=0, column=2, sticky='w', padx=6)
             ttk.Label(row, text=dt).grid(row=0, column=3, sticky='w', padx=6)
@@ -9090,6 +10812,12 @@ class App(tk.Tk):
         threading.Thread(target=worker, daemon=True).start()
 
     def _client_live_update(self):
+        if getattr(self, '_resize_active', False):
+            try:
+                self.after(180, self._client_live_update)
+            except Exception:
+                pass
+            return
         try:
             active = False
             if hasattr(self, 'nb'):
@@ -9441,54 +11169,104 @@ class App(tk.Tk):
         head = ttk.Frame(tab)
         head.grid(row=0, column=0, sticky='ew', pady=(0, 8))
         ttk.Label(head, text='FFlags', font=('Segoe UI Semibold', 15)).pack(side='left')
-        self.fastflag_status_label = ttk.Label(head, text='Waiting for Roblox...', foreground='#9aa0a6')
-        self.fastflag_status_label.pack(side='right', padx=(8, 0))
+        self.fflag_status = ttk.Label(head, text='Waiting for Roblox...', foreground='#9aa0a6')
+        self.fflag_status.pack(side='right', padx=(8, 0))
         bar = ttk.Frame(tab)
         bar.grid(row=1, column=0, sticky='ew', pady=(0, 8))
-        buttons = [('+ Add', self._fflag_add_dialog), ('Remove', self._fflag_remove), ('Remove All', self._fflag_remove_all), ('Presets', self._fflag_presets_dialog), ('Import', self._fflag_import), ('Export', self._fflag_export), ('Hotkeys', self._fflag_hotkeys_dialog), ('JSON Editor', self._fflag_json_editor), ('Default FFlag Values', self._open_default_fflag_values), ('Latest FFlag List', self._open_latest_fflag_list)]
+        buttons = [('+ Add', self._fflag_add_dialog), ('Remove', self._fflag_remove), ('Remove All', self._fflag_remove_all), ('Presets', self._fflag_presets_dialog), ('Import', self._fflag_import), ('Export', self._fflag_export), ('Hotkeys', self._fflag_hotkeys_dialog), ('JSON Editor', self._fflag_json_editor)]
         self._fflag_toolbar = []
-        for text, cmd in buttons:
-            button = ttk.Button(bar, text=text, command=cmd)
-            button.pack(side='left', padx=(0, 5))
-            self._fflag_toolbar.append(button)
-        bar.bind('<Configure>', self._responsive_fflag_toolbar, add='+')
         self._fflag_toolbar_frame = bar
+        for index, (text, cmd) in enumerate(buttons):
+            button = ttk.Button(bar, text=text, command=cmd)
+            button.grid(row=index // 5, column=index % 5, sticky='ew', padx=(0, 5), pady=(0, 3))
+            self._fflag_toolbar.append(button)
+        for col in range(5):
+            bar.columnconfigure(col, weight=1)
+        bar.bind('<Configure>', self._responsive_fflag_toolbar, add='+')
         frame = ttk.PanedWindow(tab, orient='horizontal')
         frame.grid(row=2, column=0, sticky='nsew')
         left = ttk.Frame(frame)
         right = ttk.Frame(frame)
-        frame.add(left, weight=4)
-        frame.add(right, weight=1)
-        left.columnconfigure(0, weight=1)
         left.rowconfigure(1, weight=1)
+        left.columnconfigure(0, weight=1)
+        right.rowconfigure(0, weight=1)
+        right.columnconfigure(0, weight=1)
+        frame.add(left, weight=1)
+        frame.add(right, weight=1)
         search_row = ttk.Frame(left)
         search_row.grid(row=0, column=0, sticky='ew', pady=(0, 6))
         ttk.Label(search_row, text='Search:').pack(side='left')
-        self.fastflag_search = tk.StringVar()
-        ent = ttk.Entry(search_row, textvariable=self.fastflag_search)
+        self.fflag_search = tk.StringVar()
+        ent = ttk.Entry(search_row, textvariable=self.fflag_search)
         ent.pack(side='left', fill='x', expand=True, padx=6)
-        self.fastflag_search.trace_add('write', lambda *_: self._refresh_fflag_list())
+        self.fflag_search.trace_add('write', lambda *_: self._refresh_fflag_list())
         cols = ('name', 'type', 'value', 'remove')
-        self.fastflag_tree = ttk.Treeview(left, columns=cols, show='headings', selectmode='browse')
-        self.fastflag_tree.heading('name', text='NAME')
-        self.fastflag_tree.heading('type', text='TYPE')
-        self.fastflag_tree.heading('value', text='VALUE')
-        self.fastflag_tree.heading('remove', text='')
-        self.fastflag_tree.column('name', width=430, anchor='w')
-        self.fastflag_tree.column('type', width=85, anchor='center', stretch=False)
-        self.fastflag_tree.column('value', width=200, anchor='w')
-        self.fastflag_tree.column('remove', width=28, minwidth=28, stretch=False, anchor='center')
-        self.fastflag_tree.grid(row=1, column=0, sticky='nsew')
-        self.fastflag_tree.bind('<Double-1>', self._fflag_inline_edit)
-        self.fastflag_tree.bind('<Button-1>', self._fflag_tree_click_remove, add='+')
-        self._fflag_apply_selected_btn = ttk.Button(right, text='Apply Selected Json', command=self._apply_selected_json)
-        self._fflag_apply_selected_btn.pack(fill='x', padx=8, pady=(4, 6))
-        ttk.Label(right, text='Saved JSONs', font=('Segoe UI Semibold', 10)).pack(anchor='w', padx=8, pady=(0, 6))
-        self.json_tree = tk.Listbox(right, bg=_CURRENT_PALETTE['bg_medium'], fg=_CURRENT_PALETTE['fg'], relief='flat', bd=0, highlightthickness=0)
-        self.json_tree.pack(fill='both', expand=True, padx=8, pady=(0, 8))
+        self.fflag_tree = ttk.Treeview(left, columns=cols, show='headings', selectmode='browse')
+        self.fflag_tree.heading('name', text='NAME')
+        self.fflag_tree.heading('type', text='TYPE')
+        self.fflag_tree.heading('value', text='VALUE')
+        self.fflag_tree.heading('remove', text='')
+        self.fflag_tree.column('name', width=280, anchor='w', stretch=True)
+        self.fflag_tree.column('type', width=65, anchor='center', stretch=False)
+        self.fflag_tree.column('value', width=130, anchor='w', stretch=True)
+        self.fflag_tree.column('remove', width=28, minwidth=28, stretch=False, anchor='center')
+        fflag_ybar = ttk.Scrollbar(left, orient='vertical', command=self.fflag_tree.yview)
+        self.fflag_tree.configure(yscrollcommand=fflag_ybar.set)
+        self.fflag_tree.grid(row=1, column=0, sticky='nsew')
+        fflag_ybar.grid(row=1, column=1, sticky='ns')
+        self.fflag_tree.bind('<Double-1>', self._fflag_inline_edit)
+        self.fflag_tree.bind('<Button-1>', self._fflag_tree_click_remove, add='+')
+
+        self.fflag_side_notebook = ttk.Notebook(right)
+        self.fflag_side_notebook.grid(row=0, column=0, sticky='nsew')
+        reference_tab = ttk.Frame(self.fflag_side_notebook, padding=8)
+        saved_tab = ttk.Frame(self.fflag_side_notebook, padding=8)
+        self.fflag_side_notebook.add(reference_tab, text='Latest FFlags')
+        self.fflag_side_notebook.add(saved_tab, text='Saved JSONs')
+        reference_tab.rowconfigure(1, weight=1)
+        reference_tab.columnconfigure(0, weight=1)
+        reference_head = ttk.Frame(reference_tab)
+        reference_head.grid(row=0, column=0, sticky='ew', pady=(0, 6))
+        self.fflag_reference_status = ttk.Label(reference_head, text='Loading offsets…', foreground='#9aa0a6')
+        self.fflag_reference_status.pack(side='right')
+        self.fflag_reference_search = tk.StringVar()
+        reference_search = ttk.Entry(reference_head, textvariable=self.fflag_reference_search)
+        reference_search.pack(side='left', fill='x', expand=True, padx=(0, 8))
+        self.fflag_reference_tree = ttk.Treeview(reference_tab, columns=('name', 'offset', 'value'), show='headings', selectmode='browse')
+        self.fflag_reference_tree.heading('name', text='FFLAG')
+        self.fflag_reference_tree.heading('offset', text='OFFSET')
+        self.fflag_reference_tree.heading('value', text='DEFAULT VALUE')
+        self.fflag_reference_tree.column('name', width=260, anchor='w', stretch=True)
+        self.fflag_reference_tree.column('offset', width=105, anchor='w', stretch=False)
+        self.fflag_reference_tree.column('value', width=100, anchor='w', stretch=True)
+        ref_ybar = ttk.Scrollbar(reference_tab, orient='vertical', command=self.fflag_reference_tree.yview)
+        ref_xbar = ttk.Scrollbar(reference_tab, orient='horizontal', command=self.fflag_reference_tree.xview)
+        self.fflag_reference_tree.configure(yscrollcommand=ref_ybar.set, xscrollcommand=ref_xbar.set)
+        self.fflag_reference_tree.grid(row=1, column=0, sticky='nsew')
+        ref_ybar.grid(row=1, column=1, sticky='ns')
+        ref_xbar.grid(row=2, column=0, sticky='ew')
+        self.fflag_reference_tree.bind('<Double-1>', lambda _e: self._copy_fflag_reference_row(self.fflag_reference_tree))
+        self.fflag_reference_search.trace_add('write', lambda *_: self._refresh_fflag_reference_panel())
+        self._fflag_reference_rows = []
+        self._fflag_reference_render_job = None
+        self._fflag_reference_render_token = 0
+        self._fflag_reference_load_started = False
+
+        saved_tab.rowconfigure(1, weight=1)
+        saved_tab.columnconfigure(0, weight=1)
+        ttk.Label(saved_tab, text='Saved JSONs', font=('Segoe UI Semibold', 10)).grid(row=0, column=0, sticky='w', pady=(0, 6))
+        self.json_tree = tk.Listbox(saved_tab, bg=_CURRENT_PALETTE['bg_medium'], fg=_CURRENT_PALETTE['fg'], relief='flat', bd=0, highlightthickness=0, selectbackground=_CURRENT_PALETTE['accent'], selectforeground='#ffffff')
+        json_ybar = ttk.Scrollbar(saved_tab, orient='vertical', command=self.json_tree.yview)
+        self.json_tree.configure(yscrollcommand=json_ybar.set)
+        self.json_tree.grid(row=1, column=0, sticky='nsew')
+        json_ybar.grid(row=1, column=1, sticky='ns')
         self.json_tree.bind('<Double-1>', lambda _e: self._apply_selected_json())
-        ttk.Button(right, text='Refresh', command=self._refresh_json_list).pack(fill='x', padx=8, pady=(0, 8))
+        json_buttons = ttk.Frame(saved_tab)
+        json_buttons.grid(row=2, column=0, columnspan=2, sticky='ew', pady=(8, 0))
+        ttk.Button(json_buttons, text='Apply Selected', command=self._apply_selected_json).pack(side='left', fill='x', expand=True, padx=(0, 4))
+        ttk.Button(json_buttons, text='Refresh', command=self._refresh_json_list).pack(side='right')
         self._refresh_json_list()
+
         bottom = ttk.Frame(tab)
         bottom.grid(row=3, column=0, sticky='ew', pady=(8, 0))
         ttk.Button(bottom, text='Apply to Roblox', command=self._fflag_apply).pack(side='right', padx=(5, 0))
@@ -9496,34 +11274,128 @@ class App(tk.Tk):
         ttk.Button(bottom, text='Refresh', command=self._fflag_refresh_process).pack(side='left')
         ttk.Button(bottom, text='AI', command=self._open_ai_chat).pack(side='left', padx=(5, 0))
         self._refresh_fflag_list()
-        self.after(1000, self._fflag_refresh_process)
+        self.after(350, self._fflag_refresh_process)
+        self._load_fflag_reference_panel()
+
+    def _load_fflag_reference_panel(self, force=False):
+        if not hasattr(self, 'fflag_reference_tree'):
+            return
+        if getattr(self, '_fflag_reference_load_started', False) and not force:
+            return
+        self._fflag_reference_load_started = True
+        if force:
+            self._fflag_reference_cache = None
+        self.fflag_reference_status.configure(text='Loading offsets…')
+        def worker():
+            try:
+                result = self._fetch_fflag_reference_data()
+            except Exception as exc:
+                result = {'rows': [], 'offsets_error': str(exc), 'defaults_error': ''}
+            try:
+                self.after(0, lambda r=result: self._fflag_reference_loaded(r))
+            except Exception:
+                pass
+        threading.Thread(target=worker, daemon=True, name='RoUtils-FFlagReference').start()
+
+    def _fflag_reference_loaded(self, result):
+        if not hasattr(self, 'fflag_reference_tree'):
+            return
+        if isinstance(result, dict) and result.get('offsets'):
+            self._fflag_reference_cache = result
+        rows = result.get('rows', [])
+        self._fflag_reference_rows = list(rows)
+        if rows:
+            status = f'{len(rows):,} flags'
+            if result.get('defaults_error'):
+                status += ' · defaults unavailable (* = missing)'
+            if result.get('offsets_error'):
+                status += ' · fallback offsets'
+            self.fflag_reference_status.configure(text=status)
+            self._refresh_fflag_reference_panel()
+        else:
+            errors = '; '.join(value for value in (result.get('offsets_error'), result.get('defaults_error')) if value)
+            self.fflag_reference_status.configure(text='Could not load flags')
+            if errors:
+                self._console_log(f'FFlag reference load failed: {errors}')
+
+    def _refresh_fflag_reference_panel(self):
+        tree = getattr(self, 'fflag_reference_tree', None)
+        if tree is None:
+            return
+        try:
+            if not tree.winfo_exists():
+                return
+        except Exception:
+            return
+        self._fflag_reference_render_token = getattr(self, '_fflag_reference_render_token', 0) + 1
+        token = self._fflag_reference_render_token
+        old_job = getattr(self, '_fflag_reference_render_job', None)
+        if old_job:
+            try:
+                tree.after_cancel(old_job)
+            except Exception:
+                pass
+        try:
+            tree.delete(*tree.get_children())
+        except Exception:
+            pass
+        needle = self.fflag_reference_search.get().strip().casefold()
+        rows = [row for row in getattr(self, '_fflag_reference_rows', []) if not needle or any(needle in str(value).casefold() for value in row)]
+        self.fflag_reference_status.configure(text=f'{len(rows):,} flags')
+        def insert_batch(start=0):
+            if token != getattr(self, '_fflag_reference_render_token', None):
+                return
+            if getattr(self, '_resize_active', False):
+                try:
+                    self._fflag_reference_render_job = tree.after(80, insert_batch, start)
+                except Exception:
+                    self._fflag_reference_render_job = None
+                return
+            try:
+                if not tree.winfo_exists():
+                    return
+            except Exception:
+                return
+            processed = 0
+            started = time.perf_counter()
+            pos = start
+            while pos < len(rows) and processed < 80 and time.perf_counter() - started < 0.004:
+                try:
+                    tree.insert('', 'end', iid=f'ref_{token}_{pos}', values=rows[pos])
+                except Exception:
+                    pass
+                pos += 1
+                processed += 1
+            if pos < len(rows):
+                self._fflag_reference_render_job = tree.after(1, insert_batch, pos)
+            else:
+                self._fflag_reference_render_job = None
+        insert_batch(0)
 
     def _responsive_fflag_toolbar(self, _event=None):
         bar = getattr(self, '_fflag_toolbar_frame', None)
         buttons = getattr(self, '_fflag_toolbar', [])
         if bar is None or not buttons:
             return
+        if getattr(self, '_resize_active', False):
+            self._resize_deferred_jobs['fflag_toolbar'] = (0, self._responsive_fflag_toolbar)
+            return
         try:
-            narrow = bar.winfo_width() > 0 and bar.winfo_width() < 1050
-            if narrow == getattr(self, '_fflag_toolbar_narrow', None):
+            width = max(1, bar.winfo_width())
+            columns = 3 if width < 720 else 4 if width < 980 else 5
+            if columns == getattr(self, '_fflag_toolbar_columns', None):
                 return
-            self._fflag_toolbar_narrow = narrow
-            if narrow:
-                for index, button in enumerate(buttons):
-                    button.pack_forget()
-                    button.grid(row=index // 4, column=index % 4, sticky='ew', padx=(0, 5), pady=(0, 3))
-                for col in range(4):
-                    bar.columnconfigure(col, weight=1)
-            else:
-                for button in buttons:
-                    button.grid_forget()
-                    button.pack(side='left', padx=(0, 5), pady=0)
+            self._fflag_toolbar_columns = columns
+            for index, button in enumerate(buttons):
+                button.grid_configure(row=index // columns, column=index % columns, sticky='ew')
+            for col in range(5):
+                bar.columnconfigure(col, weight=1 if col < columns else 0)
         except Exception:
             pass
 
     def _fflag_conflicts(self):
         counts = {}
-        for flag in self.fastflag_store:
+        for flag in self.fflag_flags:
             name = fflag_strip_prefix(str(flag.get('name', '')).strip())
             if name:
                 key = name.lower()
@@ -9531,59 +11403,30 @@ class App(tk.Tk):
         return {name for name, count in counts.items() if count > 1}
 
     def _refresh_fflag_list(self):
-        if not hasattr(self, 'fastflag_tree'):
+        if not hasattr(self, 'fflag_tree'):
             return
-        old_job = getattr(self, '_fflag_render_job', None)
-        if old_job:
-            try:
-                self.after_cancel(old_job)
-            except Exception:
-                pass
-            self._fflag_render_job = None
-        tree = self.fastflag_tree
-        tree.delete(*tree.get_children())
-        filt = self.fastflag_search.get().strip().lower() if hasattr(self, 'fastflag_search') else ''
+        self.fflag_tree.delete(*self.fflag_tree.get_children())
+        filt = self.fflag_search.get().strip().lower() if hasattr(self, 'fflag_search') else ''
         conflicts = self._fflag_conflicts()
         try:
-            tree.tag_configure('conflict', background='#8b1e1e', foreground='#ffffff')
+            self.fflag_tree.tag_configure('conflict', background='#8b1e1e', foreground='#ffffff')
         except Exception:
             pass
-
-        rows = []
-        for i, flag in enumerate(self.fastflag_store):
+        for i, flag in enumerate(self.fflag_flags):
             name = fflag_strip_prefix(str(flag.get('name', '')))
             if filt and filt not in name.lower():
                 continue
             tags = ('conflict',) if name.lower() in conflicts else ()
-            rows.append((i, name, flag.get('type', ''), flag.get('value', ''), tags))
-
-        batch_size = 150
-        state = {'index': 0}
-
-        def insert_batch():
-            start = state['index']
-            end = min(start + batch_size, len(rows))
-            for i, name, flag_type, value, tags in rows[start:end]:
-                try:
-                    tree.insert('', 'end', iid=str(i), values=(name, flag_type, value, '×'), tags=tags)
-                except tk.TclError:
-                    return
-            state['index'] = end
-            if end < len(rows):
-                self._fflag_render_job = self.after(1, insert_batch)
-            else:
-                self._fflag_render_job = None
-
-        insert_batch()
+            self.fflag_tree.insert('', 'end', iid=str(i), values=(name, flag.get('type', ''), flag.get('value', ''), '×'), tags=tags)
 
     def _fflag_tree_click_remove(self, event):
         try:
-            row = self.fastflag_tree.identify_row(event.y)
-            col = self.fastflag_tree.identify_column(event.x)
+            row = self.fflag_tree.identify_row(event.y)
+            col = self.fflag_tree.identify_column(event.x)
             if row and col == '#4':
                 idx = int(row)
-                if 0 <= idx < len(self.fastflag_store):
-                    self.fastflag_store.pop(idx)
+                if 0 <= idx < len(self.fflag_flags):
+                    self.fflag_flags.pop(idx)
                     self._save_fflag_flags()
                     self._refresh_fflag_list()
                     self._console_log('Removed FFlag')
@@ -9596,6 +11439,7 @@ class App(tk.Tk):
         dlg = tk.Toplevel(self)
         dlg.title('Add FFlag')
         dlg.transient(self)
+        dlg.grab_set()
         theme_toplevel(dlg)
         ttk.Label(dlg, text='FFlag name').grid(row=0, column=0, padx=10, pady=(10, 4), sticky='w')
         name = ttk.Entry(dlg, width=48)
@@ -9609,7 +11453,7 @@ class App(tk.Tk):
             if not n or not v:
                 return
             bare = fflag_strip_prefix(n)
-            self.fastflag_store.append({'name': bare, 'value': v, 'type': fflag_infer_type(v)})
+            self.fflag_flags.append({'name': bare, 'value': v, 'type': fflag_infer_type(v)})
             self._save_fflag_flags()
             self._refresh_fflag_list()
             self._fflag_apply(silent=True)
@@ -9623,7 +11467,7 @@ class App(tk.Tk):
         name.focus_set()
 
     def _fflag_inline_edit(self, event):
-        tree = self.fastflag_tree
+        tree = self.fflag_tree
         row = tree.identify_row(event.y)
         col = tree.identify_column(event.x)
         if not row or col not in ('#1', '#3'):
@@ -9636,15 +11480,15 @@ class App(tk.Tk):
         x, y, w, h = bbox
         entry = ttk.Entry(tree)
         entry.place(x=x, y=y, width=w, height=h)
-        entry.insert(0, str(self.fastflag_store[idx].get(column, '')))
+        entry.insert(0, str(self.fflag_flags[idx].get(column, '')))
         entry.focus_set()
         entry.selection_range(0, 'end')
 
         def save(_=None):
             value = entry.get().strip()
             if value:
-                self.fastflag_store[idx][column] = fflag_strip_prefix(value) if column == 'name' else value
-                self.fastflag_store[idx]['type'] = fflag_infer_type(self.fastflag_store[idx].get('value', ''))
+                self.fflag_flags[idx][column] = fflag_strip_prefix(value) if column == 'name' else value
+                self.fflag_flags[idx]['type'] = fflag_infer_type(self.fflag_flags[idx].get('value', ''))
                 self._save_fflag_flags()
                 self._refresh_fflag_list()
                 self._fflag_apply(silent=True)
@@ -9654,19 +11498,19 @@ class App(tk.Tk):
         entry.bind('<Escape>', lambda _e: entry.destroy())
 
     def _fflag_remove(self):
-        sel = self.fastflag_tree.selection()
+        sel = self.fflag_tree.selection()
         if not sel:
             return
-        removed = self.fastflag_store[int(sel[0])].get('name', '')
-        del self.fastflag_store[int(sel[0])]
+        removed = self.fflag_flags[int(sel[0])].get('name', '')
+        del self.fflag_flags[int(sel[0])]
         self._save_fflag_flags()
         self._refresh_fflag_list()
         self._console_log(f'Removed FFlag {removed}')
 
     def _fflag_remove_all(self):
-        if not self.fastflag_store or not messagebox.askyesno('FFlags', 'Remove all flags?', parent=self):
+        if not self.fflag_flags or not messagebox.askyesno('FFlags', 'Remove all flags?', parent=self):
             return
-        self.fastflag_store.clear()
+        self.fflag_flags.clear()
         self._save_fflag_flags()
         self._refresh_fflag_list()
         self._console_log('Removed all FFlags')
@@ -9703,29 +11547,29 @@ class App(tk.Tk):
                 if not flags:
                     raise ValueError('Preset JSON did not contain any FFlags.')
                 if add_to_current:
-                    existing = {str(x.get('name', '')): i for i, x in enumerate(self.fastflag_store)}
+                    existing = {str(x.get('name', '')): i for i, x in enumerate(self.fflag_flags)}
                     added = 0
                     updated = 0
                     for flag in flags:
                         name = str(flag.get('name', ''))
                         if name in existing:
-                            self.fastflag_store[existing[name]] = flag
+                            self.fflag_flags[existing[name]] = flag
                             updated += 1
                         else:
-                            self.fastflag_store.append(flag)
-                            existing[name] = len(self.fastflag_store) - 1
+                            self.fflag_flags.append(flag)
+                            existing[name] = len(self.fflag_flags) - 1
                             added += 1
                     self._save_fflag_flags()
                     self._refresh_fflag_list()
-                    if self.fastflag_process_id and self.fastflag_runtime.handle and self.fastflag_auto.get():
+                    if self.fflag_pid and self.fflag_engine.handle and self.fflag_auto_apply.get():
                         self._fflag_apply(silent=True)
                     messagebox.showinfo('FFlag Preset', f'Added {added} FFlags and updated {updated} existing FFlags from {filename}.', parent=dlg)
                     self._console_log(f'Preset {filename}: added {added}, updated {updated} FFlags')
                 else:
-                    self.fastflag_store = flags
+                    self.fflag_flags = flags
                     self._save_fflag_flags()
                     self._refresh_fflag_list()
-                    if self.fastflag_process_id and self.fastflag_runtime.handle and self.fastflag_auto.get():
+                    if self.fflag_pid and self.fflag_engine.handle and self.fflag_auto_apply.get():
                         self._fflag_apply(silent=True)
                     messagebox.showinfo('FFlag Preset', f'Applied {len(flags)} FFlags from {filename}.', parent=dlg)
                     self._console_log(f'Applied FFlag preset {filename}: {len(flags)} flags')
@@ -9767,17 +11611,168 @@ class App(tk.Tk):
         ttk.Label(inner, text='Loading presets...', foreground='#9aa0a6').pack(pady=20)
         threading.Thread(target=worker, daemon=True).start()
 
+    def _show_fflag_reference_panel(self):
+        if not hasattr(self, 'nb'):
+            return
+        for tab_id in self.nb.tabs():
+            try:
+                if self.nb.tab(tab_id, 'text') == 'FFlags':
+                    self.nb.select(tab_id)
+                    self._lazy_tab_changed()
+                    def select_reference():
+                        try:
+                            fflag_tab = next((item for item in self.nb.tabs() if self.nb.tab(item, 'text') == 'FFlags'), None)
+                            if fflag_tab is not None:
+                                self.nb.select(fflag_tab)
+                            if hasattr(self, 'fflag_side_notebook') and self.fflag_side_notebook.winfo_exists():
+                                self.fflag_side_notebook.select(self.fflag_reference_tab)
+                        except Exception:
+                            pass
+                    self.after_idle(select_reference)
+                    return
+            except Exception:
+                continue
+
     def _open_default_fflag_values(self):
-        self._console_log('Opened Default FFlag Values')
-        _open_webview2_process(WEBVIEW2_URL_DEFAULTS, 'Default FFlag Values')
+        self._show_fflag_reference_panel()
 
     def _open_latest_fflag_list(self):
-        self._console_log('Loading Latest FFlag List')
+        self._show_fflag_reference_panel()
 
-        def worker():
-            url = _get_latest_offsets_webview_url()
-            self.after(0, lambda: (_open_webview2_process(url, 'Latest FFlag List'), self._console_log('Opened Latest FFlag List')))
-        threading.Thread(target=worker, daemon=True).start()
+    def _fetch_fflag_reference_data(self):
+        cached = getattr(self, '_fflag_reference_cache', None)
+        if cached and time.time() - cached.get('time', 0) < 900 and len(cached.get('offsets', {})) >= 500:
+            return cached
+        headers = {'User-Agent': f'RoUtils/{APP_VERSION}', 'Accept': 'application/json,text/plain,*/*'}
+
+        def fetch(url):
+            request = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(request, timeout=20) as response:
+                return response.read().decode('utf-8', 'replace')
+
+        def extract_block(text, namespace_name):
+            match = re.search(r'\bnamespace\s+' + re.escape(namespace_name) + r'\s*\{', text)
+            if not match:
+                return None
+            open_brace = text.find('{', match.start())
+            depth = 0
+            for index in range(open_brace, len(text)):
+                char = text[index]
+                if char == '{':
+                    depth += 1
+                elif char == '}':
+                    depth -= 1
+                    if depth == 0:
+                        return text[open_brace + 1:index]
+            return text[open_brace + 1:]
+
+        def parse_offsets(text):
+            text = html.unescape(str(text or ''))
+            text = re.sub(r'/\*.*?\*/', '', text, flags=re.S)
+            text = re.sub(r'//[^\n]*', '', text)
+            block = extract_block(text, 'FFlags')
+            if block is None:
+                block = extract_block(text, 'FFlagOffsets')
+                if block is not None:
+                    block = re.sub(r'namespace\s+FFlagList\s*\{.*?\}', '', block, flags=re.S)
+            if block is None:
+                block = text
+            offsets = {}
+            declaration = re.compile(r'\b(?:inline\s+)?(?:static\s+)?(?:constexpr\s+)?(?:const\s+)?(?:std::)?uintptr_t\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(0x[0-9a-fA-F]+|\d+)\s*;')
+            for match in declaration.finditer(block):
+                name, value = match.groups()
+                if name in {'Pointer', 'ToFlag', 'ToValue'}:
+                    continue
+                offsets[name] = value.lower() if value.lower().startswith('0x') else f'0x{int(value):x}'
+            if len(offsets) < 500:
+                alternate_patterns = (
+                    re.compile(r'\b([A-Za-z_][A-Za-z0-9_]*)\s*(?:=|:)\s*(0x[0-9a-fA-F]{4,})\b'),
+                    re.compile(r'(0x[0-9a-fA-F]{4,})\s+(?:(?:offset|Offset)\s+)?\b([A-Za-z_][A-Za-z0-9_]*)\b')
+                )
+                for pattern_index, pattern in enumerate(alternate_patterns):
+                    for match in pattern.finditer(block):
+                        if pattern_index == 0:
+                            name, value = match.group(1), match.group(2)
+                        else:
+                            value, name = match.group(1), match.group(2)
+                        if name not in {'Pointer', 'ToFlag', 'ToValue', 'FFlagList'}:
+                            offsets.setdefault(name, value.lower())
+            return offsets
+
+        defaults = {}
+        defaults_error = ''
+        default_names = {}
+        try:
+            raw_defaults = json.loads(fetch(WEBVIEW2_URL_DEFAULTS))
+            if isinstance(raw_defaults, dict):
+                default_items = raw_defaults.items()
+            elif isinstance(raw_defaults, list):
+                default_items = ((item.get('name'), item.get('value', '*')) for item in raw_defaults if isinstance(item, dict) and item.get('name') is not None)
+            else:
+                default_items = ()
+            for name, value in default_items:
+                full_name = str(name or '').strip()
+                if not full_name:
+                    continue
+                bare_name = fflag_strip_prefix(full_name).strip()
+                key = bare_name.casefold()
+                normalized_value = str(value).lower() if isinstance(value, bool) else '*' if value is None else str(value)
+                if key and key not in defaults:
+                    defaults[key] = normalized_value
+                    default_names[key] = full_name
+        except Exception as exc:
+            defaults_error = str(exc)
+
+        offsets = {}
+        offsets_error = ''
+        source_errors = []
+        for url in (_get_latest_offsets_webview_url(), 'https://raw.githubusercontent.com/4anti/Roblox-Fastflag-Manager/main/data/FFlags.hpp'):
+            try:
+                candidate_text = fetch(url)
+                candidate_offsets = parse_offsets(candidate_text)
+                if len(candidate_offsets) >= 500:
+                    offsets = candidate_offsets
+                    if url != _get_latest_offsets_webview_url():
+                        offsets_error = 'Theo source did not contain a full offset list; loaded the mirror instead.'
+                    break
+                source_errors.append(f'{url}: parsed only {len(candidate_offsets)} offsets')
+            except Exception as exc:
+                source_errors.append(f'{url}: {exc}')
+        if len(offsets) < 500:
+            offsets_error = '; '.join(source_errors) or 'No usable offset list was found.'
+
+        rows = []
+        for bare_name, offset in offsets.items():
+            key = str(bare_name).casefold()
+            if key in defaults:
+                display_name = default_names.get(key, bare_name)
+                value = defaults[key]
+            else:
+                display_name = bare_name
+                value = '*'
+            rows.append((display_name, offset, value))
+        rows.sort(key=lambda row: row[0].casefold())
+        result = {'time': time.time(), 'defaults': defaults, 'default_names': default_names, 'offsets': offsets, 'rows': rows, 'defaults_error': defaults_error, 'offsets_error': offsets_error}
+        if len(offsets) >= 500:
+            self._fflag_reference_cache = result
+        return result
+
+    def _copy_fflag_reference_row(self, tree):
+        try:
+            selection = tree.selection()
+            if not selection:
+                return
+            values = tree.item(selection[0], 'values')
+            if len(values) >= 3:
+                text = f'{values[0]} - {values[1]} - {values[2]}'
+            else:
+                text = ' - '.join(map(str, values))
+            self.clipboard_clear()
+            self.clipboard_append(text)
+            self.update_idletasks()
+            messagebox.showinfo('FFlags', 'Copied to clipboard.', parent=self)
+        except Exception as exc:
+            self._console_log(f'FFlag copy failed: {exc}')
 
     def _fflag_import(self):
         path = filedialog.askopenfilename(parent=self, title='Import FFlags', filetypes=[('JSON files', '*.json'), ('All files', '*.*')])
@@ -9790,18 +11785,18 @@ class App(tk.Tk):
             if isinstance(data, dict):
                 for n, v in data.items():
                     bare = fflag_strip_prefix(n)
-                    found = next((x for x in self.fastflag_store if x.get('name') == bare), None)
+                    found = next((x for x in self.fflag_flags if x.get('name') == bare), None)
                     item = {'name': bare, 'value': str(v).lower() if isinstance(v, bool) else str(v), 'type': fflag_infer_type(v)}
                     if found:
                         found.update(item)
                     else:
-                        self.fastflag_store.append(item)
+                        self.fflag_flags.append(item)
                     count += 1
             elif isinstance(data, list):
                 for x in data:
                     if isinstance(x, dict) and x.get('name') is not None:
                         item = {'name': fflag_strip_prefix(x['name']), 'value': str(x.get('value', '')), 'type': x.get('type') or fflag_infer_type(x.get('value', ''))}
-                        self.fastflag_store.append(item)
+                        self.fflag_flags.append(item)
                         count += 1
             self._save_fflag_flags()
             self._refresh_fflag_list()
@@ -9811,14 +11806,15 @@ class App(tk.Tk):
             messagebox.showerror('FFlags', f'Import failed:\n{e}', parent=self)
 
     def _fflag_export(self):
-        if not self.fastflag_store:
+        if not self.fflag_flags:
             return
-        data = {x['name']: x['value'] for x in self.fastflag_store}
+        data = {x['name']: x['value'] for x in self.fflag_flags}
         dialog = tk.Toplevel(self)
         dialog.title('Export FFlags')
         dialog.geometry('470x170')
         dialog.minsize(430, 150)
         dialog.transient(self)
+        dialog.grab_set()
         theme_toplevel(dialog)
         ttk.Label(dialog, text='Export name', font=('Segoe UI Semibold', 10)).pack(anchor='w', padx=14, pady=(14, 4))
         name_var = tk.StringVar(value=f"fflags_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
@@ -9859,32 +11855,32 @@ class App(tk.Tk):
 
     def _fflag_refresh_process(self):
         pid = _fflag_find_pid()
-        if pid and pid != self.fastflag_process_id:
-            self.fastflag_originals.clear()
-            self.fastflag_process_id = pid
+        if pid and pid != self.fflag_pid:
+            self.fflag_original_values.clear()
+            self.fflag_pid = pid
             exe_path = _get_process_exe_path(pid)
             if exe_path and os.path.basename(exe_path).lower() == 'robloxplayerbeta.exe':
                 self.settings['roblox_path'] = exe_path
                 self._save_settings()
                 if hasattr(self, 'roblox_path_var'):
                     self.roblox_path_var.set(exe_path)
-            if self.fastflag_runtime.attach(pid):
-                self.fastflag_status_label.config(text=f'Roblox attached  PID {pid}', foreground='#65d98b')
+            if self.fflag_engine.attach(pid):
+                self.fflag_status.config(text=f'Roblox attached  PID {pid}', foreground='#65d98b')
                 self._console_log(f'Roblox Detected: PID {pid}')
                 if hasattr(self, 'fps_pid_label'):
                     self.fps_pid_label.config(text=f'PID: {pid} selected', foreground='#65d98b')
-                if self.fastflag_auto.get():
+                if self.fflag_auto_apply.get():
                     self.after(6000, self._fflag_apply)
             else:
-                self.fastflag_status_label.config(text='Roblox found, attach failed', foreground='#ff6b6b')
+                self.fflag_status.config(text='Roblox found, attach failed', foreground='#ff6b6b')
                 self._console_log(f'Roblox Detected but attach failed: PID {pid}')
         elif not pid:
-            had_pid = self.fastflag_process_id
+            had_pid = self.fflag_pid
             if had_pid:
-                self.fastflag_runtime.close()
-            self.fastflag_originals.clear()
-            self.fastflag_process_id = 0
-            self.fastflag_status_label.config(text='Waiting for Roblox...', foreground='#9aa0a6')
+                self.fflag_engine.close()
+            self.fflag_original_values.clear()
+            self.fflag_pid = 0
+            self.fflag_status.config(text='Waiting for Roblox...', foreground='#9aa0a6')
             if had_pid:
                 self._console_log('Roblox process closed; FFlag attachment removed')
             if hasattr(self, 'fps_pid_label'):
@@ -9901,7 +11897,7 @@ class App(tk.Tk):
         value = self._fps_flag_value()
         fps_entry = None
         cleaned_flags = []
-        for flag in self.fastflag_store:
+        for flag in self.fflag_flags:
             flag_name = str(flag.get('name', '')).strip()
             if fflag_strip_prefix(flag_name) == normalized_name:
                 if fps_entry is None:
@@ -9915,19 +11911,19 @@ class App(tk.Tk):
         if fps_entry is None:
             fps_entry = {'name': full_name, 'value': value, 'type': 'int'}
             cleaned_flags.append(fps_entry)
-        self.fastflag_store = cleaned_flags
+        self.fflag_flags = cleaned_flags
         self._save_fflag_flags()
-        if hasattr(self, 'fastflag_tree'):
+        if hasattr(self, 'fflag_tree'):
             self._refresh_fflag_list()
 
     def _apply_fps_flag(self, silent=True):
         self._sync_fps_flag_to_manager()
-        if not self.fastflag_process_id or not self.fastflag_runtime.handle:
+        if not self.fflag_pid or not self.fflag_engine.handle:
             return False
-        if not self.fastflag_runtime.get_singleton():
+        if not self.fflag_engine.get_singleton():
             return False
         value = self._fps_flag_value()
-        return bool(self.fastflag_runtime.set_flag_with_prefixes('DFIntTaskSchedulerTargetFps', value))
+        return bool(self.fflag_engine.set_flag_with_prefixes('DFIntTaskSchedulerTargetFps', value))
 
     def _apply_fps_after_slider(self):
         self._fps_release_job = None
@@ -9941,10 +11937,44 @@ class App(tk.Tk):
     def _fps_apply_tick(self):
         return
 
+    def _fflag_write_offset(self, name, value, value_type):
+        cache = getattr(self, '_fflag_reference_cache', None)
+        if not cache or not isinstance(cache.get('offsets'), dict):
+            return False
+        offsets = cache['offsets']
+        offset_value = offsets.get(name)
+        if offset_value is None:
+            target = name.casefold()
+            offset_value = next((v for k, v in offsets.items() if str(k).casefold() == target), None)
+        if offset_value is None:
+            return False
+        try:
+            address = int(str(offset_value), 16) + int(self.fflag_engine.module_base)
+            value_text = str(value).strip()
+            kind = str(value_type or fflag_infer_type(value_text)).lower()
+            if kind == 'bool':
+                data = bytes([1 if value_text.lower() in ('true', '1') else 0])
+            elif kind == 'int':
+                data = int(value_text, 10).to_bytes(4, 'little', signed=True)
+            elif kind == 'float':
+                data = __import__('struct').pack('<d', float(value_text))
+            else:
+                data = value_text.encode('utf-8') + b'\x00'
+            original = self.fflag_engine._read(address, len(data))
+            if original is None:
+                return False
+            if address not in self.fflag_original_values:
+                self.fflag_original_values[address] = original
+            written = ctypes.c_size_t()
+            ok = ctypes.windll.kernel32.WriteProcessMemory(self.fflag_engine.handle, ctypes.c_void_p(address), data, len(data), ctypes.byref(written))
+            return bool(ok and written.value == len(data))
+        except Exception:
+            return False
+
     def _fflag_apply(self, silent=False):
         conflicts = self._fflag_conflicts()
         if conflicts:
-            names = [fflag_strip_prefix(str(f.get('name', ''))) for f in self.fastflag_store if fflag_strip_prefix(str(f.get('name', ''))).lower() in conflicts]
+            names = [fflag_strip_prefix(str(f.get('name', ''))) for f in self.fflag_flags if fflag_strip_prefix(str(f.get('name', ''))).lower() in conflicts]
             unique_names = []
             seen = set()
             for name in names:
@@ -9956,52 +11986,80 @@ class App(tk.Tk):
             if not silent:
                 messagebox.showerror('FFlags', 'FFlags conflict.', parent=self)
             return
-        if not self.fastflag_process_id or not self.fastflag_runtime.handle:
+        if not self.fflag_pid or not self.fflag_engine.handle:
             self._console_log('FFlag injection skipped: Roblox is not attached')
             if not silent:
                 messagebox.showwarning('FFlags', 'Roblox is not attached.', parent=self)
             return
-        if not self.fastflag_runtime.get_singleton():
-            self.fastflag_status_label.config(text='Singleton not found', foreground='#ff6b6b')
-            self._console_log(f'FFlag injection failed: singleton not found for PID {self.fastflag_process_id}')
-            return
+        singleton = self.fflag_engine.get_singleton()
+        offset_mode = not bool(singleton)
+        offsets = {}
+        if offset_mode:
+            cache = getattr(self, '_fflag_reference_cache', None)
+            if not cache or not isinstance(cache.get('offsets'), dict) or len(cache.get('offsets', {})) < 1:
+                self._fflag_status_text('Loading offsets…', '#e6b450')
+                self._load_fflag_reference_panel(force=True)
+                self._console_log('Singleton was not found; offset data is being refreshed. Apply again after it loads.')
+                return
+            offsets = cache.get('offsets', {})
         ok = 0
-        for flag in self.fastflag_store:
+        failed = 0
+        for flag in self.fflag_flags:
             name = fflag_strip_prefix(str(flag.get('name', '')))
             if not name:
                 continue
-            address = self.fastflag_runtime.get_flag_address_with_prefixes(name)
-            if address and address not in self.fastflag_originals:
-                original = self.fastflag_runtime._read(address, 4)
-                if original is not None:
-                    self.fastflag_originals[address] = original
-            if self.fastflag_runtime.set_flag_with_prefixes(name, str(flag.get('value', ''))):
+            value = str(flag.get('value', ''))
+            value_type = str(flag.get('type') or fflag_infer_type(value))
+            success = False
+            if not offset_mode:
+                address = self.fflag_engine.get_flag_address_with_prefixes(name)
+                if address and address not in self.fflag_original_values:
+                    original = self.fflag_engine._read(address, 4)
+                    if original is not None:
+                        self.fflag_original_values[address] = original
+                success = self.fflag_engine.set_flag_with_prefixes(name, value)
+            else:
+                success = self._fflag_write_offset(name, value, value_type)
+            if success:
                 ok += 1
-        self._apply_fps_flag(silent=True)
-        self.fastflag_status_label.config(text=f'Applied {ok}/{len(self.fastflag_store)} flags', foreground='#65d98b')
-        self._console_log(f'FFlag injection complete: {ok}/{len(self.fastflag_store)} flags applied to PID {self.fastflag_process_id}')
+            else:
+                failed += 1
+        if not offset_mode:
+            self._apply_fps_flag(silent=True)
+        method = 'Offsets' if offset_mode else 'Singleton'
+        color = '#65d98b' if ok else '#ff6b6b'
+        self.fflag_status.config(text=f'Applied {ok}/{len(self.fflag_flags)} via {method}', foreground=color)
+        self._console_log(f'FFlag {method} apply complete: {ok}/{len(self.fflag_flags)} flags applied, {failed} failed for PID {self.fflag_pid}')
+        if not silent and not ok:
+            messagebox.showwarning('FFlags', f'No flags were applied using {method}. Check the current offsets and Roblox version.', parent=self)
+
+    def _fflag_status_text(self, text, color='#9aa0a6'):
+        try:
+            self.fflag_status.config(text=text, foreground=color)
+        except Exception:
+            pass
 
     def _fflag_unapply(self):
-        self.fastflag_auto.set(False)
-        if not self.fastflag_process_id or not self.fastflag_runtime.handle:
-            self.fastflag_originals.clear()
+        self.fflag_auto_apply.set(False)
+        if not self.fflag_pid or not self.fflag_engine.handle:
+            self.fflag_original_values.clear()
             messagebox.showwarning('FFlags', 'Roblox is not attached.', parent=self)
             return
         restored = 0
         failed = 0
-        snapshots = list(self.fastflag_originals.items())
+        snapshots = list(self.fflag_original_values.items())
         for address, original in snapshots:
             try:
                 written = ctypes.c_size_t()
-                ok = ctypes.windll.kernel32.WriteProcessMemory(self.fastflag_runtime.handle, ctypes.c_void_p(address), original, len(original), ctypes.byref(written))
+                ok = ctypes.windll.kernel32.WriteProcessMemory(self.fflag_engine.handle, ctypes.c_void_p(address), original, len(original), ctypes.byref(written))
                 if ok and written.value == len(original):
                     restored += 1
                 else:
                     failed += 1
             except Exception:
                 failed += 1
-        self.fastflag_originals.clear()
-        self.fastflag_status_label.config(text=f'Unapplied {restored} flag(s)' + (f', {failed} failed' if failed else ''), foreground='#65d98b' if not failed else '#ff6b6b')
+        self.fflag_original_values.clear()
+        self.fflag_status.config(text=f'Unapplied {restored} flag(s)' + (f', {failed} failed' if failed else ''), foreground='#65d98b' if not failed else '#ff6b6b')
         self._console_log(f'FFlag restore complete: {restored} restored, {failed} failed')
 
     def _fflag_auto_apply_tick(self):
@@ -10097,6 +12155,20 @@ class App(tk.Tk):
             self._save_settings()
             messagebox.showerror('Plugin', f'Could not enable {name}:\n{exc}', parent=self)
 
+    def _plugin_open_guide(self, path):
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                text = f.read()
+            win = tk.Toplevel(self)
+            win.title(os.path.basename(path))
+            win.geometry('850x650')
+            win.transient(self)
+            txt = tk.Text(win, wrap='word', font=('Consolas', 10), bg=_CURRENT_PALETTE['bg_medium'], fg=_CURRENT_PALETTE['fg'], insertbackground=_CURRENT_PALETTE['fg'], bd=0, padx=14, pady=14)
+            txt.pack(fill='both', expand=True)
+            txt.insert('1.0', text)
+            txt.configure(state='disabled')
+        except Exception as exc:
+            messagebox.showerror('Plugin', f'Could not open guide:\n{exc}', parent=self)
 
     def _build_plugins_tab(self):
         tab = ttk.Frame(self.nb, padding=14)
@@ -10117,8 +12189,8 @@ class App(tk.Tk):
             card = ttk.LabelFrame(body, text=os.path.splitext(name)[0])
             card.pack(fill='x', pady=5)
             if path.lower().endswith('.txt'):
-                card.destroy()
-                continue
+                ttk.Label(card, text='Documentation / development guide', foreground='#9aa0a6').pack(anchor='w', padx=10, pady=7)
+                ttk.Button(card, text='Open Guide', command=lambda p=path: self._plugin_open_guide(p)).pack(anchor='w', padx=8, pady=(0, 8))
             else:
                 module = self._plugin_modules.get(name)
                 desc = str(getattr(module, 'PLUGIN_DESCRIPTION', 'Python plugin') if module else 'Python plugin')
@@ -10167,9 +12239,7 @@ class App(tk.Tk):
     def _settings_canvas_resize(self, canvas, window_id, event):
         width = int(getattr(event, 'width', 0) or 0)
         key = f'_canvas_width_{id(canvas)}'
-        if width != getattr(self, key, -1):
-            setattr(self, key, width)
-            canvas.itemconfigure(window_id, width=width)
+        self._apply_or_defer_canvas_window_width(canvas, window_id, width, key)
 
     def _build_settings_tab(self):
         try:
@@ -10196,14 +12266,22 @@ class App(tk.Tk):
         canvas.bind('<Configure>', lambda e: self._settings_canvas_resize(canvas, window_id, e))
 
         def update_scrollbar(_e=None):
-            canvas.update_idletasks()
-            bbox = canvas.bbox('all')
-            needed = bool(bbox and bbox[3] > canvas.winfo_height() + 2)
-            if needed:
-                scrollbar.pack(side='right', fill='y')
-            else:
-                scrollbar.pack_forget()
-                canvas.yview_moveto(0)
+            key = f'settings_scrollbar_{id(canvas)}'
+            def apply_scrollbar_state():
+                if not canvas.winfo_exists() or not inner.winfo_exists():
+                    return
+                bbox = canvas.bbox('all')
+                needed = bool(bbox and bbox[3] > canvas.winfo_height() + 2)
+                visible = bool(getattr(canvas, '_scrollbar_visible', False))
+                if needed == visible:
+                    return
+                canvas._scrollbar_visible = needed
+                if needed:
+                    scrollbar.pack(side='right', fill='y')
+                else:
+                    scrollbar.pack_forget()
+                    canvas.yview_moveto(0)
+            self._schedule_ui(key, 90, apply_scrollbar_state)
         inner.bind('<Configure>', update_scrollbar, add='+')
         canvas.bind('<Configure>', update_scrollbar, add='+')
         middle = {'y': None}
@@ -10293,10 +12371,18 @@ class App(tk.Tk):
         db.pack(fill='x', pady=6)
         ttk.Button(db, text='Choose DB File…', command=self._choose_db).pack(anchor='w', padx=8, pady=4)
         ttk.Button(db, text='Choose Shard Root…', command=self._choose_shard_root).pack(anchor='w', padx=8, pady=4)
-        settings_box = ttk.LabelFrame(tab, style='RoUtils.Settings.TLabelframe', text='Settings Backup')
+        settings_box = ttk.LabelFrame(tab, style='RoUtils.Settings.TLabelframe', text='Config Backup')
         settings_box.pack(fill='x', pady=6)
-        ttk.Button(settings_box, text='Export Settings…', command=self._export_settings).pack(side='left', padx=8, pady=8)
-        ttk.Button(settings_box, text='Import Settings…', command=self._import_settings).pack(side='left', padx=(0, 8), pady=8)
+        self.include_cconfigs = tk.BooleanVar(value=bool(self.settings.get('include_cconfigs', False)))
+        self.include_cache_dumps = tk.BooleanVar(value=bool(self.settings.get('include_cache_dumps', False)))
+        self.include_cconfigs.trace_add('write', lambda *_: self._save_settings())
+        self.include_cache_dumps.trace_add('write', lambda *_: self._save_settings())
+        ttk.Checkbutton(settings_box, style='RoUtils.Settings.TCheckbutton', text='Include CConfigs', variable=self.include_cconfigs).pack(anchor='w', padx=8, pady=(7, 2))
+        ttk.Checkbutton(settings_box, style='RoUtils.Settings.TCheckbutton', text='Include Cache Dumps', variable=self.include_cache_dumps).pack(anchor='w', padx=8, pady=2)
+        backup_buttons = ttk.Frame(settings_box)
+        backup_buttons.pack(fill='x', padx=8, pady=8)
+        ttk.Button(backup_buttons, text='Export Config…', command=self._export_settings).pack(side='left')
+        ttk.Button(backup_buttons, text='Import Config…', command=self._import_settings).pack(side='left', padx=(7, 0))
 
     def _save_dpi_setting_only(self):
         try:
@@ -10308,35 +12394,102 @@ class App(tk.Tk):
 
     def _export_settings(self):
         self._save_settings()
-        path = filedialog.asksaveasfilename(parent=self, title='Export RoUtils Settings', defaultextension='.json', filetypes=[('JSON', '*.json')])
+        path = filedialog.asksaveasfilename(parent=self, title='Export RoUtils Config', defaultextension='.rconfig', filetypes=[('RoUtils Config', '*.rconfig'), ('ZIP archive', '*.zip'), ('JSON settings', '*.json')])
         if not path:
             return
-        with open(path, 'w', encoding='utf-8') as f:
-            json.dump(self.settings, f, ensure_ascii=False, indent=2)
-        self._console_log(f'Exported settings to {path}')
+        try:
+            if path.lower().endswith('.json'):
+                with open(path, 'w', encoding='utf-8') as f:
+                    json.dump(self.settings, f, ensure_ascii=False, indent=2)
+            else:
+                with zipfile.ZipFile(path, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
+                    archive.writestr('settings.json', json.dumps(self.settings, ensure_ascii=False, indent=2))
+                    include_cconfigs = bool(self.include_cconfigs.get())
+                    include_dumps = bool(self.include_cache_dumps.get())
+                    for root, dirs, files in os.walk(DATA_DIR):
+                        relative_root = os.path.relpath(root, DATA_DIR).replace('\\', '/')
+                        dirs[:] = [name for name in dirs if name != 'errors' and (name != 'cconfigs' or include_cconfigs) and (name != 'Dump' or include_dumps)]
+                        for filename in files:
+                            full = os.path.join(root, filename)
+                            relative = os.path.relpath(full, DATA_DIR).replace('\\', '/')
+                            if relative == 'routils_settings.json' or relative.startswith('errors/'):
+                                continue
+                            if relative.startswith('cconfigs/') and not include_cconfigs:
+                                continue
+                            if (relative == 'Dump' or relative.startswith('Dump/')) and not include_dumps:
+                                continue
+                            archive.write(full, relative)
+            self._console_log(f'Exported RoUtils config to {path}')
+            messagebox.showinfo('Config Backup', 'Config exported successfully.', parent=self)
+        except Exception as exc:
+            messagebox.showerror('Config Backup', f'Could not export config:\n{exc}', parent=self)
 
     def _import_settings(self):
-        path = filedialog.askopenfilename(parent=self, title='Import RoUtils Settings', filetypes=[('JSON', '*.json')])
+        path = filedialog.askopenfilename(parent=self, title='Import RoUtils Config', filetypes=[('RoUtils Config', '*.rconfig *.zip'), ('ZIP archive', '*.zip'), ('JSON settings', '*.json'), ('All files', '*.*')])
         if not path:
             return
-        with open(path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        if not isinstance(data, dict):
-            raise ValueError('Settings file must contain a JSON object.')
-        self.settings.update(data)
-        for name in ('autoscroll', 'hide_tickets', 'stay_on_top', 'show_lines', 'streamer_mode', 'autostart_watch', 'auto_update', 'launch_on_tray', 'launch_on_startup', 'hide_to_tray_on_close'):
-            var = getattr(self, name, None)
-            if var is not None and name in data:
-                var.set(bool(data[name]))
-        if 'fps_limit' in data:
-            self.fps_limit.set(max(0, min(240, int(data['fps_limit']))))
-        if 'theme' in data and hasattr(self, 'theme_var'):
-            self.theme_var.set(str(data['theme']))
-            self._apply_theme()
-        self._save_settings()
-        self._console_log(f'Imported settings from {path}')
+        try:
+            if path.lower().endswith(('.rconfig', '.zip')):
+                with zipfile.ZipFile(path, 'r') as archive:
+                    names = set(archive.namelist())
+                    settings_name = 'settings.json' if 'settings.json' in names else 'config.json' if 'config.json' in names else None
+                    if not settings_name:
+                        raise ValueError('This archive does not contain RoUtils settings.')
+                    data = json.loads(archive.read(settings_name).decode('utf-8'))
+                    if not isinstance(data, dict):
+                        raise ValueError('Settings file must contain a JSON object.')
+                    self.settings.update(data)
+                    for name in ('fflags.json', 'cconfigs/routils_fflags.json'):
+                        if name in names:
+                            target = self._fflag_path()
+                            with open(target, 'wb') as f:
+                                f.write(archive.read(name))
+                            break
+                    for name in names:
+                        normalized = name.replace('\\', '/').lstrip('/')
+                        if normalized.startswith('../') or '/..' in normalized or ':' in normalized:
+                            continue
+                        if normalized.startswith(('cconfigs/', 'Dump/', 'jsons/', 'plugins/')) or normalized in {'history.json', 'console_history.json', 'routils_cconfigs_state.json', 'routils_fflags.json'}:
+                            target = os.path.abspath(os.path.join(DATA_DIR, normalized))
+                            if os.path.commonpath((os.path.abspath(DATA_DIR), target)) != os.path.abspath(DATA_DIR):
+                                continue
+                            os.makedirs(os.path.dirname(target), exist_ok=True)
+                            with open(target, 'wb') as f:
+                                f.write(archive.read(name))
+            else:
+                with open(path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                if not isinstance(data, dict):
+                    raise ValueError('Settings file must contain a JSON object.')
+                self.settings.update(data)
+            for name in ('autoscroll', 'hide_tickets', 'stay_on_top', 'show_lines', 'streamer_mode', 'autostart_watch', 'auto_update', 'launch_on_tray', 'launch_on_startup', 'hide_to_tray_on_close'):
+                var = getattr(self, name, None)
+                if var is not None and name in self.settings:
+                    var.set(bool(self.settings[name]))
+            if hasattr(self, 'include_cconfigs'):
+                self.include_cconfigs.set(bool(self.settings.get('include_cconfigs', False)))
+                self.include_cache_dumps.set(bool(self.settings.get('include_cache_dumps', False)))
+            if 'fps_limit' in self.settings:
+                self.fps_limit.set(max(0, min(240, int(self.settings['fps_limit']))))
+            if 'theme' in self.settings and hasattr(self, 'theme_var'):
+                self.theme_var.set(str(self.settings['theme']))
+                self._apply_theme()
+            self._load_fflag_flags()
+            if hasattr(self, 'fflag_tree'):
+                self._refresh_fflag_list()
+            self._save_settings()
+            self._console_log(f'Imported RoUtils config from {path}')
+            messagebox.showinfo('Config Backup', 'Config imported successfully. Restart RoUtils to apply every saved setting.', parent=self)
+        except Exception as exc:
+            messagebox.showerror('Config Backup', f'Could not import config:\n{exc}', parent=self)
 
     def _console_log(self, message):
+        if threading.get_ident() != getattr(self, '_ui_thread_id', threading.get_ident()):
+            try:
+                self.after(0, self._console_log, str(message))
+            except Exception:
+                pass
+            return
         lines = str(message).replace('\r', '').splitlines() or ['']
         history = getattr(self, '_console_history', [])
         history.extend(lines)
@@ -10376,6 +12529,12 @@ class App(tk.Tk):
 
     def _save_console_history(self):
         self._console_save_job = None
+        if getattr(self, '_resize_active', False):
+            try:
+                self._console_save_job = self.after(500, self._save_console_history)
+            except Exception:
+                self._console_save_job = None
+            return
         try:
             os.makedirs(os.path.dirname(CONSOLE_HISTORY_PATH), exist_ok=True)
             temp = CONSOLE_HISTORY_PATH + '.tmp'
@@ -10391,7 +12550,7 @@ class App(tk.Tk):
             return
         kind, payload = self._console_undo_stack.pop()
         if kind == 'fflags':
-            self.fastflag_store = payload
+            self.fflag_flags = payload
             self._save_fflag_flags()
             self._refresh_fflag_list()
             self._console_log('Undid the last FFlag change.')
@@ -10472,7 +12631,7 @@ class App(tk.Tk):
             command = args[0].lower()
             values = args[1:]
             if command == 'help':
-                self._console_log('Commands:\n  cache "blob file path" "hash"  Apply a blob file to Roblox.\n  cache delete "hash"  Delete one cache by hash.\n  cache list [filter]  List visible caches.\n  cache search [text]  Search loaded caches by name, hash or type.\n  fflag "name" "value"  Add and apply one FastFlag.\n  fflag delete "name"  Remove one FastFlag.\n  fflag clear  Remove all saved FastFlags.\n  fflag list  List saved FastFlags.\n  fflag apply  Inject all saved FastFlags into Roblox.\n  fflag unapply  Restore the original FastFlag values.\n  fflag defaults  Open Default FFlag Values.\n  fflag latest  Open Latest FFlag List.\n  undo  Undo the last reversible console change.\n  history  Show saved console history from console_history.json.\n  config "name/prefix"  Apply a saved CConfig.\n  config save "name"  Save the current Roblox database as a CConfig.\n  config list  List saved CConfigs.\n  config delete "name/prefix"  Delete one saved CConfig.\n  modif meshtoobj "mesh file path"  Convert that mesh file to OBJ.\n  modif "head" "replacement mesh path" ["RobloxPlayerBeta.exe path"]  Replace R6 body mesh (head, torso, left arm, right arm, left leg, right leg).\n  join "place id"  Open a Roblox subplace.\n  viewserver "deeplink"  Load a server deeplink.\n  information  Open the live Client information.\n  theme "theme name"  Apply a saved theme.\n  theme list  List available themes.\n  watch start|stop  Start or stop cache watching.\n  fps "number"  Set and apply the FPS limit.\n  export all  Open the full cache export tool.\n  backup create "name"  Back up settings and File/Hash Saves.\n  backup restore "zip path"  Restore a RoUtils backup ZIP.\n  ai  Open RoUtils AI.\n  open "tab name"  Open a RoUtils tab.\n  status  Show Roblox PID, watcher and database status.\n  clear  Clear the Console.')
+                self._console_log('Commands:\n  cache "blob file path" "hash"  Apply a blob file to Roblox.\n  cache delete "hash"  Delete one cache by hash.\n  cache list [filter]  List visible caches.\n  cache search [text]  Search loaded caches by name, hash or type.\n  fflag "name" "value"  Add and apply one FastFlag.\n  fflag delete "name"  Remove one FastFlag.\n  fflag clear  Remove all saved FastFlags.\n  fflag list  List saved FastFlags.\n  fflag apply  Inject all saved FastFlags into Roblox.\n  fflag unapply  Restore the original FastFlag values.\n  fflag defaults  Open Default FFlag Values.\n  fflag latest  Open Latest FFlag List.\n  undo  Undo the last reversible console change.\n  history  Show saved console history from console_history.json.\n  config "name/prefix"  Apply a saved CConfig.\n  config save "name"  Save the current Roblox database as a CConfig.\n  config list  List saved CConfigs.\n  config delete "name/prefix"  Delete one saved CConfig.\n  modif meshtoobj "mesh file path"  Convert that mesh file to OBJ.\n  modif "head" "replacement mesh path" ["RobloxPlayerBeta.exe path"]  Replace R6 body mesh (head, torso, left arm, right arm, left leg, right leg).\n  join "place id"  Open a Roblox subplace.\n  viewserver "deeplink"  Load a server deeplink.\n  information  Open the live Client information.\n  theme "theme name"  Apply a saved theme.\n  theme list  List available themes.\n  watch start|stop  Start or stop cache watching.\n  fps "number"  Set and apply the FPS limit.\n  export all  Dump all caches; progress is shown in Console.\n  dump-folder  Open the folder where dumped caches are saved.\n  backup create "name"  Back up settings and File/Hash Saves.\n  backup restore "zip path"  Restore a RoUtils backup ZIP.\n  ai  Open RoUtils AI.\n  open "tab name"  Open a RoUtils tab.\n  status  Show Roblox PID, watcher and database status.\n  clear  Clear the Console.')
             elif command == 'cache' and len(values) >= 2 and (values[0].lower() not in ('delete', 'list', 'clear', 'search')):
                 self._console_apply_cache(values[0], values[1])
             elif command == 'cache' and values and (values[0].lower() == 'delete') and (len(values) >= 2):
@@ -10482,20 +12641,20 @@ class App(tk.Tk):
             elif command == 'cache' and values and (values[0].lower() == 'search'):
                 self._console_cache_search(' '.join(values[1:]))
             elif command == 'fflag' and len(values) >= 2 and (values[0].lower() not in ('delete', 'list', 'clear')):
-                self._console_undo_stack.append(('fflags', json.loads(json.dumps(self.fastflag_store))))
+                self._console_undo_stack.append(('fflags', json.loads(json.dumps(self.fflag_flags))))
                 name, value = (fflag_strip_prefix(values[0]), values[1])
-                self.fastflag_store = [x for x in self.fastflag_store if fflag_strip_prefix(x.get('name', '')).lower() != name.lower()]
-                self.fastflag_store.append({'name': name, 'value': value, 'type': fflag_infer_type(value)})
+                self.fflag_flags = [x for x in self.fflag_flags if fflag_strip_prefix(x.get('name', '')).lower() != name.lower()]
+                self.fflag_flags.append({'name': name, 'value': value, 'type': fflag_infer_type(value)})
                 self._save_fflag_flags()
                 self._refresh_fflag_list()
                 self._fflag_apply(silent=True)
                 self._console_log(f'Applied FFlag {name} = {value}')
             elif command == 'fflag' and values and (values[0].lower() == 'delete') and (len(values) >= 2):
-                self._console_undo_stack.append(('fflags', json.loads(json.dumps(self.fastflag_store))))
+                self._console_undo_stack.append(('fflags', json.loads(json.dumps(self.fflag_flags))))
                 self._console_delete_fflag(values[1])
             elif command == 'fflag' and values and (values[0].lower() == 'clear'):
-                self._console_undo_stack.append(('fflags', json.loads(json.dumps(self.fastflag_store))))
-                self.fastflag_store = []
+                self._console_undo_stack.append(('fflags', json.loads(json.dumps(self.fflag_flags))))
+                self.fflag_flags = []
                 self._save_fflag_flags()
                 self._refresh_fflag_list()
                 self._fflag_apply(silent=True)
@@ -10559,9 +12718,21 @@ class App(tk.Tk):
                 self._sync_fps_flag_to_manager()
                 self._apply_fps_flag(silent=True)
                 self._console_log(f"FPS limit set to {(fps if fps else 'uncapped')}")
+            elif command == 'dump-folder':
+                dump_root = getattr(self, '_last_dump_folder', os.path.join(DATA_DIR, 'Dump'))
+                os.makedirs(dump_root, exist_ok=True)
+                try:
+                    if hasattr(os, 'startfile'):
+                        os.startfile(dump_root)
+                    else:
+                        import webbrowser
+                        webbrowser.open('file://' + os.path.abspath(dump_root))
+                    self._console_log(f'Opened dump folder: {os.path.abspath(dump_root)}')
+                except Exception as e:
+                    raise RuntimeError(f'Could not open dump folder: {e}')
             elif command == 'export' and values and (values[0].lower() == 'all'):
                 self._dump_all_caches()
-                self._console_log('Opened full cache export tool')
+                self._console_log('Started full cache dump; progress is shown in Console.')
             elif command == 'backup' and values and (values[0].lower() == 'create'):
                 self._console_create_backup(' '.join(values[1:]) if len(values) > 1 else 'backup')
             elif command == 'backup' and values and (values[0].lower() == 'restore') and (len(values) >= 2):
@@ -10574,7 +12745,7 @@ class App(tk.Tk):
                     raise ValueError(f'Tab not found: {tab_name}')
                 self._console_log(f'Opened tab {tab_name}')
             elif command == 'status':
-                self._console_log(f"Roblox PID: {self.fastflag_process_id or 'not attached'}\nCache watcher: {('running' if self.watching else 'stopped')}\nDatabase: {self.db_path}")
+                self._console_log(f"Roblox PID: {self.fflag_pid or 'not attached'}\nCache watcher: {('running' if self.watching else 'stopped')}\nDatabase: {self.db_path}")
             elif command == 'clear':
                 self._console_history = []
                 self._save_console_history()
@@ -10659,17 +12830,17 @@ class App(tk.Tk):
 
     def _console_delete_fflag(self, query):
         query = fflag_strip_prefix(str(query)).lower()
-        matches = [x for x in self.fastflag_store if fflag_strip_prefix(x.get('name', '')).lower() == query]
+        matches = [x for x in self.fflag_flags if fflag_strip_prefix(x.get('name', '')).lower() == query]
         if len(matches) != 1:
             raise ValueError('FFlag was not found or is ambiguous.')
-        self.fastflag_store = [x for x in self.fastflag_store if fflag_strip_prefix(x.get('name', '')).lower() != query]
+        self.fflag_flags = [x for x in self.fflag_flags if fflag_strip_prefix(x.get('name', '')).lower() != query]
         self._save_fflag_flags()
         self._refresh_fflag_list()
         self._fflag_apply(silent=True)
         self._console_log(f'Deleted FFlag {query}')
 
     def _console_list_fflags(self):
-        rows = [f"{x.get('name', '')} = {x.get('value', '')}" for x in self.fastflag_store]
+        rows = [f"{x.get('name', '')} = {x.get('value', '')}" for x in self.fflag_flags]
         self._console_log('FFlags:\n' + ('\n'.join(rows) if rows else '(none)'))
 
     def _console_list_configs(self):
@@ -10780,453 +12951,289 @@ class App(tk.Tk):
     def _ai_canvas_resize(self, canvas, window_id, event):
         width = int(getattr(event, 'width', 0) or 0)
         key = f'_ai_canvas_width_{id(canvas)}'
-        if width != getattr(self, key, -1):
-            setattr(self, key, width)
+        self._apply_or_defer_canvas_window_width(canvas, window_id, width, key)
+
+    def _apply_or_defer_canvas_window_width(self, canvas, window_id, width, state_key):
+        try:
+            width = max(1, int(width))
+            if not canvas.winfo_exists():
+                return
+            if getattr(self, '_resize_active', False):
+                self._deferred_canvas_widths[id(canvas)] = (canvas, window_id, width, state_key)
+                return
+            if width == getattr(self, state_key, -1):
+                return
             canvas.itemconfigure(window_id, width=width)
+            setattr(self, state_key, width)
+        except Exception:
+            pass
 
     def _open_ai_chat(self):
-        existing = getattr(self, '_ai_chat_window', None)
-        if existing is not None:
-            try:
-                if existing.winfo_exists():
-                    existing.destroy()
-            except tk.TclError:
-                pass
-            self._ai_chat_window = None
         self._console_log('Opened RoUtils AI')
         key = self.gemini_api_key.get().strip()
         if not key:
             messagebox.showwarning('Gemini AI', "You didn't add Gemini API Key.\nAdd API Key on Settings Tab.", parent=self)
             return
-
         win = tk.Toplevel(self)
-        self._ai_chat_window = win
-        win.title('RoUtils AI • Updated')
-        screen_w, screen_h = win.winfo_screenwidth(), win.winfo_screenheight()
-        initial_w = min(1100, max(760, int(screen_w * 0.72)))
-        initial_h = min(850, max(580, int(screen_h * 0.76)))
-        win.geometry(f'{initial_w}x{initial_h}')
-        win.minsize(760, 560)
-        win.transient(None)
-        win.resizable(True, True)
-        win.attributes('-topmost', False)
-        win.grab_release()
+        win.title('RoUtils AI')
+        win.geometry('760x680')
+        win.minsize(600, 520)
+        win.transient(self)
         theme_toplevel(win)
-
-        root = ttk.Frame(win, padding=0)
-        root.pack(fill='both', expand=True)
-        root.rowconfigure(1, weight=1)
-        root.columnconfigure(0, weight=1)
-
-        header = ttk.Frame(root, padding=(16, 12))
-        header.grid(row=0, column=0, sticky='ew')
+        header = ttk.Frame(win, padding=(16, 12))
+        header.pack(fill='x')
         ttk.Label(header, text='RoUtils AI', font=('Segoe UI Semibold', 16)).pack(side='left')
         ttk.Label(header, text='Powered by Gemini', foreground='#9aa0a6').pack(side='left', padx=8)
-        model_names = {
-            'Gemini 3.8 Flash': 'gemini-3.8-flash',
-            'Gemini 3.7 Flash': 'gemini-3.7-flash',
-            'Gemini 3.6 Flash': 'gemini-3.6-flash',
-            'Gemini 3.5 Flash': 'gemini-3.5-flash',
-            'Gemini 3.5 Flash-Lite': 'gemini-3.5-flash-lite',
-            'Gemini 3.1 Flash-Lite': 'gemini-3.1-flash-lite',
-            'Gemini 3.1 Pro': 'gemini-3.1-pro-preview',
-            'Gemini 2.5 Pro': 'gemini-2.5-pro',
-            'Gemini 2.5 Flash': 'gemini-2.5-flash',
-            'Gemini 2.5 Flash-Lite': 'gemini-2.5-flash-lite'
-        }
+        model_names = {'Gemini 3.8 Flash': 'gemini-3.8-flash', 'Gemini 3.7 Flash': 'gemini-3.7-flash', 'Gemini 3.6 Flash': 'gemini-3.6-flash', 'Gemini 3.5 Flash': 'gemini-3.5-flash', 'Gemini 3.5 Flash-Lite': 'gemini-3.5-flash-lite', 'Gemini 3.1 Flash-Lite': 'gemini-3.1-flash-lite', 'Gemini 3.1 Pro': 'gemini-3.1-pro-preview', 'Gemini 2.5 Pro': 'gemini-2.5-pro', 'Gemini 2.5 Flash': 'gemini-2.5-flash', 'Gemini 2.5 Flash-Lite': 'gemini-2.5-flash-lite'}
         model_var = tk.StringVar(value='Gemini 3.5 Flash-Lite')
         model_box = ttk.Combobox(header, textvariable=model_var, values=list(model_names.keys()), state='readonly', width=24)
         model_box.pack(side='right')
         ttk.Label(header, text='Model', foreground='#9aa0a6').pack(side='right', padx=(0, 8))
-
-        body = ttk.Frame(root)
-        body.grid(row=1, column=0, sticky='nsew', padx=12, pady=(0, 8))
+        body = ttk.Frame(win)
+        body.pack(fill='both', expand=True, padx=12, pady=(0, 8))
         body.rowconfigure(0, weight=1)
         body.columnconfigure(0, weight=1)
-        body.columnconfigure(1, weight=0, minsize=230)
-
-        chat_area = tk.Frame(body, bg=_CURRENT_PALETTE['bg_dark'])
-        chat_area.grid(row=0, column=0, sticky='nsew')
-        chat_area.rowconfigure(0, weight=1)
-        chat_area.columnconfigure(0, weight=1)
-        canvas = tk.Canvas(chat_area, bg=_CURRENT_PALETTE['bg_dark'], highlightthickness=0, bd=0)
-        scroll = ttk.Scrollbar(chat_area, orient='vertical', command=canvas.yview)
-        messages = tk.Frame(canvas, bg=_CURRENT_PALETTE['bg_dark'])
-        messages.columnconfigure(0, weight=1)
+        canvas = tk.Canvas(body, bg=_CURRENT_PALETTE['bg_dark'], highlightthickness=0, bd=0)
+        scroll = ttk.Scrollbar(body, orient='vertical', command=canvas.yview)
+        messages = ttk.Frame(canvas)
         canvas.configure(yscrollcommand=scroll.set)
         canvas.grid(row=0, column=0, sticky='nsew')
         scroll.grid(row=0, column=1, sticky='ns')
         window_id = canvas.create_window((0, 0), window=messages, anchor='nw')
+        messages.bind('<Configure>', lambda _e: self._schedule_ui(f'ai_region_{id(canvas)}', 30, lambda: canvas.configure(scrollregion=canvas.bbox('all'))))
+        canvas.bind('<Configure>', lambda e: self._ai_canvas_resize(canvas, window_id, e))
+        middle_scroll = {'y': None, 'start': None}
 
-        def refresh_scrollregion(_event=None):
-            try:
-                canvas.configure(scrollregion=canvas.bbox('all'))
-            except tk.TclError:
-                pass
-
-        def refresh_width(event=None):
-            try:
-                canvas.itemconfigure(window_id, width=max(1, canvas.winfo_width()))
-                for item in messages.winfo_children():
-                    item.event_generate('<Configure>')
-            except tk.TclError:
-                pass
-
-        messages.bind('<Configure>', refresh_scrollregion)
-        canvas.bind('<Configure>', refresh_width)
-
-        def wheel(event):
-            if getattr(event, 'delta', 0):
-                canvas.yview_scroll(-int(event.delta / 120), 'units')
+        def middle_press(event):
+            middle_scroll['y'] = event.y
+            middle_scroll['start'] = canvas.yview()[0]
+            canvas.configure(cursor='fleur')
             return 'break'
 
-        canvas.bind('<MouseWheel>', wheel, add='+')
-        messages.bind('<MouseWheel>', wheel, add='+')
+        def middle_drag(event):
+            if middle_scroll['y'] is None:
+                return 'break'
+            first, last = canvas.yview()
+            span = max(last - first, 0.001)
+            height = max(canvas.winfo_height(), 1)
+            delta = (middle_scroll['y'] - event.y) / height
+            canvas.yview_moveto(max(0.0, min(1.0 - span, middle_scroll['start'] + delta)))
+            return 'break'
 
-        history_panel = tk.Frame(body, bg=_CURRENT_PALETTE['bg_medium'], width=230)
-        history_panel.grid(row=0, column=1, sticky='nsew', padx=(10, 0))
-        history_panel.grid_propagate(False)
-        history_panel.rowconfigure(1, weight=1)
-        history_panel.columnconfigure(0, weight=1)
-        history_top = tk.Frame(history_panel, bg=_CURRENT_PALETTE['bg_medium'])
-        history_top.grid(row=0, column=0, sticky='ew', padx=8, pady=8)
-        history_top.columnconfigure(0, weight=1)
-        tk.Label(history_top, text='Chat history', bg=_CURRENT_PALETTE['bg_medium'], fg=_CURRENT_PALETTE['fg'], font=('Segoe UI Semibold', 10)).grid(row=0, column=0, sticky='w')
-        history_canvas = tk.Canvas(history_panel, bg=_CURRENT_PALETTE['bg_dark'], highlightthickness=0, bd=0)
-        history_scroll = ttk.Scrollbar(history_panel, orient='vertical', command=history_canvas.yview)
-        history_list = tk.Frame(history_canvas, bg=_CURRENT_PALETTE['bg_dark'])
-        history_list.columnconfigure(0, weight=1)
-        history_window = history_canvas.create_window((0, 0), window=history_list, anchor='nw')
-        history_canvas.configure(yscrollcommand=history_scroll.set)
-        history_canvas.grid(row=1, column=0, sticky='nsew', padx=(8, 0), pady=(0, 8))
-        history_scroll.grid(row=1, column=1, sticky='ns', padx=(0, 8), pady=(0, 8))
-        history_list.bind('<Configure>', lambda _e: history_canvas.configure(scrollregion=history_canvas.bbox('all')))
-        history_canvas.bind('<Configure>', lambda e: history_canvas.itemconfigure(history_window, width=max(1, e.width)))
-        new_chat_btn = ttk.Button(history_top, text='+ New chat')
-        new_chat_btn.grid(row=1, column=0, sticky='ew', pady=(8, 0))
-
-        composer = ttk.Frame(root, padding=(12, 4, 12, 12))
-        composer.grid(row=2, column=0, sticky='ew')
-        composer.columnconfigure(0, weight=1)
-        input_box = tk.Text(composer, height=4, wrap='word', font=('Segoe UI', 10), bg=_CURRENT_PALETTE['bg_medium'], fg=_CURRENT_PALETTE['fg'], insertbackground='#ffffff', relief='flat', bd=0, padx=10, pady=8)
-        input_box.grid(row=0, column=0, sticky='ew', padx=(0, 8))
-        attached_files = []
-        attach_btn = ttk.Button(composer, text='+', width=3)
-        attach_btn.grid(row=0, column=1, sticky='se', padx=(0, 5))
-        send_btn = ttk.Button(composer, text='➤  Send', width=12)
-        send_btn.grid(row=0, column=2, sticky='se')
-
-        sessions = []
-        active = {'index': 0}
+        def middle_release(event):
+            middle_scroll['y'] = None
+            middle_scroll['start'] = None
+            canvas.configure(cursor='')
+            return 'break'
+        canvas.bind('<Button-2>', middle_press)
+        canvas.bind('<B2-Motion>', middle_drag)
+        canvas.bind('<ButtonRelease-2>', middle_release)
+        messages.bind('<Button-2>', middle_press)
+        messages.bind('<B2-Motion>', middle_drag)
+        messages.bind('<ButtonRelease-2>', middle_release)
+        history = []
         busy = {'value': False}
-        thinking_box = {'widget': None}
-        bubble_refs = []
-
-        def session_title(session):
-            title = str(session.get('title') or 'New chat').strip()
-            return title if title else 'New chat'
-
-        def refresh_history_list():
-            for child in history_list.winfo_children():
-                child.destroy()
-            for index, session in enumerate(sessions):
-                selected = index == active['index']
-                row_bg = '#164a9c' if selected else _CURRENT_PALETTE['bg_dark']
-                row = tk.Frame(history_list, bg=row_bg, padx=5, pady=4)
-                row.grid(row=index, column=0, sticky='ew', pady=(0, 4))
-                row.columnconfigure(0, weight=1)
-                title = tk.Label(row, text=('●  ' if selected else '   ') + session_title(session), bg=row_bg, fg='#ffffff', anchor='w', justify='left', font=('Segoe UI', 9), cursor='hand2')
-                title.grid(row=0, column=0, sticky='ew', padx=(4, 5))
-                rename_btn = ttk.Button(row, text='✎', width=3, command=lambda i=index: rename_session(i))
-                rename_btn.grid(row=0, column=1, sticky='e')
-                title.bind('<Button-1>', lambda _e, i=index: load_session(i) if not busy['value'] else None)
-                row.bind('<Button-1>', lambda _e, i=index: load_session(i) if not busy['value'] else None)
-
-        def clear_messages():
-            for child in messages.winfo_children():
-                child.destroy()
-            bubble_refs.clear()
-
-        def add_code(parent, code, language=''):
-            box = tk.Frame(parent, bg='#202124', highlightthickness=1, highlightbackground='#55575c')
-            box.pack(fill='x', padx=12, pady=(5, 8))
-            top = tk.Frame(box, bg='#292b2f')
-            top.pack(fill='x')
-            tk.Label(top, text=language or 'code', bg='#292b2f', fg='#aeb3ba', font=('Segoe UI', 8)).pack(side='left', padx=9, pady=5)
-            tk.Button(top, text='Copy', command=lambda: copy_code(code), bg='#3a3d42', fg='#eeeeee', activebackground='#484b51', activeforeground='#ffffff', relief='flat', bd=0, padx=9, pady=2, font=('Segoe UI Semibold', 8)).pack(side='right', padx=5, pady=4)
-            code_box = tk.Text(box, height=max(2, min(18, code.count('\n') + 2)), wrap='none', bg='#202124', fg='#eeeeee', insertbackground='#ffffff', relief='flat', bd=0, padx=10, pady=8, font=('Consolas', 9))
-            code_box.insert('1.0', code)
-            code_box.configure(state='disabled')
-            code_box.pack(fill='x')
 
         def copy_code(code):
             try:
                 win.clipboard_clear()
                 win.clipboard_append(code)
+                win.update_idletasks()
             except Exception:
                 pass
 
-        def add_message(text, role, persist=True):
-            if text is None:
-                return
-            text = str(text).replace('\r\n', '\n').replace('\r', '\n')
-            is_user = role == 'user'
-            outer = tk.Frame(messages, bg=_CURRENT_PALETTE['bg_dark'])
-            outer.pack(fill='x', pady=(5, 5), padx=8)
-            bubble_bg = _CURRENT_PALETTE['accent'] if is_user else '#f4f4f5'
-            bubble_fg = '#ffffff' if is_user else '#202124'
-            anchor = 'e' if is_user else 'w'
-            bubble = tk.Frame(outer, bg=bubble_bg, padx=12, pady=9)
-            bubble.pack(anchor=anchor, fill='x' if not is_user else None, padx=(70, 0) if is_user else (0, 70))
-            bubble.columnconfigure(0, weight=1)
-            text_box = tk.Text(bubble, wrap='word', height=1, width=72, bg=bubble_bg, fg=bubble_fg, insertbackground=bubble_fg, selectbackground=_CURRENT_PALETTE['accent'], relief='flat', bd=0, padx=0, pady=0, highlightthickness=0, font=('Segoe UI', 10), spacing1=2, spacing3=2)
-            text_box.grid(row=0, column=0, sticky='ew')
-            text_box.tag_configure('bold', font=('Segoe UI', 10, 'bold'))
-            text_box.tag_configure('italic', font=('Segoe UI', 10, 'italic'))
-            text_box.tag_configure('code', font=('Consolas', 9), background='#252526', foreground='#d4d4d4')
-            text_box.tag_configure('link', foreground='#4da3ff', underline=True)
-            text_box.tag_configure('heading', font=('Segoe UI Semibold', 11, 'bold'))
-            link_index = {'value': 0}
+        def add_code_block(parent, code, language=''):
+            box = tk.Frame(parent, bg='#202124', highlightthickness=1, highlightbackground='#55575c')
+            box.pack(fill='x', pady=(7, 5))
+            top = tk.Frame(box, bg='#292b2f', height=30)
+            top.pack(fill='x')
+            top.pack_propagate(False)
+            tk.Label(top, text=language or 'code', bg='#292b2f', fg='#aeb3ba', font=('Segoe UI', 8)).pack(side='left', padx=9)
+            tk.Button(top, text='Copy', command=lambda c=code: copy_code(c), bg='#3a3d42', fg='#eeeeee', activebackground='#484b51', activeforeground='#ffffff', relief='flat', bd=0, padx=9, pady=2, cursor='hand2', font=('Segoe UI Semibold', 8)).pack(side='right', padx=5, pady=4)
+            txt = tk.Text(box, height=max(2, min(14, code.count('\n') + 2)), wrap='none', bg='#202124', fg='#eeeeee', insertbackground='#ffffff', relief='flat', bd=0, padx=10, pady=8, font=('Consolas', 9))
+            txt.insert('1.0', code)
+            txt.configure(state='disabled')
+            txt.pack(fill='x')
 
-            def insert_formatted(value, code_mode=False):
-                if not value:
-                    return
-                if code_mode:
-                    text_box.insert('end', value, 'code')
-                    return
-                pattern = re.compile(r'(\[[^\]\n]+\]\((?:https?://|www\.)[^)\s]+\)|https?://[^\s<>]+|^[ \t]*#{1,6}[ \t]+[^\n]+$|\*\*[^*\n]+\*\*|`[^`\n]+`|(?<!\*)\*[^*\n]+\*)', re.M)
-                cursor = 0
-                for match in pattern.finditer(value):
-                    if match.start() > cursor:
-                        text_box.insert('end', value[cursor:match.start()])
-                    token = match.group(0)
-                    if re.match(r'^[ \t]*#{1,6}[ \t]+', token):
-                        heading_text = re.sub(r'^[ \t]*#{1,6}[ \t]+', '', token).strip()
-                        text_box.insert('end', heading_text + ('\n' if token.endswith('\n') else ''), 'heading')
-                    elif token.startswith('[') and '](' in token:
-                        label, url = token[1:].split('](', 1)
-                        url = url.rstrip(')')
-                        if url.startswith('www.'):
-                            url = 'https://' + url
-                        tag = f'link_{link_index["value"]}'
-                        link_index['value'] += 1
-                        text_box.insert('end', label, ('link', tag))
-                        text_box.tag_bind(tag, '<Button-1>', lambda _event, target=url: webbrowser.open(target))
-                        text_box.tag_bind(tag, '<Enter>', lambda _event: text_box.configure(cursor='hand2'))
-                        text_box.tag_bind(tag, '<Leave>', lambda _event: text_box.configure(cursor='xterm'))
-                    elif token.startswith('http://') or token.startswith('https://'):
-                        url = token.rstrip('.,;:!?)]}')
-                        tag = f'link_{link_index["value"]}'
-                        link_index['value'] += 1
-                        text_box.insert('end', url, ('link', tag))
-                        text_box.tag_bind(tag, '<Button-1>', lambda _event, target=url: webbrowser.open(target))
-                        text_box.tag_bind(tag, '<Enter>', lambda _event: text_box.configure(cursor='hand2'))
-                        text_box.tag_bind(tag, '<Leave>', lambda _event: text_box.configure(cursor='xterm'))
-                    elif token.startswith('**'):
-                        text_box.insert('end', token[2:-2], 'bold')
-                    elif token.startswith('`'):
-                        text_box.insert('end', token[1:-1], 'code')
-                    else:
-                        text_box.insert('end', token[1:-1], 'italic')
-                    cursor = match.end()
-                if cursor < len(value):
-                    text_box.insert('end', value[cursor:])
+        def add_rich_line(parent, text, pady=1):
+            line = tk.Text(parent, height=1, wrap='word', bg='#4a4a4a', fg='#e6e6e6', relief='flat', bd=0, highlightthickness=0, padx=0, pady=0, font=('Segoe UI', 10), cursor='arrow')
+            line.pack(fill='x', pady=pady)
+            line.tag_configure('bold', font=('Segoe UI Semibold', 10), foreground='#ffffff')
+            line.tag_configure('inline', font=('Consolas', 9), foreground='#e6e6e6')
+            tokens = re.split('(\\*\\*.*?\\*\\*|__.*?__|`[^`]+`)', text)
+            for token in tokens:
+                if not token:
+                    continue
+                bold = token.startswith('**') and token.endswith('**') or (token.startswith('__') and token.endswith('__'))
+                inline = token.startswith('`') and token.endswith('`') and (len(token) >= 2)
+                value = token[2:-2] if bold else token[1:-1] if inline else token
+                line.insert('end', value, 'bold' if bold else 'inline' if inline else '')
 
-            code_pattern = re.compile(r'```(?:[\w+-]*)\n?(.*?)```', re.S)
-            cursor = 0
-            for match in code_pattern.finditer(text):
-                insert_formatted(re.sub(r'(?m)^[ \t]*(?:[-*]|\d+[.)])[ \t]+', '• ', text[cursor:match.start()]))
-                insert_formatted(match.group(1).rstrip('\n'), True)
-                if match.end() < len(text):
-                    text_box.insert('end', '\n')
-                cursor = match.end()
-            insert_formatted(re.sub(r'(?m)^[ \t]*(?:[-*]|\d+[.)])[ \t]+', '• ', text[cursor:]))
-            text_box.configure(state='disabled')
-
-            def fit_text(_event=None):
+            height_job = {'id': None}
+            def update_height(_event=None):
+                height_job['id'] = None
                 try:
-                    text_box.update_idletasks()
-                    line_count = int(text_box.count('1.0', 'end-1c', 'displaylines')[0]) if text_box.get('1.0', 'end-1c') else 1
-                    text_box.configure(height=max(1, min(line_count, 120)))
-                except (tk.TclError, TypeError, IndexError):
-                    pass
-
-            text_box.bind('<Configure>', fit_text)
-            text_box.after_idle(fit_text)
-            bubble_refs.append((bubble, text, is_user))
-            canvas.after_idle(lambda: canvas.yview_moveto(1.0))
-
-        def load_session(index):
-            if not (0 <= index < len(sessions)):
-                return
-            active['index'] = index
-            clear_messages()
-            for item in sessions[index].get('messages', []):
-                try:
-                    role = item.get('role', 'model')
-                    value = ''.join(str(part.get('text', '')) for part in item.get('parts', []))
-                    if value:
-                        add_message(value, role, persist=False)
+                    display_lines = line.count('1.0', 'end-1c', 'displaylines')[0]
+                    line.configure(height=max(1, display_lines))
                 except Exception:
                     pass
-            refresh_history_list()
+            def schedule_height(_event=None):
+                if height_job['id'] is not None:
+                    try:
+                        line.after_cancel(height_job['id'])
+                    except Exception:
+                        pass
+                height_job['id'] = line.after_idle(update_height)
+            line.configure(state='disabled')
+            line.bind('<Configure>', schedule_height)
+            line.bind('<Button-2>', lambda e: 'break')
+            line.after_idle(update_height)
+            return line
 
-        def new_chat():
-            if busy['value']:
-                return
-            sessions.append({'title': 'New chat', 'messages': []})
-            active['index'] = len(sessions) - 1
-            load_session(active['index'])
-            input_box.focus_set()
+        def add_markdown_message(parent, text):
+            lines = text.replace('\r\n', '\n').replace('\r', '\n').split('\n')
+            i = 0
+            while i < len(lines):
+                line = lines[i]
+                stripped = line.strip()
+                if stripped.startswith('```'):
+                    language = stripped[3:].strip()
+                    i += 1
+                    code = []
+                    while i < len(lines) and (not lines[i].strip().startswith('```')):
+                        code.append(lines[i])
+                        i += 1
+                    if i < len(lines):
+                        i += 1
+                    add_code_block(parent, '\n'.join(code), language)
+                    continue
+                heading = re.match('^#{1,6}\\s+(.+)$', stripped)
+                if heading:
+                    w = add_rich_line(parent, heading.group(1), pady=(5, 5))
+                    w.configure(state='normal')
+                    w.tag_configure('heading', font=('Segoe UI Semibold', 12 if stripped.startswith('# ') else 11), foreground='#ffffff')
+                    w.tag_add('heading', '1.0', 'end')
+                    w.configure(state='disabled')
+                    i += 1
+                    continue
+                if i + 1 < len(lines) and '|' in line and re.match('^\\s*\\|?\\s*:?-+:?\\s*(\\|\\s*:?-+:?\\s*)+\\|?\\s*$', lines[i + 1].strip()):
+                    rows = [[x.strip() for x in line.strip().strip('|').split('|')]]
+                    i += 2
+                    while i < len(lines) and '|' in lines[i] and lines[i].strip():
+                        rows.append([x.strip() for x in lines[i].strip().strip('|').split('|')])
+                        i += 1
+                    table = tk.Frame(parent, bg='#66686c')
+                    table.pack(fill='x', pady=6)
+                    cols = max((len(r) for r in rows))
+                    for r, row_data in enumerate(rows):
+                        for c in range(cols):
+                            value = row_data[c] if c < len(row_data) else ''
+                            tk.Label(table, text=value, bg='#55575b' if r == 0 else '#3f4145', fg='#ffffff', justify='left', anchor='w', padx=7, pady=5, wraplength=220, font=('Segoe UI Semibold' if r == 0 else 'Segoe UI', 9)).grid(row=r, column=c, sticky='nsew', padx=1, pady=1)
+                    for c in range(cols):
+                        table.grid_columnconfigure(c, weight=1)
+                    continue
+                if stripped:
+                    bullet = re.match('^[-*]\\s+(.+)$', stripped)
+                    if bullet:
+                        stripped = '• ' + bullet.group(1)
+                    add_rich_line(parent, stripped)
+                else:
+                    tk.Frame(parent, bg='#4a4a4a', height=5).pack(fill='x')
+                i += 1
 
-        def rename_session(index):
-            if busy['value'] or not (0 <= index < len(sessions)):
-                return
-            current = session_title(sessions[index])
-            new_title = simpledialog.askstring('Rename chat', 'Enter a new chat name:', initialvalue=current, parent=win)
-            if new_title is None:
-                return
-            new_title = ' '.join(str(new_title).split()).strip()[:80]
-            if not new_title:
-                return
-            sessions[index]['title'] = new_title
-            refresh_history_list()
-
-        def attach_file():
-            paths = filedialog.askopenfilenames(parent=win, title='Attach files')
-            if not paths:
-                return
-            attached_files.clear()
-            attached_files.extend(paths[:5])
-            attach_btn.configure(text=f'+ {len(attached_files)}')
-
-        def finish(answer, generated_title=None):
-            if not win.winfo_exists():
-                return
-            pending = thinking_box.get('widget')
-            if pending is not None:
-                try:
-                    pending.destroy()
-                except tk.TclError:
-                    pass
-                thinking_box['widget'] = None
-            current = sessions[active['index']]
-            current['messages'].append({'role': 'model', 'parts': [{'text': answer}]})
-            if generated_title and session_title(current) == 'New chat':
-                current['title'] = generated_title
-            add_message(answer, 'model')
-            refresh_history_list()
-            busy['value'] = False
-            send_btn.configure(state='normal')
-            attach_btn.configure(state='normal')
-            input_box.configure(state='normal')
-            input_box.focus_set()
+        def add_message(text, role):
+            row = tk.Frame(messages, bg=_CURRENT_PALETTE['bg_dark'])
+            row.pack(fill='x', padx=8, pady=6)
+            if role == 'user':
+                bubble = tk.Label(row, text=text, bg=_CURRENT_PALETTE['accent'], fg='#ffffff', padx=12, pady=8, justify='left', anchor='w', wraplength=500, font=('Segoe UI', 10))
+                bubble.pack(side='right', anchor='e')
+            else:
+                bubble = tk.Frame(row, bg='#4a4a4a', padx=12, pady=8)
+                bubble.pack(side='left', anchor='w')
+                add_markdown_message(bubble, text)
+            canvas.update_idletasks()
+            canvas.yview_moveto(1.0)
 
         def send():
             if busy['value']:
                 return
             text = input_box.get('1.0', 'end-1c').strip()
-            if attached_files:
-                file_context = []
-                for path in attached_files:
-                    try:
-                        size = os.path.getsize(path)
-                        if size <= 300000:
-                            content = Path(path).read_text(encoding='utf-8', errors='replace')
-                            file_context.append(f'\n[Attached file: {os.path.basename(path)}]\n{content[:120000]}')
-                        else:
-                            file_context.append(f'\n[Attached file: {os.path.basename(path)}; too large to read]')
-                    except Exception as exc:
-                        file_context.append(f'\n[Attached file: {os.path.basename(path)}; unavailable: {exc}]')
-                text += ''.join(file_context)
             if not text:
                 return
-            session = sessions[active['index']]
             input_box.delete('1.0', 'end')
             add_message(text, 'user')
-            session['messages'].append({'role': 'user', 'parts': [{'text': text}]})
-            refresh_history_list()
+            history.append({'role': 'user', 'parts': [{'text': text}]})
             busy['value'] = True
-            send_btn.configure(state='disabled')
-            attach_btn.configure(state='disabled')
-            input_box.configure(state='disabled')
-            add_message('Thinking ...', 'model')
-            try:
-                thinking_box['widget'] = messages.winfo_children()[-1]
-            except (IndexError, tk.TclError):
-                thinking_box['widget'] = None
-            selected_model = model_names.get(model_var.get(), 'gemini-3.5-flash-lite')
-            request_history = list(session['messages'])
+            send_btn.config(state='disabled')
+            input_box.config(state='disabled')
+            add_message('Thinking...', 'model')
 
             def worker():
                 try:
-                    system_text = "You are RoUtils AI, the built-in assistant for the RoUtils desktop application. Answer questions about RoUtils features, Cache, FFlags, Modifications, Configs, Themes, Console, Settings, plugins, macros, Roblox, Windows, programming, and general topics. Use the current conversation history. Do not explain how to apply a FastFlag unless the user explicitly asks how to apply it. If the user asks about RoUtils, use the known application context instead of claiming that you do not know the app. Be concise, accurate, practical, and honest about uncertainty. Use clean Markdown and preserve newlines in code and structured text."
-                    payload = {'systemInstruction': {'parts': [{'text': system_text}]}, 'contents': request_history}
-                    req = urllib.request.Request('https://generativelanguage.googleapis.com/v1beta/models/' + selected_model + ':generateContent', data=json.dumps(payload).encode('utf-8'), headers={'Content-Type': 'application/json', 'x-goog-api-key': key}, method='POST')
+                    payload = {'systemInstruction': {'parts': [{'text': 'You are RoUtils AI. Help the user with Roblox, FastFlags, RoUtils, Windows, programming, and general questions. Be concise, accurate, and practical. When the user asks for a FastFlag, explain how to apply it specifically in RoUtils: tell them to open the FFlags tab, click JSON Editor, paste the JSON you provide, click Add, and then click Apply. Always provide the exact FastFlag JSON when you know the correct flag and value. If you are unsure of a flag, say so rather than inventing one. Use Markdown headings, bold (**text**), inline code (`text`), lists, and fenced code blocks when useful.'}]}, 'contents': history}
+                    req = urllib.request.Request('https://generativelanguage.googleapis.com/v1beta/models/' + model_names[model_var.get()] + ':generateContent', data=json.dumps(payload).encode('utf-8'), headers={'Content-Type': 'application/json', 'x-goog-api-key': key}, method='POST')
                     with urllib.request.urlopen(req, timeout=60) as response:
                         result = json.loads(response.read().decode('utf-8'))
                     parts = result.get('candidates', [{}])[0].get('content', {}).get('parts', [])
-                    answer = ''.join(str(part.get('text', '')) for part in parts).strip()
+                    answer = ''.join((str(part.get('text', '')) for part in parts)).strip()
                     if not answer:
                         raise RuntimeError('Gemini returned an empty response.')
-                    generated = None
-                    if session_title(session) == 'New chat':
-                        first_request = session['messages'][0]['parts'][0].get('text', '')[:1200]
-                        try:
-                            title_payload = {'contents': [{'role': 'user', 'parts': [{'text': 'Create a short natural chat title in the same language as this request. Return only the title, without quotes, markdown, or explanation. Maximum 45 characters. Request: ' + first_request}]}]}
-                            title_req = urllib.request.Request('https://generativelanguage.googleapis.com/v1beta/models/' + selected_model + ':generateContent', data=json.dumps(title_payload).encode('utf-8'), headers={'Content-Type': 'application/json', 'x-goog-api-key': key}, method='POST')
-                            with urllib.request.urlopen(title_req, timeout=20) as title_response:
-                                title_result = json.loads(title_response.read().decode('utf-8'))
-                            title_parts = title_result.get('candidates', [{}])[0].get('content', {}).get('parts', [])
-                            generated = ''.join(str(part.get('text', '')) for part in title_parts).strip().replace('\n', ' ')
-                            generated = re.sub(r'["\'`]+', '', generated).strip(' .:;,-')[:45] or None
-                        except Exception:
-                            generated = None
-                    win.after(0, lambda result=answer, title=generated: finish(result, title))
-                except Exception as exc:
-                    win.after(0, lambda error=str(exc): finish('Error: ' + error))
-
+                    history.append({'role': 'model', 'parts': [{'text': answer}]})
+                    win.after(0, lambda: finish(answer))
+                except Exception as e:
+                    err_text = str(e)
+                    win.after(0, lambda err_text=err_text: finish(f'Error: {err_text}'))
             threading.Thread(target=worker, daemon=True).start()
 
-        new_chat_btn.configure(command=new_chat)
-        attach_btn.configure(command=attach_file)
-        send_btn.configure(command=send)
+        def finish(answer):
+            for child in reversed(messages.winfo_children()):
+                try:
+                    labels = [x for x in child.winfo_children() if isinstance(x, tk.Label)]
+                    if labels and labels[0].cget('text') == 'Thinking...':
+                        child.destroy()
+                        break
+                except Exception:
+                    pass
+            add_message(answer, 'model')
+            busy['value'] = False
+            send_btn.config(state='normal')
+            input_box.config(state='normal')
+            input_box.focus_set()
+        composer = ttk.Frame(win, padding=(12, 4, 12, 12))
+        composer.pack(fill='x')
+        composer.columnconfigure(0, weight=1)
+        input_box = tk.Text(composer, height=4, wrap='word', font=('Segoe UI', 10), bg=_CURRENT_PALETTE['bg_medium'], fg=_CURRENT_PALETTE['fg'], insertbackground='#ffffff', relief='flat', bd=0, padx=10, pady=8)
+        input_box.grid(row=0, column=0, sticky='ew', padx=(0, 8))
+        send_btn = ttk.Button(composer, text='Send', command=send, width=10)
+        send_btn.grid(row=0, column=1, sticky='se')
         input_box.bind('<Control-Return>', lambda _e: (send(), 'break')[1])
-        sessions[:] = [{'title': 'New chat', 'messages': []}]
-        active['index'] = 0
-        refresh_history_list()
-        load_session(active['index'])
+        add_message("Hi! I'm RoUtils AI. How can I help?", 'model')
         input_box.focus_set()
-
-        def close_ai_chat():
-            try:
-                win.destroy()
-            except tk.TclError:
-                pass
-            self._ai_chat_window = None
-
-        win.protocol('WM_DELETE_WINDOW', close_ai_chat)
 
     def _build_viewer_widgets(self):
         top = ttk.Frame(self.viewer_root, padding=(8, 6))
         top.pack(fill='x')
         self._cache_top = top
-        ttk.Checkbutton(top, style='TCheckbutton', text='Auto-scroll', variable=self.autoscroll).grid(row=0, column=0, sticky='w')
-        ttk.Checkbutton(top, style='TCheckbutton', text='Hide tickets', variable=self.hide_tickets, command=self._apply_filter).grid(row=0, column=1, sticky='w', padx=(4, 0))
-        ttk.Checkbutton(top, style='TCheckbutton', text='Stay on top', variable=self.stay_on_top, command=self._apply_stay_on_top).grid(row=0, column=2, sticky='w', padx=(4, 0))
-        ttk.Checkbutton(top, style='TCheckbutton', text='Show lines', variable=self.show_lines, command=self._apply_show_lines).grid(row=0, column=3, sticky='w', padx=(4, 0))
+        self._cache_toolbar_toggles = [
+            ttk.Checkbutton(top, style='TCheckbutton', text='Auto-scroll', variable=self.autoscroll),
+            ttk.Checkbutton(top, style='TCheckbutton', text='Hide tickets', variable=self.hide_tickets, command=self._apply_filter),
+            ttk.Checkbutton(top, style='TCheckbutton', text='Stay on top', variable=self.stay_on_top, command=self._apply_stay_on_top),
+            ttk.Checkbutton(top, style='TCheckbutton', text='Show lines', variable=self.show_lines, command=self._apply_show_lines),
+        ]
+        for i, widget in enumerate(self._cache_toolbar_toggles):
+            widget.grid(row=0, column=i, sticky='w', padx=(0 if i == 0 else 4, 0))
         self.btn_clear = ttk.Button(top, text='Clear rbx-storage', command=self._clear_storage_now)
         self.btn_clear.grid(row=0, column=5, sticky='e', padx=(0, 6))
         self.btn_delete_type = ttk.Button(top, text='Delete Cache Type', command=self._open_delete_cache_type)
         self.btn_delete_type.grid(row=0, column=6, sticky='e', padx=(0, 6))
         self.toggle_btn = ttk.Button(top, text='Start Watching', command=self._toggle_watch)
         self.toggle_btn.grid(row=0, column=7, sticky='e', padx=(0, 6))
+        self._watch_loading_label = ttk.Label(top, text='', foreground='#f2c94c')
+        self._watch_loading_label.grid(row=0, column=9, sticky='w', padx=(4, 0))
         self.btn_dump = ttk.Button(top, text='Dump Caches', command=self._dump_all_caches)
         self.btn_dump.grid(row=0, column=8, sticky='e')
-        self._cache_db_label = ttk.Label(top, text='DB:')
-        self._cache_db_label.grid(row=1, column=0, sticky='w', pady=(4, 0))
-        self.db_label = ttk.Label(top, text=self.db_path, width=50)
-        self.db_label.grid(row=1, column=1, columnspan=6, sticky='ew', padx=(4, 12), pady=(4, 0))
+        self._cache_db_label = None
+        self.db_label = None
         self._cache_type_label = ttk.Label(top, text='Type:')
         self._cache_type_label.grid(row=2, column=0, sticky='w', pady=(4, 0))
         type_combo = ttk.Combobox(top, textvariable=self.type_filter, values=[t[0] for t in TYPE_FILTERS], state='readonly', width=14)
@@ -11346,42 +13353,58 @@ class App(tk.Tk):
         top = getattr(self, '_cache_top', None)
         if top is None:
             return
-        narrow = False
         try:
-            if getattr(self, '_cache_toolbar_layout_applied', False):
+            width = max(1, top.winfo_width())
+            mode = 0 if width < 520 else 1 if width < 850 else 2
+            if getattr(self, '_cache_toolbar_layout_applied', None) == mode:
                 return
-            self._cache_toolbar_layout_applied = True
-            toggles = sorted([w for w in top.grid_slaves(row=0) if w not in (self.btn_clear, self.btn_delete_type, self.toggle_btn, self.btn_dump)], key=lambda w: int(w.grid_info().get('column', 0)))
-            if narrow:
+            self._cache_toolbar_layout_applied = mode
+            toggles = list(getattr(self, '_cache_toolbar_toggles', ()))
+            if mode == 0:
                 for index, widget in enumerate(toggles):
-                    widget.grid_configure(row=index // 2, column=index % 2, sticky='w', padx=(0, 6), pady=(0, 2))
-                self.btn_clear.grid_configure(row=2, column=0, sticky='ew', padx=(0, 6), pady=(4, 0))
-                self.btn_delete_type.grid_configure(row=2, column=1, sticky='ew', padx=(0, 6), pady=(4, 0))
-                self.toggle_btn.grid_configure(row=3, column=0, sticky='ew', padx=(0, 6), pady=(4, 0))
-                self.btn_dump.grid_configure(row=3, column=1, sticky='ew', pady=(4, 0))
-                self._cache_db_label.grid_configure(row=4, column=0)
-                self.db_label.grid_configure(row=4, column=1, columnspan=3)
-                self._cache_type_label.grid_configure(row=5, column=0)
-                self._cache_type_combo.grid_configure(row=5, column=1)
-                self._cache_filter_label.grid_configure(row=6, column=0)
-                self._cache_filter_entry.grid_configure(row=6, column=1, columnspan=3)
+                    widget.grid_configure(row=index // 2, column=index % 2, sticky='w', padx=(0, 8), pady=(0, 2))
+                self.btn_clear.grid_configure(row=2, column=0, sticky='ew', padx=(0, 5), pady=(4, 0))
+                self.btn_delete_type.grid_configure(row=2, column=1, sticky='ew', padx=(5, 0), pady=(4, 0))
+                self.toggle_btn.grid_configure(row=3, column=0, sticky='ew', padx=(0, 5), pady=(4, 0))
+                self.btn_dump.grid_configure(row=3, column=1, sticky='ew', padx=(5, 0), pady=(4, 0))
+                self._cache_type_label.grid_configure(row=4, column=0, sticky='w', pady=(6, 0))
+                self._cache_type_combo.grid_configure(row=4, column=1, sticky='ew', padx=(6, 0), pady=(6, 0))
+                self._cache_filter_label.grid_configure(row=5, column=0, sticky='w', pady=(5, 0))
+                self._cache_filter_entry.grid_configure(row=5, column=1, columnspan=3, sticky='ew', padx=(6, 0), pady=(5, 0))
+                self._watch_loading_label.grid_configure(row=6, column=0, columnspan=2, sticky='w', pady=(3, 0))
                 for col in range(4):
-                    top.columnconfigure(col, weight=1)
+                    top.columnconfigure(col, weight=1 if col in (1, 2, 3) else 0, uniform='cachetoolbar')
+            elif mode == 1:
+                for index, widget in enumerate(toggles):
+                    widget.grid_configure(row=0, column=index, sticky='w', padx=(0 if index == 0 else 8, 0), pady=0)
+                self.btn_clear.grid_configure(row=1, column=0, sticky='ew', padx=(0, 5), pady=(5, 0))
+                self.btn_delete_type.grid_configure(row=1, column=1, sticky='ew', padx=(5, 0), pady=(5, 0))
+                self.toggle_btn.grid_configure(row=1, column=2, sticky='ew', padx=(5, 0), pady=(5, 0))
+                self.btn_dump.grid_configure(row=1, column=3, sticky='ew', padx=(5, 0), pady=(5, 0))
+                self._cache_type_label.grid_configure(row=2, column=0, sticky='w', pady=(6, 0))
+                self._cache_type_combo.grid_configure(row=2, column=1, sticky='ew', padx=(6, 0), pady=(6, 0))
+                self._cache_filter_label.grid_configure(row=3, column=0, sticky='w', pady=(5, 0))
+                self._cache_filter_entry.grid_configure(row=3, column=1, columnspan=3, sticky='ew', padx=(6, 0), pady=(5, 0))
+                self._watch_loading_label.grid_configure(row=2, column=2, columnspan=2, sticky='e', padx=(6, 0), pady=(6, 0))
+                for col in range(4):
+                    top.columnconfigure(col, weight=1, uniform='cachetoolbar')
             else:
                 for index, widget in enumerate(toggles):
-                    widget.grid_configure(row=0, column=index, sticky='w', padx=(0 if index == 0 else 4, 0), pady=0)
+                    widget.grid_configure(row=0, column=index, sticky='w', padx=(0 if index == 0 else 8, 0), pady=0)
                 self.btn_clear.grid_configure(row=0, column=5, sticky='e', padx=(0, 6), pady=0)
                 self.btn_delete_type.grid_configure(row=0, column=6, sticky='e', padx=(0, 6), pady=0)
                 self.toggle_btn.grid_configure(row=0, column=7, sticky='e', padx=(0, 6), pady=0)
                 self.btn_dump.grid_configure(row=0, column=8, sticky='e', pady=0)
-                self._cache_db_label.grid_configure(row=1, column=0)
-                self.db_label.grid_configure(row=1, column=1, columnspan=6)
-                self._cache_type_label.grid_configure(row=2, column=0)
-                self._cache_type_combo.grid_configure(row=2, column=1)
-                self._cache_filter_label.grid_configure(row=3, column=0)
-                self._cache_filter_entry.grid_configure(row=3, column=1, columnspan=6)
+                self._cache_type_label.grid_configure(row=1, column=0, sticky='w', pady=(6, 0))
+                self._cache_type_combo.grid_configure(row=1, column=1, sticky='w', padx=(6, 0), pady=(6, 0))
+                self._cache_filter_label.grid_configure(row=2, column=0, sticky='w', pady=(5, 0))
+                self._cache_filter_entry.grid_configure(row=2, column=1, columnspan=6, sticky='ew', padx=(6, 0), pady=(5, 0))
+                self._watch_loading_label.grid_configure(row=0, column=9, sticky='w', padx=(4, 0), pady=0)
+                for col in range(4):
+                    top.columnconfigure(col, weight=0, uniform='')
+                top.columnconfigure(3, weight=1)
                 for col in (5, 6, 7, 8):
-                    top.columnconfigure(col, weight=0)
+                    top.columnconfigure(col, weight=0, uniform='')
         except Exception:
             pass
 
@@ -11407,9 +13430,11 @@ class App(tk.Tk):
                 return
             total = self.hpaned.winfo_width()
             pos = self.hpaned.sashpos(0)
-            min_left = VIEWER_MIN_WIDTH
-            min_right = REPLACER_MIN_WIDTH
-            self.hpaned.sashpos(0, max(min_left, min(pos, total - min_right)))
+            scale = max(0.62, min(1.0, float(getattr(self, '_responsive_last_scale', 1.0) or 1.0)))
+            min_left = max(260, int(VIEWER_MIN_WIDTH * scale))
+            min_right = max(190, int(REPLACER_MIN_WIDTH * scale))
+            if total > min_left + min_right:
+                self.hpaned.sashpos(0, max(min_left, min(pos, total - min_right)))
         except Exception:
             pass
 
@@ -11425,9 +13450,9 @@ class App(tk.Tk):
                     new_x = right - w
                     self.geometry(f'{w}x{h}+{new_x}+{cur_y}')
                 self.hpaned.insert(0, self.viewer_root, weight=3)
-                _set_pane_minsize(self.hpaned, self.viewer_root, VIEWER_MIN_WIDTH)
+                _set_pane_minsize(self.hpaned, self.viewer_root, max(260, int(VIEWER_MIN_WIDTH * max(0.62, getattr(self, '_responsive_last_scale', 1.0) or 1.0))))
                 self.hpaned.paneconfigure(self.replacer, weight=2)
-                _set_pane_minsize(self.hpaned, self.replacer, REPLACER_MIN_WIDTH)
+                _set_pane_minsize(self.hpaned, self.replacer, max(190, int(REPLACER_MIN_WIDTH * max(0.62, getattr(self, '_responsive_last_scale', 1.0) or 1.0))))
                 self.update_idletasks()
                 total = self.hpaned.winfo_width()
                 if total > 0:
@@ -11462,73 +13487,160 @@ class App(tk.Tk):
             self.collapse_btn.config(text='▶')
             self._save_settings()
 
-    def _set_resize_redraw(self, enabled):
-
-        if sys.platform != 'win32':
-            return
+    def _app_focus_changed(self, _event=None):
         try:
-            user32 = ctypes.windll.user32
-            WM_SETREDRAW = 0x000B
-            widgets = [getattr(self, 'tree', None), getattr(self, 'details_text', None)]
-            for widget in widgets:
-                if widget is None:
-                    continue
-                target = widget.canvas if hasattr(widget, 'canvas') else widget
+            focus = self.focus_get()
+            focused = bool(focus and (focus.winfo_toplevel() is self or str(focus.winfo_toplevel().transient()) == str(self)))
+            self.wm_attributes('-topmost', bool(self.stay_on_top.get() and focused))
+            for win, _height in list(getattr(_MacNotification, '_active', [])):
                 try:
-                    hwnd = int(target.winfo_id())
-                    user32.SendMessageW(hwnd, WM_SETREDRAW, 1 if enabled else 0, 0)
-                    if enabled and widget is getattr(self, 'tree', None):
-                        user32.InvalidateRect(hwnd, None, True)
+                    win.attributes('-topmost', focused)
                 except Exception:
-                    continue
+                    pass
         except Exception:
             pass
 
-    def _finish_live_resize(self):
-        self._resize_restore_job = None
-        if getattr(self, '_resize_redraw_suspended', False):
-            self._resize_redraw_suspended = False
-            self._set_resize_redraw(True)
+    def _finish_resize_activity(self):
+        self._resize_idle_job = None
+        self._resize_active = False
+        if self._deferred_canvas_widths and self._resize_canvas_flush_job is None:
+            self._resize_canvas_flush_job = self.after(15, self._flush_deferred_canvas_widths)
+        deferred_jobs = list(getattr(self, '_resize_deferred_jobs', {}).items())
+        self._resize_deferred_jobs.clear()
+        if deferred_jobs:
+            existing = {item[0] for item in self._resize_release_jobs}
+            for item in deferred_jobs:
+                if item[0] not in existing:
+                    self._resize_release_jobs.append(item)
+                    existing.add(item[0])
+                else:
+                    for index, old_item in enumerate(self._resize_release_jobs):
+                        if old_item[0] == item[0]:
+                            self._resize_release_jobs[index] = item
+                            break
+        if self._resize_release_jobs and self._resize_release_job is None:
+            self._resize_release_job = self.after(20, self._run_resize_release_jobs)
+        if getattr(self, '_settings_save_deferred', False):
+            self._settings_save_deferred = False
+            try:
+                self.after(450, self._save_settings)
+            except Exception:
+                pass
+        try:
+            viewport = getattr(self, 'viewport_3d', None)
+            if viewport is not None and getattr(viewport, '_controls_layout_pending', False):
+                viewport._controls_layout_pending = False
+                if viewport.winfo_exists():
+                    viewport.after(60, viewport._layout_controls)
+            if viewport is not None and getattr(viewport, '_resize_draw_pending', False):
+                viewport._resize_draw_pending = False
+                if viewport.winfo_exists() and viewport.winfo_ismapped():
+                    viewport.after(500, viewport._redraw_after_resize)
+        except Exception:
+            pass
+
+    def _run_resize_release_jobs(self):
+        self._resize_release_job = None
+        if getattr(self, '_resize_active', False):
+            return
+        if not self._resize_release_jobs:
+            return
+        key, job = self._resize_release_jobs.pop(0)
+        delay_ms, callback = job
+        def run_one():
+            if getattr(self, '_resize_active', False):
+                self._resize_release_jobs.insert(0, (key, job))
+                return
+            try:
+                if not getattr(self, '_ui_dispatch_closed', False):
+                    callback()
+            except Exception as exc:
+                try:
+                    self.report_callback_exception(type(exc), exc, exc.__traceback__)
+                except Exception:
+                    pass
+            if self._resize_release_jobs and not getattr(self, '_ui_dispatch_closed', False):
+                try:
+                    self._resize_release_job = self.after(35, self._run_resize_release_jobs)
+                except Exception:
+                    self._resize_release_job = None
+        try:
+            if delay_ms > 0:
+                self.after(min(int(delay_ms), 250), run_one)
+            else:
+                self.after_idle(run_one)
+        except Exception:
+            self._resize_release_job = None
+
+    def _schedule_resize_canvas_flush(self, delay_ms=None):
+        if self._resize_canvas_flush_job is not None or not self._deferred_canvas_widths:
+            return
+        if delay_ms is None:
+            delay_ms = 65 if getattr(self, '_resize_active', False) else 20
+        try:
+            self._resize_canvas_flush_job = self.after(max(0, int(delay_ms)), self._flush_deferred_canvas_widths)
+        except Exception:
+            self._resize_canvas_flush_job = None
+
+    def _flush_deferred_canvas_widths(self):
+        self._resize_canvas_flush_job = None
+        if not self._deferred_canvas_widths:
+            return
+        if getattr(self, '_resize_active', False):
+            return
+        key = next(iter(self._deferred_canvas_widths))
+        canvas, window_id, width, state_key = self._deferred_canvas_widths.pop(key)
+        try:
+            if canvas.winfo_exists() and width != getattr(self, state_key, -1):
+                canvas.itemconfigure(window_id, width=width)
+                setattr(self, state_key, width)
+        except Exception:
+            pass
+        if self._deferred_canvas_widths:
+            self._schedule_resize_canvas_flush(65 if getattr(self, '_resize_active', False) else 22)
 
     def _on_geometry_configure(self, event=None):
         if event is not None and event.widget is not self:
             return
         try:
-            geom = self.geometry()
-            if geom == getattr(self, '_last_geometry_seen', None):
+            if event is not None:
+                dimensions = (int(event.width), int(event.height))
+            else:
+                dimensions = (int(self.winfo_width()), int(self.winfo_height()))
+            previous = getattr(self, '_last_geometry_dimensions', None)
+            self._last_geometry_dimensions = dimensions
+            position = (int(getattr(event, 'x', 0) or 0), int(getattr(event, 'y', 0) or 0)) if event is not None else (int(self.winfo_x()), int(self.winfo_y()))
+            geometry_key = (dimensions, position)
+            if previous is not None and dimensions != previous:
+                self._resize_active = True
+                if self._resize_idle_job is not None:
+                    try:
+                        self.after_cancel(self._resize_idle_job)
+                    except Exception:
+                        pass
+                self._resize_idle_job = self.after(420, self._finish_resize_activity)
+            if geometry_key == getattr(self, '_last_geometry_seen', None):
                 return
-            self._last_geometry_seen = geom
-            match = re.match(r'^(\d+)x(\d+)', geom)
-            if match:
-                size = (int(match.group(1)), int(match.group(2)))
-                previous = getattr(self, '_last_resize_size', None)
-                if previous is not None and abs(size[0] - previous[0]) < 12 and abs(size[1] - previous[1]) < 12:
-                    return
-                self._last_resize_size = size
+            self._last_geometry_seen = geometry_key
+            self._geometry_pending_key = geometry_key
+            if getattr(self, '_geometry_configure_idle_job', None) is None:
+                self._geometry_configure_idle_job = self.after_idle(self._commit_geometry_configure)
         except Exception:
-            pass
+            return
 
-
-        if not getattr(self, '_resize_redraw_suspended', False):
-            self._resize_redraw_suspended = True
-            self._set_resize_redraw(False)
-        old_job = getattr(self, '_resize_restore_job', None)
-        if old_job is not None:
+    def _commit_geometry_configure(self):
+        self._geometry_configure_idle_job = None
+        if getattr(self, '_resize_active', False):
+            self._settings_save_deferred = True
+            return
+        job = getattr(self, '_geometry_save_job', None)
+        if job is not None:
             try:
-                self.after_cancel(old_job)
-            except Exception:
-                pass
-        self._resize_restore_job = self.after(150, self._finish_live_resize)
-        if self._geometry_save_job is not None:
-            try:
-                self.after_cancel(self._geometry_save_job)
+                self.after_cancel(job)
             except Exception:
                 pass
         try:
-            def save_geometry_once():
-                self._geometry_save_job = None
-                self._save_settings()
-            self._geometry_save_job = self.after(1200, save_geometry_once)
+            self._geometry_save_job = self.after(1100, self._save_settings)
         except Exception:
             self._geometry_save_job = None
 
@@ -11543,7 +13655,12 @@ class App(tk.Tk):
         self._save_settings()
 
     def _save_settings(self):
-        data = {'autoscroll': self.autoscroll.get(), 'hide_tickets': self.hide_tickets.get(), 'stay_on_top': self.stay_on_top.get(), 'show_lines': self.show_lines.get(), 'preview_optimize_vertices': self.viewport_3d.reduce_polys.get() if hasattr(self, 'viewport_3d') else self.settings.get('preview_optimize_vertices', True), 'streamer_mode': self.streamer_mode.get() if hasattr(self, 'streamer_mode') else self.settings.get('streamer_mode', False), 'fps_limit': self.fps_limit.get() if hasattr(self, 'fps_limit') else self.settings.get('fps_limit', 0), 'autostart_watch': self.autostart_watch.get() if hasattr(self, 'autostart_watch') else self.settings.get('autostart_watch', False), 'max_rows': self.max_rows.get() if hasattr(self, 'max_rows') else self.settings.get('max_rows', 0), 'type_filter': self.type_filter.get(), 'columns': {c: var.get() for c, var in getattr(self, '_col_vars', {}).items()}, 'viewer_collapsed': self.viewer_collapsed, 'theme': self.theme_var.get() if hasattr(self, 'theme_var') else self.settings.get('theme', DEFAULT_THEME), 'fflag_hotkeys': self.fflag_hotkeys, 'fps_hotkeys': self.fps_hotkeys, 'fps_hotkey_slots': self.fps_hotkey_slots, 'fastflag_auto': self.fastflag_auto.get() if hasattr(self, 'fastflag_auto') else self.settings.get('fastflag_auto', False), 'launch_on_tray': self.launch_on_tray.get() if hasattr(self, 'launch_on_tray') else self.settings.get('launch_on_tray', False), 'launch_on_startup': self.launch_on_startup.get() if hasattr(self, 'launch_on_startup') else self.settings.get('launch_on_startup', False), 'hide_to_tray_on_close': self.hide_to_tray_on_close.get() if hasattr(self, 'hide_to_tray_on_close') else self.settings.get('hide_to_tray_on_close', False), 'auto_update': self.auto_update.get() if hasattr(self, 'auto_update') else self.settings.get('auto_update', False), 'dpi_percent': int(self.dpi_percent.get()) if hasattr(self, 'dpi_percent') else int(getattr(self, '_dpi_scale', 1.0) * 100), 'plugin_enabled': getattr(self, '_plugin_enabled', self.settings.get('plugin_enabled', {})), 'roblox_path': self.settings.get('roblox_path', ''), 'gemini_api_key': self.gemini_api_key.get().strip() if hasattr(self, 'gemini_api_key') else self.settings.get('gemini_api_key', ''), 'custom_theme': self.settings.get('custom_theme', {}), 'db_path': getattr(self, 'db_path', self.settings.get('db_path', '')), 'shard_root': getattr(self, 'shard_root', self.settings.get('shard_root', '')), 'window_geometry': self.geometry() if self.winfo_exists() else self.settings.get('window_geometry', STARTUP_GEOMETRY)}
+        if getattr(self, '_resize_active', False):
+            self._settings_save_deferred = True
+            self._geometry_save_job = None
+            return
+        data = dict(self.settings)
+        data.update({'autoscroll': self.autoscroll.get(), 'hide_tickets': self.hide_tickets.get(), 'stay_on_top': self.stay_on_top.get(), 'show_lines': self.show_lines.get(), 'preview_optimize_vertices': self.viewport_3d.reduce_polys.get() if hasattr(self, 'viewport_3d') else self.settings.get('preview_optimize_vertices', True), 'streamer_mode': self.streamer_mode.get() if hasattr(self, 'streamer_mode') else self.settings.get('streamer_mode', False), 'fps_limit': self.fps_limit.get() if hasattr(self, 'fps_limit') else self.settings.get('fps_limit', 0), 'autostart_watch': self.autostart_watch.get() if hasattr(self, 'autostart_watch') else self.settings.get('autostart_watch', False), 'max_rows': self.max_rows.get() if hasattr(self, 'max_rows') else self.settings.get('max_rows', 0), 'type_filter': self.type_filter.get(), 'columns': {c: var.get() for c, var in getattr(self, '_col_vars', {}).items()}, 'viewer_collapsed': self.viewer_collapsed, 'theme': self.theme_var.get() if hasattr(self, 'theme_var') else self.settings.get('theme', DEFAULT_THEME), 'fflag_hotkeys': self.fflag_hotkeys, 'fps_hotkeys': self.fps_hotkeys, 'fps_hotkey_slots': self.fps_hotkey_slots, 'fflag_auto_apply': self.fflag_auto_apply.get() if hasattr(self, 'fflag_auto_apply') else self.settings.get('fflag_auto_apply', False), 'launch_on_tray': self.launch_on_tray.get() if hasattr(self, 'launch_on_tray') else self.settings.get('launch_on_tray', False), 'launch_on_startup': self.launch_on_startup.get() if hasattr(self, 'launch_on_startup') else self.settings.get('launch_on_startup', False), 'hide_to_tray_on_close': self.hide_to_tray_on_close.get() if hasattr(self, 'hide_to_tray_on_close') else self.settings.get('hide_to_tray_on_close', False), 'auto_update': self.auto_update.get() if hasattr(self, 'auto_update') else self.settings.get('auto_update', False), 'dpi_percent': int(self.dpi_percent.get()) if hasattr(self, 'dpi_percent') else int(getattr(self, '_dpi_scale', 1.0) * 100), 'plugin_enabled': getattr(self, '_plugin_enabled', self.settings.get('plugin_enabled', {})), 'roblox_path': self.settings.get('roblox_path', ''), 'roblox_username': self.settings.get('roblox_username', ''), 'roblox_user_id': self.settings.get('roblox_user_id', ''), 'gemini_api_key': self.gemini_api_key.get().strip() if hasattr(self, 'gemini_api_key') else self.settings.get('gemini_api_key', ''), 'custom_theme': self.settings.get('custom_theme', {}), 'db_path': getattr(self, 'db_path', self.settings.get('db_path', '')), 'shard_root': getattr(self, 'shard_root', self.settings.get('shard_root', '')), 'window_geometry': self.geometry() if self.winfo_exists() else self.settings.get('window_geometry', STARTUP_GEOMETRY), 'include_cconfigs': self.include_cconfigs.get() if hasattr(self, 'include_cconfigs') else self.settings.get('include_cconfigs', False), 'include_cache_dumps': self.include_cache_dumps.get() if hasattr(self, 'include_cache_dumps') else self.settings.get('include_cache_dumps', False), 'tab_order': [self.nb.tab(t, 'text') for t in self.nb.tabs()] if hasattr(self, 'nb') else self.settings.get('tab_order', []), 'selected_tab': self.nb.tab(self.nb.select(), 'text') if hasattr(self, 'nb') and self.nb.select() else self.settings.get('selected_tab', 'Home'), 'hpaned_sash': self.hpaned.sashpos(0) if hasattr(self, 'hpaned') else self.settings.get('hpaned_sash', None), 'vpaned_sash': self.vpaned.sashpos(0) if hasattr(self, 'vpaned') else self.settings.get('vpaned_sash', None)})
         save_settings(data)
         self.settings = data
 
@@ -11551,13 +13668,17 @@ class App(tk.Tk):
         try:
             total = self.vpaned.winfo_height()
             if total > 0:
-                self.vpaned.sashpos(0, int(total * PANED_TOP_FRACTION))
+                saved = self.settings.get('vpaned_sash')
+                target = int(saved) if saved is not None else int(total * PANED_TOP_FRACTION)
+                self.vpaned.sashpos(0, max(80, min(total - 80, target)))
         except Exception:
             pass
         try:
             total = self.hpaned.winfo_width()
             if total > 0:
-                self.hpaned.sashpos(0, int(total * HPANED_LEFT_FRACTION))
+                saved = self.settings.get('hpaned_sash')
+                target = int(saved) if saved is not None else int(total * HPANED_LEFT_FRACTION)
+                self.hpaned.sashpos(0, max(VIEWER_MIN_WIDTH, min(total - REPLACER_MIN_WIDTH, target)))
                 self._clamp_hsash()
         except Exception:
             pass
@@ -11571,7 +13692,7 @@ class App(tk.Tk):
             except Exception:
                 w = 80
             for i, iid in enumerate(self.tree.get_children('')):
-                if i > 120:
+                if i > 500:
                     break
                 text = str(self.tree.set(iid, c))
                 w = max(w, tkfont.Font().measure(text))
@@ -11789,9 +13910,6 @@ class App(tk.Tk):
             return False
         body, meta = self._dump_blob_body(blob)
         if not body:
-            body = blob
-            meta = {}
-        if not body:
             return False
         cat = str(it.kind or 'Unknown').split(' ', 1)[0].strip()
         cat_low = cat.lower()
@@ -11864,151 +13982,66 @@ class App(tk.Tk):
         return True
 
     def _dump_all_caches(self):
-        if getattr(self, '_dump_running', False):
+        dump_root = os.path.abspath(os.path.join(DATA_DIR, 'Dump'))
+        self._last_dump_folder = dump_root
+        self._console_select_tab('Console')
+        os.makedirs(dump_root, exist_ok=True)
+        self._console_log('')
+        self._console_log('=== Dump Caches ===')
+        self._console_log(f'Database: {self.db_path}')
+        self._console_log(f'Dump folder: {dump_root}')
+        self._console_log('Scanning cache...')
+
+        if getattr(self, '_dump_caches_running', False):
+            self._console_log('A cache dump is already running.')
             return
-        dialog = tk.Toplevel(self)
-        dialog.title('Dump Caches')
-        dialog.transient(self)
-        dialog.geometry('620x300')
-        dialog.minsize(520, 250)
-        dialog.resizable(True, True)
-        theme_toplevel(dialog)
-        frame = ttk.Frame(dialog, padding=16)
-        frame.pack(fill='both', expand=True)
-        frame.rowconfigure(4, weight=1)
-        frame.columnconfigure(0, weight=1)
-        status = tk.StringVar(value='Preparing cache dump...')
-        ttk.Label(frame, text='Dump Caches', font=('Segoe UI', 13, 'bold')).grid(row=0, column=0, sticky='w')
-        ttk.Label(frame, textvariable=status, wraplength=560).grid(row=1, column=0, sticky='ew', pady=(8, 10))
-        progress = ttk.Progressbar(frame, mode='determinate')
-        progress.grid(row=2, column=0, sticky='ew', pady=(0, 6))
-        details_frame = ttk.Frame(frame)
-        details_frame.grid(row=4, column=0, sticky='nsew', pady=(10, 0))
-        details_frame.rowconfigure(0, weight=1)
-        details_frame.columnconfigure(0, weight=1)
-        details = tk.Text(details_frame, wrap='word', height=8, state='disabled', bg='#252526', fg='#d4d4d4', insertbackground='#ffffff', relief='flat', bd=0, font=('Consolas', 9))
-        details_scroll = ttk.Scrollbar(details_frame, orient='vertical', command=details.yview)
-        details.configure(yscrollcommand=details_scroll.set)
-        details.grid(row=0, column=0, sticky='nsew')
-        details_scroll.grid(row=0, column=1, sticky='ns')
-        details_frame.grid_remove()
-        controls = ttk.Frame(frame)
-        controls.grid(row=5, column=0, sticky='e', pady=(12, 0))
-        details_button = ttk.Button(controls, text='Details')
-        details_button.pack(side='left', padx=(0, 8))
-        close_button = ttk.Button(controls, text='Close')
-        close_button.pack(side='left')
-        self._dump_running = True
-        cancel = threading.Event()
-        closed = threading.Event()
-        expanded = {'value': False}
+        self._dump_caches_running = True
 
-        def append_detail(message):
-            if closed.is_set() or not dialog.winfo_exists():
-                return
-            details.configure(state='normal')
-            details.insert('end', str(message) + '\n')
-            details.see('end')
-            details.configure(state='disabled')
-
-        def safe_ui(callback):
-            if closed.is_set():
-                return
+        def log(message):
             try:
-                if dialog.winfo_exists():
-                    dialog.after(0, callback)
-            except tk.TclError:
+                self.after(0, lambda m=str(message): self._console_log(m))
+            except Exception:
                 pass
-
-        def finish():
-            self._dump_running = False
-            if closed.is_set():
-                return
-            try:
-                close_button.configure(state='normal', text='Close')
-                status.set(status.get() if status.get().startswith(('Finished', 'Error', 'Cancelled')) else 'Finished.')
-            except tk.TclError:
-                pass
-
-        def close_dialog():
-            if self._dump_running:
-                cancel.set()
-                status.set('Cancelling...')
-            closed.set()
-            try:
-                dialog.destroy()
-            except tk.TclError:
-                pass
-
-        def toggle_details():
-            expanded['value'] = not expanded['value']
-            if expanded['value']:
-                details_frame.grid()
-                dialog.geometry('760x600')
-                details_button.configure(text='Hide details')
-            else:
-                details_frame.grid_remove()
-                dialog.geometry('620x300')
-                details_button.configure(text='Details')
-
-        details_button.configure(command=toggle_details)
-        close_button.configure(command=close_dialog)
-        dialog.protocol('WM_DELETE_WINDOW', close_dialog)
 
         def worker():
-            dump_root = os.path.join(DATA_DIR, 'Dump')
-            os.makedirs(dump_root, exist_ok=True)
-            db_path, shard_root = default_paths()
-            if not os.path.isfile(db_path):
-                safe_ui(lambda: status.set('rbx-storage.db was not found.'))
-                safe_ui(finish)
-                return
-            helper = object.__new__(App)
-            helper.db_path = db_path
-            helper.shard_root = shard_root
-            helper._blob_cache = {}
-            helper._blob_cache_order = []
-            helper._blob_cache_limit = 256
             try:
-                safe_ui(lambda: append_detail(f'Database: {db_path}'))
-                safe_ui(lambda: append_detail(f'Output: {dump_root}'))
-                safe_ui(lambda: append_detail('Scanning cache database...'))
-                items = scan_db_once(db_path, shard_root, set(), None)
+                db_path, shard_root = default_paths()
+                if not os.path.isfile(db_path):
+                    log('ERROR: rbx-storage.db was not found.')
+                    return
+                try:
+                    items = scan_db_once(db_path, shard_root, set(), None)
+                except Exception as e:
+                    log(f'ERROR while scanning: {e}')
+                    return
+                helper = object.__new__(App)
+                helper.db_path = db_path
+                helper.shard_root = shard_root
+                dumped = failed = 0
                 total = len(items)
-                dumped = 0
-                failed = 0
-                safe_ui(lambda n=total: (progress.configure(maximum=max(1, n), value=0), status.set(f'Found {n} cache(s).'), append_detail(f'Found {n} cache(s).')))
-                for index, item in enumerate(items, 1):
-                    if cancel.is_set():
-                        safe_ui(lambda: status.set('Cancelled.'))
-                        break
-                    ok = False
-                    error_text = ''
+                log(f'Found {total} cache(s).')
+                for index, it in enumerate(items, 1):
                     try:
-                        ok = bool(App._dump_one_cache(helper, item, dump_root))
-                    except Exception as exc:
-                        error_text = str(exc)
-                    if ok:
-                        dumped += 1
-                        result_text = f'{index}/{total} dumped: {item.name or item.hash}'
-                    else:
+                        if App._dump_one_cache(helper, it, dump_root):
+                            dumped += 1
+                        else:
+                            failed += 1
+                    except Exception as e:
                         failed += 1
-                        result_text = f'{index}/{total} failed: {item.name or item.hash}' + (f' | {error_text}' if error_text else '')
-                    if index % 5 == 0 or index == total:
-                        safe_ui(lambda i=index, n=total, d=dumped, f=failed, msg=result_text: (progress.configure(value=i), status.set(f'Processed {i}/{n} | dumped={d} | failed={f}'), append_detail(msg)))
-                if cancel.is_set():
-                    safe_ui(lambda: append_detail('Dump cancelled by user.'))
-                else:
-                    safe_ui(lambda d=dumped, f=failed: (status.set(f'Finished. Dumped: {d} | Failed: {f}'), append_detail(f'Finished. Dumped: {d} | Failed: {f}')))
-            except Exception as exc:
-                safe_ui(lambda e=str(exc): (status.set(f'Error: {e}'), append_detail(f'Error: {e}')))
+                        log(f'Failed {getattr(it, "hash", "unknown")}: {e}')
+                    if index % 10 == 0 or index == total:
+                        log(f'Processed {index}/{total} | dumped={dumped} failed={failed}')
+                log(f'Finished. Dumped: {dumped} | Failed: {failed}')
+                log(f'Output folder: {dump_root}')
+            except Exception as e:
+                log(f'ERROR while dumping caches: {e}')
             finally:
                 try:
-                    self.after(0, finish)
-                except tk.TclError:
-                    self._dump_running = False
+                    self.after(0, lambda: setattr(self, '_dump_caches_running', False))
+                except Exception:
+                    self._dump_caches_running = False
 
-        threading.Thread(target=worker, daemon=True, name='RoUtilsDumpWorker').start()
+        threading.Thread(target=worker, daemon=True, name='RoUtils-DumpCaches').start()
 
     def _run_dump_caches_cli(self):
         if os.name == 'nt':
@@ -12029,9 +14062,6 @@ class App(tk.Tk):
         helper = object.__new__(App)
         helper.db_path = db_path
         helper.shard_root = shard_root
-        helper._blob_cache = {}
-        helper._blob_cache_order = []
-        helper._blob_cache_limit = 256
         try:
             items = scan_db_once(db_path, shard_root, set(), None)
         except Exception as e:
@@ -12088,7 +14118,6 @@ class App(tk.Tk):
         self.seen_hashes.clear()
         self.items_by_iid.clear()
         self.items_by_hash.clear()
-        self._tree_displayed_iids = set()
         self.tree.delete(*self.tree.get_children())
         self._update_status()
         self._console_log(f"Cleared rbx-storage: {deleted_shards} shard(s), DB={('yes' if deleted_db else 'no')}")
@@ -12155,7 +14184,8 @@ class App(tk.Tk):
                 pass
         self.db_path = target
         self.shard_root = os.path.join(roblox_dir, 'rbx-storage')
-        self.db_label.config(text=self.db_path)
+        if getattr(self, 'db_label', None) is not None:
+            self.db_label.config(text=self.db_path)
         self._reset_seen(clear_list=True)
         return target
 
@@ -12187,11 +14217,36 @@ class App(tk.Tk):
     def _toggle_watch(self):
         if self.watching:
             self._stop_watching()
+            self._watch_loading_active = False
+            self._watch_initial_scan_done.clear()
+            if hasattr(self, '_watch_loading_label'):
+                self._watch_loading_label.config(text='')
             self._console_log('Cache watching stopped')
-        elif self._start_watching():
-            self._console_log('Cache watching started')
-        else:
-            self._console_log('Cache watching could not start: database file was not found.')
+            return
+        self._watch_loading_active = True
+        self._watch_initial_scan_done.clear()
+        self.toggle_btn.config(state='disabled', text='Loading...')
+        if hasattr(self, '_watch_loading_label'):
+            self._watch_loading_label.config(text='Loading...')
+        def begin():
+            started = False
+            try:
+                started = self._start_watching()
+                if started:
+                    self._console_log('Cache watching started')
+                else:
+                    self._console_log('Cache watching could not start: database file was not found.')
+            except Exception as e:
+                self._console_log(f'Cache watching failed: {e}')
+            if not started:
+                self._watch_loading_active = False
+                try:
+                    self.toggle_btn.config(state='normal', text='Start Watching')
+                    if hasattr(self, '_watch_loading_label'):
+                        self._watch_loading_label.config(text='')
+                except Exception:
+                    pass
+        self.after(40, begin)
 
     def _start_watching(self):
         if not os.path.isfile(self.db_path):
@@ -12199,8 +14254,8 @@ class App(tk.Tk):
             return False
         self.stop_event.clear()
         self.watching = True
-        if hasattr(self, 'toggle_btn'):
-            self.toggle_btn.config(text='Stop Watching')
+        if hasattr(self, 'toggle_btn') and not getattr(self, '_watch_loading_active', False):
+            self.toggle_btn.config(state='normal', text='Stop Watching')
         self._update_status()
         self._launch_scan_loop()
         return True
@@ -12218,55 +14273,52 @@ class App(tk.Tk):
         self.scan_thread = threading.Thread(target=self._scan_loop, daemon=True)
         self.scan_thread.start()
 
+    def _update_scan_max_rows_value(self, *_):
+        try:
+            self._scan_max_rows_value = max(0, int(self.max_rows.get()))
+        except Exception:
+            self._scan_max_rows_value = 0
+
     def _scan_loop(self):
-
-
-        batch_size = 250
-        offset = 0
+        first_scan = True
         while not self.stop_event.is_set():
+            if getattr(self, '_resize_active', False):
+                self.stop_event.wait(0.12)
+                continue
             try:
-                configured_limit = int(self.max_rows.get())
-            except Exception:
-                configured_limit = 0
-            limit = configured_limit if configured_limit > 0 else batch_size
-            limit = max(50, min(limit, batch_size))
-            items = scan_db_once(self.db_path, self.shard_root, self.seen_hashes, limit, offset)
-            offset += limit
-            if items:
-                self.new_items_q.put(items)
-                self.stop_event.wait(0.02)
-            else:
-
-
-                offset = 0
-                self.stop_event.wait(WATCH_INTERVAL_SEC)
+                max_rows = self._scan_max_rows_value
+                items = scan_db_once(self.db_path, self.shard_root, self.seen_hashes, None if max_rows <= 0 else max_rows)
+                if items:
+                    self.new_items_q.put(items)
+            except Exception as e:
+                self._console_log(f'Cache scan error: {e}')
+            finally:
+                if first_scan:
+                    first_scan = False
+                    self._watch_initial_scan_done.set()
+            self.stop_event.wait(WATCH_INTERVAL_SEC)
 
     def _drain_queue(self):
-
-
-        try:
-            active_id = self.nb.select()
-            active_name = self.nb.tab(active_id, 'text') if active_id else ''
-        except Exception:
-            active_name = ''
-
-        tab_busy = bool(getattr(self, '_tab_building', False))
-        cache_visible = active_name == 'Cache' and not tab_busy
+        if getattr(self, '_resize_active', False):
+            self.after(max(120, UI_QUEUE_INTERVAL_MS), self._drain_queue)
+            return
         processed = 0
         try:
-
-
-            while processed < (1 if cache_visible else 2):
+            while processed < 4:
                 items = self.new_items_q.get_nowait()
-                for it in items:
-                    self.items_by_hash[it.hash] = it
-                if cache_visible:
-                    self._queue_tree_render(items)
+                self._insert_items(items)
                 processed += 1
         except queue.Empty:
             pass
-        finally:
-            self.after(220 if not cache_visible else 90, self._drain_queue)
+        if getattr(self, '_watch_loading_active', False) and self._watch_initial_scan_done.is_set() and self.new_items_q.empty():
+            self._watch_loading_active = False
+            try:
+                self.toggle_btn.config(state='normal', text='Stop Watching' if self.watching else 'Start Watching')
+                if hasattr(self, '_watch_loading_label'):
+                    self._watch_loading_label.config(text='')
+            except Exception:
+                pass
+        self.after(UI_QUEUE_INTERVAL_MS, self._drain_queue)
 
     def _should_display(self, it: ScanItem, filt: str) -> bool:
         if self.hide_tickets.get() and it.is_ticket:
@@ -12285,86 +14337,204 @@ class App(tk.Tk):
             return False
         return True
 
-    def _queue_tree_render(self, items):
-
-
-        if not hasattr(self, '_tree_displayed_iids'):
-            self._tree_displayed_iids = set()
-        if not hasattr(self, '_tree_render_limit'):
-            self._tree_render_limit = 1800
-
-
-        pending = getattr(self, '_tree_render_pending', None)
-        if pending is None:
-            pending = self._tree_render_pending = []
-        pending.extend(items)
-        if not getattr(self, '_tree_render_job', None):
-            self._tree_render_job = self.after_idle(self._render_tree_batch)
-
-    def _render_tree_batch(self):
-        self._tree_render_job = None
-        pending = getattr(self, '_tree_render_pending', None) or []
-        if not pending:
-            return
-        filt = self.filter_text.get().lower().strip()
-        cursor = getattr(self, '_tree_render_cursor', 0)
-        limit = getattr(self, '_tree_render_limit', 3000)
-        batch = pending[cursor:cursor + 35]
-        self._tree_render_cursor = cursor + len(batch)
-        displayed = getattr(self, '_tree_displayed_iids', set())
-        rendered = len(displayed)
-        for it in batch:
-            if rendered >= limit:
-                break
-            if not self._should_display(it, filt):
-                continue
-            iid = it.hash
-            if iid in displayed:
-                continue
-            self.tree.insert('', 'end', iid=iid,
-                             values=(it.time, it.name, it.hash,
-                                     human_size(it.size), it.kind, it.src))
-            displayed.add(iid)
-            self.items_by_iid[iid] = it
-            rendered += 1
-        if self._tree_render_cursor < len(pending) and rendered < limit:
-            self._tree_render_job = self.after(8, self._render_tree_batch)
-        else:
-            if self.autoscroll.get():
-                children = self.tree.get_children()
-                if children:
-                    self.tree.see(children[-1])
-            self._update_status()
-
     def _insert_items(self, items: List[ScanItem]):
-        for it in items:
-            self.items_by_hash[it.hash] = it
-        self._queue_tree_render(items)
-
-    def _apply_filter(self):
-        if getattr(self, '_tree_render_job', None):
+        if not items or getattr(self, '_ui_dispatch_closed', False):
+            return
+        try:
+            self._tree_insert_pending.extend(items)
+        except Exception:
+            return
+        if self._filter_render_phase is None and self._tree_insert_pending_job is None:
             try:
-                self.after_cancel(self._tree_render_job)
+                self._tree_insert_pending_job = self.after(0, self._insert_items_batch)
+            except Exception:
+                self._tree_insert_pending_job = None
+
+    def _insert_items_batch(self):
+        self._tree_insert_pending_job = None
+        if getattr(self, '_ui_dispatch_closed', False) or not self._tree_insert_pending:
+            self._tree_insert_pending = []
+            self._tree_insert_pending_index = 0
+            return
+        if self._filter_render_phase is not None:
+            return
+        if getattr(self, '_resize_active', False):
+            try:
+                self._tree_insert_pending_job = self.after(100, self._insert_items_batch)
+            except Exception:
+                self._tree_insert_pending_job = None
+            return
+        if not hasattr(self, 'tree'):
+            self._tree_insert_pending = []
+            self._tree_insert_pending_index = 0
+            return
+        pending = self._tree_insert_pending
+        index = self._tree_insert_pending_index
+        filt = self.filter_text.get().lower().strip()
+        batch_count = 0
+        last_iid = None
+        started = time.perf_counter()
+        while index < len(pending) and batch_count < 72 and time.perf_counter() - started < 0.004:
+            item = pending[index]
+            index += 1
+            batch_count += 1
+            self.items_by_hash[item.hash] = item
+            if not self._should_display(item, filt):
+                continue
+            values = (item.time, item.name, item.hash, human_size(item.size), item.kind, item.src)
+            inserted = False
+            try:
+                self.tree.insert('', 'end', iid=item.hash, values=values)
+                inserted = True
+            except tk.TclError:
+                try:
+                    if self.tree.exists(item.hash):
+                        self.tree.item(item.hash, values=values)
+                        inserted = True
+                except Exception:
+                    pass
             except Exception:
                 pass
-            self._tree_render_job = None
-        self._tree_render_pending = []
-        self._tree_render_cursor = 0
-        self._tree_displayed_iids = set()
-        children = self.tree.get_children()
-        if children:
-            self.tree.delete(*children)
+            if inserted:
+                self.items_by_iid[item.hash] = item
+                last_iid = item.hash
+        self._tree_insert_pending_index = index
+        if batch_count:
+            self._update_status()
+            if self.autoscroll.get() and last_iid:
+                try:
+                    self.tree.see(last_iid)
+                except Exception:
+                    pass
+        if index < len(pending):
+            try:
+                self._tree_insert_pending_job = self.after(1, self._insert_items_batch)
+            except Exception:
+                self._tree_insert_pending_job = None
+        else:
+            self._tree_insert_pending = []
+            self._tree_insert_pending_index = 0
+
+    def _apply_filter(self):
+        if not hasattr(self, 'tree'):
+            return
+        self._filter_render_generation += 1
+        generation = self._filter_render_generation
+        if self._filter_render_job is not None:
+            try:
+                self.after_cancel(self._filter_render_job)
+            except Exception:
+                pass
+            self._filter_render_job = None
+        if self._tree_insert_pending_job is not None:
+            try:
+                self.after_cancel(self._tree_insert_pending_job)
+            except Exception:
+                pass
+            self._tree_insert_pending_job = None
+        self._filter_render_text = self.filter_text.get().lower().strip()
+        self._filter_render_snapshot = list(self.items_by_hash.values())
+        self._filter_render_index = 0
+        try:
+            self._filter_clear_iids = list(self.tree.get_children(''))
+        except Exception:
+            self._filter_clear_iids = []
+        self._filter_clear_index = 0
+        self._filter_render_phase = 'clear'
+        self._filter_render_last_iid = None
         self.items_by_iid.clear()
-        self._queue_tree_render(list(self.items_by_hash.values()))
+        try:
+            self._filter_render_job = self.after(0, lambda g=generation: self._apply_filter_batch(g))
+        except Exception:
+            self._filter_render_job = None
+
+    def _apply_filter_batch(self, generation=None):
+        self._filter_render_job = None
+        if generation is None:
+            generation = self._filter_render_generation
+        if generation != self._filter_render_generation or getattr(self, '_ui_dispatch_closed', False):
+            return
+        if not hasattr(self, 'tree'):
+            self._filter_render_phase = None
+            return
+        if getattr(self, '_resize_active', False):
+            try:
+                self._filter_render_job = self.after(100, lambda g=generation: self._apply_filter_batch(g))
+            except Exception:
+                self._filter_render_job = None
+            return
+        if self._filter_render_phase == 'clear':
+            stop = min(self._filter_clear_index + 80, len(self._filter_clear_iids))
+            chunk = self._filter_clear_iids[self._filter_clear_index:stop]
+            if chunk:
+                try:
+                    self.tree.delete(*chunk)
+                except Exception:
+                    pass
+                self._filter_clear_index = stop
+                try:
+                    self._filter_render_job = self.after(1, lambda g=generation: self._apply_filter_batch(g))
+                except Exception:
+                    self._filter_render_job = None
+                return
+            self._filter_render_phase = 'insert'
+            try:
+                self._filter_render_job = self.after(1, lambda g=generation: self._apply_filter_batch(g))
+            except Exception:
+                self._filter_render_job = None
+            return
+        if self._filter_render_phase != 'insert':
+            return
+        snapshot = self._filter_render_snapshot
+        index = self._filter_render_index
+        processed = 0
+        started = time.perf_counter()
+        while index < len(snapshot) and processed < 72 and time.perf_counter() - started < 0.004:
+            item = snapshot[index]
+            index += 1
+            processed += 1
+            if not self._should_display(item, self._filter_render_text):
+                continue
+            values = (item.time, item.name, item.hash, human_size(item.size), item.kind, item.src)
+            try:
+                self.tree.insert('', 'end', iid=item.hash, values=values)
+                self.items_by_iid[item.hash] = item
+                self._filter_render_last_iid = item.hash
+            except tk.TclError:
+                pass
+            except Exception:
+                pass
+        self._filter_render_index = index
+        if index < len(snapshot):
+            try:
+                self._filter_render_job = self.after(1, lambda g=generation: self._apply_filter_batch(g))
+            except Exception:
+                self._filter_render_job = None
+            return
+        self._filter_render_phase = None
+        self._filter_render_snapshot = []
+        self._filter_clear_iids = []
+        try:
+            if self.autoscroll.get() and self._filter_render_last_iid:
+                self.tree.see(self._filter_render_last_iid)
+        except Exception:
+            pass
+        self._update_status()
+        if self._tree_insert_pending and self._tree_insert_pending_job is None:
+            try:
+                self._tree_insert_pending_job = self.after(1, self._insert_items_batch)
+            except Exception:
+                self._tree_insert_pending_job = None
 
     def _apply_stay_on_top(self):
-        self.wm_attributes('-topmost', self.stay_on_top.get())
+        self._app_focus_changed()
 
     def _apply_show_lines(self):
         self.viewport_3d.show_wireframe.set(self.show_lines.get())
         if hasattr(self, '_titlebar'):
             try:
                 self._titlebar.configure(bg=_CURRENT_PALETTE['bg_dark'])
+                self._titlebar_canvas.configure(bg=_CURRENT_PALETTE['bg_dark'])
                 for child in self._titlebar.winfo_children():
                     if isinstance(child, tk.Label):
                         child.configure(bg=_CURRENT_PALETTE['bg_dark'], fg=_CURRENT_PALETTE['fg'])
@@ -12417,25 +14587,40 @@ class App(tk.Tk):
         body = meta.get('body') or b''
         cat = it.kind.split(' ', 1)[0]
         is_mesh = cat == 'Mesh'
+        is_anim = cat == 'Animation' or (cat in ('RBXM', 'Model') and any((marker in body[:262144] for marker in (b'Keyframe', b'CurveAnimation', b'KeyframeSequence', b'AnimationClip'))))
         is_audio = cat == 'Sound'
         is_model = cat in ('Model', 'RBXM', 'rbxl (place)')
-        if not (is_mesh or is_audio or is_model):
+        if not (is_mesh or is_anim or is_audio or is_model):
             self.viewport_3d.hide()
             return
+        if is_anim:
+            self.viewport_3d.hide()
+            return
+        self._close_animation_preview()
         temp_pkg_path = os.path.join(TEMP_EMU_DIR, f'preview_{it.hash}.bin')
         try:
             with open(temp_pkg_path, 'wb') as f:
                 f.write(body)
         except Exception:
             pass
-        self.viewport_3d.set_asset_data_from_temp(temp_pkg_path, is_mesh=is_mesh, is_model=is_model, is_audio=is_audio)
-        if is_mesh:
+        self.viewport_3d.set_asset_data_from_temp(temp_pkg_path, is_anim=is_anim, is_mesh=is_mesh, is_model=is_model, is_audio=is_audio)
+        if is_anim:
+            self.viewport_3d.show(is_anim=True, mode_label='Animation View')
+        elif is_mesh:
             self.viewport_3d.show(is_anim=False, mode_label='Mesh View')
         elif is_model:
             self.viewport_3d.show(is_anim=False, mode_label='Model View')
         else:
             self.viewport_3d.show(is_anim=False, mode_label='Audio View')
 
+    def _close_animation_preview(self):
+        win = getattr(self, '_animation_preview_win', None)
+        if win is not None:
+            try:
+                if win.winfo_exists():
+                    win.withdraw()
+            except Exception:
+                pass
 
     def _update_displaycolumns(self, save: bool=True):
         cols = [c for c in self.columns if self._col_vars[c].get()]
@@ -12574,6 +14759,8 @@ class App(tk.Tk):
             return
         if not self._img_preview_win or not self._img_preview_win.winfo_exists():
             self._img_preview_win = tk.Toplevel(self)
+            self._img_preview_win._skip_custom_chrome = True
+            self._img_preview_win._skip_popup_centering = True
             theme_toplevel(self._img_preview_win)
             self._img_preview_label = ttk.Label(self._img_preview_win)
             self._img_preview_label.pack()
@@ -12616,16 +14803,6 @@ class App(tk.Tk):
         self._img_preview_fade_job = self.after(25, self._fade_preview, target, step)
 
     def _fetch_full_blob(self, it: ScanItem) -> Optional[bytes]:
-        cached = self._blob_cache.get(it.hash)
-        if cached is not None:
-            try:
-                self._blob_cache_order.remove(it.hash)
-            except ValueError:
-                pass
-            self._blob_cache_order.append(it.hash)
-            return cached
-        conn = None
-        row = None
         try:
             conn = connect_ro(self.db_path)
             cur = conn.cursor()
@@ -12639,20 +14816,11 @@ class App(tk.Tk):
             except Exception:
                 pass
         if row is None:
-            content = read_shard_bytes(self.shard_root, it.hash)
-        else:
-            content = row[0] if row[0] is not None else read_shard_bytes(self.shard_root, it.hash)
+            return read_shard_bytes(self.shard_root, it.hash)
+        content = row[0]
         if content is not None:
-            self._blob_cache[it.hash] = content
-            try:
-                self._blob_cache_order.remove(it.hash)
-            except ValueError:
-                pass
-            self._blob_cache_order.append(it.hash)
-            while len(self._blob_cache_order) > self._blob_cache_limit:
-                old_hash = self._blob_cache_order.pop(0)
-                self._blob_cache.pop(old_hash, None)
-        return content
+            return content
+        return read_shard_bytes(self.shard_root, it.hash)
 
     def _export_selected_full(self):
         items = self._get_selected_items()
@@ -13413,47 +15581,89 @@ class App(tk.Tk):
     def _reset_seen(self, clear_list: bool):
         self.seen_hashes.clear()
         if clear_list:
-            self.tree.delete(*self.tree.get_children())
+            self._filter_render_generation += 1
+            for job_name in ('_tree_insert_pending_job', '_filter_render_job'):
+                job = getattr(self, job_name, None)
+                if job is not None:
+                    try:
+                        self.after_cancel(job)
+                    except Exception:
+                        pass
+                    setattr(self, job_name, None)
+            self._tree_insert_pending = []
+            self._tree_insert_pending_index = 0
+            self._filter_render_phase = None
+            self._filter_render_snapshot = []
+            self._filter_render_index = 0
+            self._filter_clear_iids = []
+            self._filter_clear_index = 0
             self.items_by_iid.clear()
             self.items_by_hash.clear()
+            try:
+                self.tree.delete(*self.tree.get_children(''))
+            except Exception:
+                pass
         self._update_status()
 
     def _sort_by(self, col_key: str, numeric: bool=False):
-
-        def parse_size(s: str) -> float:
-            s = s.strip().upper()
+        fields = {'time': 'time', 'name': 'name', 'hash': 'hash', 'size': 'size', 'kind': 'kind', 'src': 'src'}
+        field_name = fields.get(col_key)
+        try:
+            iids = list(self.tree.get_children(''))
+        except Exception:
+            return
+        if field_name:
+            items = []
+            for iid in iids:
+                item = self.items_by_iid.get(iid) or self.items_by_hash.get(iid)
+                if item is None:
+                    try:
+                        value = self.tree.set(iid, col_key)
+                    except Exception:
+                        value = ''
+                else:
+                    value = getattr(item, field_name, '')
+                items.append((value, iid))
+        else:
+            items = [(self.tree.set(iid, col_key), iid) for iid in iids]
+        def size_value(value):
+            if isinstance(value, (int, float)):
+                return float(value)
+            text = str(value).strip().upper()
+            for suffix, factor in (('TB', 1024 ** 4), ('GB', 1024 ** 3), ('MB', 1024 ** 2), ('KB', 1024), ('B', 1)):
+                if text.endswith(suffix):
+                    try:
+                        return float(text[:-len(suffix)]) * factor
+                    except Exception:
+                        return 0.0
             try:
-                if s.endswith('KB'):
-                    return float(s[:-2]) * 1024
-                if s.endswith('MB'):
-                    return float(s[:-2]) * 1024 ** 2
-                if s.endswith('GB'):
-                    return float(s[:-2]) * 1024 ** 3
-                if s.endswith('TB'):
-                    return float(s[:-2]) * 1024 ** 4
-                if s.endswith('B'):
-                    return float(s[:-1])
-                return float(s)
+                return float(text)
             except Exception:
                 return 0.0
-        items = [(self.tree.set(k, col_key), k) for k in self.tree.get_children('')]
-        if col_key == 'size':
-            items.sort(key=lambda t: parse_size(t[0]))
+        if col_key == 'size' or numeric:
+            items.sort(key=lambda pair: size_value(pair[0]))
         else:
-            items.sort(key=lambda t: t[0])
+            items.sort(key=lambda pair: str(pair[0]).casefold())
+        direction = 'asc'
         if getattr(self, '_last_sort', None) == (col_key, 'asc'):
             items.reverse()
-            self._last_sort = (col_key, 'desc')
-        else:
-            self._last_sort = (col_key, 'asc')
-        for idx, (_, k) in enumerate(items):
-            self.tree.move(k, '', idx)
+            direction = 'desc'
+        self._last_sort = (col_key, direction)
+        ordered = [iid for _, iid in items]
+        try:
+            self.tree.set_children('', *ordered)
+        except Exception:
+            for idx, iid in enumerate(ordered):
+                try:
+                    self.tree.move(iid, '', idx)
+                except Exception:
+                    pass
 
     def _update_status(self):
         if not hasattr(self, 'status_label'):
             return
         total = len(self.items_by_hash)
-        vis = len(self.tree.get_children())
+        vis = len(self.items_by_iid)
         stat = 'Watching' if self.watching else 'Idle'
         self.status_label.config(text=f'Status: {stat}   Visible: {vis}   Total seen: {total}   Interval: {WATCH_INTERVAL_SEC:.1f}s')
 
@@ -13465,27 +15675,33 @@ class App(tk.Tk):
     def _install_startup_shortcut(self):
         if os.name != 'nt':
             return
-        startup = os.path.join(os.environ.get('APPDATA', ''), 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup')
-        link = os.path.join(startup, 'RoUtils.lnk')
-        if not self.launch_on_startup.get():
-            try:
-                os.remove(link)
-            except OSError:
-                pass
-            return
+        run_path = r'Software\Microsoft\Windows\CurrentVersion\Run'
+        value_name = 'RoUtils'
         try:
-            if getattr(sys, 'frozen', False):
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, run_path, 0, winreg.KEY_SET_VALUE) as key:
+                if not self.launch_on_startup.get():
+                    try:
+                        winreg.DeleteValue(key, value_name)
+                    except FileNotFoundError:
+                        pass
+                    return
                 target = sys.executable
-                args = ''
-            else:
-                target = sys.executable
-                args = f'"{os.path.abspath(__file__)}"'
-            ps = '& { $w=New-Object -ComObject WScript.Shell; $s=$w.CreateShortcut($env:LINK); $s.TargetPath=$env:TARGET; $s.Arguments=$env:ARGS; $s.WorkingDirectory=$env:WORK; $s.Save() }'
-            env = os.environ.copy()
-            env.update({'LINK': link, 'TARGET': target, 'ARGS': args, 'WORK': BASE_DIR})
-            subprocess.run(['powershell', '-NoProfile', '-WindowStyle', 'Hidden', '-Command', ps], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0), timeout=10)
-        except Exception:
-            pass
+                if not getattr(sys, 'frozen', False):
+                    base = os.path.basename(target).lower()
+                    if base == 'python.exe':
+                        candidate = os.path.join(os.path.dirname(target), 'pythonw.exe')
+                        if os.path.isfile(candidate):
+                            target = candidate
+                    command = f'"{target}" "{os.path.abspath(__file__)}"'
+                else:
+                    command = f'"{target}"'
+                winreg.SetValueEx(key, value_name, 0, winreg.REG_SZ, command)
+        except Exception as exc:
+            try:
+                self._console_log(f'Could not update startup setting: {exc}')
+                messagebox.showerror('Startup', f'Could not update Start with system:\n{exc}', parent=self)
+            except Exception:
+                pass
 
     def _start_tray(self):
         if self._tray_icon is not None or self._tray_starting or os.name != 'nt':
@@ -13540,7 +15756,7 @@ class App(tk.Tk):
         except Exception:
             pass
         try:
-            self.fastflag_runtime.close()
+            self.fflag_engine.close()
         except Exception:
             pass
         try:
@@ -13549,6 +15765,9 @@ class App(tk.Tk):
         except Exception:
             pass
         self._save_console_history()
+        self._ui_dispatch_closed = True
+        self._resize_active = False
+        self._settings_save_deferred = False
         self.destroy()
 
 def main():
@@ -13573,7 +15792,7 @@ def main():
         except Exception as e:
             print(f'ERROR: {e}', flush=True)
             code = 1
-        input('\npress enter to close')
+        input('\nPress Enter to close...')
         raise SystemExit(code)
     try:
         app = App()
