@@ -62,8 +62,7 @@ RoUtils performs cache operations without intentionally blocking the main interf
 * **Hotkeys** – Apply/Change Values using Hotkeys
 * **Presets** – Load FFlag presets from the RoUtils GitHub
 * **JSON Editor** – Edit FFlag JSON files directly
-* **Default FFlag Values** – Open the default FFlag values
-* **Latest FFlag List** – Open the latest FFlag list
+* **Default FFlags/Offsets/Values ** – Open the list of FFlags/Offsets/Values
 * **RoUtils AI Chat** – Ask questions directly inside RoUtils (Add Gemini API Key on settings to use) (Powered by Gemini AI)
 
 #### How does FFlag Manager work?
