@@ -28,9 +28,9 @@ import winreg
 import threading
 import time
 UI_HOTKEY_INTERVAL_MS = 75
-UI_QUICK_PANEL_INTERVAL_MS = 200
-UI_QUEUE_INTERVAL_MS = 200
-UI_CLIENT_INTERVAL_MS = 1500
+UI_QUICK_PANEL_INTERVAL_MS = 50
+UI_QUEUE_INTERVAL_MS = 25
+UI_CLIENT_INTERVAL_MS = 250
 import platform
 import xml.etree.ElementTree as ET
 import tkinter as tk
@@ -70,7 +70,7 @@ os.makedirs(DATA_DIR, exist_ok=True)
 SPLASH_DIR = os.path.join(DATA_DIR, 'src')
 SPLASH_IMAGE_PATH = os.path.join(SPLASH_DIR, 'routils.png')
 SPLASH_IMAGE_URL = 'https://raw.githubusercontent.com/offp001/routils/refs/heads/main/src/routils.png'
-APP_VERSION = '5.0.0'
+APP_VERSION = '5.0.1'
 HISTORY_PATH = os.path.join(DATA_DIR, 'history.json')
 SETTINGS_PATH = os.path.join(DATA_DIR, 'routils_settings.json')
 ERROR_REPORT_DIR = os.path.join(DATA_DIR, 'errors')
@@ -6849,6 +6849,72 @@ def _routils_close_popup(win):
         pass
 
 
+def _routils_process_has_focus(root=None):
+    try:
+        if sys.platform == 'win32':
+            foreground = ctypes.windll.user32.GetForegroundWindow()
+            if not foreground:
+                return False
+            process_id = ctypes.wintypes.DWORD()
+            ctypes.windll.user32.GetWindowThreadProcessId(foreground, ctypes.byref(process_id))
+            return int(process_id.value) == os.getpid()
+    except Exception:
+        pass
+    try:
+        root = root or tk._default_root
+        focus = root.focus_get() if root is not None and root.winfo_exists() else None
+        return bool(focus and focus.winfo_toplevel())
+    except Exception:
+        return False
+
+
+def _routils_sync_popup_topmost(root=None):
+    try:
+        root = root or tk._default_root
+        if root is None or not root.winfo_exists():
+            return False
+        focused = _routils_process_has_focus(root)
+        windows = []
+        pending = list(root.winfo_children())
+        while pending:
+            widget = pending.pop(0)
+            try:
+                pending.extend(widget.winfo_children())
+                if isinstance(widget, tk.Toplevel) and widget.winfo_exists():
+                    windows.append(widget)
+            except Exception:
+                pass
+        for widget in windows:
+            try:
+                widget.attributes('-topmost', bool(focused))
+            except Exception:
+                pass
+            try:
+                if sys.platform == 'win32':
+                    hwnd = _win32_root_hwnd(widget)
+                    if hwnd:
+                        insert_after = -1 if focused else -2
+                        ctypes.windll.user32.SetWindowPos(hwnd, insert_after, 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010)
+                if focused:
+                    widget.lift()
+            except Exception:
+                pass
+        if focused:
+            try:
+                root.lift()
+            except Exception:
+                pass
+            for widget in windows:
+                try:
+                    if widget.winfo_exists():
+                        widget.lift()
+                except Exception:
+                    pass
+        return focused
+    except Exception:
+        return False
+
+
 def _routils_popup_chrome(win):
     try:
         if not win.winfo_exists() or getattr(win, '_skip_custom_chrome', False) or getattr(win, '_routils_custom_chrome', False):
@@ -6953,20 +7019,7 @@ def _routils_popup_chrome(win):
             widget.bind('<ButtonRelease-1>', finish_drag, add='+')
         def sync_topmost(_event=None):
             try:
-                root = tk._default_root
-                if root is None or not root.winfo_exists():
-                    win.attributes('-topmost', False)
-                    return
-                focus = root.focus_get()
-                focused_top = focus.winfo_toplevel() if focus is not None else None
-                is_rotools_focus = focused_top is root or focused_top is win
-                if focused_top is not None and not is_rotools_focus:
-                    try:
-                        transient = focused_top.transient()
-                        is_rotools_focus = bool(transient and str(transient) == str(root))
-                    except Exception:
-                        pass
-                win.attributes('-topmost', bool(is_rotools_focus))
+                _routils_sync_popup_topmost(tk._default_root)
             except Exception:
                 pass
         win.bind('<FocusIn>', sync_topmost, add='+')
@@ -7005,12 +7058,24 @@ _original_toplevel_init = tk.Toplevel.__init__
 def _routils_toplevel_init(self, *args, **kwargs):
     _original_toplevel_init(self, *args, **kwargs)
     try:
+        master = self.master
+        if master is not None and isinstance(master, (tk.Tk, tk.Toplevel)) and master.winfo_exists():
+            self.transient(master)
         self.bind('<Destroy>', lambda event, w=self: _routils_clear_window_references(event, w), add='+')
-        self.after(60, lambda w=self: _routils_popup_chrome(w) if w.winfo_exists() else None)
+        self.after_idle(lambda w=self: _routils_popup_chrome(w) if w.winfo_exists() else None)
     except Exception:
         pass
 
 tk.Toplevel.__init__ = _routils_toplevel_init
+
+def _routils_nonblocking_grab_set(self, *args, **kwargs):
+    try:
+        self.focus_set()
+    except Exception:
+        pass
+    return None
+
+tk.Toplevel.grab_set = _routils_nonblocking_grab_set
 
 
 class _MacNotification:
@@ -7038,11 +7103,23 @@ class _MacNotification:
             except Exception:
                 pass
         cls._active = live
-        for index, (win, height) in enumerate(reversed(cls._active)):
+        ordered = list(reversed(cls._active))
+        for index, (win, height) in enumerate(ordered):
             try:
                 width = 390
-                x = max(0, win.winfo_screenwidth() - width - 22)
-                y = max(0, win.winfo_screenheight() - height - 58 - sum(h + 12 for _, h in list(reversed(cls._active))[:index]))
+                root = getattr(win, '_routils_notification_parent', None)
+                if root is not None and root.winfo_exists():
+                    root.update_idletasks()
+                    rx, ry = root.winfo_rootx(), root.winfo_rooty()
+                    rw, rh = root.winfo_width(), root.winfo_height()
+                    x = rx + rw - width - 14
+                    y = ry + rh - height - 14 - sum(h + 10 for _, h in ordered[:index])
+                else:
+                    x = win.winfo_screenwidth() - width - 22
+                    y = win.winfo_screenheight() - height - 58 - sum(h + 12 for _, h in ordered[:index])
+                sw, sh = win.winfo_screenwidth(), win.winfo_screenheight()
+                x = max(0, min(int(x), sw - width))
+                y = max(0, min(int(y), sh - height))
                 win.geometry(f'{width}x{height}+{x}+{y}')
             except Exception:
                 pass
@@ -7065,6 +7142,7 @@ class _MacNotification:
             lines = max(2, min(6, (len(str(message)) // 54) + 1))
             height = 62 + lines * 18
             toast = tk.Toplevel(root)
+            toast._routils_notification_parent = root
             toast._skip_custom_chrome = True
             toast.overrideredirect(True)
             toast.configure(bg=accent)
@@ -7116,6 +7194,10 @@ class _MacNotification:
             toast.bind('<FocusOut>', lambda _e: toast.after(180, sync_topmost), add='+')
             cls._active.append((toast, height))
             cls._reposition()
+            try:
+                root.bind('<Configure>', lambda _e: cls._reposition(), add='+')
+            except Exception:
+                pass
             def pulse():
                 if state['closed'] or not toast.winfo_exists():
                     return
@@ -7130,8 +7212,8 @@ class _MacNotification:
                 else:
                     outer.configure(highlightbackground=accent, bg=accent)
                     cls._pulse_jobs.pop(toast, None)
-            cls._pulse_jobs[toast] = toast.after(100, pulse)
-            toast.after(5200, close_toast)
+            cls._pulse_jobs[toast] = toast.after_idle(pulse)
+            toast.after(4200, close_toast)
         except Exception:
             pass
 
@@ -7622,6 +7704,14 @@ class App(_TkAppBase):
             height = min(800, max(560, screen_height - 100))
             startup_geometry = f'{width}x{height}+{max(0,(screen_width-width)//2)}+{max(0,(screen_height-height)//2)}'
         self.geometry(startup_geometry)
+        self._responsive_reference_width = max(1, int(width))
+        self._responsive_reference_height = max(1, int(height))
+        try:
+            self._responsive_base_tk_scaling = float(self.tk.call('tk', 'scaling'))
+        except Exception:
+            self._responsive_base_tk_scaling = float(getattr(self, '_dpi_scale', 1.0) or 1.0)
+        self._responsive_applied_ratio = 1.0
+        self._responsive_scale_job = None
         self.minsize(620, 380)
         self.resizable(True, True)
         self._setup_custom_titlebar()
@@ -7857,8 +7947,13 @@ class App(_TkAppBase):
     def _create_startup_splash(self):
         if '--tray' in sys.argv:
             return
+        self._routils_splash_started_at = time.monotonic()
         try:
-            self.withdraw()
+            try:
+                self.deiconify()
+                self.attributes('-alpha', 0.0)
+            except Exception:
+                self.withdraw()
             splash = tk.Toplevel(self)
             splash._skip_custom_chrome = True
             splash._skip_popup_centering = True
@@ -7866,38 +7961,71 @@ class App(_TkAppBase):
             palette = _CURRENT_PALETTE if isinstance(_CURRENT_PALETTE, dict) else THEMES[DEFAULT_THEME]
             accent = palette.get('accent', '#7f8cff')
             bg = palette.get('bg_dark', '#1b1b1c')
-            splash.configure(bg=accent, highlightthickness=2, highlightbackground=accent, highlightcolor=accent, bd=0)
-            width, height = 419, 160
+            width, height = 440, 176
             screen_w = int(splash.winfo_screenwidth() or 1920)
             screen_h = int(splash.winfo_screenheight() or 1080)
             x = max(0, (screen_w - width) // 2)
             y = max(0, (screen_h - height) // 2)
             splash.geometry(f'{width}x{height}+{x}+{y}')
+            splash.configure(bg=accent, highlightthickness=2, highlightbackground=accent, bd=0)
             try:
                 splash.attributes('-topmost', True)
             except Exception:
                 pass
             canvas = tk.Canvas(splash, width=width - 4, height=height - 4, bg=bg, highlightthickness=0, bd=0)
             canvas.place(x=2, y=2, width=width - 4, height=height - 4)
-            canvas.create_rectangle(0, 0, width, height, fill=bg, outline='', tags=('splash_background',))
-            canvas.create_text((width - 4) // 2 + 1, 62, text='RoUtils', fill='#111111', font=('Segoe UI Semibold', 23), tags=('splash_shadow',))
-            canvas.create_text((width - 4) // 2, 61, text='RoUtils', fill='#ffffff', font=('Segoe UI Semibold', 23), tags=('splash_title',))
-            canvas.create_text((width - 4) // 2 + 1, 103, text='Loading...', fill='#111111', font=('Segoe UI', 10), tags=('splash_shadow',))
-            canvas.create_text((width - 4) // 2, 102, text='Loading...', fill='#ffffff', font=('Segoe UI', 10), tags=('splash_loading',))
+            canvas.create_text((width - 4) // 2 + 1, 65, text='RoUtils', fill='#111111', font=('Segoe UI Semibold', 25))
+            canvas.create_text((width - 4) // 2, 64, text='RoUtils', fill='#ffffff', font=('Segoe UI Semibold', 25))
+            for glow_dx, glow_dy in ((-2, 0), (2, 0), (0, -2), (0, 2), (-1, -1), (1, -1), (-1, 1), (1, 1)):
+                canvas.create_text((width - 4) // 2 + glow_dx, 108 + glow_dy, text='Loading...', fill=accent, font=('Segoe UI Semibold', 11), tags=('loading_glow',))
+            canvas.create_text((width - 4) // 2, 108, text='Loading...', fill='#ffffff', font=('Segoe UI Semibold', 11), tags=('loading_text',))
+            canvas.create_rectangle(110, 137, 330, 141, fill='#333338', outline='')
+            canvas.create_rectangle(110, 137, 110, 141, fill=accent, outline='', tags=('loading_bar',))
             self._routils_splash = splash
             self._routils_splash_canvas = canvas
+            self._routils_splash_photo = None
+            self._routils_splash_image_applied = False
+            splash.deiconify()
+            splash.lift()
+            try:
+                splash.attributes('-topmost', True)
+            except Exception:
+                pass
+            splash.update_idletasks()
+            splash.update()
+            self._routils_splash_animation_step = 0
+            self.after(45, self._animate_startup_splash)
             if os.path.isfile(SPLASH_IMAGE_PATH):
                 self._apply_startup_splash_image()
             threading.Thread(target=self._download_startup_splash_image, daemon=True, name='RoUtilsSplashDownload').start()
-            splash.update_idletasks()
-            splash.update()
             self.after(100, self._poll_startup_splash_image)
         except Exception:
             self._routils_splash = None
             try:
+                self.attributes('-alpha', 1.0)
                 self.deiconify()
             except Exception:
                 pass
+
+    def _animate_startup_splash(self):
+        splash = getattr(self, '_routils_splash', None)
+        canvas = getattr(self, '_routils_splash_canvas', None)
+        if splash is None or canvas is None:
+            return
+        try:
+            if not splash.winfo_exists():
+                return
+            step = (getattr(self, '_routils_splash_animation_step', 0) + 11) % 221
+            self._routils_splash_animation_step = step
+            canvas.coords('loading_bar', 110, 137, 110 + step, 141)
+            splash.lift()
+            try:
+                splash.attributes('-topmost', True)
+            except Exception:
+                pass
+            self.after(45, self._animate_startup_splash)
+        except Exception:
+            pass
 
     def _download_startup_splash_image(self):
         try:
@@ -7940,16 +8068,23 @@ class App(_TkAppBase):
     def _finish_startup_splash(self):
         splash = getattr(self, '_routils_splash', None)
         if splash is None:
+            try:
+                self.attributes('-alpha', 1.0)
+                self.deiconify()
+            except Exception:
+                pass
             return
         try:
             if not splash.winfo_exists():
                 self._routils_splash = None
+                self.attributes('-alpha', 1.0)
+                self._ensure_main_window_visible()
                 return
             elapsed = time.monotonic() - self._routils_splash_started_at
-            if elapsed < 0.55:
+            if elapsed < 1.35:
                 self.after(70, self._finish_startup_splash)
                 return
-            if not self._routils_splash_image_done.is_set() and elapsed < 1.65:
+            if not self._routils_splash_image_done.is_set() and elapsed < 2.2:
                 self.after(80, self._finish_startup_splash)
                 return
             self._routils_splash = None
@@ -7961,6 +8096,10 @@ class App(_TkAppBase):
                 self.attributes('-topmost', False)
             except Exception:
                 pass
+            try:
+                self.attributes('-alpha', 1.0)
+            except Exception:
+                pass
             self._ensure_main_window_visible()
         except Exception:
             try:
@@ -7969,6 +8108,11 @@ class App(_TkAppBase):
             except Exception:
                 pass
             self._routils_splash = None
+            try:
+                self.attributes('-alpha', 1.0)
+                self.deiconify()
+            except Exception:
+                pass
 
     def _is_resize_deferred_ui_key(self, key):
         return key in ('cache_toolbar', 'settings_region', 'history_region') or str(key).startswith(('ai_region_', 'settings_scrollbar_'))
@@ -8011,8 +8155,15 @@ class App(_TkAppBase):
             return
         self._build_viewer_widgets()
         self._cache_built = True
-        self.after_idle(self._apply_startup_layouts)
+        self._schedule_startup_layouts()
         self.after_idle(self._update_status)
+
+    def _schedule_startup_layouts(self):
+        for delay in (80, 220, 500, 900):
+            try:
+                self.after(delay, self._apply_startup_layouts)
+            except Exception:
+                pass
 
     def _lazy_tab_changed(self, _event=None):
         self._refresh_tab_nav()
@@ -13489,14 +13640,21 @@ class App(_TkAppBase):
 
     def _app_focus_changed(self, _event=None):
         try:
-            focus = self.focus_get()
-            focused = bool(focus and (focus.winfo_toplevel() is self or str(focus.winfo_toplevel().transient()) == str(self)))
+            focused = _routils_process_has_focus(self)
             self.wm_attributes('-topmost', bool(self.stay_on_top.get() and focused))
+            _routils_sync_popup_topmost(self)
             for win, _height in list(getattr(_MacNotification, '_active', [])):
                 try:
                     win.attributes('-topmost', focused)
+                    if focused:
+                        win.lift()
                 except Exception:
                     pass
+            try:
+                self.after(50, lambda r=self: _routils_sync_popup_topmost(r))
+                self.after(250, lambda r=self: _routils_sync_popup_topmost(r))
+            except Exception:
+                pass
         except Exception:
             pass
 
@@ -13599,6 +13757,135 @@ class App(_TkAppBase):
         if self._deferred_canvas_widths:
             self._schedule_resize_canvas_flush(65 if getattr(self, '_resize_active', False) else 22)
 
+    def _schedule_responsive_ui_scale(self, dimensions=None):
+        try:
+            if dimensions is None:
+                width = int(self.winfo_width())
+                height = int(self.winfo_height())
+            else:
+                width, height = int(dimensions[0]), int(dimensions[1])
+            reference_width = max(1, int(getattr(self, '_responsive_reference_width', 1400)))
+            reference_height = max(1, int(getattr(self, '_responsive_reference_height', 800)))
+            ratio = max(0.35, min(1.0, width / reference_width, height / reference_height))
+            if abs(ratio - float(getattr(self, '_responsive_applied_ratio', 1.0))) < 0.015:
+                return
+            job = getattr(self, '_responsive_scale_job', None)
+            if job is not None:
+                try:
+                    self.after_cancel(job)
+                except Exception:
+                    pass
+            self._responsive_scale_job = self.after(55, lambda value=ratio: self._apply_responsive_ui_scale(value))
+        except Exception:
+            pass
+
+    def _apply_responsive_ui_scale(self, ratio):
+        self._responsive_scale_job = None
+        try:
+            if not self.winfo_exists():
+                return
+            ratio = max(0.35, min(1.0, float(ratio)))
+            current_width = int(self.winfo_width())
+            current_height = int(self.winfo_height())
+            reference_width = max(1, int(getattr(self, '_responsive_reference_width', 1400)))
+            reference_height = max(1, int(getattr(self, '_responsive_reference_height', 800)))
+            ratio = max(0.35, min(1.0, current_width / reference_width, current_height / reference_height))
+            if abs(ratio - float(getattr(self, '_responsive_applied_ratio', 1.0))) < 0.015:
+                return
+            self._responsive_applied_ratio = ratio
+            self._responsive_last_scale = ratio
+            if not hasattr(self, '_responsive_widget_fonts'):
+                self._responsive_widget_fonts = {}
+            if not hasattr(self, '_responsive_font_objects'):
+                self._responsive_font_objects = {}
+            if not hasattr(self, '_responsive_font_base_sizes'):
+                self._responsive_font_base_sizes = {}
+            def scale_widget(widget):
+                try:
+                    if not widget.winfo_exists():
+                        return
+                    try:
+                        current_font = widget.cget('font')
+                    except Exception:
+                        current_font = None
+                    if current_font:
+                        key = str(widget)
+                        saved = self._responsive_widget_fonts.get(key)
+                        if saved is None:
+                            saved = current_font
+                            self._responsive_widget_fonts[key] = saved
+                        font_key = (key, str(saved))
+                        font_obj = self._responsive_font_objects.get(font_key)
+                        if font_obj is None:
+                            try:
+                                font_obj = tkfont.Font(root=self, font=saved)
+                                self._responsive_font_objects[font_key] = font_obj
+                                self._responsive_font_base_sizes[font_key] = int(font_obj.cget('size'))
+                            except Exception:
+                                font_obj = None
+                        if font_obj is not None:
+                            try:
+                                base_size = int(self._responsive_font_base_sizes.get(font_key, font_obj.cget('size')))
+                                font_ratio = max(0.82, ratio)
+                                if base_size < 0:
+                                    scaled_size = -max(8, int(round(abs(base_size) * font_ratio)))
+                                else:
+                                    scaled_size = max(8, int(round(base_size * font_ratio)))
+                                font_obj.configure(size=scaled_size)
+                                if str(widget.cget('font')) != str(font_obj):
+                                    widget.configure(font=font_obj)
+                            except Exception:
+                                pass
+                    try:
+                        children = widget.winfo_children()
+                    except Exception:
+                        children = ()
+                    for child in children:
+                        scale_widget(child)
+                except Exception:
+                    pass
+            scale_widget(self)
+            try:
+                style = ttk.Style(self)
+                style_fonts = {
+                    'TButton': ('Segoe UI', 9, 'bold'),
+                    'Toolbutton': ('Segoe UI', 9, 'bold'),
+                    'TCheckbutton': ('Segoe UI', 9),
+                    'TRadiobutton': ('Segoe UI', 9),
+                    'TMenubutton': ('Segoe UI', 9),
+                    'TCombobox': ('Segoe UI', 9),
+                    'TEntry': ('Segoe UI', 9),
+                    'TLabel': ('Segoe UI', 10),
+                    'TLabelframe.Label': ('Segoe UI', 9),
+                    'Treeview': ('Consolas', 9),
+                    'Treeview.Heading': ('Segoe UI Semibold', 10),
+                    'RoUtils.Nav.TButton': ('Segoe UI Semibold', 9),
+                    'RoUtils.ActiveNav.TButton': ('Segoe UI Semibold', 9),
+                }
+                font_ratio = max(0.82, ratio)
+                for style_name, base_font in style_fonts.items():
+                    size = max(8, int(round(base_font[1] * font_ratio)))
+                    style.configure(style_name, font=(base_font[0], size, *base_font[2:]))
+                scaled_padding = max(1, int(round(6 * ratio)))
+                scaled_vertical = max(1, int(round(4 * ratio)))
+                for style_name in ('TButton', 'Toolbutton', 'TCheckbutton', 'TRadiobutton', 'TMenubutton', 'TCombobox', 'TEntry'):
+                    try:
+                        style.configure(style_name, padding=(scaled_padding, scaled_vertical))
+                    except Exception:
+                        pass
+                try:
+                    style.configure('Treeview', rowheight=max(18, int(round(23 * ratio))) )
+                except Exception:
+                    pass
+            except Exception:
+                pass
+            try:
+                self.update_idletasks()
+            except Exception:
+                pass
+        except Exception:
+            pass
+
     def _on_geometry_configure(self, event=None):
         if event is not None and event.widget is not self:
             return
@@ -13607,6 +13894,7 @@ class App(_TkAppBase):
                 dimensions = (int(event.width), int(event.height))
             else:
                 dimensions = (int(self.winfo_width()), int(self.winfo_height()))
+            self._schedule_responsive_ui_scale(dimensions)
             previous = getattr(self, '_last_geometry_dimensions', None)
             self._last_geometry_dimensions = dimensions
             position = (int(getattr(event, 'x', 0) or 0), int(getattr(event, 'y', 0) or 0)) if event is not None else (int(self.winfo_x()), int(self.winfo_y()))
@@ -13665,9 +13953,15 @@ class App(_TkAppBase):
         self.settings = data
 
     def _apply_startup_layouts(self):
+        if not getattr(self, '_cache_built', False):
+            return
+        try:
+            self.update_idletasks()
+        except Exception:
+            pass
         try:
             total = self.vpaned.winfo_height()
-            if total > 0:
+            if total > 160 and len(self.vpaned.panes()) >= 2:
                 saved = self.settings.get('vpaned_sash')
                 target = int(saved) if saved is not None else int(total * PANED_TOP_FRACTION)
                 self.vpaned.sashpos(0, max(80, min(total - 80, target)))
@@ -13675,10 +13969,14 @@ class App(_TkAppBase):
             pass
         try:
             total = self.hpaned.winfo_width()
-            if total > 0:
+            if total > VIEWER_MIN_WIDTH + REPLACER_MIN_WIDTH and len(self.hpaned.panes()) >= 2:
                 saved = self.settings.get('hpaned_sash')
+                scale = max(0.62, min(1.0, float(getattr(self, '_responsive_last_scale', 1.0) or 1.0)))
+                min_left = max(260, int(VIEWER_MIN_WIDTH * scale))
+                min_right = max(190, int(REPLACER_MIN_WIDTH * scale))
                 target = int(saved) if saved is not None else int(total * HPANED_LEFT_FRACTION)
-                self.hpaned.sashpos(0, max(VIEWER_MIN_WIDTH, min(total - REPLACER_MIN_WIDTH, target)))
+                target = max(min_left, min(total - min_right, target))
+                self.hpaned.sashpos(0, target)
                 self._clamp_hsash()
         except Exception:
             pass
