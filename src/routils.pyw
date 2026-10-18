@@ -70,14 +70,12 @@ os.makedirs(DATA_DIR, exist_ok=True)
 SPLASH_DIR = os.path.join(DATA_DIR, 'src')
 SPLASH_IMAGE_PATH = os.path.join(SPLASH_DIR, 'routils.png')
 SPLASH_IMAGE_URL = 'https://raw.githubusercontent.com/offp001/routils/refs/heads/main/src/routils.png'
-APP_VERSION = '5.0.1'
+APP_VERSION = '5.1.0'
 HISTORY_PATH = os.path.join(DATA_DIR, 'history.json')
 SETTINGS_PATH = os.path.join(DATA_DIR, 'routils_settings.json')
 ERROR_REPORT_DIR = os.path.join(DATA_DIR, 'errors')
 _ACTIVE_APP = None
 _ERROR_REPORTING = False
-
-
 def _routils_darken_color(color, amount=0.2):
     try:
         value = str(color).lstrip('#')
@@ -90,8 +88,6 @@ def _routils_darken_color(color, amount=0.2):
         return '#%02x%02x%02x' % tuple(round(channel * factor) for channel in channels)
     except Exception:
         return color
-
-
 def _ensure_splash_image_file():
     os.makedirs(SPLASH_DIR, exist_ok=True)
     if os.path.isfile(SPLASH_IMAGE_PATH):
@@ -124,7 +120,6 @@ def _ensure_splash_image_file():
         except Exception:
             pass
         return False
-
 def _report_rotools_error(exc_type, exc_value, exc_tb, app=None):
     global _ERROR_REPORTING
     if _ERROR_REPORTING:
@@ -157,9 +152,7 @@ def _report_rotools_error(exc_type, exc_value, exc_tb, app=None):
             pass
     finally:
         _ERROR_REPORTING = False
-
 def _install_error_hooks():
-
     def hook(exc_type, exc_value, exc_tb):
         _report_rotools_error(exc_type, exc_value, exc_tb)
     sys.excepthook = hook
@@ -171,7 +164,6 @@ os.makedirs(TEMP_EMU_DIR, exist_ok=True)
 import enum
 from dataclasses import dataclass, field
 from typing import Any
-
 class PropertyFormat(enum.IntEnum):
     UNKNOWN = 0
     STRING = 1
@@ -209,13 +201,11 @@ class PropertyFormat(enum.IntEnum):
     SECURITY_CAPABILITIES = 33
     CONTENT = 34
 PROPERTY_FORMAT_TO_XML_TAG: dict[PropertyFormat, str] = {PropertyFormat.STRING: 'string', PropertyFormat.BOOL: 'bool', PropertyFormat.INT: 'int', PropertyFormat.FLOAT: 'float', PropertyFormat.DOUBLE: 'double', PropertyFormat.UDIM: 'UDim', PropertyFormat.UDIM2: 'UDim2', PropertyFormat.RAY: 'Ray', PropertyFormat.FACES: 'Faces', PropertyFormat.AXES: 'Axes', PropertyFormat.BRICK_COLOR: 'BrickColor', PropertyFormat.COLOR3: 'Color3', PropertyFormat.VECTOR2: 'Vector2', PropertyFormat.VECTOR3: 'Vector3', PropertyFormat.VECTOR2INT16: 'Vector2int16', PropertyFormat.CFRAME_MATRIX: 'CoordinateFrame', PropertyFormat.CFRAME_QUAT: 'CoordinateFrame', PropertyFormat.ENUM: 'token', PropertyFormat.REF: 'Ref', PropertyFormat.VECTOR3INT16: 'Vector3int16', PropertyFormat.NUMBER_SEQUENCE: 'NumberSequence', PropertyFormat.COLOR_SEQUENCE: 'ColorSequence', PropertyFormat.NUMBER_RANGE: 'NumberRange', PropertyFormat.RECT2D: 'Rect2D', PropertyFormat.PHYSICAL_PROPERTIES: 'PhysicalProperties', PropertyFormat.COLOR3UINT8: 'Color3uint8', PropertyFormat.INT64: 'int64', PropertyFormat.SHARED_STRING: 'SharedString', PropertyFormat.BYTECODE: 'BinaryString', PropertyFormat.OPTIONAL_CFRAME: 'OptionalCoordinateFrame', PropertyFormat.UNIQUE_ID: 'UniqueId', PropertyFormat.FONT: 'Font', PropertyFormat.SECURITY_CAPABILITIES: 'SecurityCapabilities', PropertyFormat.CONTENT: 'Content'}
-
 @dataclass
 class RbxProperty:
     name: str
     fmt: PropertyFormat
     value: Any
-
 @dataclass
 class RbxInstance:
     class_name: str
@@ -223,18 +213,15 @@ class RbxInstance:
     properties: dict[str, RbxProperty] = field(default_factory=dict[str, RbxProperty])
     children: list['RbxInstance'] = field(default_factory=list['RbxInstance'])
     is_service: bool = False
-
 @dataclass
 class RbxMetadata:
     entries: dict[str, str] = field(default_factory=dict[str, str])
-
 @dataclass
 class RbxTypeInfo:
     type_index: int
     class_name: str
     is_service: bool
     instance_ids: list[int]
-
 @dataclass
 class RbxRawPropertyChunk:
     class_name: str
@@ -242,12 +229,10 @@ class RbxRawPropertyChunk:
     fmt_byte: int
     value_data: bytes
     instance_count: int
-
 @dataclass
 class RbxRawChunk:
     name: str
     data: bytes
-
 @dataclass
 class RbxDocument:
     version: int
@@ -263,38 +248,29 @@ import struct
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     pass
-
 def read_u8(data: bytes, offset: int) -> tuple[int, int]:
     return (data[offset], offset + 1)
-
 def read_u32(data: bytes, offset: int) -> tuple[int, int]:
     val = struct.unpack_from('<I', data, offset)[0]
     return (val, offset + 4)
-
 def read_f32(data: bytes, offset: int) -> tuple[float, int]:
     val = struct.unpack_from('<f', data, offset)[0]
     return (val, offset + 4)
-
 def read_f64(data: bytes, offset: int) -> tuple[float, int]:
     val = struct.unpack_from('<d', data, offset)[0]
     return (val, offset + 8)
-
 def read_bytes(data: bytes, offset: int, length: int) -> tuple[bytes, int]:
     return (data[offset:offset + length], offset + length)
-
 def read_string(data: bytes, offset: int) -> tuple[str, int]:
     length, offset = read_u32(data, offset)
     raw, offset = read_bytes(data, offset, length)
     return (raw.decode('utf-8', errors='replace'), offset)
-
 def read_binary_string(data: bytes, offset: int) -> tuple[bytes, int]:
     length, offset = read_u32(data, offset)
     raw, offset = read_bytes(data, offset, length)
     return (raw, offset)
-
 def decode_zigzag(value: int) -> int:
     return value >> 1 ^ -(value & 1)
-
 def deinterleave_u32(data: bytes, offset: int, count: int) -> list[int]:
     values: list[int] = []
     total = count * 4
@@ -306,11 +282,9 @@ def deinterleave_u32(data: bytes, offset: int, count: int) -> list[int]:
         b3 = block[3 * count + i]
         values.append(b0 << 24 | b1 << 16 | b2 << 8 | b3)
     return values
-
 def deinterleave_i32(data: bytes, offset: int, count: int) -> list[int]:
     raw = deinterleave_u32(data, offset, count)
     return [decode_zigzag(v) for v in raw]
-
 def deinterleave_f32(data: bytes, offset: int, count: int) -> list[float]:
     raw = deinterleave_u32(data, offset, count)
     result: list[float] = []
@@ -318,7 +292,6 @@ def deinterleave_f32(data: bytes, offset: int, count: int) -> list[float]:
         bits = v >> 1 | (v & 1) << 31
         result.append(struct.unpack('<f', struct.pack('<I', bits))[0])
     return result
-
 def deinterleave_i64(data: bytes, offset: int, count: int) -> list[int]:
     values: list[int] = []
     total = count * 8
@@ -329,7 +302,6 @@ def deinterleave_i64(data: bytes, offset: int, count: int) -> list[int]:
             val = val << 8 | block[byte_idx * count + i]
         values.append(val >> 1 ^ -(val & 1))
     return values
-
 def deinterleave_u64(data: bytes, offset: int, count: int) -> list[int]:
     values: list[int] = []
     total = count * 8
@@ -340,11 +312,9 @@ def deinterleave_u64(data: bytes, offset: int, count: int) -> list[int]:
             val = val << 8 | block[byte_idx * count + i]
         values.append(val)
     return values
-
 def deinterleave_bytes(data: bytes, offset: int, count: int, width: int) -> list[bytes]:
     block = data[offset:offset + count * width]
     return [bytes((block[byte_idx * count + i] for byte_idx in range(width))) for i in range(count)]
-
 def decode_ids(data: bytes, offset: int, count: int) -> tuple[list[int], int]:
     deltas = deinterleave_i32(data, offset, count)
     ids: list[int] = []
@@ -354,35 +324,25 @@ def decode_ids(data: bytes, offset: int, count: int) -> tuple[list[int], int]:
         ids.append(acc)
     return (ids, offset + count * 4)
 import struct
-
 def write_u8(value: int) -> bytes:
     return bytes([value & 255])
-
 def write_u16(value: int) -> bytes:
     return struct.pack('<H', value)
-
 def write_u32(value: int) -> bytes:
     return struct.pack('<I', value)
-
 def write_f32(value: float) -> bytes:
     return struct.pack('<f', value)
-
 def write_f64(value: float) -> bytes:
     return struct.pack('<d', value)
-
 def write_string(value: str) -> bytes:
     encoded = value.encode('utf-8')
     return write_u32(len(encoded)) + encoded
-
 def write_binary_string(value: bytes) -> bytes:
     return write_u32(len(value)) + value
-
 def encode_zigzag32(value: int) -> int:
     return (value << 1 ^ value >> 31) & 4294967295
-
 def encode_zigzag64(value: int) -> int:
     return (value << 1 ^ value >> 63) & 18446744073709551615
-
 def interleave_u32(values: list[int]) -> bytes:
     count = len(values)
     out = bytearray(count * 4)
@@ -392,10 +352,8 @@ def interleave_u32(values: list[int]) -> bytes:
         out[2 * count + i] = v >> 8 & 255
         out[3 * count + i] = v & 255
     return bytes(out)
-
 def interleave_i32(values: list[int]) -> bytes:
     return interleave_u32([encode_zigzag32(v) for v in values])
-
 def interleave_f32(values: list[float]) -> bytes:
     raw_ints: list[int] = []
     for v in values:
@@ -403,7 +361,6 @@ def interleave_f32(values: list[float]) -> bytes:
         rotated = ((bits & 2147483647) << 1 | bits >> 31) & 4294967295
         raw_ints.append(rotated)
     return interleave_u32(raw_ints)
-
 def interleave_i64(values: list[int]) -> bytes:
     count = len(values)
     out = bytearray(count * 8)
@@ -412,7 +369,6 @@ def interleave_i64(values: list[int]) -> bytes:
         for byte_idx in range(8):
             out[byte_idx * count + i] = zz >> 56 - byte_idx * 8 & 255
     return bytes(out)
-
 def interleave_u64(values: list[int]) -> bytes:
     count = len(values)
     out = bytearray(count * 8)
@@ -421,7 +377,6 @@ def interleave_u64(values: list[int]) -> bytes:
         for byte_idx in range(8):
             out[byte_idx * count + i] = v >> 56 - byte_idx * 8 & 255
     return bytes(out)
-
 def interleave_bytes(values: list[bytes], width: int) -> bytes:
     count = len(values)
     out = bytearray(count * width)
@@ -432,7 +387,6 @@ def interleave_bytes(values: list[bytes], width: int) -> bytes:
         for byte_idx, byte in enumerate(value):
             out[byte_idx * count + i] = byte
     return bytes(out)
-
 def encode_ids(ids: list[int]) -> bytes:
     deltas: list[int] = []
     prev = 0
@@ -446,13 +400,10 @@ from typing import Any
 import lz4.block
 MAGIC_HEADER = b'<roblox!\x89\xff\r\n\x1a\n'
 FILE_VERSION = 0
-
 def write_rbxm(doc: RbxDocument) -> bytes:
     s = RbxmSerializer(doc)
     return s.serialize()
-
 class RbxmSerializer:
-
     def __init__(self, doc: RbxDocument) -> None:
         self._doc = doc
         self._type_index: dict[str, int] = {}
@@ -462,7 +413,6 @@ class RbxmSerializer:
         self._shared_string_index: dict[bytes, int] = {}
         self._assign_types()
         self._collect_shared_strings()
-
     def _walk(self) -> list[RbxInstance]:
         result: list[RbxInstance] = []
         queue = list(self._doc.roots)
@@ -471,7 +421,6 @@ class RbxmSerializer:
             result.append(inst)
             queue.extend(inst.children)
         return result
-
     def _assign_types(self) -> None:
         self._all_instances = self._walk()
         for inst in self._all_instances:
@@ -479,7 +428,6 @@ class RbxmSerializer:
                 idx = len(self._type_index)
                 self._type_index[inst.class_name] = idx
             self._type_instances[self._type_index[inst.class_name]].append(inst)
-
     def _collect_shared_strings(self) -> None:
         for inst in self._all_instances:
             for prop in inst.properties.values():
@@ -487,7 +435,6 @@ class RbxmSerializer:
                     if prop.value not in self._shared_string_index:
                         self._shared_string_index[prop.value] = len(self._shared_strings)
                         self._shared_strings.append(prop.value)
-
     def serialize(self) -> bytes:
         type_count = len(self._type_index)
         object_count = len(self._all_instances)
@@ -511,7 +458,6 @@ class RbxmSerializer:
         chunks.extend(self._build_chunk('END\x00', b'</roblox>'))
         header = MAGIC_HEADER + struct.pack('<H', FILE_VERSION) + struct.pack('<I', type_count) + struct.pack('<I', object_count) + b'\x00' * 8
         return header + bytes(chunks)
-
     @staticmethod
     def _build_chunk(name: str, data: bytes) -> bytes:
         name_b = name.encode('ascii')[:4].ljust(4, b'\x00')
@@ -523,7 +469,6 @@ class RbxmSerializer:
             return name_b + struct.pack('<III', len(compressed), uncompressed_size, 0) + compressed
         else:
             return name_b + struct.pack('<III', 0, uncompressed_size, 0) + data
-
     def _build_meta(self) -> bytes:
         buf = bytearray()
         entries = self._doc.metadata.entries
@@ -532,7 +477,6 @@ class RbxmSerializer:
             buf.extend(write_string(key))
             buf.extend(write_string(value))
         return bytes(buf)
-
     def _build_sstr(self) -> bytes:
         import base64
         import hashlib
@@ -544,7 +488,6 @@ class RbxmSerializer:
             buf.extend(md5)
             buf.extend(write_binary_string(blob))
         return bytes(buf)
-
     def _build_inst(self, type_idx: int, class_name: str) -> bytes:
         instances = self._type_instances[type_idx]
         ids = [inst.referent for inst in instances]
@@ -559,14 +502,12 @@ class RbxmSerializer:
             for inst in instances:
                 buf.extend(write_u8(1 if inst.is_service else 0))
         return bytes(buf)
-
     @staticmethod
     def _collect_prop_names(instances: list[RbxInstance]) -> list[str]:
         names: set[str] = set()
         for inst in instances:
             names.update(inst.properties.keys())
         return sorted(names)
-
     def _build_prop(self, type_idx: int, prop_name: str, instances: list[RbxInstance]) -> bytes | None:
         fmt: PropertyFormat | None = None
         values: list[Any] = []
@@ -590,7 +531,6 @@ class RbxmSerializer:
         buf.extend(write_u8(int(fmt)))
         buf.extend(encoded)
         return bytes(buf)
-
     @staticmethod
     def _default_value(fmt: PropertyFormat) -> Any:
         match fmt:
@@ -654,7 +594,6 @@ class RbxmSerializer:
                 return None
             case _:
                 return None
-
     def _encode_prop_values(self, fmt: PropertyFormat, values: list[Any]) -> bytes | None:
         match fmt:
             case PropertyFormat.STRING:
@@ -736,7 +675,6 @@ class RbxmSerializer:
                 return self._enc_contents(values)
             case _:
                 return None
-
     @staticmethod
     def _enc_strings(values: list[Any]) -> bytes:
         buf = bytearray()
@@ -748,7 +686,6 @@ class RbxmSerializer:
                 buf.extend(write_u32(len(raw)))
                 buf.extend(raw)
         return bytes(buf)
-
     @staticmethod
     def _enc_cframes(values: list[Any]) -> bytes:
         buf = bytearray()
@@ -771,12 +708,10 @@ class RbxmSerializer:
         buf.extend(interleave_f32(ys))
         buf.extend(interleave_f32(zs))
         return bytes(buf)
-
     @staticmethod
     def _enc_refs(values: list[Any]) -> bytes:
         ids = [-1 if v is None else int(v) for v in values]
         return encode_ids(ids)
-
     @staticmethod
     def _enc_number_sequences(values: list[Any]) -> bytes:
         buf = bytearray()
@@ -787,7 +722,6 @@ class RbxmSerializer:
                 buf.extend(write_f32(float(key['Value'])))
                 buf.extend(write_f32(float(key['Envelope'])))
         return bytes(buf)
-
     @staticmethod
     def _enc_color_sequences(values: list[Any]) -> bytes:
         buf = bytearray()
@@ -800,7 +734,6 @@ class RbxmSerializer:
                 buf.extend(write_f32(float(key['B'])))
                 buf.extend(write_f32(0.0))
         return bytes(buf)
-
     @staticmethod
     def _enc_physical_properties(values: list[Any]) -> bytes:
         buf = bytearray()
@@ -820,7 +753,6 @@ class RbxmSerializer:
                 if has_acoustic_absorption:
                     buf.extend(write_f32(float(v['AcousticAbsorption'])))
         return bytes(buf)
-
     def _enc_shared_strings(self, values: list[Any]) -> bytes:
         indices = []
         for v in values:
@@ -829,7 +761,6 @@ class RbxmSerializer:
             else:
                 indices.append(0)
         return interleave_u32(indices)
-
     @staticmethod
     def _enc_bytecodes(values: list[Any]) -> bytes:
         buf = bytearray()
@@ -839,14 +770,12 @@ class RbxmSerializer:
             else:
                 buf.extend(write_binary_string(str(value).encode('utf-8')))
         return bytes(buf)
-
     @staticmethod
     def _enc_optional_cframes(values: list[Any]) -> bytes:
         default = RbxmSerializer._default_value(PropertyFormat.CFRAME_MATRIX)
         cframes = [default if value is None else value for value in values]
         present = [value is not None for value in values]
         return write_u8(int(PropertyFormat.CFRAME_MATRIX)) + RbxmSerializer._enc_cframes(cframes) + write_u8(int(PropertyFormat.BOOL)) + bytes([1 if value else 0 for value in present])
-
     @staticmethod
     def _enc_unique_ids(values: list[Any]) -> bytes:
         records: list[bytes] = []
@@ -856,7 +785,6 @@ class RbxmSerializer:
                 continue
             records.append(struct.pack('>IIQ', int(value.get('Index', 0)) & 4294967295, int(value.get('Time', 0)) & 4294967295, int(value.get('Random', 0)) & 18446744073709551615))
         return interleave_bytes(records, 16)
-
     @staticmethod
     def _enc_fonts(values: list[Any]) -> bytes:
         style_names = {'Normal': 0, 'Italic': 1}
@@ -872,7 +800,6 @@ class RbxmSerializer:
             buf.extend(write_u8(int(style)))
             buf.extend(write_binary_string(cached_face_id))
         return bytes(buf)
-
     @staticmethod
     def _enc_contents(values: list[Any]) -> bytes:
         source_types: list[int] = []
@@ -910,7 +837,6 @@ class RbxmSerializer:
         buf.extend(write_u32(len(external_object_refs)))
         buf.extend(encode_ids(external_object_refs))
         return bytes(buf)
-
     def _build_raw_props(self) -> list[bytes]:
         props: list[bytes] = []
         for raw in self._doc.raw_property_chunks:
@@ -918,7 +844,6 @@ class RbxmSerializer:
             if prop is not None:
                 props.append(prop)
         return props
-
     def _build_raw_prop(self, raw: RbxRawPropertyChunk) -> bytes | None:
         type_idx = self._type_index.get(raw.class_name)
         if type_idx is None:
@@ -931,7 +856,6 @@ class RbxmSerializer:
         buf.extend(write_u8(raw.fmt_byte))
         buf.extend(raw.value_data)
         return bytes(buf)
-
     def _build_prnt(self) -> bytes:
         child_to_parent: dict[int, int] = {}
         for inst in self._all_instances:
@@ -955,7 +879,6 @@ from typing import Any
 from xml.etree.ElementTree import Element, SubElement, indent, tostring
 log = logging.getLogger(__name__)
 _shared_string_registry: dict[str, str] = {}
-
 def write_rbxmx(doc: RbxDocument) -> bytes:
     _shared_string_registry.clear()
     root = Element('roblox')
@@ -983,7 +906,6 @@ def write_rbxmx(doc: RbxDocument) -> bytes:
     xml_bytes = tostring(root, encoding='unicode', xml_declaration=False)
     header = '<?xml version="1.0" encoding="utf-8"?>\n'
     return (header + xml_bytes).encode('utf-8')
-
 def _write_instance(parent_el: Element, inst: RbxInstance, doc: RbxDocument) -> None:
     item = SubElement(parent_el, 'Item')
     item.set('class', inst.class_name)
@@ -993,7 +915,6 @@ def _write_instance(parent_el: Element, inst: RbxInstance, doc: RbxDocument) -> 
         _write_property(props_el, prop, doc)
     for child in inst.children:
         _write_instance(item, child, doc)
-
 def _write_property(props_el: Element, prop: RbxProperty, doc: RbxDocument) -> None:
     xml_tag = PROPERTY_FORMAT_TO_XML_TAG.get(prop.fmt, 'string')
     match prop.fmt:
@@ -1078,7 +999,6 @@ def _write_property(props_el: Element, prop: RbxProperty, doc: RbxDocument) -> N
             _write_shared_string(props_el, prop)
         case _:
             log.warning('Skipping unhandled property format: %s', prop.fmt)
-
 def _has_invalid_xml_chars(s: str) -> bool:
     for ch in s:
         codepoint = ord(ch)
@@ -1089,7 +1009,6 @@ def _has_invalid_xml_chars(s: str) -> bool:
         if codepoint in (65534, 65535):
             return True
     return False
-
 def _write_string_prop(parent: Element, tag: str, prop: RbxProperty) -> None:
     val = prop.value
     if isinstance(val, bytes):
@@ -1120,19 +1039,16 @@ def _write_string_prop(parent: Element, tag: str, prop: RbxProperty) -> None:
         el = SubElement(parent, tag)
         el.set('name', prop.name)
         el.text = val
-
 def _is_content_url(value: str, prop_name: str) -> bool:
     content_props = {'AssetId', 'MeshId', 'TextureId', 'SoundId', 'Texture', 'LinkedSource', 'Image', 'Animation'}
     if prop_name in content_props:
         return True
     return value.startswith(('http://', 'https://', 'rbxassetid://', 'rbxasset://'))
-
 def _write_udim(parent: Element, prop: RbxProperty) -> None:
     el = SubElement(parent, 'UDim')
     el.set('name', prop.name)
     SubElement(el, 'S').text = _fmt_float(prop.value['S'])
     SubElement(el, 'O').text = str(prop.value['O'])
-
 def _write_udim2(parent: Element, prop: RbxProperty) -> None:
     el = SubElement(parent, 'UDim2')
     el.set('name', prop.name)
@@ -1140,7 +1056,6 @@ def _write_udim2(parent: Element, prop: RbxProperty) -> None:
     SubElement(el, 'XO').text = str(prop.value['XO'])
     SubElement(el, 'YS').text = _fmt_float(prop.value['YS'])
     SubElement(el, 'YO').text = str(prop.value['YO'])
-
 def _write_ray(parent: Element, prop: RbxProperty) -> None:
     el = SubElement(parent, 'Ray')
     el.set('name', prop.name)
@@ -1152,7 +1067,6 @@ def _write_ray(parent: Element, prop: RbxProperty) -> None:
     SubElement(direction, 'X').text = _fmt_float(prop.value['direction']['X'])
     SubElement(direction, 'Y').text = _fmt_float(prop.value['direction']['Y'])
     SubElement(direction, 'Z').text = _fmt_float(prop.value['direction']['Z'])
-
 def _write_faces(parent: Element, prop: RbxProperty) -> None:
     el = SubElement(parent, 'Faces')
     el.set('name', prop.name)
@@ -1163,7 +1077,6 @@ def _write_faces(parent: Element, prop: RbxProperty) -> None:
         if mask & 1 << i:
             faces.append(name)
     el.text = ', '.join(faces) if faces else ''
-
 def _write_axes(parent: Element, prop: RbxProperty) -> None:
     el = SubElement(parent, 'Axes')
     el.set('name', prop.name)
@@ -1174,33 +1087,28 @@ def _write_axes(parent: Element, prop: RbxProperty) -> None:
         if mask & 1 << i:
             axes.append(name)
     el.text = ', '.join(axes) if axes else ''
-
 def _write_color3(parent: Element, tag: str, prop: RbxProperty) -> None:
     el = SubElement(parent, tag)
     el.set('name', prop.name)
     SubElement(el, 'R').text = _fmt_float(prop.value['R'])
     SubElement(el, 'G').text = _fmt_float(prop.value['G'])
     SubElement(el, 'B').text = _fmt_float(prop.value['B'])
-
 def _write_vector2(parent: Element, prop: RbxProperty) -> None:
     el = SubElement(parent, 'Vector2')
     el.set('name', prop.name)
     SubElement(el, 'X').text = _fmt_float(prop.value['X'])
     SubElement(el, 'Y').text = _fmt_float(prop.value['Y'])
-
 def _write_vector3(parent: Element, tag: str, prop: RbxProperty) -> None:
     el = SubElement(parent, tag)
     el.set('name', prop.name)
     SubElement(el, 'X').text = _fmt_float(prop.value['X'])
     SubElement(el, 'Y').text = _fmt_float(prop.value['Y'])
     SubElement(el, 'Z').text = _fmt_float(prop.value['Z'])
-
 def _write_vector_int(parent: Element, tag: str, prop: RbxProperty, axes: tuple[str, ...]) -> None:
     el = SubElement(parent, tag)
     el.set('name', prop.name)
     for axis in axes:
         SubElement(el, axis).text = str(prop.value[axis])
-
 def _write_cframe(parent: Element, prop: RbxProperty) -> None:
     el = SubElement(parent, 'CoordinateFrame')
     el.set('name', prop.name)
@@ -1212,7 +1120,6 @@ def _write_cframe(parent: Element, prop: RbxProperty) -> None:
         for col in range(3):
             key = f'R{row}{col}'
             SubElement(el, key).text = _fmt_float(cf[key])
-
 def _write_cframe_fields(parent: Element, cf: dict[str, float]) -> None:
     SubElement(parent, 'X').text = _fmt_float(cf['X'])
     SubElement(parent, 'Y').text = _fmt_float(cf['Y'])
@@ -1221,7 +1128,6 @@ def _write_cframe_fields(parent: Element, cf: dict[str, float]) -> None:
         for col in range(3):
             key = f'R{row}{col}'
             SubElement(parent, key).text = _fmt_float(cf[key])
-
 def _write_optional_cframe(parent: Element, prop: RbxProperty) -> None:
     el = SubElement(parent, 'OptionalCoordinateFrame')
     el.set('name', prop.name)
@@ -1229,7 +1135,6 @@ def _write_optional_cframe(parent: Element, prop: RbxProperty) -> None:
         return
     cf_el = SubElement(el, 'CFrame')
     _write_cframe_fields(cf_el, prop.value)
-
 def _write_ref(parent: Element, prop: RbxProperty) -> None:
     el = SubElement(parent, 'Ref')
     el.set('name', prop.name)
@@ -1237,24 +1142,20 @@ def _write_ref(parent: Element, prop: RbxProperty) -> None:
         el.text = 'null'
     else:
         el.text = f'RBX{prop.value:032X}'
-
 def _write_number_sequence(parent: Element, prop: RbxProperty) -> None:
     el = SubElement(parent, 'NumberSequence')
     el.set('name', prop.name)
     parts: list[str] = [f"{_fmt_float(key['Time'])} {_fmt_float(key['Value'])} {_fmt_float(key['Envelope'])}" for key in prop.value]
     el.text = ' '.join(parts)
-
 def _write_color_sequence(parent: Element, prop: RbxProperty) -> None:
     el = SubElement(parent, 'ColorSequence')
     el.set('name', prop.name)
     parts: list[str] = [f"{_fmt_float(key['Time'])} {_fmt_float(key['R'])} {_fmt_float(key['G'])} {_fmt_float(key['B'])} 0" for key in prop.value]
     el.text = ' '.join(parts)
-
 def _write_number_range(parent: Element, prop: RbxProperty) -> None:
     el = SubElement(parent, 'NumberRange')
     el.set('name', prop.name)
     el.text = f"{_fmt_float(prop.value['Min'])} {_fmt_float(prop.value['Max'])}"
-
 def _write_rect2d(parent: Element, prop: RbxProperty) -> None:
     el = SubElement(parent, 'Rect2D')
     el.set('name', prop.name)
@@ -1266,7 +1167,6 @@ def _write_rect2d(parent: Element, prop: RbxProperty) -> None:
     max_el = SubElement(el, 'max')
     SubElement(max_el, 'X').text = _fmt_float(mx['X'])
     SubElement(max_el, 'Y').text = _fmt_float(mx['Y'])
-
 def _write_physical_properties(parent: Element, prop: RbxProperty) -> None:
     el = SubElement(parent, 'PhysicalProperties')
     el.set('name', prop.name)
@@ -1280,7 +1180,6 @@ def _write_physical_properties(parent: Element, prop: RbxProperty) -> None:
         SubElement(el, 'FrictionWeight').text = _fmt_float(prop.value['FrictionWeight'])
         SubElement(el, 'ElasticityWeight').text = _fmt_float(prop.value['ElasticityWeight'])
         SubElement(el, 'AcousticAbsorption').text = _fmt_float(prop.value.get('AcousticAbsorption', 1.0))
-
 def _write_color3uint8(parent: Element, prop: RbxProperty) -> None:
     el = SubElement(parent, 'Color3uint8')
     el.set('name', prop.name)
@@ -1289,7 +1188,6 @@ def _write_color3uint8(parent: Element, prop: RbxProperty) -> None:
     b = prop.value['B']
     packed = 4278190080 | r << 16 | g << 8 | b
     el.text = str(packed)
-
 def _write_shared_string(parent: Element, prop: RbxProperty) -> None:
     el = SubElement(parent, 'SharedString')
     el.set('name', prop.name)
@@ -1300,7 +1198,6 @@ def _write_shared_string(parent: Element, prop: RbxProperty) -> None:
         el.text = md5_b64
     else:
         el.text = str(prop.value)
-
 def _write_unique_id(parent: Element, prop: RbxProperty) -> None:
     el = SubElement(parent, 'UniqueId')
     el.set('name', prop.name)
@@ -1312,7 +1209,6 @@ def _write_unique_id(parent: Element, prop: RbxProperty) -> None:
     time = int(prop.value.get('Time', 0)) & 4294967295
     index = int(prop.value.get('Index', 0)) & 4294967295
     el.text = f'{xml_random:016x}{time:08x}{index:08x}'
-
 def _write_font(parent: Element, prop: RbxProperty) -> None:
     style_names = {0: 'Normal', 1: 'Italic'}
     el = SubElement(parent, 'Font')
@@ -1326,12 +1222,10 @@ def _write_font(parent: Element, prop: RbxProperty) -> None:
     if cached_face_id:
         cached = SubElement(el, 'CachedFaceId')
         _write_content_value(cached, cached_face_id)
-
 def _write_content(parent: Element, prop: RbxProperty) -> None:
     el = SubElement(parent, 'Content')
     el.set('name', prop.name)
     _write_content_value(el, prop.value)
-
 def _write_content_value(parent: Element, value: Any) -> None:
     if value is None:
         SubElement(parent, 'null')
@@ -1350,7 +1244,6 @@ def _write_content_value(parent: Element, value: Any) -> None:
         ref.text = 'null' if ref_value is None else f'RBX{int(ref_value):032X}'
     else:
         SubElement(parent, 'null')
-
 def _fmt_float(value: Any) -> str:
     if isinstance(value, float):
         if value.is_integer() and abs(value) < 1000000000000000.0:
@@ -1365,7 +1258,6 @@ log = logging.getLogger(__name__)
 MAGIC_HEADER = b'<roblox!\x89\xff\r\n\x1a\n'
 FILE_HEADER_SIZE = 32
 ZSTD_MAGIC = b'(\xb5/\xfd'
-
 def _decompress_chunk(raw: bytes, uncompressed_size: int) -> bytes:
     if raw.startswith(ZSTD_MAGIC):
         try:
@@ -1376,9 +1268,7 @@ def _decompress_chunk(raw: bytes, uncompressed_size: int) -> bytes:
         return zstandard.ZstdDecompressor().decompress(raw, max_output_size=uncompressed_size)
     return lz4.block.decompress(raw, uncompressed_size=uncompressed_size)
 _ORIENTATION_MATRICES: dict[int, tuple[float, ...]] = {0: (1, 0, 0, 0, 1, 0, 0, 0, 1), 1: (1, 0, 0, 0, 0, -1, 0, 1, 0), 2: (1, 0, 0, 0, -1, 0, 0, 0, -1), 3: (1, 0, 0, 0, 0, 1, 0, -1, 0), 4: (0, 1, 0, 1, 0, 0, 0, 0, -1), 5: (0, 0, 1, 1, 0, 0, 0, 1, 0), 6: (0, -1, 0, 1, 0, 0, 0, 0, 1), 7: (0, 0, -1, 1, 0, 0, 0, -1, 0), 8: (0, 1, 0, 0, 0, 1, 1, 0, 0), 9: (0, 0, -1, 0, 1, 0, 1, 0, 0), 10: (0, -1, 0, 0, 0, -1, 1, 0, 0), 11: (0, 0, 1, 0, -1, 0, 1, 0, 0), 12: (-1, 0, 0, 0, 1, 0, 0, 0, -1), 13: (-1, 0, 0, 0, 0, 1, 0, 1, 0), 14: (-1, 0, 0, 0, -1, 0, 0, 0, 1), 15: (-1, 0, 0, 0, 0, -1, 0, -1, 0), 16: (0, 1, 0, -1, 0, 0, 0, 0, 1), 17: (0, 0, -1, -1, 0, 0, 0, 1, 0), 18: (0, -1, 0, -1, 0, 0, 0, 0, -1), 19: (0, 0, 1, -1, 0, 0, 0, -1, 0), 20: (0, 1, 0, 0, 0, -1, -1, 0, 0), 21: (0, 0, 1, 0, 1, 0, -1, 0, 0), 22: (0, -1, 0, 0, 0, 1, -1, 0, 0), 23: (0, 0, -1, 0, -1, 0, -1, 0, 0)}
-
 class RbxmDeserializer:
-
     def __init__(self) -> None:
         self._type_infos: list[RbxTypeInfo] = []
         self._instances: dict[int, RbxInstance] = {}
@@ -1389,13 +1279,11 @@ class RbxmDeserializer:
         self._version: int = 0
         self._type_count: int = 0
         self._object_count: int = 0
-
     def deserialize(self, data: bytes) -> RbxDocument:
         offset = self._read_file_header(data)
         offset = self._read_chunks(data, offset)
         roots = self._build_tree()
         return RbxDocument(version=self._version, type_count=self._type_count, object_count=self._object_count, metadata=self._metadata, instances=self._instances, roots=roots, shared_strings=self._shared_strings, raw_property_chunks=self._raw_property_chunks, raw_chunks=self._raw_chunks)
-
     def _read_file_header(self, data: bytes) -> int:
         magic = data[:14]
         if magic != MAGIC_HEADER:
@@ -1406,7 +1294,6 @@ class RbxmDeserializer:
         self._object_count = struct.unpack_from('<I', data, 20)[0]
         log.info('RBXM v%d: %d types, %d objects', self._version, self._type_count, self._object_count)
         return FILE_HEADER_SIZE
-
     def _read_chunks(self, data: bytes, offset: int) -> int:
         while offset < len(data):
             chunk_name = data[offset:offset + 4].decode('ascii')
@@ -1425,7 +1312,6 @@ class RbxmDeserializer:
             if chunk_name == 'END\x00':
                 break
         return offset
-
     def _process_chunk(self, name: str, data: bytes) -> None:
         handler = {'META': self._handle_meta, 'SSTR': self._handle_sstr, 'INST': self._handle_inst, 'PROP': self._handle_prop, 'PRNT': self._handle_prnt}.get(name)
         if handler is not None:
@@ -1435,7 +1321,6 @@ class RbxmDeserializer:
         else:
             self._raw_chunks.append(RbxRawChunk(name=name, data=data))
             log.warning('Unknown chunk type: %r', name)
-
     def _handle_meta(self, data: bytes) -> None:
         offset = 0
         count, offset = read_u32(data, offset)
@@ -1444,7 +1329,6 @@ class RbxmDeserializer:
             value, offset = read_string(data, offset)
             self._metadata.entries[key] = value
             log.debug('META: %s = %s', key, value)
-
     def _handle_sstr(self, data: bytes) -> None:
         offset = 0
         _version, offset = read_u32(data, offset)
@@ -1453,7 +1337,6 @@ class RbxmDeserializer:
             _md5, offset = read_bytes(data, offset, 16)
             blob, offset = read_binary_string(data, offset)
             self._shared_strings.append(blob)
-
     def _handle_inst(self, data: bytes) -> None:
         offset = 0
         type_index, offset = read_u32(data, offset)
@@ -1475,7 +1358,6 @@ class RbxmDeserializer:
             inst = RbxInstance(class_name=class_name, referent=inst_id, is_service=is_service and i < len(service_flags) and service_flags[i])
             self._instances[inst_id] = inst
         log.debug('INST[%d]: %s x%d (service=%s)', type_index, class_name, id_count, is_service)
-
     def _handle_prop(self, data: bytes) -> None:
         offset = 0
         type_index, offset = read_u32(data, offset)
@@ -1499,7 +1381,6 @@ class RbxmDeserializer:
             if inst_id in self._instances and i < len(values):
                 self._instances[inst_id].properties[prop_name] = RbxProperty(name=prop_name, fmt=fmt, value=values[i])
         log.debug('PROP[%d].%s: fmt=%s, %d values', type_index, prop_name, fmt.name, len(values))
-
     def _preserve_raw_property(self, type_index: int, prop_name: str, fmt_byte: int, value_data: bytes) -> None:
         if type_index >= len(self._type_infos):
             log.warning('PROP references unknown type index %d', type_index)
@@ -1507,7 +1388,6 @@ class RbxmDeserializer:
         info = self._type_infos[type_index]
         self._raw_property_chunks.append(RbxRawPropertyChunk(class_name=info.class_name, prop_name=prop_name, fmt_byte=fmt_byte, value_data=value_data, instance_count=len(info.instance_ids)))
         log.warning('Unknown property format %d for %s, preserving raw payload', fmt_byte, prop_name)
-
     def _read_property_values(self, fmt: PropertyFormat, data: bytes, offset: int, count: int) -> list[Any]:
         match fmt:
             case PropertyFormat.STRING:
@@ -1579,7 +1459,6 @@ class RbxmDeserializer:
             case _:
                 log.warning('Unhandled property format: %s', fmt)
                 return [None] * count
-
     def _read_strings(self, data: bytes, offset: int, count: int) -> list[str | bytes]:
         results: list[str | bytes] = []
         for _ in range(count):
@@ -1589,35 +1468,28 @@ class RbxmDeserializer:
             except UnicodeDecodeError:
                 results.append(raw)
         return results
-
     def _read_bools(self, data: bytes, offset: int, count: int) -> list[bool]:
         return [data[offset + i] != 0 for i in range(count)]
-
     def _read_ints(self, data: bytes, offset: int, count: int) -> list[int]:
         return deinterleave_i32(data, offset, count)
-
     def _read_floats(self, data: bytes, offset: int, count: int) -> list[float]:
         return deinterleave_f32(data, offset, count)
-
     def _read_doubles(self, data: bytes, offset: int, count: int) -> list[float]:
         results: list[float] = []
         for i in range(count):
             val, _ = read_f64(data, offset + i * 8)
             results.append(val)
         return results
-
     def _read_udims(self, data: bytes, offset: int, count: int) -> list[dict[str, float | int]]:
         scales = deinterleave_f32(data, offset, count)
         offsets = deinterleave_i32(data, offset + count * 4, count)
         return [{'S': scales[i], 'O': offsets[i]} for i in range(count)]
-
     def _read_udim2s(self, data: bytes, offset: int, count: int) -> list[dict[str, float | int]]:
         xs = deinterleave_f32(data, offset, count)
         ys = deinterleave_f32(data, offset + count * 4, count)
         xo = deinterleave_i32(data, offset + count * 8, count)
         yo = deinterleave_i32(data, offset + count * 12, count)
         return [{'XS': xs[i], 'XO': xo[i], 'YS': ys[i], 'YO': yo[i]} for i in range(count)]
-
     def _read_rays(self, data: bytes, offset: int, count: int) -> list[dict[str, dict[str, float]]]:
         results: list[dict[str, dict[str, float]]] = []
         for _ in range(count):
@@ -1629,33 +1501,26 @@ class RbxmDeserializer:
             dz, offset = read_f32(data, offset)
             results.append({'origin': {'X': ox, 'Y': oy, 'Z': oz}, 'direction': {'X': dx, 'Y': dy, 'Z': dz}})
         return results
-
     def _read_faces(self, data: bytes, offset: int, count: int) -> list[int]:
         return [data[offset + i] for i in range(count)]
-
     def _read_axes(self, data: bytes, offset: int, count: int) -> list[int]:
         return [data[offset + i] for i in range(count)]
-
     def _read_brick_colors(self, data: bytes, offset: int, count: int) -> list[int]:
         return deinterleave_u32(data, offset, count)
-
     def _read_color3s(self, data: bytes, offset: int, count: int) -> list[dict[str, float]]:
         rs = deinterleave_f32(data, offset, count)
         gs = deinterleave_f32(data, offset + count * 4, count)
         bs = deinterleave_f32(data, offset + count * 8, count)
         return [{'R': rs[i], 'G': gs[i], 'B': bs[i]} for i in range(count)]
-
     def _read_vector2s(self, data: bytes, offset: int, count: int) -> list[dict[str, float]]:
         xs = deinterleave_f32(data, offset, count)
         ys = deinterleave_f32(data, offset + count * 4, count)
         return [{'X': xs[i], 'Y': ys[i]} for i in range(count)]
-
     def _read_vector3s(self, data: bytes, offset: int, count: int) -> list[dict[str, float]]:
         xs = deinterleave_f32(data, offset, count)
         ys = deinterleave_f32(data, offset + count * 4, count)
         zs = deinterleave_f32(data, offset + count * 8, count)
         return [{'X': xs[i], 'Y': ys[i], 'Z': zs[i]} for i in range(count)]
-
     def _read_vector2int16s(self, data: bytes, offset: int, count: int) -> list[dict[str, int]]:
         results: list[dict[str, int]] = []
         for _ in range(count):
@@ -1664,7 +1529,6 @@ class RbxmDeserializer:
             offset += 4
             results.append({'X': x, 'Y': y})
         return results
-
     def _read_vector3int16s(self, data: bytes, offset: int, count: int) -> list[dict[str, int]]:
         results: list[dict[str, int]] = []
         for _ in range(count):
@@ -1674,11 +1538,9 @@ class RbxmDeserializer:
             offset += 6
             results.append({'X': x, 'Y': y, 'Z': z})
         return results
-
     def _read_cframes(self, data: bytes, offset: int, count: int, fmt: PropertyFormat) -> list[dict[str, float]]:
         results, _offset = self._read_cframes_with_offset(data, offset, count, fmt)
         return results
-
     def _read_cframes_with_offset(self, data: bytes, offset: int, count: int, fmt: PropertyFormat) -> tuple[list[dict[str, float]], int]:
         rotations: list[tuple[float, ...]] = []
         for _ in range(count):
@@ -1708,14 +1570,11 @@ class RbxmDeserializer:
             r = rotations[i]
             results.append({'X': xs[i], 'Y': ys[i], 'Z': zs[i], 'R00': r[0], 'R01': r[1], 'R02': r[2], 'R10': r[3], 'R11': r[4], 'R12': r[5], 'R20': r[6], 'R21': r[7], 'R22': r[8]})
         return (results, offset)
-
     def _read_enums(self, data: bytes, offset: int, count: int) -> list[int]:
         return deinterleave_u32(data, offset, count)
-
     def _read_refs(self, data: bytes, offset: int, count: int) -> list[int | None]:
         ids, _ = decode_ids(data, offset, count)
         return [None if v == -1 else v for v in ids]
-
     def _read_number_sequences(self, data: bytes, offset: int, count: int) -> list[list[dict[str, float]]]:
         results: list[list[dict[str, float]]] = []
         for _ in range(count):
@@ -1728,7 +1587,6 @@ class RbxmDeserializer:
                 keys.append({'Time': time, 'Value': value, 'Envelope': envelope})
             results.append(keys)
         return results
-
     def _read_color_sequences(self, data: bytes, offset: int, count: int) -> list[list[dict[str, float]]]:
         results: list[list[dict[str, float]]] = []
         for _ in range(count):
@@ -1743,7 +1601,6 @@ class RbxmDeserializer:
                 keys.append({'Time': time, 'R': r, 'G': g, 'B': b})
             results.append(keys)
         return results
-
     def _read_number_ranges(self, data: bytes, offset: int, count: int) -> list[dict[str, float]]:
         results: list[dict[str, float]] = []
         for _ in range(count):
@@ -1751,14 +1608,12 @@ class RbxmDeserializer:
             high, offset = read_f32(data, offset)
             results.append({'Min': low, 'Max': high})
         return results
-
     def _read_rect2ds(self, data: bytes, offset: int, count: int) -> list[dict[str, dict[str, float]]]:
         x0s = deinterleave_f32(data, offset, count)
         y0s = deinterleave_f32(data, offset + count * 4, count)
         x1s = deinterleave_f32(data, offset + count * 8, count)
         y1s = deinterleave_f32(data, offset + count * 12, count)
         return [{'min': {'X': x0s[i], 'Y': y0s[i]}, 'max': {'X': x1s[i], 'Y': y1s[i]}} for i in range(count)]
-
     def _read_physical_properties(self, data: bytes, offset: int, count: int) -> list[dict[str, Any] | None]:
         results: list[dict[str, Any] | None] = []
         for _ in range(count):
@@ -1781,27 +1636,22 @@ class RbxmDeserializer:
             else:
                 results.append(None)
         return results
-
     def _read_color3uint8s(self, data: bytes, offset: int, count: int) -> list[dict[str, int]]:
         rs = data[offset:offset + count]
         gs = data[offset + count:offset + 2 * count]
         bs = data[offset + 2 * count:offset + 3 * count]
         return [{'R': rs[i], 'G': gs[i], 'B': bs[i]} for i in range(count)]
-
     def _read_int64s(self, data: bytes, offset: int, count: int) -> list[int]:
         return deinterleave_i64(data, offset, count)
-
     def _read_shared_strings(self, data: bytes, offset: int, count: int) -> list[bytes]:
         indices = deinterleave_u32(data, offset, count)
         return [self._shared_strings[idx] if idx < len(self._shared_strings) else b'' for idx in indices]
-
     def _read_bytecodes(self, data: bytes, offset: int, count: int) -> list[bytes]:
         results: list[bytes] = []
         for _ in range(count):
             raw, offset = read_binary_string(data, offset)
             results.append(raw)
         return results
-
     def _read_optional_cframes(self, data: bytes, offset: int, count: int) -> list[dict[str, float] | None]:
         cframe_fmt_byte, offset = read_u8(data, offset)
         if cframe_fmt_byte != int(PropertyFormat.CFRAME_MATRIX):
@@ -1812,7 +1662,6 @@ class RbxmDeserializer:
             log.warning('OptionalCoordinateFrame contained unexpected presence format %d', bool_fmt_byte)
         present = self._read_bools(data, offset, count)
         return [cframes[i] if present[i] else None for i in range(count)]
-
     def _read_unique_ids(self, data: bytes, offset: int, count: int) -> list[dict[str, int]]:
         records = deinterleave_bytes(data, offset, count, 16)
         results: list[dict[str, int]] = []
@@ -1820,7 +1669,6 @@ class RbxmDeserializer:
             index, time, random = struct.unpack('>IIQ', record)
             results.append({'Index': index, 'Time': time, 'Random': random})
         return results
-
     def _read_fonts(self, data: bytes, offset: int, count: int) -> list[dict[str, Any]]:
         results: list[dict[str, Any]] = []
         for _ in range(count):
@@ -1831,10 +1679,8 @@ class RbxmDeserializer:
             cached_face_raw, offset = read_binary_string(data, offset)
             results.append({'Family': family_raw.decode('utf-8', errors='replace'), 'Weight': weight, 'Style': style, 'CachedFaceId': cached_face_raw.decode('utf-8', errors='replace')})
         return results
-
     def _read_security_capabilities(self, data: bytes, offset: int, count: int) -> list[int]:
         return deinterleave_u64(data, offset, count)
-
     def _read_contents(self, data: bytes, offset: int, count: int) -> list[dict[str, Any] | None]:
         source_types = deinterleave_u32(data, offset, count)
         offset += count * 4
@@ -1870,7 +1716,6 @@ class RbxmDeserializer:
             else:
                 results.append({'SourceType': source_type})
         return results
-
     def _handle_prnt(self, data: bytes) -> None:
         offset = 0
         _fmt, offset = read_u8(data, offset)
@@ -1883,14 +1728,12 @@ class RbxmDeserializer:
             if child is not None and parent is not None:
                 parent.children.append(child)
         log.debug('PRNT: %d links', link_count)
-
     def _build_tree(self) -> list[RbxInstance]:
         parented: set[int] = set()
         for inst in self._instances.values():
             for child in inst.children:
                 parented.add(child.referent)
         return [inst for inst in self._instances.values() if inst.referent not in parented]
-
 def _quat_to_matrix(x: float, y: float, z: float, w: float) -> tuple[float, ...]:
     xx, yy, zz = (x * x, y * y, z * z)
     xy, xz, yz = (x * y, x * z, y * z)
@@ -1903,7 +1746,6 @@ from typing import Any, Dict, List, Optional, Tuple
 import lz4.block
 RBXM_MAGIC = b'<roblox!'
 RBXM_SIGNATURE = bytes([137, 255, 13, 10, 26, 10])
-
 @dataclass
 class RbxmInstance:
     class_name: str
@@ -1911,7 +1753,6 @@ class RbxmInstance:
     properties: Dict[str, Any] = field(default_factory=dict)
     children: List['RbxmInstance'] = field(default_factory=list)
     parent: Optional['RbxmInstance'] = None
-
 def decode_interleaved_i32(data: bytes, count: int) -> List[int]:
     if len(data) < count * 4:
         return []
@@ -1928,7 +1769,6 @@ def decode_interleaved_i32(data: bytes, count: int) -> List[int]:
             value = value >> 1
         result.append(value)
     return result
-
 def decode_interleaved_f32(data: bytes, count: int) -> List[float]:
     if len(data) < count * 4:
         return []
@@ -1942,13 +1782,11 @@ def decode_interleaved_f32(data: bytes, count: int) -> List[float]:
         ieee = (raw >> 1 | (raw & 1) << 31) & 4294967295
         result.append(struct.unpack('<f', struct.pack('<I', ieee))[0])
     return result
-
 def read_string(data: bytes, offset: int) -> Tuple[str, int]:
     length = struct.unpack_from('<I', data, offset)[0]
     offset += 4
     value = data[offset:offset + length].decode('utf-8', errors='replace')
     return (value, offset + length)
-
 def decompress_chunk(data: bytes, compressed_size: int, uncompressed_size: int) -> bytes:
     if compressed_size == 0:
         return data[:uncompressed_size]
@@ -1960,7 +1798,6 @@ def decompress_chunk(data: bytes, compressed_size: int, uncompressed_size: int) 
         except Exception:
             return data[:compressed_size]
 CFRAME_ROTATIONS = {2: [1, 0, 0, 0, 1, 0, 0, 0, 1], 3: [1, 0, 0, 0, 0, -1, 0, 1, 0], 4: [1, 0, 0, 0, -1, 0, 0, 0, -1], 5: [1, 0, 0, 0, 0, 1, 0, -1, 0], 6: [0, 1, 0, 1, 0, 0, 0, 0, -1], 7: [0, 0, 1, 1, 0, 0, 0, 1, 0], 8: [0, -1, 0, 1, 0, 0, 0, 0, 1], 9: [0, 0, -1, 1, 0, 0, 0, -1, 0], 10: [0, 1, 0, 0, 0, 1, 1, 0, 0], 11: [0, 0, -1, 0, 1, 0, 1, 0, 0], 12: [0, -1, 0, 0, 0, -1, 1, 0, 0], 13: [0, 0, 1, 0, -1, 0, 1, 0, 0], 14: [-1, 0, 0, 0, 1, 0, 0, 0, -1], 15: [-1, 0, 0, 0, 0, 1, 0, 1, 0], 16: [-1, 0, 0, 0, -1, 0, 0, 0, 1], 17: [-1, 0, 0, 0, 0, -1, 0, -1, 0], 18: [0, 1, 0, -1, 0, 0, 0, 0, 1], 19: [0, 0, -1, -1, 0, 0, 0, 1, 0], 20: [0, -1, 0, -1, 0, 0, 0, 0, -1], 21: [0, 0, 1, -1, 0, 0, 0, -1, 0], 22: [0, 1, 0, 0, 0, -1, -1, 0, 0], 23: [0, 0, 1, 0, 1, 0, -1, 0, 0], 24: [0, -1, 0, 0, 0, 1, -1, 0, 0], 25: [0, 0, -1, 0, -1, 0, -1, 0, 0]}
-
 def parse_rbxm(data: bytes) -> Dict[int, RbxmInstance]:
     if len(data) < 32:
         raise ValueError('File too small to be valid RBXM')
@@ -2012,7 +1849,6 @@ def parse_rbxm(data: bytes) -> Dict[int, RbxmInstance]:
                 parent.children.append(child)
                 child.parent = parent
     return instances
-
 def _parse_inst_chunk(data: bytes, class_info: Dict, instances: Dict):
     offset = 0
     class_id = struct.unpack_from('<I', data, offset)[0]
@@ -2032,7 +1868,6 @@ def _parse_inst_chunk(data: bytes, class_info: Dict, instances: Dict):
     class_info[class_id] = (class_name, referents)
     for ref in referents:
         instances[ref] = RbxmInstance(class_name=class_name, referent=ref)
-
 def _parse_prop_chunk(data: bytes, class_info: Dict, instances: Dict):
     offset = 0
     class_id = struct.unpack_from('<I', data, offset)[0]
@@ -2050,7 +1885,6 @@ def _parse_prop_chunk(data: bytes, class_info: Dict, instances: Dict):
     for i, ref in enumerate(referents):
         if ref in instances and i < len(values):
             instances[ref].properties[prop_name] = values[i]
-
 def _parse_prop_values(data: bytes, type_id: int, count: int) -> List[Any]:
     values = []
     if type_id == 1:
@@ -2083,7 +1917,6 @@ def _parse_prop_values(data: bytes, type_id: int, count: int) -> List[Any]:
     else:
         values = [None] * count
     return values
-
 def _parse_cframes(data: bytes, count: int) -> List[Dict]:
     offset = 0
     cframes = []
@@ -2116,7 +1949,6 @@ def _parse_cframes(data: bytes, count: int) -> List[Dict]:
         z = positions_z[i] if i < len(positions_z) else 0.0
         cframes.append({'position': (x, y, z), 'rotation': rot})
     return cframes
-
 def _parse_prnt_chunk(data: bytes, instances: Dict, parent_refs: Dict):
     offset = 0
     offset += 1
@@ -2136,13 +1968,10 @@ def _parse_prnt_chunk(data: bytes, instances: Dict, parent_refs: Dict):
         parent_ref_list.append(parent_current)
     for i in range(len(child_refs)):
         parent_refs[child_refs[i]] = parent_ref_list[i]
-
 class _EmbeddedLogBuffer:
-
     def __init__(self):
         self._lock = threading.Lock()
         self.buffer = []
-
     def log(self, tag, msg):
         try:
             with self._lock:
@@ -2151,7 +1980,6 @@ class _EmbeddedLogBuffer:
                     del self.buffer[:1000]
         except Exception:
             pass
-
     def clear(self):
         try:
             with self._lock:
@@ -2169,24 +1997,18 @@ try:
 except ImportError:
     DRACO_AVAILABLE = False
     log_buffer.log('Mesh', 'DracoPy not installed. v6/v7 mesh conversion will not work.')
-
 class Vertex:
-
     def __init__(self):
         self.px = self.py = self.pz = 0.0
         self.nx = self.ny = self.nz = 0.0
         self.tu = self.tv = self.tw = 0.0
         self.tx = self.ty = self.tz = self.ts = 0
         self.r = self.g = self.b = self.a = 255
-
 class Face:
-
     def __init__(self, a=0, b=0, c=0):
         self.a, self.b, self.c = (a, b, c)
-
 def fix_float(s: str) -> str:
     return s.replace(',', '.')
-
 def read_vertices(data: bytes, offset: int, count: int, vsize: int) -> tuple[list[Vertex], int]:
     verts = []
     pos = offset
@@ -2228,7 +2050,6 @@ def read_vertices(data: bytes, offset: int, count: int, vsize: int) -> tuple[lis
             pos += 1
         verts.append(v)
     return (verts, pos)
-
 def write_obj_data(v_lines: list[str], n_lines: list[str], t_lines: list[str], f_lines: list[str]) -> str:
     lines = ['# Converted from Roblox mesh format\n']
     lines.append(f'# Vertices: {len(v_lines)}, Faces: {len(f_lines)}\n\n')
@@ -2240,7 +2061,6 @@ def write_obj_data(v_lines: list[str], n_lines: list[str], t_lines: list[str], f
     lines.append('\n')
     lines.extend((line + '\n' for line in f_lines))
     return ''.join(lines)
-
 def process_v1(data: bytes) -> str:
     try:
         lines = data.decode('utf-8', errors='replace').splitlines()
@@ -2284,7 +2104,6 @@ def process_v1(data: bytes) -> str:
     except Exception as e:
         log_buffer.log('Mesh', f'Error processing v1 mesh: {e}')
         return None
-
 def process_v2_to_v5(data: bytes, version_num: str) -> str:
     try:
         offset = 13
@@ -2359,7 +2178,6 @@ def process_v2_to_v5(data: bytes, version_num: str) -> str:
     except Exception as e:
         log_buffer.log('Mesh', f'Error processing v{version_num} mesh: {e}')
         return None
-
 def process_v6_v7(data: bytes) -> str:
     if not DRACO_AVAILABLE:
         log_buffer.log('Mesh', 'DracoPy not available - cannot process v6/v7 meshes')
@@ -2512,7 +2330,6 @@ def process_v6_v7(data: bytes) -> str:
         traceback.print_exc()
         return None
 SUPPORTED_MESH_HEADERS = ('version 1.', 'version 2.00', 'version 3.00', 'version 3.01', 'version 4.00', 'version 4.01', 'version 5.00', 'version 6.00', 'version 7.00')
-
 def _mesh_header(data: bytes) -> str:
     if data.startswith(b'\x1f\x8b'):
         try:
@@ -2520,7 +2337,6 @@ def _mesh_header(data: bytes) -> str:
         except Exception:
             return ''
     return data[:12].decode('utf-8', errors='ignore').strip()
-
 def convert(data: bytes, output_path: str=None) -> str:
     if not data or len(data) < 12:
         log_buffer.log('Mesh', 'Invalid mesh data: file too small')
@@ -2553,12 +2369,10 @@ def convert(data: bytes, output_path: str=None) -> str:
             log_buffer.log('Mesh', f'Failed to write OBJ file: {e}')
     return obj_content
 RBXM_MAGIC = b'<roblox!\x89\xff\r\n\x1a\n'
-
 def decompress_if_needed(data: bytes) -> bytes:
     if data.startswith(b'\x1f\x8b'):
         return gzip.decompress(data)
     return data
-
 def classify_roblox_document(data: bytes) -> str | None:
     try:
         data = decompress_if_needed(data)
@@ -2572,7 +2386,6 @@ def classify_roblox_document(data: bytes) -> str | None:
             return None
         return 'rbxl' if _xml_contains_datamodel(root) else 'rbxmx'
     return None
-
 def _to_binary_document(data: bytes) -> bytes:
     data = _extract_document_body(data)
     if data.startswith(RBXM_MAGIC):
@@ -2581,7 +2394,6 @@ def _to_binary_document(data: bytes) -> bytes:
     if _parse_roblox_xml(data) is None:
         raise ValueError('Data is not a valid RBXM/RBXMX document')
     return write_rbxm(_xml_to_document(data))
-
 def _extract_rbxh_document(data: bytes) -> bytes:
     raw = data or b''
     if raw[:4] != RBXH_MAGIC:
@@ -2590,7 +2402,6 @@ def _extract_rbxh_document(data: bytes) -> bytes:
     body = meta.get('body') or b''
     body = _maybe_gunzip(body, meta.get('headers') or {})
     return _extract_document_body(decompress_if_needed(body))
-
 def convert_roblox_file(data: bytes, source_ext: str, target_ext: str, template_data: bytes=b'') -> bytes:
     source_ext = (source_ext or '').lower()
     target_ext = (target_ext or '').lower()
@@ -2606,7 +2417,6 @@ def convert_roblox_file(data: bytes, source_ext: str, target_ext: str, template_
         binary = _to_binary_document(document)
         return write_rbxmx(RbxmDeserializer().deserialize(binary))
     raise ValueError(f'Unsupported Roblox conversion target: {target_ext}')
-
 def _wrap_rbxm_bytes(data: bytes, content_type: str='application/octet-stream', template_data: bytes=b'') -> bytes:
     raw = _to_binary_document(data)
     reserved = b'\x00' * 8
@@ -2615,10 +2425,8 @@ def _wrap_rbxm_bytes(data: bytes, content_type: str='application/octet-stream', 
         if template_body == raw and len(template_data) >= 37:
             reserved = template_data[29:37]
     return RBXH_MAGIC + struct.pack('<II', 2, 0) + b'\x00' + struct.pack('<I', 200) + struct.pack('<I', 0) + b'\x00' * 4 + struct.pack('<I', len(raw)) + reserved + raw
-
 def _document_contains_datamodel(doc: RbxDocument) -> bool:
     return any((inst.class_name == 'DataModel' for inst in doc.instances.values()))
-
 def _binary_contains_class(data: bytes, class_name: str) -> bool:
     offset = 32
     target = class_name
@@ -2652,13 +2460,10 @@ def _binary_contains_class(data: bytes, class_name: str) -> bool:
         except Exception:
             return False
     return False
-
 def _xml_contains_datamodel(root: ET.Element) -> bool:
     return any((_tag_name(elem) == 'Item' and elem.get('class') == 'DataModel' for elem in root.iter()))
-
 def _xml_contains_item(root: ET.Element) -> bool:
     return any((_tag_name(elem) == 'Item' for elem in root.iter()))
-
 def _parse_roblox_xml(data: bytes) -> ET.Element | None:
     stripped = data.lstrip()
     if stripped.startswith(b'\xef\xbb\xbf'):
@@ -2672,7 +2477,6 @@ def _parse_roblox_xml(data: bytes) -> ET.Element | None:
     if _tag_name(root) != 'roblox':
         return None
     return root
-
 def _xml_to_document(data: bytes) -> RbxDocument:
     root = ET.fromstring(data)
     if _tag_name(root) != 'roblox':
@@ -2695,7 +2499,6 @@ def _xml_to_document(data: bytes) -> RbxDocument:
             shared_strings.append(blob)
     ref_map: dict[str, int] = {}
     next_ref = 1
-
     def mapped_ref(ref: str) -> int:
         nonlocal next_ref
         if ref in ref_map:
@@ -2710,7 +2513,6 @@ def _xml_to_document(data: bytes) -> RbxDocument:
         ref_map[ref] = value
         return value
     instances: dict[int, RbxInstance] = {}
-
     def parse_item(item: ET.Element) -> RbxInstance:
         referent_text = item.get('referent') or ''
         referent = mapped_ref(referent_text)
@@ -2733,7 +2535,6 @@ def _xml_to_document(data: bytes) -> RbxDocument:
     roots = [parse_item(item) for item in _children_named(root, 'Item')]
     metadata = {elem.get('name') or _tag_name(elem): (elem.text or '').strip() for elem in list(root) if _tag_name(elem) == 'Meta'}
     return RbxDocument(version=0, type_count=0, object_count=len(instances), metadata=RbxMetadata(entries=metadata), instances=instances, roots=roots, shared_strings=shared_strings)
-
 def _xml_property_value(elem: ET.Element, type_name: str, shared_by_md5: dict[str, bytes]) -> Any:
     text = elem.text or ''
     if type_name == 'SharedString':
@@ -2751,7 +2552,6 @@ def _xml_property_value(elem: ET.Element, type_name: str, shared_by_md5: dict[st
     if list(elem):
         return {_tag_name(child): (child.text or '').strip() for child in elem}
     return text.strip()
-
 def _property_format_from_type_name(type_name: str) -> PropertyFormat | None:
     normalized = type_name.strip()
     if not normalized:
@@ -2765,7 +2565,6 @@ def _property_format_from_type_name(type_name: str) -> PropertyFormat | None:
     if key in aliases:
         return aliases[key]
     return tag_to_format.get(key, PropertyFormat.STRING)
-
 def _value_for_format(value: Any, fmt: PropertyFormat, ref_mapper) -> Any:
     if fmt in {PropertyFormat.INT, PropertyFormat.ENUM, PropertyFormat.BRICK_COLOR, PropertyFormat.SECURITY_CAPABILITIES}:
         return _safe_int(value)
@@ -2842,35 +2641,30 @@ def _value_for_format(value: Any, fmt: PropertyFormat, ref_mapper) -> Any:
     if fmt == PropertyFormat.FONT:
         return _parse_font_value(value)
     return value
-
 def _parse_udim_value(value: Any) -> dict[str, float | int]:
     pairs = {str(k): v for k, v in value.items()} if isinstance(value, dict) else _parse_key_values(str(value))
     if pairs:
         return {'S': _safe_float(pairs.get('S', 0.0)), 'O': _safe_int(pairs.get('O', 0))}
     numbers = _parse_numbers(str(value))
     return {'S': numbers[0] if len(numbers) > 0 else 0.0, 'O': int(numbers[1]) if len(numbers) > 1 else 0}
-
 def _parse_udim2_value(value: Any) -> dict[str, float | int]:
     pairs = {str(k): v for k, v in value.items()} if isinstance(value, dict) else _parse_key_values(str(value))
     if pairs:
         return {'XS': _safe_float(pairs.get('XS', 0.0)), 'XO': _safe_int(pairs.get('XO', 0)), 'YS': _safe_float(pairs.get('YS', 0.0)), 'YO': _safe_int(pairs.get('YO', 0))}
     numbers = _parse_numbers(str(value))
     return {'XS': numbers[0] if len(numbers) > 0 else 0.0, 'XO': int(numbers[1]) if len(numbers) > 1 else 0, 'YS': numbers[2] if len(numbers) > 2 else 0.0, 'YO': int(numbers[3]) if len(numbers) > 3 else 0}
-
 def _parse_vector_value(value: Any, keys: tuple[str, ...], caster) -> dict[str, Any]:
     pairs = {str(k): v for k, v in value.items()} if isinstance(value, dict) else _parse_key_values(str(value))
     if pairs:
         return {key: _cast_number(pairs.get(key, 0), caster) for key in keys}
     numbers = _parse_numbers(str(value))
     return {key: _cast_number(numbers[index] if index < len(numbers) else 0, caster) for index, key in enumerate(keys)}
-
 def _parse_ray_value(value: Any) -> dict[str, dict[str, float]]:
     if isinstance(value, dict):
         return {'origin': _parse_vector_value(value.get('origin', {}), ('X', 'Y', 'Z'), float), 'direction': _parse_vector_value(value.get('direction', {}), ('X', 'Y', 'Z'), float)}
     numbers = _parse_numbers(str(value))
     padded = numbers + [0.0] * max(0, 6 - len(numbers))
     return {'origin': {'X': padded[0], 'Y': padded[1], 'Z': padded[2]}, 'direction': {'X': padded[3], 'Y': padded[4], 'Z': padded[5]}}
-
 def _parse_cframe_value(value: Any) -> dict[str, float] | None:
     text = str(value).strip()
     if value is None or text.lower() in {'', 'none', 'null'}:
@@ -2892,7 +2686,6 @@ def _parse_cframe_value(value: Any) -> dict[str, float] | None:
     elif len(numbers) >= 3:
         result['X'], result['Y'], result['Z'] = numbers[:3]
     return result
-
 def _parse_number_range_value(value: Any) -> dict[str, float]:
     if isinstance(value, dict):
         return {'Min': _safe_float(value.get('Min', 0.0)), 'Max': _safe_float(value.get('Max', 0.0))}
@@ -2901,14 +2694,12 @@ def _parse_number_range_value(value: Any) -> dict[str, float]:
         return {'Min': _safe_float(pairs.get('Min', 0.0)), 'Max': _safe_float(pairs.get('Max', 0.0))}
     numbers = _parse_numbers(str(value))
     return {'Min': numbers[0] if len(numbers) > 0 else 0.0, 'Max': numbers[1] if len(numbers) > 1 else 0.0}
-
 def _parse_rect2d_value(value: Any) -> dict[str, dict[str, float]]:
     if isinstance(value, dict):
         return {'min': _parse_vector_value(value.get('min', {}), ('X', 'Y'), float), 'max': _parse_vector_value(value.get('max', {}), ('X', 'Y'), float)}
     numbers = _parse_numbers(str(value))
     padded = numbers + [0.0] * max(0, 4 - len(numbers))
     return {'min': {'X': padded[0], 'Y': padded[1]}, 'max': {'X': padded[2], 'Y': padded[3]}}
-
 def _parse_physical_properties_value(value: Any) -> dict[str, Any] | None:
     text = str(value).strip()
     if value is None or text.lower() in {'', 'none', 'null', 'default'}:
@@ -2925,7 +2716,6 @@ def _parse_physical_properties_value(value: Any) -> dict[str, Any] | None:
     if len(numbers) > 5:
         result['AcousticAbsorption'] = numbers[5]
     return result
-
 def _parse_font_value(value: Any) -> dict[str, Any]:
     if isinstance(value, dict):
         return {'Family': str(value.get('Family', '')), 'Weight': _safe_int(value.get('Weight', 400)), 'Style': _safe_int(value.get('Style', 0)), 'CachedFaceId': str(value.get('CachedFaceId', ''))}
@@ -2934,7 +2724,6 @@ def _parse_font_value(value: Any) -> dict[str, Any]:
         return _parse_font_value(pairs)
     parts = [part.strip() for part in str(value).split(',')]
     return {'Family': parts[0] if len(parts) > 0 else '', 'Weight': _safe_int(parts[1] if len(parts) > 1 else 400), 'Style': _safe_int(parts[2] if len(parts) > 2 else 0), 'CachedFaceId': parts[3] if len(parts) > 3 else ''}
-
 def _parse_key_values(text: str) -> dict[str, str]:
     result: dict[str, str] = {}
     for part in re.split('[,;]\\s*', text.strip().strip('[]{}()')):
@@ -2949,41 +2738,33 @@ def _parse_key_values(text: str) -> dict[str, str]:
         if key:
             result[key] = raw_value
     return result
-
 def _parse_numbers(text: str) -> list[float]:
     return [float(match.group(0)) for match in re.finditer('[-+]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][-+]?\\d+)?', text)]
-
 def _cast_number(value: Any, caster):
     if caster is int:
         return int(round(float(value)))
     return caster(value)
-
 def _safe_int(value: Any) -> int:
     try:
         return int(str(value).strip(), 0)
     except (TypeError, ValueError):
         return 0
-
 def _safe_float(value: Any) -> float:
     try:
         return float(value)
     except (TypeError, ValueError):
         return 0.0
-
 def _safe_bool(value: Any) -> bool:
     if isinstance(value, bool):
         return value
     return str(value).strip().lower() in {'1', 'true', 'yes', 'on'}
-
 def _find_child(parent: ET.Element, name: str) -> ET.Element | None:
     for child in list(parent):
         if _tag_name(child) == name:
             return child
     return None
-
 def _children_named(parent: ET.Element, name: str) -> list[ET.Element]:
     return [child for child in list(parent) if _tag_name(child) == name]
-
 def _tag_name(elem: ET.Element) -> str:
     return elem.tag.rsplit('}', 1)[-1]
 _decompress_document = decompress_if_needed
@@ -2991,7 +2772,6 @@ _classify_document = classify_roblox_document
 _RbxmDeserializer = RbxmDeserializer
 _write_rbxmx = write_rbxmx
 _write_rbxm = write_rbxm
-
 def apply_visual_polish(root: tk.Tk, theme: Optional[str]='system', palette: Optional[Dict[str, str]]=None):
     global _CURRENT_PALETTE
     try:
@@ -3094,7 +2874,6 @@ def apply_visual_polish(root: tk.Tk, theme: Optional[str]='system', palette: Opt
     except Exception:
         pass
     _theme_open_windows(root)
-
 def darken_menus(menus: Iterable) -> None:
     p = _CURRENT_PALETTE
     bg_dark = p.get('bg_dark', '#1e1e1e')
@@ -3102,7 +2881,6 @@ def darken_menus(menus: Iterable) -> None:
     fg_white = p.get('fg', '#d4d4d4')
     accent = p.get('accent', '#007acc')
     seen = set()
-
     def _apply(menu):
         if id(menu) in seen:
             return
@@ -3126,13 +2904,11 @@ def darken_menus(menus: Iterable) -> None:
             _apply(m)
         except Exception:
             pass
-
 def _set_pane_minsize(paned: ttk.PanedWindow, pane, size: int) -> None:
     try:
         paned.paneconfigure(pane, minsize=size)
     except Exception:
         pass
-
 def _toggle_toplevel_maximize(win, state=None):
     try:
         if state is None:
@@ -3149,7 +2925,6 @@ def _toggle_toplevel_maximize(win, state=None):
         win._routils_max_state = state
     except Exception:
         pass
-
 def theme_toplevel(win) -> None:
     p = _CURRENT_PALETTE
     try:
@@ -3182,7 +2957,6 @@ def theme_toplevel(win) -> None:
         except Exception:
             pass
         theme_toplevel(c)
-
 def _theme_on_map(event) -> None:
     try:
         widget = event.widget
@@ -3190,7 +2964,6 @@ def _theme_on_map(event) -> None:
             theme_toplevel(widget)
     except Exception:
         pass
-
 def _theme_open_windows(root) -> None:
     try:
         for child in root.winfo_children():
@@ -3198,26 +2971,21 @@ def _theme_open_windows(root) -> None:
                 theme_toplevel(child)
     except Exception:
         pass
-
 def default_paths():
     local = os.environ.get('LOCALAPPDATA') or os.path.expanduser('~')
     db = os.path.join(local, 'Roblox', 'rbx-storage.db')
     shard_root = os.path.join(local, 'Roblox', 'rbx-storage')
     return (db, shard_root)
-
 def human_size(n: int) -> str:
     n = max(0, int(n))
     for unit in ('B', 'KB', 'MB', 'GB', 'TB'):
         if n < 1024 or unit == 'TB':
             return f'{n:.0f}{unit}' if unit == 'B' else f'{n:.1f}{unit}'
         n /= 1024.0
-
 def id_bytes_to_hex(b: bytes) -> str:
     return b.hex()
-
 def shard_path(root: str, hash_hex: str) -> str:
     return os.path.join(root, hash_hex[:2], hash_hex)
-
 def read_shard_bytes(root: str, hash_hex: str) -> Optional[bytes]:
     path = shard_path(root, hash_hex)
     try:
@@ -3225,10 +2993,8 @@ def read_shard_bytes(root: str, hash_hex: str) -> Optional[bytes]:
             return f.read()
     except Exception:
         return None
-
 def now_hms() -> str:
     return datetime.now().strftime('%H:%M:%S')
-
 def _sanitize_filename_for_windows(s: str) -> str:
     s = str(s or '')
     illegal = '<>:"/\\|?*'
@@ -3243,14 +3009,12 @@ def _sanitize_filename_for_windows(s: str) -> str:
     if stem in reserved:
         cleaned = '_' + cleaned
     return cleaned[:180].rstrip(' .')
-
 def load_settings() -> Dict:
     try:
         with open(SETTINGS_PATH, 'r', encoding='utf-8') as f:
             return json.load(f)
     except Exception:
         return {}
-
 def save_settings(data: Dict) -> None:
     try:
         with open(SETTINGS_PATH, 'w', encoding='utf-8') as f:
@@ -3263,7 +3027,6 @@ WEBVIEW2_URL_DEFAULTS = 'https://raw.githubusercontent.com/MaximumADHD/Roblox-FF
 WEBVIEW2_URL_OFFSETS_ROOT = 'https://offsets.imtheo.lol/'
 WEBVIEW2_URL_OFFSETS_TEMPLATE = 'https://offsets.imtheo.lol/{version}/fflags.hpp'
 GITHUB_PRESETS_API = 'https://api.github.com/repos/offp001/routils/contents/src/presets'
-
 class _WindowsTrayIcon:
     WM_USER = 1024
     WM_TRAYICON = WM_USER + 100
@@ -3282,13 +3045,10 @@ class _WindowsTrayIcon:
     MF_STRING = 0
     ID_OPEN = 1001
     ID_EXIT = 1002
-
     class NOTIFYICONDATAW(ctypes.Structure):
         _fields_ = [('cbSize', ctypes.wintypes.DWORD), ('hWnd', ctypes.wintypes.HWND), ('uID', ctypes.wintypes.UINT), ('uFlags', ctypes.wintypes.UINT), ('uCallbackMessage', ctypes.wintypes.UINT), ('hIcon', ctypes.c_void_p), ('szTip', ctypes.wintypes.WCHAR * 128), ('dwState', ctypes.wintypes.DWORD), ('dwStateMask', ctypes.wintypes.DWORD), ('szInfo', ctypes.wintypes.WCHAR * 256), ('uVersion', ctypes.wintypes.UINT), ('szInfoTitle', ctypes.wintypes.WCHAR * 64), ('dwInfoFlags', ctypes.wintypes.DWORD), ('guidItem', ctypes.c_byte * 16), ('hBalloonIcon', ctypes.c_void_p)]
-
     class WNDCLASSW(ctypes.Structure):
         _fields_ = [('style', ctypes.wintypes.UINT), ('lpfnWndProc', ctypes.WINFUNCTYPE(ctypes.c_ssize_t, ctypes.wintypes.HWND, ctypes.wintypes.UINT, ctypes.wintypes.WPARAM, ctypes.wintypes.LPARAM)), ('cbClsExtra', ctypes.c_int), ('cbWndExtra', ctypes.c_int), ('hInstance', ctypes.c_void_p), ('hIcon', ctypes.c_void_p), ('hCursor', ctypes.c_void_p), ('hbrBackground', ctypes.c_void_p), ('lpszMenuName', ctypes.wintypes.LPCWSTR), ('lpszClassName', ctypes.wintypes.LPCWSTR)]
-
     def __init__(self, icon_path, on_open, on_exit):
         self.icon_path = icon_path
         self.on_open = on_open
@@ -3299,7 +3059,6 @@ class _WindowsTrayIcon:
         self._wndproc_ref = ctypes.WINFUNCTYPE(ctypes.c_ssize_t, ctypes.wintypes.HWND, ctypes.wintypes.UINT, ctypes.wintypes.WPARAM, ctypes.wintypes.LPARAM)(self._wndproc)
         self._class_atom = None
         self._nid = None
-
     def _wndproc(self, hwnd, msg, wparam, lparam):
         if msg == self.WM_TRAYICON:
             if lparam in (self.WM_LBUTTONUP, self.WM_LBUTTONDBLCLK):
@@ -3321,10 +3080,8 @@ class _WindowsTrayIcon:
                 pass
             return 0
         return ctypes.windll.user32.DefWindowProcW(hwnd, msg, wparam, lparam)
-
     def _show_menu(self):
         user32 = ctypes.windll.user32
-
         class POINT(ctypes.Structure):
             _fields_ = [('x', ctypes.c_long), ('y', ctypes.c_long)]
         pt = POINT()
@@ -3337,7 +3094,6 @@ class _WindowsTrayIcon:
         user32.SetForegroundWindow(self.hwnd)
         user32.TrackPopupMenu(menu, self.TPM_LEFTALIGN | self.TPM_BOTTOMALIGN, pt.x, pt.y, 0, self.hwnd, None)
         user32.DestroyMenu(menu)
-
     def run(self):
         user32 = ctypes.windll.user32
         shell32 = ctypes.windll.shell32
@@ -3396,7 +3152,6 @@ class _WindowsTrayIcon:
             user32.UnregisterClassW(self._class_name, hinstance)
         except Exception:
             pass
-
     def stop(self):
         if self.hwnd:
             try:
@@ -3404,7 +3159,6 @@ class _WindowsTrayIcon:
                 ctypes.windll.user32.PostMessageW(self.hwnd, 18, 0, 0)
             except Exception:
                 pass
-
 def _launch_webview2(url: str, title: str) -> None:
     try:
         import webview
@@ -3419,10 +3173,8 @@ def _launch_webview2(url: str, title: str) -> None:
             messagebox.showerror('WebView2', f'Could not open WebView2 window:\n{e}')
         except Exception:
             pass
-
 def _get_latest_offsets_webview_url() -> str:
     return 'https://imtheo.lol/Offsets/FFlags.hpp'
-
 def _open_webview2_process(url: str, title: str) -> None:
     try:
         if getattr(sys, 'frozen', False):
@@ -3434,7 +3186,6 @@ def _open_webview2_process(url: str, title: str) -> None:
         subprocess.Popen([target, *args], cwd=BASE_DIR, close_fds=True)
     except Exception as e:
         messagebox.showerror('WebView2', f'Could not start WebView2 window:\n{e}')
-
 def _normalize_fflag_json(data):
     flags = []
     if isinstance(data, dict):
@@ -3454,7 +3205,6 @@ FFLAG_VK_NAMES.update({'MOUSE1': 1, 'MOUSE2': 2, 'MOUSE3': 4, 'MOUSE4': 5, 'MOUS
 FFLAG_VK_NAMES.update({'OEM1': 186, 'PLUS': 187, 'COMMA': 188, 'MINUS': 189, 'PERIOD': 190, 'SLASH': 191, 'OEM3': 192, 'LBRACKET': 219, 'BACKSLASH': 220, 'RBRACKET': 221, 'QUOTE': 222})
 FFLAG_VK_NAMES.update({str(i): 48 + i for i in range(10)})
 FFLAG_VK_NAMES.update({chr(ord('A') + i): 65 + i for i in range(26)})
-
 def fflag_key_to_vk(key: str) -> int:
     key = str(key or '').strip().upper()
     if key in FFLAG_VK_NAMES:
@@ -3467,7 +3217,6 @@ def fflag_key_to_vk(key: str) -> int:
             pass
     return 0
 RBXH_MAGIC = b'RBXH'
-
 def _parse_header_lines(hdr_text: str) -> Dict[str, str]:
     headers: Dict[str, str] = {}
     if not hdr_text:
@@ -3479,7 +3228,6 @@ def _parse_header_lines(hdr_text: str) -> Dict[str, str]:
         k, v = line.split(':', 1)
         headers[k.strip().lower()] = v.strip()
     return headers
-
 def parse_rbxh(blob: bytes) -> Dict:
     res = {'wrapped': False, 'version': None, 'url': None, 'status': None, 'headers': {}, 'header_text': None, 'body': blob, 'full_payload': blob}
     if not blob or blob[:4] != RBXH_MAGIC:
@@ -3524,7 +3272,6 @@ def parse_rbxh(blob: bytes) -> Dict:
     except Exception:
         res['body'] = bytes(data)
         return res
-
 def _maybe_gunzip(b: bytes, headers: Dict[str, str]) -> bytes:
     enc = (headers.get('content-encoding') or headers.get('content_encoding') or '').lower()
     if 'gzip' in enc:
@@ -3538,12 +3285,10 @@ def _maybe_gunzip(b: bytes, headers: Dict[str, str]) -> bytes:
         except Exception:
             return b
     return b
-
 def _content_type(headers: Dict[str, str]) -> str:
     ct = (headers.get('content-type') or headers.get('content_type') or '').lower()
     return ct.split(';')[0].strip()
 _ticket_url_re = re.compile(b'https?://([A-Za-z0-9\\.\\-]+)\\S+', re.IGNORECASE)
-
 def detect_ticket(payload: bytes, url: Optional[str]) -> Tuple[bool, str]:
     if url and 'rbxcdn.com' in url and any((k in url for k in ('__token_', 'signature', 'key-pair-id', 'policy', 'expires'))):
         return (True, 'Ticket (signed URL)')
@@ -3559,7 +3304,6 @@ def detect_ticket(payload: bytes, url: Optional[str]) -> Tuple[bool, str]:
                     pass
             return (True, f'Ticket ({host})')
     return (False, '')
-
 def find_embedded_image(body: bytes) -> Tuple[str, int]:
     scan = body[:131072]
     i = scan.find(b'RIFF')
@@ -3573,7 +3317,6 @@ def find_embedded_image(body: bytes) -> Tuple[str, int]:
         if j != -1:
             return (lbl, j)
     return ('', -1)
-
 def _is_ogg_at(scan: bytes, j: int) -> bool:
     if j < 0 or j + 27 > len(scan):
         return False
@@ -3585,10 +3328,8 @@ def _is_ogg_at(scan: bytes, j: int) -> bool:
     return b'vorbis' in tail or b'OpusHead' in tail
 _BITRATES = {(3, 3): [0, 32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448, 0], (3, 2): [0, 32, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384, 0], (3, 1): [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 0], (2, 3): [0, 32, 48, 56, 64, 80, 96, 112, 128, 144, 160, 176, 192, 224, 256, 0], (2, 2): [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 0], (2, 1): [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 0], (0, 3): [0, 32, 48, 56, 64, 80, 96, 112, 128, 144, 160, 176, 192, 224, 256, 0], (0, 2): [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 0], (0, 1): [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 0]}
 _SAMPLERATES = {3: [44100, 48000, 32000, 0], 2: [22050, 24000, 16000, 0], 0: [11025, 12000, 8000, 0]}
-
 def _read_u32_be(b: bytes, i: int) -> int:
     return b[i] << 24 | b[i + 1] << 16 | b[i + 2] << 8 | b[i + 3] << 0
-
 def _is_valid_mp3_header(h: int) -> Tuple[bool, dict]:
     if h >> 21 & 2047 != 2047:
         return (False, {})
@@ -3606,7 +3347,6 @@ def _is_valid_mp3_header(h: int) -> Tuple[bool, dict]:
     if sr == 0 or br == 0:
         return (False, {})
     return (True, {'ver': ver, 'layer': layer, 'sr': sr, 'br': br, 'pad': pad})
-
 def _mp3_frame_size(info: dict) -> int:
     ver = info['ver']
     layer = info['layer']
@@ -3617,7 +3357,6 @@ def _mp3_frame_size(info: dict) -> int:
         return int((12 * br / sr + pad) * 4)
     coef = 144 if ver == 3 else 72
     return int(coef * br / sr + pad)
-
 def _find_mp3_two_frames(scan: bytes) -> int:
     n = min(len(scan), 131072)
     i = 0
@@ -3638,7 +3377,6 @@ def _find_mp3_two_frames(scan: bytes) -> int:
             return i
         i += 1
     return -1
-
 def find_embedded_audio_robust(body: bytes) -> Tuple[str, int]:
     scan = body[:131072]
     i = scan.find(b'RIFF')
@@ -3655,7 +3393,6 @@ def find_embedded_audio_robust(body: bytes) -> Tuple[str, int]:
     return ('', -1)
 KTX1_MAGIC = b'\xabKTX 11\xbb\r\n\x1a\n'
 KTX2_MAGIC = b'\xabKTX 20\xbb\r\n\x1a\n'
-
 def _label_ktx1(body: bytes, off: int) -> str:
     if off + 64 > len(body):
         return 'KTX1'
@@ -3668,7 +3405,6 @@ def _label_ktx1(body: bytes, off: int) -> str:
     if astc_min <= gl_internal <= astc_max:
         return 'KTX1 (ASTC)'
     return 'KTX1'
-
 def _label_ktx2(body: bytes, off: int) -> str:
     if off + 48 > len(body):
         return 'KTX2'
@@ -3680,7 +3416,6 @@ def _label_ktx2(body: bytes, off: int) -> str:
     if vkfmt in astc:
         return 'KTX2 (ASTC)'
     return 'KTX2'
-
 def detect_ktx_anywhere(body: bytes) -> Tuple[str, str]:
     scan = body[:131072]
     i1 = scan.find(KTX1_MAGIC)
@@ -3690,7 +3425,6 @@ def detect_ktx_anywhere(body: bytes) -> Tuple[str, str]:
     if i2 != -1:
         return ('Texture', _label_ktx2(body, i2))
     return ('', '')
-
 def detect_mesh_kind(payload: bytes) -> Tuple[str, str]:
     if payload.startswith(b'version '):
         try:
@@ -3708,7 +3442,6 @@ def detect_mesh_kind(payload: bytes) -> Tuple[str, str]:
     if b'DRACO' in payload[:4096] or b'MESH' in payload[:16]:
         return ('Mesh', 'v6/v7 (binary)')
     return ('', '')
-
 def detect_font_kind(body: bytes, ct: str) -> Tuple[str, str]:
     if ct.startswith('font/') or ct in ('application/font-sfnt', 'application/font-woff', 'application/font-woff2'):
         if 'woff2' in ct:
@@ -3730,7 +3463,6 @@ def detect_font_kind(body: bytes, ct: str) -> Tuple[str, str]:
     if body[:4] == b'\x00\x01\x00\x00':
         return ('Font', 'TTF')
     return ('', '')
-
 def _find_json_head_slice(body: bytes, headers: Dict[str, str]) -> Optional[str]:
     scan = body[:262144]
     i = scan.find(b'{')
@@ -3749,7 +3481,6 @@ def _find_json_head_slice(body: bytes, headers: Dict[str, str]) -> Optional[str]
             except Exception:
                 pass
     return None
-
 def is_translation_json_text(text: str) -> bool:
     t = text.lower()
     if 'localizationtable' in t:
@@ -3761,7 +3492,6 @@ def is_translation_json_text(text: str) -> bool:
     if hits >= 1 and ('"locale"' in t or 'language' in t or 'sourcelanguage' in t):
         return True
     return False
-
 def detect_translation_json(body: bytes, headers: Dict[str, str]) -> Tuple[bool, str]:
     head = _find_json_head_slice(body, headers)
     if not head:
@@ -3771,19 +3501,16 @@ def detect_translation_json(body: bytes, headers: Dict[str, str]) -> Tuple[bool,
     return (False, '')
 _RBXM_BIN_MAGIC = b'<roblox!'
 _RBXM_SCAN_LIMIT = 8192
-
 def detect_rbxm_binary(body: bytes) -> int:
     window = body[:_RBXM_SCAN_LIMIT]
     p = window.find(_RBXM_BIN_MAGIC)
     if p != -1 and p <= 64:
         return p
     return -1
-
 def _walk_instance_tree(instances) -> list:
     roots = list(instances.values()) if isinstance(instances, dict) else list(instances or [])
     out = []
     seen = set()
-
     def visit(node):
         key = id(node)
         if key in seen:
@@ -3795,7 +3522,6 @@ def _walk_instance_tree(instances) -> list:
     for node in roots:
         visit(node)
     return out
-
 def _has_animation_structure(nodes) -> bool:
     classes = {getattr(node, 'class_name', '') for node in nodes}
     if classes & {'KeyframeSequence', 'CurveAnimation', 'AnimationClip'}:
@@ -3810,7 +3536,6 @@ def _has_animation_structure(nodes) -> bool:
                 return True
             stack.extend(getattr(child, 'children', ()) or ())
     return False
-
 def _classify_rbxm_asset(body: bytes):
     _MODEL_CLASSES = {'Model', 'Folder', 'Tool', 'Accessory', 'Accoutrement', 'Handle', 'Part', 'MeshPart', 'WedgePart', 'CornerWedgePart', 'TrussPart', 'CylinderPart', 'UnionOperation', 'PartOperation', 'SpecialMesh', 'FileMesh', 'BasePart', 'Humanoid', 'Motor6D', 'Texture', 'Decal'}
     try:
@@ -3859,7 +3584,6 @@ def _classify_rbxm_asset(body: bytes):
     except Exception:
         return (None, None)
     return (None, None)
-
 def _extract_rbxm_name(body: bytes) -> str:
     try:
         if body.lstrip().startswith(b'<roblox!'):
@@ -3881,7 +3605,6 @@ def _extract_rbxm_name(body: bytes) -> str:
     except Exception:
         pass
     return ''
-
 def _asset_name(body: bytes, url: Optional[str]) -> str:
     name = _extract_rbxm_name(body)
     if name:
@@ -3891,7 +3614,6 @@ def _asset_name(body: bytes, url: Optional[str]) -> str:
         if tail and '.' not in tail and (len(tail) < 120):
             return tail
     return ''
-
 def sniff_kind(body: bytes, url: Optional[str], headers: Dict[str, str], full_payload: bytes) -> Tuple[str, str, bool]:
     is_t, ticket_label = detect_ticket(full_payload or body, url)
     if is_t:
@@ -3899,7 +3621,6 @@ def sniff_kind(body: bytes, url: Optional[str], headers: Dict[str, str], full_pa
     is_tr, tr_label = detect_translation_json(body, headers)
     if is_tr:
         return ('Translations', tr_label, False)
-
     def _is_decal_url(u: Optional[str]) -> bool:
         if not u:
             return False
@@ -4032,15 +3753,12 @@ def sniff_kind(body: bytes, url: Optional[str], headers: Dict[str, str], full_pa
     if body[:4] == b'\x04"M\x18':
         return ('Compressed', 'LZ4F', False)
     return ('Unknown', '', False)
-
 def connect_ro(db_path: str) -> sqlite3.Connection:
     uri = f'file:{db_path}?mode=ro&cache=shared'
     return sqlite3.connect(uri, uri=True, timeout=0.5, isolation_level=None)
-
 def connect_rw(db_path: str) -> sqlite3.Connection:
     uri = f'file:{db_path}?mode=rwc&cache=shared'
     return sqlite3.connect(uri, uri=True, timeout=5.0, isolation_level=None)
-
 @dataclass
 class ScanItem:
     time: str
@@ -4055,7 +3773,6 @@ class ScanItem:
     is_ticket: bool
     name: str = ''
     id_bytes: bytes = field(repr=False, default=b'')
-
 def scan_db_once(db_path: str, shard_root: str, seen: set, max_rows: Optional[int]=None) -> List[ScanItem]:
     out: List[ScanItem] = []
     try:
@@ -4098,12 +3815,10 @@ def scan_db_once(db_path: str, shard_root: str, seen: set, max_rows: Optional[in
         except Exception:
             pass
     return out
-
 @dataclass
 class Keyframe:
     time: float
     pose_by_part_name: Dict[str, Dict]
-
 def parse_xml_animation(anim_data: bytes) -> List[Keyframe]:
     try:
         anim_data = _decompress_document(anim_data)
@@ -4141,13 +3856,11 @@ def parse_xml_animation(anim_data: bytes) -> List[Keyframe]:
         keys.append(Keyframe(t, poses))
     keys.sort(key=lambda k: k.time)
     return keys
-
 def _safe_number(value, default=0.0) -> float:
     try:
         return float(value)
     except (TypeError, ValueError):
         return default
-
 def parse_binary_animation(data: bytes) -> List[Keyframe]:
     data = _decompress_document(data)
     instances = {}
@@ -4155,7 +3868,6 @@ def parse_binary_animation(data: bytes) -> List[Keyframe]:
         instances = parse_rbxm(data)
     except Exception:
         instances = {}
-
     def _collect_poses(node, out):
         for child in node.children:
             if child.class_name in ('Pose', 'NumberPose'):
@@ -4174,14 +3886,12 @@ def parse_binary_animation(data: bytes) -> List[Keyframe]:
             poses['__frame__'] = {'pos': _cf_position(cf), 'cf': cf}
         keyframes.append(Keyframe(_safe_number(kf.properties.get('Time', 0.0)), poses))
     if not keyframes and _RbxmDeserializer is not None:
-
         def _props(d: dict) -> dict:
             out = {}
             for k, v in d.items():
                 nm = k.name if hasattr(k, 'name') else str(k)
                 out[nm] = v.value if hasattr(v, 'value') else v
             return out
-
         def _collect(node, out: dict):
             for child in node.children:
                 if child.class_name in ('Pose', 'NumberPose'):
@@ -4204,7 +3914,6 @@ def parse_binary_animation(data: bytes) -> List[Keyframe]:
                 keyframes.append(Keyframe(_safe_number(p.get('Time', 0.0)), poses))
             keyframes.sort(key=lambda k: k.time)
     return keyframes
-
 def parse_animation(data: bytes) -> List[Keyframe]:
     if not data:
         return []
@@ -4235,16 +3944,13 @@ def parse_animation(data: bytes) -> List[Keyframe]:
         except Exception:
             pass
     return parse_xml_animation(stripped)
-
 def parse_curve_animation(anim_data: bytes) -> List[Keyframe]:
     import base64 as _b64
     import struct as _struct
     TICKS = 14400.0
     bone_curves: Dict[str, dict] = {}
-
     def _empty_bc():
         return {'px': [], 'py': [], 'pz': [], 'rx': [], 'ry': [], 'rz': []}
-
     def _vat(raw_b: bytes):
         if len(raw_b) < 8:
             return []
@@ -4261,7 +3967,6 @@ def parse_curve_animation(anim_data: bytes) -> List[Keyframe]:
             tk = _struct.unpack_from('<I', raw_b, off_t + 8 + i * 4)[0]
             out.append((tk / TICKS, v))
         return out
-
     def _lerp(tv, t):
         if not tv:
             return 0.0
@@ -4283,14 +3988,12 @@ def parse_curve_animation(anim_data: bytes) -> List[Keyframe]:
             tree = _RbxmDeserializer().deserialize(_decompress_document(anim_data))
         except Exception:
             return []
-
         def _prop(inst, key):
             for k, v in inst.properties.items():
                 pk = k.name if hasattr(k, 'name') else str(k)
                 if pk == key:
                     return v.value if hasattr(v, 'value') else v
             return None
-
         def _vat_rbxm(inst):
             for k, v in inst.properties.items():
                 pk = k.name if hasattr(k, 'name') else str(k)
@@ -4300,7 +4003,6 @@ def parse_curve_animation(anim_data: bytes) -> List[Keyframe]:
                         rb = raw.encode('latin-1') if isinstance(raw, str) else bytes(raw)
                         return _vat(rb)
             return []
-
         def _walk_rbxm(inst):
             nonlocal bone_curves
             if inst.class_name == 'Folder':
@@ -4349,7 +4051,6 @@ def parse_curve_animation(anim_data: bytes) -> List[Keyframe]:
             root = ET.fromstring(text)
         except Exception:
             return []
-
         def _vat_xml(fc_item):
             for bs in fc_item.iter('BinaryString'):
                 if bs.get('name') == 'ValuesAndTimes' and bs.text:
@@ -4358,7 +4059,6 @@ def parse_curve_animation(anim_data: bytes) -> List[Keyframe]:
                     except Exception:
                         pass
             return []
-
         def _walk_xml(item):
             nonlocal bone_curves
             cls = item.get('class', '')
@@ -4421,7 +4121,6 @@ def parse_curve_animation(anim_data: bytes) -> List[Keyframe]:
             poses[name] = {'pos': (_lerp(bc['px'], t), _lerp(bc['py'], t), _lerp(bc['pz'], t)), 'rot': (_lerp(bc['rx'], t), _lerp(bc['ry'], t), _lerp(bc['rz'], t))}
         keys.append(Keyframe(t, poses))
     return keys
-
 def _cf_position(cf) -> Tuple[float, float, float]:
     if isinstance(cf, dict):
         if 'position' in cf:
@@ -4443,7 +4142,6 @@ def _cf_position(cf) -> Tuple[float, float, float]:
         except Exception:
             pass
     return (0.0, 0.0, 0.0)
-
 def _extract_document_body(data: bytes) -> bytes:
     raw = data or b''
     if raw[:4] == RBXH_MAGIC:
@@ -4456,7 +4154,6 @@ def _extract_document_body(data: bytes) -> bytes:
     if pos >= 0:
         return raw[pos:]
     return raw
-
 def _copy_pose_properties(src, dst):
     sp = src.find('Properties') if src is not None else None
     if sp is None:
@@ -4465,7 +4162,6 @@ def _copy_pose_properties(src, dst):
         for el in sp.findall(tag):
             if el.get('name') in ('EasingDirection', 'EasingStyle', 'Weight'):
                 ET.SubElement(dst, tag, {'name': el.get('name')}).text = el.text
-
 def _pose_cf(src):
     if src is None:
         return None
@@ -4473,7 +4169,6 @@ def _pose_cf(src):
     if sp is None:
         return None
     return sp.find("CoordinateFrame[@name='CFrame']")
-
 def _make_r15_pose(name: str, source_pose=None) -> ET.Element:
     item = ET.Element('Item', {'class': 'Pose', 'referent': f'R15_{os.urandom(8).hex()}'})
     props = ET.SubElement(item, 'Properties')
@@ -4488,7 +4183,6 @@ def _make_r15_pose(name: str, source_pose=None) -> ET.Element:
             ET.SubElement(c, tag).text = val
     _copy_pose_properties(source_pose, props)
     return item
-
 def _normalize_roblox_document(data: bytes) -> bytes:
     raw = data or b''
     if raw[:4] == RBXH_MAGIC:
@@ -4507,7 +4201,6 @@ def _normalize_roblox_document(data: bytes) -> bytes:
         return write_rbxmx(_RbxmDeserializer().deserialize(raw))
     return raw
 R6_TO_R15_POSE_MAP = {'Torso': 'UpperTorso', 'Left Arm': 'LeftUpperArm', 'Right Arm': 'RightUpperArm', 'Left Leg': 'LeftUpperLeg', 'Right Leg': 'RightUpperLeg', 'LeftArm': 'LeftUpperArm', 'RightArm': 'RightUpperArm', 'LeftLeg': 'LeftUpperLeg', 'RightLeg': 'RightUpperLeg', 'RootJoint': 'Root', 'Root': 'Root', 'HumanoidRootPart': 'HumanoidRootPart', 'Head': 'Head'}
-
 def convert_r6_animation_to_r15(data: bytes) -> bytes:
     raw = _normalize_roblox_document(data)
     text = raw.decode('utf-8-sig', errors='replace')
@@ -4519,12 +4212,10 @@ def convert_r6_animation_to_r15(data: bytes) -> bytes:
     for m in list(root):
         if m.tag == 'Meta' and m.get('name') == 'RoutilsR6ToR15':
             root.remove(m)
-
     def get_name(pose):
         props = pose.find('Properties')
         e = props.find("string[@name='Name']") if props is not None else None
         return (e.text or '').strip() if e is not None else ''
-
     def get_cf(pose):
         props = pose.find('Properties')
         e = props.find("CoordinateFrame[@name='CFrame']") if props is not None else None
@@ -4535,7 +4226,6 @@ def convert_r6_animation_to_r15(data: bytes) -> bytes:
             q = e.find(tag)
             vals.append(float(q.text) if q is not None and q.text else 1.0 if tag in ('R00', 'R11', 'R22') else 0.0)
         return vals
-
     def easing(pose):
         props = pose.find('Properties')
         out = ['0', '0', '1']
@@ -4550,7 +4240,6 @@ def convert_r6_animation_to_r15(data: bytes) -> bytes:
             if w is not None:
                 out[2] = w.text or '1'
         return tuple(out)
-
     def make_pose(name, cf, ease):
         item = ET.Element('Item', {'class': 'Pose', 'referent': 'RBX' + uuid.uuid4().hex.upper()})
         props = ET.SubElement(item, 'Properties')
@@ -4562,10 +4251,8 @@ def convert_r6_animation_to_r15(data: bytes) -> bytes:
         ET.SubElement(props, 'token', {'name': 'EasingStyle'}).text = ease[1]
         ET.SubElement(props, 'float', {'name': 'Weight'}).text = ease[2]
         return item
-
     def collect(kf):
         found = {}
-
         def walk(parent):
             for ch in parent.findall('Item'):
                 if ch.get('class') == 'Pose':
@@ -4573,7 +4260,6 @@ def convert_r6_animation_to_r15(data: bytes) -> bytes:
                     walk(ch)
         walk(kf)
         return found
-
     def r6_position_to_r15(cf):
         return [cf[0], cf[2], cf[1]] + cf[3:]
     identity = [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
@@ -4582,7 +4268,6 @@ def convert_r6_animation_to_r15(data: bytes) -> bytes:
         extras = [c for c in list(kf) if c.get('class') != 'Pose']
         for c in list(kf):
             kf.remove(c)
-
         def p(name, source=None, transform_pos=False):
             if source and source in poses:
                 cf, e = poses[source]
@@ -4617,14 +4302,12 @@ def convert_r6_animation_to_r15(data: bytes) -> bytes:
     except Exception:
         pass
     return b'<?xml version="1.0" encoding="utf-8"?>\n' + ET.tostring(root, encoding='utf-8')
-
 def parse_model_parts(data: bytes) -> Tuple[List[Dict], str]:
     parts: List[Dict] = []
     try:
         raw = _decompress_document(data)
     except Exception:
         raw = data
-
     def _dict_pos(d):
         if isinstance(d, dict):
             try:
@@ -4637,7 +4320,6 @@ def parse_model_parts(data: bytes) -> Tuple[List[Dict], str]:
             except Exception:
                 pass
         return (1.0, 1.0, 1.0)
-
     def _cf_pos(cf):
         return _cf_position(cf)
     if raw.lstrip().startswith(b'<roblox!'):
@@ -4705,9 +4387,7 @@ def parse_model_parts(data: bytes) -> Tuple[List[Dict], str]:
     if not parts:
         return ([], 'Model present, but no parts found to render')
     return (parts, f'Model: {len(parts)} parts')
-
 class Viewport3DPanel(ttk.Frame):
-
     def __init__(self, master, title='3D Viewport'):
         super().__init__(master)
         self.angle_x = 0.3
@@ -4773,7 +4453,6 @@ class Viewport3DPanel(ttk.Frame):
         self.canvas.bind('<KeyRelease>', self._on_key_release)
         self._keys_held = set()
         self.pack_forget()
-
     def _layout_controls(self, event=None):
         width = event.width if event is not None else self.controls.winfo_width()
         if not getattr(self, '_model_controls_visible', False):
@@ -4796,7 +4475,6 @@ class Viewport3DPanel(ttk.Frame):
             self.lbl_mode.grid_configure(row=0, column=0, sticky='w', padx=3)
             self.chk_wireframe.grid_configure(row=0, column=1, sticky='w', padx=3)
             self.chk_optimize.grid_configure(row=0, column=2, sticky='w', padx=3)
-
     def _on_canvas_configure(self, _event=None):
         self._resize_preview_mode = True
         self._resize_quiet_until = time.monotonic() + 0.48
@@ -4819,7 +4497,6 @@ class Viewport3DPanel(ttk.Frame):
             except Exception:
                 pass
         self._resize_draw_job = self.after(500, self._redraw_after_resize)
-
     def _redraw_after_resize(self):
         self._resize_draw_job = None
         try:
@@ -4834,25 +4511,20 @@ class Viewport3DPanel(ttk.Frame):
         self._resize_quiet_until = 0.0
         if not self.is_playing:
             self.draw_frame()
-
     def _zoom_by(self, factor: float) -> None:
         self.zoom = max(0.05, min(20.0, self.zoom * factor))
         self.draw_frame()
-
     def _on_mouse_wheel(self, event):
         try:
             step = -1 if event.delta > 0 else 1
             self._zoom_by(1.12 if step < 0 else 0.9)
         except Exception:
             pass
-
     def _on_key_press(self, event):
         self._keys_held.add(event.keysym.lower())
         self._move_with_keys()
-
     def _on_key_release(self, event):
         self._keys_held.discard(event.keysym.lower())
-
     def _move_with_keys(self):
         step = 8.0
         if 'w' in self._keys_held:
@@ -4864,7 +4536,6 @@ class Viewport3DPanel(ttk.Frame):
         if 'd' in self._keys_held:
             self.pan_x -= step
         self.draw_frame()
-
     def set_asset_data_from_temp(self, temp_file_path: str, is_anim=False, is_mesh=False, is_model=False, is_audio=False):
         self.keyframes = []
         self.mesh_vertices = []
@@ -4894,7 +4565,6 @@ class Viewport3DPanel(ttk.Frame):
         else:
             self.mesh_info = 'No preview for this asset type'
         self.draw_frame()
-
     def _load_audio(self, data: bytes) -> None:
         ext = ''
         fmt, off = find_embedded_audio_robust(data)
@@ -4923,7 +4593,6 @@ class Viewport3DPanel(ttk.Frame):
         except Exception:
             stamp = ''
         self.mesh_info = f'Audio: {fmt} · {len(payload):,} bytes · {stamp} (▶ plays via system)'
-
     def _toggle_audio_play(self):
         if not self.audio_path or not os.path.isfile(self.audio_path):
             return
@@ -4931,7 +4600,6 @@ class Viewport3DPanel(ttk.Frame):
             os.startfile(self.audio_path)
         except Exception as e:
             messagebox.showerror('Audio', f'Could not open audio:\n{e}')
-
     def _load_model(self, data: bytes) -> None:
         self.model_parts, self.mesh_info = parse_model_parts(data)
         if not self.model_parts:
@@ -4940,9 +4608,7 @@ class Viewport3DPanel(ttk.Frame):
                 self.model_parts, self.mesh_info = parse_model_parts(xml)
             except Exception:
                 pass
-
     def _load_mesh(self, data: bytes) -> None:
-
         def _convert(b):
             try:
                 return convert(b)
@@ -4980,7 +4646,6 @@ class Viewport3DPanel(ttk.Frame):
         self.mesh_faces = faces
         self._mesh_bounds_cache = None
         self.mesh_info = f'Vertices: {len(verts):,} · Faces: {len(faces):,}'
-
     def show(self, is_anim=True, mode_label='Mesh'):
         self.lbl_mode.config(text=str(mode_label))
         if str(mode_label).lower().startswith('audio'):
@@ -5004,14 +4669,12 @@ class Viewport3DPanel(ttk.Frame):
         playable = bool(self.keyframes) or bool(self.audio_path and os.path.isfile(self.audio_path))
         self.btn_play.config(text='▶ Play', state='normal' if playable else 'disabled', width=8)
         self.draw_frame()
-
     def hide(self):
         self.is_playing = False
         if self.anim_job:
             self.after_cancel(self.anim_job)
             self.anim_job = None
         self.pack_forget()
-
     def toggle_play(self):
         if self.audio_path and os.path.isfile(self.audio_path):
             self._toggle_audio_play()
@@ -5024,10 +4687,8 @@ class Viewport3DPanel(ttk.Frame):
         self.btn_play.config(text='⏸ Pause' if self.is_playing else '▶ Play')
         if self.is_playing and not self.anim_job:
             self._animate_loop()
-
     def _on_mouse_down(self, event):
         self._last_mouse = (event.x, event.y)
-
     def _on_mouse_drag(self, event):
         dx = event.x - self._last_mouse[0]
         dy = event.y - self._last_mouse[1]
@@ -5035,7 +4696,6 @@ class Viewport3DPanel(ttk.Frame):
         self.angle_x += dy * 0.01
         self._last_mouse = (event.x, event.y)
         self.draw_frame()
-
     def _animate_loop(self):
         if not self.winfo_ismapped() or not self.is_playing or not self.keyframes:
             self.anim_job = None
@@ -5060,7 +4720,6 @@ class Viewport3DPanel(ttk.Frame):
         self.anim_time += 0.03
         self.draw_frame()
         self.anim_job = self.after(33, self._animate_loop)
-
     def draw_frame(self):
         self.canvas.delete('all')
         w = self.canvas.winfo_width() or 300
@@ -5083,7 +4742,6 @@ class Viewport3DPanel(ttk.Frame):
         else:
             self.canvas.create_text(w / 2, h / 2, text='Animation: no keyframes to draw a skeleton (0 keyframe)', fill='#007acc', font=('Segoe UI', 10))
     BONES = [('Head', 'UpperTorso'), ('Head', 'Torso'), ('UpperTorso', 'LowerTorso'), ('Torso', 'LowerTorso'), ('LowerTorso', 'UpperTorso'), ('UpperTorso', 'UpperArm'), ('UpperArm', 'LowerArm'), ('LowerArm', 'Hand'), ('UpperTorso', 'LeftUpperArm'), ('LeftUpperArm', 'LeftLowerArm'), ('LeftLowerArm', 'LeftHand'), ('UpperTorso', 'RightUpperArm'), ('RightUpperArm', 'RightLowerArm'), ('RightLowerArm', 'RightHand'), ('UpperArm', 'LeftUpperArm'), ('UpperArm', 'RightUpperArm'), ('LowerTorso', 'UpperLeg'), ('UpperLeg', 'LowerLeg'), ('LowerLeg', 'Foot'), ('LowerTorso', 'LeftUpperLeg'), ('LeftUpperLeg', 'LeftLowerLeg'), ('LeftLowerLeg', 'LeftFoot'), ('LowerTorso', 'RightUpperLeg'), ('RightUpperLeg', 'RightLowerLeg'), ('RightLowerLeg', 'RightFoot'), ('UpperLeg', 'LeftUpperLeg'), ('UpperLeg', 'RightUpperLeg')]
-
     def _project_point(self, pos, cx, cy, scale, mirror_y=True):
         x, y, z = pos
         r = 0.0
@@ -5092,7 +4750,6 @@ class Viewport3DPanel(ttk.Frame):
         px = cx + x1 * scale
         py = cy - y * scale + z1 * scale * 0.35
         return (px, py)
-
     def _draw_model(self, w, h):
         if not self.model_parts:
             return
@@ -5112,7 +4769,6 @@ class Viewport3DPanel(ttk.Frame):
         scale = base / span_all
         mid = [(mins[i] + maxs[i]) / 2 for i in range(3)]
         cosx, sinx, cosy, siny = (math.cos(ax), math.sin(ax), math.cos(ay), math.sin(ay))
-
         def _proj(x, y, z):
             px, py, pz = (x - mid[0], y - mid[1], z - mid[2])
             x1 = px * cosy + pz * siny
@@ -5166,7 +4822,6 @@ class Viewport3DPanel(ttk.Frame):
                 self.canvas.create_polygon(flat_s, fill='#000000', outline='', stipple='gray12')
             except Exception:
                 pass
-
     def _draw_skeleton(self, w, h):
         n = len(self.keyframes)
         idx = int(self.anim_time * 30.0) % n if self.is_playing and n else 0
@@ -5200,7 +4855,6 @@ class Viewport3DPanel(ttk.Frame):
         self.canvas.create_text(w / 2, 8, text=info, anchor='n', justify='center', width=max(80, w - 24), fill='#8ad0ff', font=('Consolas', 8))
         if not has_geo:
             self.canvas.create_text(w / 2, h / 2, text='No pose position data in skeleton (keyframe count shown above)', fill='#78909c', font=('Segoe UI', 9))
-
     def _draw_mesh(self, w, h):
         verts = self.mesh_vertices
         if not verts:
@@ -5291,9 +4945,7 @@ class Viewport3DPanel(ttk.Frame):
                 shade = max(35, min(150, shade))
                 fill = '#%02x%02x%02x' % (shade, shade + 8, shade + 18)
                 self.canvas.create_polygon(coords, fill=fill, outline='')
-
 class ReplacerPane(ttk.Frame):
-
     def _console_log(self, message):
         try:
             root = self.winfo_toplevel()
@@ -5302,7 +4954,6 @@ class ReplacerPane(ttk.Frame):
                 logger(message)
         except Exception:
             pass
-
     def __init__(self, master):
         super().__init__(master)
         self.script_dir = DATA_DIR
@@ -5363,7 +5014,6 @@ class ReplacerPane(ttk.Frame):
         for widget in (self, self.container, self.top, self.action_bar, self.source_row, self.list_frame):
             widget.bind('<Button-1>', self._clear_selection_bg, add='+')
         self.refresh_view()
-
     def _obj_key(self, obj):
         k = obj.get('kind')
         if k == 'item':
@@ -5375,13 +5025,10 @@ class ReplacerPane(ttk.Frame):
         if k == 'hash':
             return ('hash', obj['path'])
         return None
-
     def _get_selected_objs(self):
         return [self.view_index[i] for i in self.item_list.curselection()]
-
     def _snapshot_selection(self):
         return [self._obj_key(o) for o in self._get_selected_objs()]
-
     def _restore_selection(self, keys):
         if not keys:
             return
@@ -5393,7 +5040,6 @@ class ReplacerPane(ttk.Frame):
             for i in to_select:
                 self.item_list.selection_set(i)
             self.item_list.activate(to_select[0])
-
     def _row_index_from_event(self, event):
         size = self.item_list.size()
         if size <= 0:
@@ -5406,12 +5052,10 @@ class ReplacerPane(ttk.Frame):
         if event.y < y0 or event.y > y0 + h:
             return None
         return idx
-
     def _is_over_arrow(self, event, row) -> bool:
         indent = row.get('indent', 0)
         start = indent * self.indent_px
         return start <= event.x <= start + 20
-
     def _clear_hover(self):
         if self.hover_index is not None:
             try:
@@ -5419,7 +5063,6 @@ class ReplacerPane(ttk.Frame):
             except Exception:
                 pass
             self.hover_index = None
-
     def _on_hover_move(self, event):
         idx = self._row_index_from_event(event)
         if idx == self.hover_index:
@@ -5431,10 +5074,8 @@ class ReplacerPane(ttk.Frame):
                 self.hover_index = idx
             except Exception:
                 pass
-
     def _on_hover_leave(self, event):
         self._clear_hover()
-
     def _clear_selection_bg(self, event):
         self._clear_hover()
         if event.widget in (self, self.container, self.top, self.action_bar, self.list_frame):
@@ -5448,12 +5089,10 @@ class ReplacerPane(ttk.Frame):
             except Exception:
                 pass
             self.drag_label = None
-
     def _on_press(self, event):
         self.drag_start_x, self.drag_start_y = (event.x, event.y)
         self.dragging = False
         return self._on_left_click(event)
-
     def _on_left_click(self, event):
         idx = self._row_index_from_event(event)
         if idx is None:
@@ -5466,7 +5105,6 @@ class ReplacerPane(ttk.Frame):
             self.group_states[path] = not self.group_states.get(path, False)
             self.after_idle(lambda: self.refresh_view(True, sel_keys))
             return 'break'
-
     def _on_drag_motion(self, event):
         if self.drag_start_x is None or self.drag_start_y is None:
             return 'break'
@@ -5488,7 +5126,6 @@ class ReplacerPane(ttk.Frame):
         if self.dragging and self.drag_label:
             self.drag_label.geometry(f'+{event.x_root + 15}+{event.y_root + 15}')
         return 'break'
-
     def _base_dir_for_view(self, view=None):
         v = view or self.source_var.get()
         if v == 'HashSaves':
@@ -5496,7 +5133,6 @@ class ReplacerPane(ttk.Frame):
         if v == 'FileSaves':
             return self.file_saves_dir
         return self.own_dir
-
     def _move_selection_to(self, target_dir):
         objs = self._get_selected_objs()
         base_dir = self._base_dir_for_view()
@@ -5558,7 +5194,6 @@ class ReplacerPane(ttk.Frame):
                             os.remove(src)
                     except Exception:
                         pass
-
     def _on_drag_release(self, event):
         if self.drag_label:
             try:
@@ -5583,7 +5218,6 @@ class ReplacerPane(ttk.Frame):
         self.dragging = False
         self.refresh_view()
         return 'break'
-
     def _on_double_click(self, event):
         idx = self._row_index_from_event(event)
         if idx is None:
@@ -5596,7 +5230,6 @@ class ReplacerPane(ttk.Frame):
             self.group_states[path] = not self.group_states.get(path, False)
             self.after_idle(lambda: self.refresh_view(True, sel_keys))
         return 'break'
-
     def _on_context_request(self, event):
         idx = self._row_index_from_event(event)
         clicked_obj = None
@@ -5627,13 +5260,11 @@ class ReplacerPane(ttk.Frame):
             self.ctx_menu.tk_popup(event.x_root, event.y_root)
         finally:
             self.ctx_menu.grab_release()
-
     def _passes_search(self, s: str) -> bool:
         q = self.search_var.get().strip().lower()
         if not q:
             return True
         return q in s.lower()
-
     def _update_actions_panel(self):
         for btn in (self.btn_create, self.btn_applycache, self.btn_savehash, self.btn_savefile):
             try:
@@ -5649,19 +5280,16 @@ class ReplacerPane(ttk.Frame):
         else:
             self.btn_create.pack(side='left', padx=(0, 6), pady=0)
             self.btn_applycache.pack(side='left', padx=(0, 6), pady=0)
-
     def _sanitize_filename(self, s: str) -> str:
         illegal = '<>:"/\\|?*'
         cleaned = ''.join(('_' if c in illegal else c for c in s))
         return cleaned.rstrip(' .')
-
     def _swap_hash_display(self, filename: str) -> str:
         parts = filename.split(' - ', 1)
         if len(parts) == 2:
             h, n = (parts[0], parts[1])
             return f'{n} ({h})'
         return filename
-
     def _render_saves_tree(self, base_dir, display_fn, current_dir=None, indent=0):
         current = current_dir or base_dir
         try:
@@ -5700,7 +5328,6 @@ class ReplacerPane(ttk.Frame):
                 self.view_index.append({'kind': 'hash', 'name': disp, 'path': path, 'realname': f, 'indent': indent})
             else:
                 self.view_index.append({'kind': 'group_item', 'display': disp, 'group_path': current, 'filename': f, 'indent': indent})
-
     def _render_cache_tree(self, current_dir, indent=0):
         try:
             entries = os.listdir(current_dir)
@@ -5739,7 +5366,6 @@ class ReplacerPane(ttk.Frame):
                 self.view_index.append({'kind': 'group_item', 'display': disp, 'group_path': current_dir, 'filename': f, 'indent': indent})
         if indent == 0:
             return {f.split(' - ', 1)[1] for f in files}
-
     def refresh_view(self, preserve_selection=False, selection_keys=None):
         if preserve_selection and selection_keys is None:
             selection_keys = self._snapshot_selection()
@@ -5768,7 +5394,6 @@ class ReplacerPane(ttk.Frame):
         if preserve_selection:
             self._restore_selection(selection_keys)
         self._update_actions_panel()
-
     def _scan_hash_saves(self) -> List[Tuple[str, str, str]]:
         out = []
         base = self.hash_saves_dir
@@ -5782,7 +5407,6 @@ class ReplacerPane(ttk.Frame):
                 out.append((name, h.strip(), os.path.join(root, f)))
         out.sort(key=lambda t: t[0].lower())
         return out
-
     def _scan_file_saves(self) -> List[Tuple[str, str]]:
         out = []
         base = self.file_saves_dir
@@ -5793,7 +5417,6 @@ class ReplacerPane(ttk.Frame):
                 out.append((f, os.path.join(root, f)))
         out.sort(key=lambda t: t[0].lower())
         return out
-
     def create_cache(self):
         dialog = tk.Toplevel(self)
         dialog.title('Create Cache')
@@ -5812,7 +5435,6 @@ class ReplacerPane(ttk.Frame):
         hs = []
         hash_names = []
         chosen_hash = {'hex': None}
-
         def ask_custom_hash():
             ch = simpledialog.askstring('Custom Hash', 'Enter custom hash value (hex):', parent=dialog)
             if ch and ch.strip():
@@ -5828,7 +5450,6 @@ class ReplacerPane(ttk.Frame):
         fs = []
         file_names = []
         chosen_file = {'path': None}
-
         def pick_custom_file():
             p = filedialog.askopenfilename(title='Choose source file')
             if p:
@@ -5840,7 +5461,6 @@ class ReplacerPane(ttk.Frame):
         entry_name.grid(row=2, column=1, columnspan=2, sticky='we', padx=10, pady=(8, 4))
         btnf = ttk.Frame(body)
         btnf.grid(row=3, column=0, columnspan=3, pady=12)
-
         def on_ok():
             final_hash = chosen_hash['hex']
             if not final_hash:
@@ -5917,7 +5537,6 @@ class ReplacerPane(ttk.Frame):
         ttk.Button(btnf, text='Cancel', command=dialog.destroy).pack(side='left', padx=6)
         body.columnconfigure(1, weight=1)
         entry_name.focus_set()
-
         def load_sources():
             nonlocal hs, fs, hash_names, file_names
             if not dialog.winfo_exists():
@@ -5955,10 +5574,8 @@ class ReplacerPane(ttk.Frame):
                 except queue.Empty:
                     dialog.after(35, poll_results)
             dialog.after(35, poll_results)
-
         dialog.after_idle(load_sources)
         dialog.wait_window()
-
     def save_hash(self):
         dialog = tk.Toplevel(self)
         dialog.title('Save Hash')
@@ -5974,7 +5591,6 @@ class ReplacerPane(ttk.Frame):
         btn_frame = ttk.Frame(dialog)
         btn_frame.grid(row=2, column=0, columnspan=2, pady=12)
         dialog.columnconfigure(1, weight=1)
-
         def on_ok():
             hv = entry_hash.get().strip()
             nv = entry_name.get().strip()
@@ -6015,7 +5631,6 @@ class ReplacerPane(ttk.Frame):
         ttk.Button(btn_frame, text='Cancel', command=dialog.destroy).pack(side='left', padx=6)
         entry_hash.focus_set()
         dialog.wait_window()
-
     def save_file(self):
         dialog = tk.Toplevel(self)
         dialog.title('Save File')
@@ -6023,7 +5638,6 @@ class ReplacerPane(ttk.Frame):
         dialog.grab_set()
         theme_toplevel(dialog)
         chosen = {'path': None}
-
         def pick_file():
             p = filedialog.askopenfilename(title='Choose file to save')
             if p:
@@ -6040,7 +5654,6 @@ class ReplacerPane(ttk.Frame):
         btn_frame = ttk.Frame(dialog)
         btn_frame.grid(row=3, column=0, columnspan=2, pady=12)
         dialog.columnconfigure(1, weight=1)
-
         def on_ok():
             src = chosen['path']
             name = entry_name.get().strip()
@@ -6094,7 +5707,6 @@ class ReplacerPane(ttk.Frame):
         ttk.Button(btn_frame, text='Cancel', command=dialog.destroy).pack(side='left', padx=6)
         entry_name.focus_set()
         dialog.wait_window()
-
     def _clean_hex(self, s: str) -> str:
         s = s.strip()
         if s.lower().startswith('0x'):
@@ -6103,7 +5715,6 @@ class ReplacerPane(ttk.Frame):
         if len(s) % 2 == 1:
             s = '0' + s
         return s
-
     def _resolve_cache_file_for_item(self, obj) -> Optional[Tuple[str, str, str]]:
         if obj.get('kind') == 'hash':
             fname = obj.get('realname') or os.path.basename(obj.get('path') or '')
@@ -6131,7 +5742,6 @@ class ReplacerPane(ttk.Frame):
                         h = fname.split(' - ', 1)[0].strip()
                         return (h, os.path.join(folder, fname), disp)
         return None
-
     def apply_caches(self):
         root = self.winfo_toplevel()
         db_path = getattr(root, 'db_path', None)
@@ -6218,7 +5828,6 @@ class ReplacerPane(ttk.Frame):
                 recorder(applied)
         messagebox.showinfo('Apply', f'Imported {ok} of {len(targets)} blob(s).')
         self._console_log(f'Applied {ok}/{len(targets)} selected cache blob(s)')
-
     def rename_selected(self):
         objs = self._get_selected_objs()
         if len(objs) != 1:
@@ -6267,7 +5876,6 @@ class ReplacerPane(ttk.Frame):
             messagebox.showerror('Error', f'Rename failed: {e}')
             return
         self.refresh_view()
-
     def delete_selected(self):
         objs = self._get_selected_objs()
         if not objs:
@@ -6315,7 +5923,6 @@ class ReplacerPane(ttk.Frame):
         self.refresh_view()
         messagebox.showinfo('Success', f'Deleted {deleted_units} item(s).')
         self._console_log(f'Deleted {deleted_units} cache item(s)')
-
     def delete_selected_groups(self):
         objs = self._get_selected_objs()
         groups = [o for o in objs if o.get('kind') == 'group']
@@ -6336,7 +5943,6 @@ class ReplacerPane(ttk.Frame):
         self.refresh_view()
         messagebox.showinfo('Success', f'Deleted {deleted} group(s).')
         self._console_log(f'Deleted {deleted} cache group(s)')
-
     def ungroup_selected_groups(self):
         objs = self._get_selected_objs()
         groups = [o for o in objs if o.get('kind') == 'group']
@@ -6384,7 +5990,6 @@ class ReplacerPane(ttk.Frame):
         self.refresh_view()
         messagebox.showinfo('Success', f'Ungrouped {removed_groups} group(s), restored {moved_files} file(s).')
         self._console_log(f'Ungrouped {removed_groups} group(s), restored {moved_files} cache file(s)')
-
     def create_group_from_selection(self):
         objs = self._get_selected_objs()
         view = self.source_var.get()
@@ -6394,7 +5999,6 @@ class ReplacerPane(ttk.Frame):
             allowed = {'hash', 'group_item'}
         if any((o['kind'] not in allowed for o in objs)):
             return
-
         def parent_dir(o):
             if o['kind'] == 'group_item':
                 return o['group_path']
@@ -6468,14 +6072,12 @@ SOUND_FILES = ('action_falling.ogg', 'action_footsteps_plastic.mp3', 'action_get
 FFLAG_PATTERN = bytes.fromhex('48 83 EC 38 48 8B 0D 00 00 00 00 4C 8D 05')
 FFLAG_MASK = 'xxxxxxx????xxx'
 FFLAG_MODULE_SIZE = 200 * 1024 * 1024
-
 def fflag_strip_prefix(name: str) -> str:
     name = str(name).strip()
     for pfx in FFLAG_PREFIXES:
         if name.startswith(pfx):
             return name[len(pfx):]
     return name
-
 def fflag_infer_type(value: str) -> str:
     v = str(value).strip().lower()
     if v in ('true', 'false'):
@@ -6489,7 +6091,6 @@ def fflag_infer_type(value: str) -> str:
             return 'float'
         except ValueError:
             return 'string'
-
 class RobloxFFlagEngine:
     PROCESS_ALL_ACCESS = 2035711
     TH32CS_SNAPMODULE = 8
@@ -6497,14 +6098,12 @@ class RobloxFFlagEngine:
     MEM_COMMIT = 4096
     PAGE_NOACCESS = 1
     PAGE_GUARD = 256
-
     def __init__(self):
         self.handle = None
         self.pid = 0
         self.module_base = 0
         self.module_size = FFLAG_MODULE_SIZE
         self.cached_singleton = 0
-
     def close(self):
         if self.handle:
             try:
@@ -6515,7 +6114,6 @@ class RobloxFFlagEngine:
         self.pid = 0
         self.module_base = 0
         self.cached_singleton = 0
-
     def attach(self, pid: int) -> bool:
         self.close()
         if os.name != 'nt':
@@ -6531,9 +6129,7 @@ class RobloxFFlagEngine:
             self.close()
             return False
         return True
-
     def _get_module_base(self, pid: int, wanted: str) -> int:
-
         class MODULEENTRY32W(ctypes.Structure):
             _fields_ = [('dwSize', ctypes.wintypes.DWORD), ('th32ModuleID', ctypes.wintypes.DWORD), ('th32ProcessID', ctypes.wintypes.DWORD), ('GlblcntUsage', ctypes.wintypes.DWORD), ('ProccntUsage', ctypes.wintypes.DWORD), ('modBaseAddr', ctypes.POINTER(ctypes.c_ubyte)), ('modBaseSize', ctypes.wintypes.DWORD), ('hModule', ctypes.c_void_p), ('szModule', ctypes.wintypes.WCHAR * 256), ('szExePath', ctypes.wintypes.WCHAR * 260)]
         snap = ctypes.windll.kernel32.CreateToolhelp32Snapshot(self.TH32CS_SNAPMODULE | self.TH32CS_SNAPMODULE32, int(pid))
@@ -6552,7 +6148,6 @@ class RobloxFFlagEngine:
         finally:
             ctypes.windll.kernel32.CloseHandle(snap)
         return 0
-
     def _read(self, address: int, size: int):
         if not self.handle or not address or size <= 0:
             return None
@@ -6560,11 +6155,9 @@ class RobloxFFlagEngine:
         got = ctypes.c_size_t()
         ok = ctypes.windll.kernel32.ReadProcessMemory(self.handle, ctypes.c_void_p(address), buf, size, ctypes.byref(got))
         return bytes(buf.raw[:got.value]) if ok and got.value == size else None
-
     def _read_u64(self, address: int) -> int:
         b = self._read(address, 8)
         return int.from_bytes(b, 'little', signed=False) if b else 0
-
     def get_singleton(self) -> int:
         if not self.handle or not self.module_base:
             self.cached_singleton = 0
@@ -6615,7 +6208,6 @@ class RobloxFFlagEngine:
                         idx += 1
             addr = vbase + max(vsize, 4096)
         return 0
-
     @staticmethod
     def _fnv1a64(name: str) -> int:
         h = 14695981039346656037
@@ -6623,7 +6215,6 @@ class RobloxFFlagEngine:
             h ^= ord(ch)
             h = h * 1099511628211 & 18446744073709551615
         return h
-
     def set_flag(self, name: str, value: str) -> bool:
         singleton = self.get_singleton()
         if not singleton:
@@ -6667,7 +6258,6 @@ class RobloxFFlagEngine:
                 return bool(ctypes.windll.kernel32.WriteProcessMemory(self.handle, ctypes.c_void_p(vp), data, 4, ctypes.byref(written)))
             node = int.from_bytes(entry[8:16], 'little', signed=False)
         return False
-
     def get_flag_address(self, name: str) -> int:
         singleton = self.get_singleton()
         if not singleton:
@@ -6700,7 +6290,6 @@ class RobloxFFlagEngine:
                 return self._read_u64(vpr + 192)
             node = int.from_bytes(entry[8:16], 'little', signed=False)
         return 0
-
     def get_flag_address_with_prefixes(self, name: str) -> int:
         addr = self.get_flag_address(name)
         if addr:
@@ -6710,7 +6299,6 @@ class RobloxFFlagEngine:
             if addr:
                 return addr
         return 0
-
     def set_flag_with_prefixes(self, name: str, value: str) -> bool:
         if self.set_flag(name, value):
             return True
@@ -6718,7 +6306,6 @@ class RobloxFFlagEngine:
             if self.set_flag(pfx + name, value):
                 return True
         return False
-
 def _get_process_exe_path(pid):
     if not pid or sys.platform != 'win32':
         return ''
@@ -6736,13 +6323,11 @@ def _get_process_exe_path(pid):
     except Exception:
         pass
     return ''
-
 def _fflag_find_pid() -> int:
     if os.name != 'nt':
         return 0
     PROCESS_QUERY_LIMITED_INFORMATION = 4096
     try:
-
         class PROCESSENTRY32W(ctypes.Structure):
             _fields_ = [('dwSize', ctypes.wintypes.DWORD), ('cntUsage', ctypes.wintypes.DWORD), ('th32ProcessID', ctypes.wintypes.DWORD), ('th32DefaultHeapID', ctypes.POINTER(ctypes.c_ulong)), ('th32ModuleID', ctypes.wintypes.DWORD), ('cntThreads', ctypes.wintypes.DWORD), ('th32ParentProcessID', ctypes.wintypes.DWORD), ('pcPriClassBase', ctypes.c_long), ('dwFlags', ctypes.wintypes.DWORD), ('szExeFile', ctypes.wintypes.WCHAR * 260)]
         snap = ctypes.windll.kernel32.CreateToolhelp32Snapshot(2, 0)
@@ -6763,7 +6348,6 @@ def _fflag_find_pid() -> int:
         pass
     return 0
 _NATIVE_MESSAGEBOX = messagebox
-
 def _pady_pair(value):
     try:
         if isinstance(value, (tuple, list)):
@@ -6775,8 +6359,6 @@ def _pady_pair(value):
         return n, n
     except Exception:
         return 0, 0
-
-
 def _routils_center_popup(win):
     try:
         if not win.winfo_exists() or getattr(win, '_skip_popup_centering', False):
@@ -6791,8 +6373,6 @@ def _routils_center_popup(win):
         win.geometry(f'+{x}+{y}')
     except Exception:
         pass
-
-
 def _routils_clear_window_references(event, win):
     if getattr(event, 'widget', None) is not win:
         return
@@ -6812,8 +6392,6 @@ def _routils_clear_window_references(event, win):
                     pass
     except Exception:
         pass
-
-
 def _routils_close_popup(win):
     try:
         if not win.winfo_exists():
@@ -6847,8 +6425,6 @@ def _routils_close_popup(win):
         win.destroy()
     except Exception:
         pass
-
-
 def _routils_process_has_focus(root=None):
     try:
         if sys.platform == 'win32':
@@ -6866,8 +6442,6 @@ def _routils_process_has_focus(root=None):
         return bool(focus and focus.winfo_toplevel())
     except Exception:
         return False
-
-
 def _routils_sync_popup_topmost(root=None):
     try:
         root = root or tk._default_root
@@ -6913,8 +6487,6 @@ def _routils_sync_popup_topmost(root=None):
         return focused
     except Exception:
         return False
-
-
 def _routils_popup_chrome(win):
     try:
         if not win.winfo_exists() or getattr(win, '_skip_custom_chrome', False) or getattr(win, '_routils_custom_chrome', False):
@@ -7030,8 +6602,6 @@ def _routils_popup_chrome(win):
         win.after(100, sync_topmost)
     except Exception:
         pass
-
-
 def _routils_refresh_popup_chrome(win):
     try:
         if not win.winfo_exists() or not getattr(win, '_routils_custom_chrome', False):
@@ -7053,7 +6623,6 @@ def _routils_refresh_popup_chrome(win):
         win._routils_chrome_colors = {'accent': accent, 'bar': bar_bg, 'fg': fg}
     except Exception:
         pass
-
 _original_toplevel_init = tk.Toplevel.__init__
 def _routils_toplevel_init(self, *args, **kwargs):
     _original_toplevel_init(self, *args, **kwargs)
@@ -7065,23 +6634,17 @@ def _routils_toplevel_init(self, *args, **kwargs):
         self.after_idle(lambda w=self: _routils_popup_chrome(w) if w.winfo_exists() else None)
     except Exception:
         pass
-
 tk.Toplevel.__init__ = _routils_toplevel_init
-
 def _routils_nonblocking_grab_set(self, *args, **kwargs):
     try:
         self.focus_set()
     except Exception:
         pass
     return None
-
 tk.Toplevel.grab_set = _routils_nonblocking_grab_set
-
-
 class _MacNotification:
     _active = []
     _pulse_jobs = {}
-
     @classmethod
     def _app_has_focus(cls, root):
         try:
@@ -7092,7 +6655,6 @@ class _MacNotification:
             return top is root or str(top.transient()) == str(root)
         except Exception:
             return False
-
     @classmethod
     def _reposition(cls):
         live = []
@@ -7123,7 +6685,6 @@ class _MacNotification:
                 win.geometry(f'{width}x{height}+{x}+{y}')
             except Exception:
                 pass
-
     @classmethod
     def show(cls, title, message, parent=None, kind='info'):
         try:
@@ -7146,7 +6707,7 @@ class _MacNotification:
             toast._skip_custom_chrome = True
             toast.overrideredirect(True)
             toast.configure(bg=accent)
-            toast.attributes('-topmost', cls._app_has_focus(root))
+            toast.attributes('-topmost', True)
             try:
                 toast.transient(root)
             except Exception:
@@ -7185,7 +6746,8 @@ class _MacNotification:
             close.bind('<Leave>', lambda _e: close.configure(bg=panel))
             def sync_topmost(_event=None):
                 try:
-                    toast.attributes('-topmost', cls._app_has_focus(root))
+                    toast.attributes('-topmost', True)
+                    toast.lift()
                 except Exception:
                     pass
             root.bind('<FocusIn>', sync_topmost, add='+')
@@ -7194,6 +6756,13 @@ class _MacNotification:
             toast.bind('<FocusOut>', lambda _e: toast.after(180, sync_topmost), add='+')
             cls._active.append((toast, height))
             cls._reposition()
+            try:
+                toast.update_idletasks()
+                toast.attributes('-topmost', True)
+                toast.lift()
+                toast.after(20, lambda w=toast: (w.attributes('-topmost', True), w.lift()) if w.winfo_exists() else None)
+            except Exception:
+                pass
             try:
                 root.bind('<Configure>', lambda _e: cls._reposition(), add='+')
             except Exception:
@@ -7216,28 +6785,21 @@ class _MacNotification:
             toast.after(4200, close_toast)
         except Exception:
             pass
-
-
 class _DarkMessageBox:
     @staticmethod
     def showinfo(title, message, parent=None, **kwargs):
         _MacNotification.show(title, message, parent, 'info')
-
     @staticmethod
     def showwarning(title, message, parent=None, **kwargs):
         _MacNotification.show(title, message, parent, 'warning')
-
     @staticmethod
     def showerror(title, message, parent=None, **kwargs):
         _MacNotification.show(title, message, parent, 'error')
-
     @staticmethod
     def askyesno(title, message, parent=None, **kwargs):
         return _NATIVE_MESSAGEBOX.askyesno(title, message, parent=parent, **kwargs)
 messagebox = _DarkMessageBox()
-
 class _ScrollableTab(ttk.Frame):
-
     def __init__(self, master, padding=0, **kwargs):
         super().__init__(master, **kwargs)
         self.columnconfigure(0, weight=1)
@@ -7261,12 +6823,10 @@ class _ScrollableTab(ttk.Frame):
         self.inner.bind('<Button-2>', self._middle_press)
         self.inner.bind('<B2-Motion>', self._middle_drag)
         self.inner.bind('<ButtonRelease-2>', self._middle_release)
-
     def _update_region(self, _event=None):
         if getattr(self, '_region_job', None):
             return
         self._region_job = self.after_idle(self._apply_scroll_region)
-
     def _apply_scroll_region(self):
         self._region_job = None
         try:
@@ -7276,7 +6836,6 @@ class _ScrollableTab(ttk.Frame):
                 self._last_scrollregion = bbox
         except Exception:
             pass
-
     def _resize_inner(self, event):
         width = max(1, int(getattr(event, 'width', 0) or 0))
         if width == getattr(self, '_last_inner_width', -1):
@@ -7293,43 +6852,34 @@ class _ScrollableTab(ttk.Frame):
             self.canvas.itemconfigure(self.window, width=width)
         except Exception:
             pass
-
     def _wheel(self, event):
         if event.delta:
             self.canvas.yview_scroll(int(-event.delta / 120), 'units')
         return 'break'
-
     def _middle_press(self, event):
         self._middle_y = event.y
         return 'break'
-
     def _middle_drag(self, event):
         if self._middle_y is not None:
             self.canvas.yview_scroll(int((self._middle_y - event.y) / 2), 'units')
             self._middle_y = event.y
         return 'break'
-
     def _middle_release(self, _event):
         self._middle_y = None
         return 'break'
-
 class _ConsoleStream:
-
     def __init__(self, app, original):
         self.app = app
         self.original = original
-
     def write(self, data):
         self.original.write(data)
         if str(data).strip():
             self.app._console_log(str(data).rstrip())
-
     def flush(self):
         try:
             self.original.flush()
         except Exception:
             pass
-
 def _win32_root_hwnd(win):
     if sys.platform != 'win32':
         return 0
@@ -7339,7 +6889,6 @@ def _win32_root_hwnd(win):
         return int(user32.GetAncestor(raw, 2) or raw)
     except Exception:
         return 0
-
 def _prepare_borderless_appwindow(win):
     if sys.platform != 'win32':
         return
@@ -7377,7 +6926,6 @@ def _prepare_borderless_appwindow(win):
         user32.SetWindowPos(hwnd, 0, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED)
     except Exception:
         pass
-
 def _apply_native_titlebar_theme(win):
     if sys.platform != 'win32':
         return
@@ -7395,9 +6943,7 @@ def _apply_native_titlebar_theme(win):
                 pass
     except Exception:
         pass
-
 class App(_TkAppBase):
-
     def after(self, ms, func=None, *args):
         ui_thread = getattr(self, '_ui_thread_id', None)
         if func is not None and ui_thread is not None and threading.get_ident() != ui_thread:
@@ -7439,7 +6985,6 @@ class App(_TkAppBase):
                     self._forget_thread_ui_token(token)
                 return None
         return super().after(ms, func, *args)
-
     def after_cancel(self, after_id):
         if isinstance(after_id, str) and after_id.startswith('__routils_thread_after_'):
             with self._thread_ui_cancel_lock:
@@ -7450,7 +6995,6 @@ class App(_TkAppBase):
         if after_id is None:
             return
         return super().after_cancel(after_id)
-
     def _forget_thread_ui_coalesce_key(self, token):
         lock = getattr(self, '_thread_ui_coalesce_lock', None)
         if lock is None:
@@ -7459,13 +7003,11 @@ class App(_TkAppBase):
             key = self._thread_ui_token_coalesce_keys.pop(token, None)
             if key is not None and self._thread_ui_coalesce_tokens.get(key) == token:
                 self._thread_ui_coalesce_tokens.pop(key, None)
-
     def _forget_thread_ui_token(self, token):
         with self._thread_ui_cancel_lock:
             self._thread_ui_cancelled.discard(token)
             self._thread_ui_known_tokens.discard(token)
         self._forget_thread_ui_coalesce_key(token)
-
     def _thread_token_cancelled(self, token, consume=False):
         with self._thread_ui_cancel_lock:
             cancelled = token in self._thread_ui_cancelled
@@ -7473,7 +7015,6 @@ class App(_TkAppBase):
                 self._thread_ui_cancelled.discard(token)
                 self._thread_ui_known_tokens.discard(token)
             return cancelled
-
     def _store_thread_ui_overflow(self, task):
         due, token, func, args = task
         key = self._thread_ui_coalesce_key(func, args)
@@ -7502,7 +7043,6 @@ class App(_TkAppBase):
             if key is not None:
                 self._thread_ui_overflow_keys[key] = token
         return token
-
     def _take_thread_ui_overflow(self, limit):
         result = []
         with self._thread_ui_overflow_lock:
@@ -7514,7 +7054,6 @@ class App(_TkAppBase):
                 if key is not None and self._thread_ui_overflow_keys.get(key) == token:
                     self._thread_ui_overflow_keys.pop(key, None)
         return result
-
     def _thread_ui_coalesce_key(self, func, args):
         target = getattr(func, '__func__', func)
         name = str(getattr(target, '__name__', '') or '')
@@ -7551,7 +7090,6 @@ class App(_TkAppBase):
         if not repeatable:
             return None
         return (owner, id(target), args_key)
-
     def _pump_thread_ui_queue(self):
         resizing = bool(getattr(self, '_resize_active', False))
         max_pull = 96 if resizing else 24
@@ -7619,10 +7157,8 @@ class App(_TkAppBase):
                 self.after(delay, self._pump_thread_ui_queue)
         except Exception:
             pass
-
     def report_callback_exception(self, exc_type, exc_value, exc_tb):
         _report_rotools_error(exc_type, exc_value, exc_tb, self)
-
     def __init__(self):
         self._ui_thread_id = threading.get_ident()
         self._ui_dispatch_closed = False
@@ -7775,6 +7311,8 @@ class App(_TkAppBase):
         self._sync_fps_hotkey_slots()
         self._hotkey_prev = {}
         self._hotkey_thread = None
+        self._emote_typing_lock = threading.Lock()
+        self._emote_typing_active = False
         self._quick_panel_enabled = True
         self._quick_panel_visible = True
         self._quick_panel_restore_geometry = None
@@ -7839,7 +7377,6 @@ class App(_TkAppBase):
         self.stay_on_top = tk.BooleanVar(value=self.settings.get('stay_on_top', False))
         self.show_lines = tk.BooleanVar(value=self.settings.get('show_lines', True))
         self.streamer_mode = tk.BooleanVar(value=self.settings.get('streamer_mode', False))
-
         def _trace(*_):
             self._save_settings()
         for v in (self.autoscroll, self.hide_tickets, self.stay_on_top, self.show_lines, self.streamer_mode):
@@ -7879,6 +7416,10 @@ class App(_TkAppBase):
         self.fflag_pid = 0
         self.fflag_original_values = {}
         self.fflag_auto_apply = tk.BooleanVar(value=self.settings.get('fflag_auto_apply', False))
+        self.emote_names = ['/e dance1', '/e dance2', '/e dance3', '/e laugh', '/e cheer', '/e wave', '/e point']
+        saved_emotes = self.settings.get('emote_binds', {})
+        self.emote_binds = {name: str(saved_emotes.get(name, '') or '').upper() for name in self.emote_names} if isinstance(saved_emotes, dict) else {name: '' for name in self.emote_names}
+        self._emote_capture_dialog = None
         self.launch_on_startup = tk.BooleanVar(value=self.settings.get('launch_on_startup', False))
         self.launch_on_tray = tk.BooleanVar(value=self.settings.get('launch_on_tray', False))
         self.hide_to_tray_on_close = tk.BooleanVar(value=self.settings.get('hide_to_tray_on_close', False))
@@ -7905,8 +7446,8 @@ class App(_TkAppBase):
         self._lazy_tab_ids = {}
         self.nb.bind('<<NotebookTabChanged>>', self._lazy_tab_changed, add='+')
         self._build_home_tab()
-        lazy_builders = {'Cache': self._lazy_build_cache, 'FFlags': self._build_fflag_tab, 'Modifications': self._build_utils_tab, 'Configs': self._build_cconfigs_tab, 'Subplace Joiner': self._build_subplace_joiner_tab, 'Server Viewer': self._build_server_viewer_tab, 'History': self._build_history_tab, 'Client': self._build_client_tab, 'Themes': self._build_themes_tab, 'Settings': self._build_settings_tab, 'Plugins': self._build_plugins_tab, 'Console': self._build_console_tab}
-        for tab_name in ('Cache', 'FFlags', 'Configs', 'Modifications', 'Subplace Joiner', 'Server Viewer', 'History', 'Client', 'Themes', 'Settings', 'Plugins', 'Console'):
+        lazy_builders = {'Cache': self._lazy_build_cache, 'FFlags': self._build_fflag_tab, 'Emote Manager': self._build_emote_manager_tab, 'Modifications': self._build_utils_tab, 'Configs': self._build_cconfigs_tab, 'Subplace Joiner': self._build_subplace_joiner_tab, 'Server Viewer': self._build_server_viewer_tab, 'History': self._build_history_tab, 'Client': self._build_client_tab, 'Themes': self._build_themes_tab, 'Settings': self._build_settings_tab, 'Plugins': self._build_plugins_tab, 'Console': self._build_console_tab}
+        for tab_name in ('Cache', 'FFlags', 'Emote Manager', 'Configs', 'Modifications', 'Subplace Joiner', 'Server Viewer', 'History', 'Client', 'Themes', 'Settings', 'Plugins', 'Console'):
             if tab_name == 'Cache':
                 tab = self.tab_viewer
             else:
@@ -7940,10 +7481,9 @@ class App(_TkAppBase):
             self.after(250, self._apply_saved_viewer_state)
         self.after(UI_QUEUE_INTERVAL_MS, self._drain_queue)
         self.after(200, self._save_settings)
-        self.after(6000, self._fflag_auto_apply_tick)
+        self.after(60000, self._fflag_auto_apply_tick)
         if self._routils_splash is not None:
             self.after(420, self._finish_startup_splash)
-
     def _create_startup_splash(self):
         if '--tray' in sys.argv:
             return
@@ -8006,7 +7546,6 @@ class App(_TkAppBase):
                 self.deiconify()
             except Exception:
                 pass
-
     def _animate_startup_splash(self):
         splash = getattr(self, '_routils_splash', None)
         canvas = getattr(self, '_routils_splash_canvas', None)
@@ -8026,13 +7565,11 @@ class App(_TkAppBase):
             self.after(45, self._animate_startup_splash)
         except Exception:
             pass
-
     def _download_startup_splash_image(self):
         try:
             _ensure_splash_image_file()
         finally:
             self._routils_splash_image_done.set()
-
     def _apply_startup_splash_image(self):
         try:
             splash = self._routils_splash
@@ -8051,7 +7588,6 @@ class App(_TkAppBase):
             self._routils_splash_image_applied = True
         except Exception:
             pass
-
     def _poll_startup_splash_image(self):
         splash = getattr(self, '_routils_splash', None)
         if splash is None:
@@ -8064,7 +7600,6 @@ class App(_TkAppBase):
             self.after(100, self._poll_startup_splash_image)
         except Exception:
             pass
-
     def _finish_startup_splash(self):
         splash = getattr(self, '_routils_splash', None)
         if splash is None:
@@ -8113,10 +7648,8 @@ class App(_TkAppBase):
                 self.deiconify()
             except Exception:
                 pass
-
     def _is_resize_deferred_ui_key(self, key):
         return key in ('cache_toolbar', 'settings_region', 'history_region') or str(key).startswith(('ai_region_', 'settings_scrollbar_'))
-
     def _schedule_ui(self, key, delay_ms, callback):
         jobs = getattr(self, '_ui_jobs', None)
         if jobs is None:
@@ -8137,7 +7670,6 @@ class App(_TkAppBase):
             except Exception:
                 pass
         jobs[key] = self.after(delay_ms, lambda: self._run_ui_job(key, callback))
-
     def _run_ui_job(self, key, callback):
         jobs = getattr(self, '_ui_jobs', None)
         if jobs is not None:
@@ -8149,7 +7681,6 @@ class App(_TkAppBase):
             callback()
         except Exception:
             pass
-
     def _lazy_build_cache(self):
         if getattr(self, '_cache_built', False):
             return
@@ -8157,14 +7688,12 @@ class App(_TkAppBase):
         self._cache_built = True
         self._schedule_startup_layouts()
         self.after_idle(self._update_status)
-
     def _schedule_startup_layouts(self):
         for delay in (80, 220, 500, 900):
             try:
                 self.after(delay, self._apply_startup_layouts)
             except Exception:
                 pass
-
     def _lazy_tab_changed(self, _event=None):
         self._refresh_tab_nav()
         try:
@@ -8212,7 +7741,6 @@ class App(_TkAppBase):
             self.after_idle(self._install_global_scroll_support)
         except Exception:
             pass
-
     def _apply_saved_viewer_state(self):
         if not getattr(self, '_cache_built', False):
             return
@@ -8221,18 +7749,21 @@ class App(_TkAppBase):
                 self._toggle_viewer_pane()
         except Exception:
             pass
-
     def _start_global_hotkeys(self):
         if self._hotkey_thread and self._hotkey_thread.is_alive():
             return
         if sys.platform != 'win32':
             return
-
         def worker():
             user32 = ctypes.windll.user32
             while not self._hotkey_stop.is_set():
                 try:
                     bindings = [('quick_panel', 'F7', {})]
+                    emote_binds = getattr(self, 'emote_binds', {})
+                    for dance, key in emote_binds.items():
+                        key = str(key or '').upper()
+                        if key:
+                            bindings.append(('emote', key, {'key': key, 'dance': dance}))
                     for binding in self.fflag_hotkeys:
                         key = str(binding.get('key', '')).upper()
                         if key:
@@ -8250,14 +7781,24 @@ class App(_TkAppBase):
                         down = bool(user32.GetAsyncKeyState(vk) & 32768)
                         was_down = self._hotkey_prev.get(vk, False)
                         self._hotkey_prev[vk] = down
+                        if self._emote_typing_active:
+                            continue
                         if down and (not was_down):
+                            if kind == 'emote':
+                                foreground = user32.GetForegroundWindow()
+                                foreground_pid = ctypes.wintypes.DWORD()
+                                if not foreground:
+                                    continue
+                                user32.GetWindowThreadProcessId(foreground, ctypes.byref(foreground_pid))
+                                roblox_pid = self.fflag_pid or _fflag_find_pid()
+                                if not roblox_pid or int(foreground_pid.value) != int(roblox_pid):
+                                    continue
                             self._global_hotkey_q.put((kind, binding))
                 except Exception:
                     pass
                 time.sleep(0.025)
         self._hotkey_thread = threading.Thread(target=worker, name='RoUtilsGlobalHotkeys', daemon=True)
         self._hotkey_thread.start()
-
     def _process_global_hotkeys(self):
         if getattr(self, '_resize_active', False):
             if not self._hotkey_stop.is_set():
@@ -8270,6 +7811,8 @@ class App(_TkAppBase):
                     self._toggle_quick_panel()
                 elif kind == 'fps':
                     self._handle_fps_hotkey(binding)
+                elif kind == 'emote':
+                    self._handle_emote_hotkey(binding)
                 else:
                     self._handle_fflag_hotkey(binding)
         except queue.Empty:
@@ -8278,7 +7821,6 @@ class App(_TkAppBase):
             pass
         if not self._hotkey_stop.is_set():
             self.after(UI_HOTKEY_INTERVAL_MS, self._process_global_hotkeys)
-
     def _show_quick_panel(self):
         if self._quick_panel_visible:
             return
@@ -8301,7 +7843,6 @@ class App(_TkAppBase):
                     pass
         except Exception:
             self._quick_panel_visible = False
-
     def _hide_quick_panel(self, to_tray=False):
         if not self._quick_panel_visible:
             if to_tray:
@@ -8321,7 +7862,6 @@ class App(_TkAppBase):
                 self.iconify()
         except Exception:
             self._quick_panel_visible = False
-
     def _toggle_quick_panel(self):
         if self._quick_panel_enabled and (not self._quick_panel_visible):
             self._show_quick_panel()
@@ -8332,11 +7872,9 @@ class App(_TkAppBase):
             return
         self._quick_panel_enabled = True
         self._show_quick_panel()
-
     def _quick_panel_tick(self):
         if not self._hotkey_stop.is_set():
             self.after(UI_QUICK_PANEL_INTERVAL_MS, self._quick_panel_tick)
-
     def _handle_fps_hotkey(self, binding):
         try:
             fps = max(0, min(240, int(binding.get('fps', 0))))
@@ -8350,10 +7888,8 @@ class App(_TkAppBase):
                 self._fps_text_var.set(str(fps))
         except Exception:
             pass
-
     def _sync_fps_hotkey_slots(self):
         self.fps_hotkeys = {str(item.get('fps')): str(item.get('key', '')).upper() for item in getattr(self, 'fps_hotkey_slots', []) if int(item.get('fps', 0) or 0) > 0 and item.get('key')}
-
     def _fps_slot_editor(self, index):
         dlg = tk.Toplevel(self)
         dlg.title(f'FPS Hotkey {index + 1}')
@@ -8371,7 +7907,6 @@ class App(_TkAppBase):
         key_entry = ttk.Entry(outer, textvariable=key_var)
         key_entry.pack(fill='x', pady=(4, 6))
         ttk.Label(outer, text='Examples: F7, Insert, Mouse1, Mouse4, A, ;', foreground='#9aa0a6').pack(anchor='w')
-
         def capture(event):
             if getattr(event, 'num', None) is not None:
                 key_var.set({1: 'MOUSE1', 2: 'MOUSE2', 3: 'MOUSE3', 4: 'MOUSE4', 5: 'MOUSE5'}.get(event.num, f'MOUSE{event.num}'))
@@ -8382,7 +7917,6 @@ class App(_TkAppBase):
         key_entry.bind('<KeyPress>', capture)
         for n in range(1, 6):
             key_entry.bind(f'<Button-{n}>', capture)
-
         def save():
             try:
                 fps = int(fps_var.get().strip())
@@ -8408,7 +7942,6 @@ class App(_TkAppBase):
         ttk.Button(btns, text='Clear', command=lambda: (self.fps_hotkey_slots.__setitem__(index, {'fps': 0, 'key': ''}), self._sync_fps_hotkey_slots(), self._save_settings(), self._refresh_fps_hotkey_buttons(), dlg.destroy())).pack(side='left', padx=6)
         ttk.Button(btns, text='Cancel', command=dlg.destroy).pack(side='right')
         key_entry.focus_set()
-
     def _refresh_fps_hotkey_buttons(self):
         if not hasattr(self, '_fps_hotkey_buttons'):
             return
@@ -8423,7 +7956,6 @@ class App(_TkAppBase):
             item = self.fps_hotkey_slots[index]
             fps, key = (item.get('fps', 0), str(item.get('key', '') or '').upper())
             button.config(text=f'{fps} FPS [{key}]' if fps and key else 'Empty')
-
     def _add_fps_hotkey_slot(self):
         if len(self.fps_hotkey_slots) >= 15:
             return
@@ -8431,7 +7963,6 @@ class App(_TkAppBase):
         self._sync_fps_hotkey_slots()
         self._save_settings()
         self._build_fps_hotkey_buttons()
-
     def _build_fps_hotkey_buttons(self):
         frame = getattr(self, '_fps_hotkey_frame', None)
         if frame is None:
@@ -8451,14 +7982,12 @@ class App(_TkAppBase):
         for col in range(5):
             frame.columnconfigure(col, weight=1)
         self._refresh_fps_hotkey_buttons()
-
     def _reset_fps_hotkeys(self):
         self.fps_hotkey_slots = [{'fps': 0, 'key': ''}]
         self._sync_fps_hotkey_slots()
         self._hotkey_prev.clear()
         self._save_settings()
         self._build_fps_hotkey_buttons()
-
     def _handle_fflag_hotkey(self, binding):
         flag_name = fflag_strip_prefix(str(binding.get('flag', '')).strip())
         if not flag_name:
@@ -8490,13 +8019,22 @@ class App(_TkAppBase):
         self._save_settings()
         self._refresh_fflag_list()
         if self.fflag_pid and self.fflag_engine.handle:
-            try:
-                self.fflag_engine.get_singleton()
-                self.fflag_engine.set_flag_with_prefixes(flag_name, new_value)
-                self.fflag_status.config(text=f'{flag_name} = {new_value}', foreground='#65d98b')
-            except Exception:
-                pass
-
+            pid = self.fflag_pid
+            engine = self.fflag_engine
+            def apply_hotkey_value():
+                try:
+                    singleton = engine.get_singleton()
+                    success = bool(singleton and engine.set_flag_with_prefixes(flag_name, new_value))
+                    if not success:
+                        self.after(0, lambda: self._fflag_apply(silent=True))
+                    else:
+                        self.after(0, lambda: self._fflag_status_text(f'{flag_name} = {new_value}', '#65d98b'))
+                except Exception:
+                    try:
+                        self.after(0, lambda: self._fflag_apply(silent=True))
+                    except Exception:
+                        pass
+            threading.Thread(target=apply_hotkey_value, name='RoUtilsFFlagHotkeyApply', daemon=True).start()
     def _fflag_hotkeys_dialog(self):
         dlg = tk.Toplevel(self)
         dlg.title('FFlag Hotkeys')
@@ -8516,12 +8054,10 @@ class App(_TkAppBase):
             tree.heading(col, text=headers[col])
             tree.column(col, width=widths[col], anchor='w')
         tree.grid(row=1, column=0, sticky='nsew')
-
         def refresh():
             tree.delete(*tree.get_children())
             for i, item in enumerate(self.fflag_hotkeys):
                 tree.insert('', 'end', iid=str(i), values=(item.get('key', ''), item.get('flag', ''), item.get('mode', 'Toggle'), item.get('value1', 'true'), item.get('value2', 'false')))
-
         def edit():
             sel = tree.selection()
             if not sel:
@@ -8535,7 +8071,6 @@ class App(_TkAppBase):
         ttk.Button(btns, text='Remove', command=lambda: self._remove_fflag_hotkey(tree, refresh)).pack(side='left')
         ttk.Button(btns, text='Close', command=dlg.destroy).pack(side='right')
         refresh()
-
     def _remove_fflag_hotkey(self, tree, refresh):
         sel = tree.selection()
         if not sel:
@@ -8543,7 +8078,6 @@ class App(_TkAppBase):
         del self.fflag_hotkeys[int(sel[0])]
         self._save_settings()
         refresh()
-
     def _fflag_hotkey_editor(self, index, parent, refresh):
         dlg = tk.Toplevel(parent)
         dlg.title('FFlag Hotkey')
@@ -8570,7 +8104,6 @@ class App(_TkAppBase):
         ttk.Label(dlg, text='Toggle 2 value:').grid(row=8, column=0, padx=10, pady=(8, 4), sticky='w')
         ttk.Entry(dlg, textvariable=v2_var, width=30).grid(row=9, column=0, padx=10, sticky='ew')
         ttk.Label(dlg, text='Example: K + DebugDrawBroadPhaseAABBs + true/false toggles the value globally.', foreground='#9aa0a6').grid(row=10, column=0, padx=10, pady=(8, 4), sticky='w')
-
         def capture_key(event):
             if event.keysym in ('Shift_L', 'Shift_R', 'Control_L', 'Control_R', 'Alt_L', 'Alt_R'):
                 return 'break'
@@ -8580,7 +8113,6 @@ class App(_TkAppBase):
             key_var.set(key)
             return 'break'
         key_entry.bind('<KeyPress>', capture_key)
-
         def save():
             key = key_var.get().strip().upper()
             flag = fflag_strip_prefix(flag_var.get().strip())
@@ -8606,7 +8138,6 @@ class App(_TkAppBase):
         for button_number in range(1, 6):
             key_entry.bind(f'<Button-{button_number}>', lambda event, n=button_number: (key_var.set(f'MOUSE{n}'), 'break')[1])
         key_entry.focus_set()
-
     def _apply_streamer_mode(self, _retry=0):
         if sys.platform != 'win32' or not self.winfo_exists():
             return
@@ -8648,7 +8179,6 @@ class App(_TkAppBase):
                     self.after(150, lambda: self._apply_streamer_mode(_retry + 1))
                 except Exception:
                     pass
-
     def _ensure_main_window_visible(self):
         try:
             if not self.winfo_exists() or '--tray' in sys.argv:
@@ -8665,7 +8195,6 @@ class App(_TkAppBase):
                 pass
         except Exception:
             pass
-
     def _startup_focus_cycle(self):
         try:
             if self.state() != 'normal':
@@ -8675,7 +8204,6 @@ class App(_TkAppBase):
             self.after(180, lambda: (self.deiconify(), self._restore_windows_taskbar_presence()))
         except Exception:
             pass
-
     def _restore_windows_taskbar_presence(self):
         if sys.platform != 'win32' or not self.winfo_exists():
             return
@@ -8691,7 +8219,6 @@ class App(_TkAppBase):
                     user32.SendMessageW(hwnd, 128, 0, hicon)
         except Exception:
             pass
-
     def _setup_custom_titlebar(self):
         self._prepare_borderless = True
         self._titlebar = tk.Frame(self, bg=_CURRENT_PALETTE.get('bg_dark', '#1b1b1c'), height=38, bd=0, highlightthickness=0)
@@ -8720,7 +8247,6 @@ class App(_TkAppBase):
         self._titlebar_last_layout_width = 0
         self._titlebar_drag_job = None
         self.after_idle(self._restore_windows_taskbar_presence)
-
     def _open_spotlight(self):
         existing = getattr(self, '_spotlight_window', None)
         if existing is not None:
@@ -8887,7 +8413,6 @@ class App(_TkAppBase):
         win._spotlight_entry = entry
         render()
         entry.focus_set()
-
     def _update_kill_routils_visibility(self):
         try:
             enabled = bool(self.hide_to_tray_on_close.get())
@@ -8909,7 +8434,6 @@ class App(_TkAppBase):
             self._layout_titlebar(force=True)
         except Exception:
             pass
-
     def _kill_ro_utils(self):
         try:
             pid = os.getpid()
@@ -8933,7 +8457,6 @@ class App(_TkAppBase):
                 os._exit(1)
             except BaseException:
                 pass
-
     def _layout_titlebar(self, event=None, force=False):
         try:
             w = max(160, self._titlebar_canvas.winfo_width())
@@ -8953,7 +8476,6 @@ class App(_TkAppBase):
                 x -= 23
         except Exception:
             pass
-
     def _titlebar_hit(self, x, y):
         kill_items = getattr(self, '_kill_ro_utils_items', None)
         if kill_items:
@@ -8972,7 +8494,6 @@ class App(_TkAppBase):
             if coords and coords[0] <= x <= coords[2] and (coords[1] <= y <= coords[3]):
                 return (name, command)
         return (None, None)
-
     def _titlebar_press(self, event):
         name, _ = self._titlebar_hit(event.x, event.y)
         if name:
@@ -8982,7 +8503,6 @@ class App(_TkAppBase):
             return 'break'
         self._titlebar_drag_data = ('drag', event.x_root, event.y_root, self.winfo_x(), self.winfo_y())
         return 'break'
-
     def _titlebar_drag(self, event):
         data = self._titlebar_drag_data
         if not data or data[0] != 'drag':
@@ -8990,7 +8510,6 @@ class App(_TkAppBase):
         _, sx, sy, ox, oy = data
         self._titlebar_pending_xy = (int(ox + event.x_root - sx), int(oy + event.y_root - sy))
         if self._titlebar_drag_job is None:
-
             def apply_drag():
                 self._titlebar_drag_job = None
                 xy = getattr(self, '_titlebar_pending_xy', None)
@@ -9008,7 +8527,6 @@ class App(_TkAppBase):
                     pass
             self._titlebar_drag_job = self.after(16, apply_drag)
         return 'break'
-
     def _titlebar_release(self, event):
         data = self._titlebar_drag_data
         self._titlebar_drag_data = None
@@ -9044,15 +8562,12 @@ class App(_TkAppBase):
             elif name == 'spotlight':
                 self._open_spotlight()
         return 'break'
-
     def _titlebar_motion(self, event):
         name, _ = self._titlebar_hit(event.x, event.y)
         self._titlebar_canvas.configure(cursor='hand2' if name else '')
         return 'break'
-
     def _titlebar_close(self):
         self._on_close()
-
     def _titlebar_minimize(self):
         try:
             self.iconify()
@@ -9061,7 +8576,6 @@ class App(_TkAppBase):
                 self.state('iconic')
             except Exception:
                 pass
-
     def _titlebar_toggle_maximize(self):
         try:
             if self.state() == 'zoomed' or getattr(self, '_custom_maximized', False):
@@ -9072,7 +8586,6 @@ class App(_TkAppBase):
                 self._custom_maximized = True
         except Exception:
             pass
-
     def _refresh_tab_nav(self):
         if not hasattr(self, '_tab_nav_inner') or not hasattr(self, 'nb'):
             return
@@ -9132,11 +8645,9 @@ class App(_TkAppBase):
                 button.configure(style='RoUtils.ActiveNav.TButton' if selected else 'RoUtils.Nav.TButton')
         except Exception:
             pass
-
     def _tab_drag_start(self, event, tab_id):
         self._tab_drag_state = {'tab_id': str(tab_id), 'x': event.x_root, 'y': event.y_root, 'moved': False}
         return 'break'
-
     def _tab_drag_motion(self, event):
         state = getattr(self, '_tab_drag_state', None)
         if not state:
@@ -9148,7 +8659,6 @@ class App(_TkAppBase):
             except Exception:
                 pass
         return 'break'
-
     def _tab_drag_release(self, event):
         state = getattr(self, '_tab_drag_state', None)
         self._tab_drag_state = None
@@ -9192,7 +8702,6 @@ class App(_TkAppBase):
         except Exception as exc:
             self._console_log(f'Tab move failed: {exc}')
         return 'break'
-
     def _setup_tab_nav_styles(self):
         style = ttk.Style(self)
         self._tab_nav_buttons = {}
@@ -9201,9 +8710,7 @@ class App(_TkAppBase):
             style.configure('RoUtils.ActiveNav.TButton', padding=(7, 4), font=('Segoe UI Semibold', 9), foreground=_CURRENT_PALETTE.get('accent', '#7f8cff'))
         except Exception:
             pass
-
     def _install_global_scroll_support(self):
-
         def wheel(event):
             try:
                 x, y = (event.x_root, event.y_root)
@@ -9246,7 +8753,6 @@ class App(_TkAppBase):
         self.bind_all('<Button-4>', wheel, add='+')
         self.bind_all('<Button-5>', wheel, add='+')
         middle = {'target': None, 'y': None}
-
         def middle_target(event):
             w = self.winfo_containing(event.x_root, event.y_root)
             over_scrollbar = False
@@ -9276,7 +8782,6 @@ class App(_TkAppBase):
                 page = self.nametowidget(selected) if selected else None
                 if isinstance(page, _ScrollableTab) and page.winfo_ismapped():
                     return page.canvas
-
                 def active_canvas(parent):
                     for child in parent.winfo_children():
                         if isinstance(child, tk.Canvas):
@@ -9295,7 +8800,6 @@ class App(_TkAppBase):
                         return canvas
             except Exception:
                 pass
-
             def find_scroll_canvas(parent):
                 try:
                     for child in parent.winfo_children():
@@ -9311,19 +8815,16 @@ class App(_TkAppBase):
                     pass
                 return None
             return find_scroll_canvas(self)
-
         def middle_press(event):
             middle['target'] = middle_target(event)
             middle['y'] = event.y_root if middle['target'] is not None else None
             return 'break'
-
         def middle_drag(event):
             target = middle.get('target')
             if target is not None and middle.get('y') is not None:
                 target.yview_scroll(int((middle['y'] - event.y_root) / 2), 'units')
                 middle['y'] = event.y_root
                 return 'break'
-
         def middle_release(_event):
             middle['target'] = None
             middle['y'] = None
@@ -9335,7 +8836,6 @@ class App(_TkAppBase):
         self.bind_class(middle_tag, '<ButtonPress-2>', middle_press)
         self.bind_class(middle_tag, '<B2-Motion>', middle_drag)
         self.bind_class(middle_tag, '<ButtonRelease-2>', middle_release)
-
         def attach_middle_tag(parent):
             try:
                 for child in parent.winfo_children():
@@ -9350,7 +8850,6 @@ class App(_TkAppBase):
             except Exception:
                 pass
         attach_middle_tag(self)
-
     def _apply_titlebar_theme(self):
         try:
             _apply_native_titlebar_theme(self)
@@ -9362,7 +8861,6 @@ class App(_TkAppBase):
         except Exception:
             pass
         self._refresh_tab_nav()
-
     def _build_themes_tab(self):
         tab = ttk.Frame(self.nb, padding=12)
         self.nb.add(tab, text='Themes')
@@ -9395,14 +8893,12 @@ class App(_TkAppBase):
             ttk.Entry(row, textvariable=v, width=12).pack(side='left')
         ttk.Button(right, text='Apply Custom', command=self._apply_custom_theme).pack(fill='x', pady=(10, 4))
         ttk.Button(right, text='Save Custom', command=self._save_custom_theme).pack(fill='x')
-
     def _theme_list_apply(self, lb):
         sel = lb.curselection()
         if not sel:
             return
         self.theme_var.set(lb.get(sel[0]))
         self._apply_theme()
-
     def _apply_custom_theme(self):
         palette = {k: v.get().strip() for k, v in self.custom_theme_vars.items()}
         self.settings['theme'] = 'Custom'
@@ -9410,11 +8906,9 @@ class App(_TkAppBase):
         apply_visual_polish(self, theme=UI_THEME, palette=palette)
         darken_menus(self._collect_menus())
         self._save_settings()
-
     def _save_custom_theme(self):
         self._apply_custom_theme()
         messagebox.showinfo('Themes', 'Custom theme saved.', parent=self)
-
     def _apply_theme(self):
         name = self.theme_var.get()
         self.settings['theme'] = name
@@ -9446,7 +8940,6 @@ class App(_TkAppBase):
         if getattr(self, 'viewport_3d', None) is not None and self.viewport_3d.winfo_ismapped():
             self.viewport_3d.draw_frame()
         self._save_settings()
-
     def _collect_menus(self):
         out = []
         try:
@@ -9463,10 +8956,8 @@ class App(_TkAppBase):
         except Exception:
             pass
         return out
-
     def _fflag_path(self):
         return os.path.join(DATA_DIR, 'routils_fflags.json')
-
     def _load_fflag_flags(self):
         try:
             with open(self._fflag_path(), 'r', encoding='utf-8') as f:
@@ -9474,19 +8965,16 @@ class App(_TkAppBase):
             self.fflag_flags = data if isinstance(data, list) else []
         except Exception:
             self.fflag_flags = []
-
     def _save_fflag_flags(self):
         try:
             with open(self._fflag_path(), 'w', encoding='utf-8') as f:
                 json.dump(self.fflag_flags, f, ensure_ascii=False, indent=2)
         except Exception as e:
             messagebox.showerror('FFlags', f'Failed to save flags:\n{e}', parent=self)
-
     def _wrap_rbxm_as_blob(self, data: bytes, content_type: str='application/octet-stream') -> bytes:
         if data[:4] == RBXH_MAGIC:
             return _wrap_rbxm_bytes(_extract_rbxh_document(data), content_type)
         return _wrap_rbxm_bytes(data, content_type)
-
     def _utils_r6_to_r15(self):
         src = filedialog.askopenfilename(parent=self, title='R6 Animation → R15', filetypes=[('Roblox Animation', '*.rbxm *.rbxmx'), ('All files', '*.*')])
         if not src:
@@ -9505,10 +8993,8 @@ class App(_TkAppBase):
             self._console_log(f'Converted R6 animation to R15: {dest}')
         except Exception as e:
             messagebox.showerror('R6 → R15', f'Could not convert animation:\n{e}', parent=self)
-
     def _cc_state_path(self):
         return os.path.join(DATA_DIR, 'routils_cconfigs_state.json')
-
     def _cc_load_applied_state(self):
         try:
             with open(self._cc_state_path(), 'r', encoding='utf-8') as f:
@@ -9516,14 +9002,12 @@ class App(_TkAppBase):
             self.cc_applied_caches = data if isinstance(data, list) else []
         except Exception:
             self.cc_applied_caches = []
-
     def _cc_save_applied_state(self):
         try:
             with open(self._cc_state_path(), 'w', encoding='utf-8') as f:
                 json.dump(self.cc_applied_caches, f, ensure_ascii=False, indent=2)
         except Exception:
             pass
-
     def _cc_record_applied_caches(self, caches):
         if not caches:
             return
@@ -9545,11 +9029,9 @@ class App(_TkAppBase):
         self._cc_save_applied_state()
         if hasattr(self, 'cc_cache_count_label'):
             self.cc_cache_count_label.config(text=f'Current applied caches: {len(self.cc_applied_caches)}')
-
     def _cc_safe_name(self, name):
         name = re.sub('[<>:"/\\\\\\\\|?*]', '_', str(name)).strip().rstrip('.')
         return name or 'Config'
-
     def _cc_unique_path(self, directory, filename):
         base, ext = os.path.splitext(filename)
         path = os.path.join(directory, filename)
@@ -9558,7 +9040,6 @@ class App(_TkAppBase):
             path = os.path.join(directory, f'{base} ({i}){ext}')
             i += 1
         return path
-
     def _cc_snapshot_database(self, src_db, dst_db):
         if not os.path.isfile(src_db):
             raise FileNotFoundError(f'Database not found:\n{src_db}')
@@ -9577,7 +9058,6 @@ class App(_TkAppBase):
             except Exception:
                 pass
             shutil.copy2(src_db, dst_db)
-
     def _cc_make_package(self, destination, name):
         src_db = getattr(self, 'db_path', None)
         if not src_db or not os.path.isfile(src_db):
@@ -9589,7 +9069,6 @@ class App(_TkAppBase):
             with zipfile.ZipFile(destination, 'w', compression=zipfile.ZIP_DEFLATED) as z:
                 z.write(snap, 'rbx-storage.db')
                 z.writestr('config.json', json.dumps(metadata, ensure_ascii=False, indent=2))
-
     def _cc_read_package_info(self, path):
         if path.lower().endswith('.db'):
             conn = sqlite3.connect(path, timeout=3)
@@ -9606,7 +9085,6 @@ class App(_TkAppBase):
                 raise ValueError('CConfigs package is missing rbx-storage.db.')
             info['raw_db'] = False
             return info
-
     def _cc_scan_packages(self):
         out = []
         try:
@@ -9626,7 +9104,6 @@ class App(_TkAppBase):
             out.append(info)
         out.sort(key=lambda x: str(x.get('name', '')).lower())
         return out
-
     def _cc_refresh_list(self, select_path=None):
         if not hasattr(self, 'cc_tree'):
             return
@@ -9644,7 +9121,6 @@ class App(_TkAppBase):
             self.cc_tree.selection_set(selected_iid)
             self.cc_tree.focus(selected_iid)
         self._cc_show_selected()
-
     def _cc_selected_info(self):
         sel = self.cc_tree.selection() if hasattr(self, 'cc_tree') else ()
         if not sel:
@@ -9655,7 +9131,6 @@ class App(_TkAppBase):
             return None
         packages = self._cc_scan_packages()
         return packages[idx] if 0 <= idx < len(packages) else None
-
     def _cc_show_selected(self, _event=None):
         if not hasattr(self, 'cc_details'):
             return
@@ -9680,13 +9155,11 @@ class App(_TkAppBase):
                 lines.append('No cache applications were recorded for this config.')
             self.cc_details.insert(tk.END, '\n'.join(lines))
         self.cc_details.configure(state='disabled')
-
     def _cc_save_db(self):
         name = simpledialog.askstring('Save DB', 'Enter a name for this CConfigs DB:', parent=self)
         if not name:
             return
         self._cc_save_named_config(name)
-
     def _cc_save_named_config(self, name):
         name = self._cc_safe_name(name)
         if not name:
@@ -9699,7 +9172,6 @@ class App(_TkAppBase):
             return
         self._cc_refresh_list(select_path=path)
         messagebox.showinfo('CConfigs', f"DB saved as '{os.path.basename(path)}'.\n\nRecorded applied caches: {len(self.cc_applied_caches)}", parent=self)
-
     def _cc_upload_db(self):
         path = filedialog.askopenfilename(parent=self, title='Upload DB', filetypes=[('Database files', '*.db *.ccdb'), ('SQLite DB', '*.db'), ('CConfigs DB', '*.ccdb'), ('All files', '*.*')])
         if not path:
@@ -9718,7 +9190,6 @@ class App(_TkAppBase):
             return
         self._cc_refresh_list(select_path=dest)
         messagebox.showinfo('CConfigs', f"Uploaded '{os.path.basename(dest)}'.", parent=self)
-
     def _cc_apply_db(self):
         info = self._cc_selected_info()
         if not info:
@@ -9763,7 +9234,6 @@ class App(_TkAppBase):
         if hasattr(self, 'cc_cache_count_label'):
             self.cc_cache_count_label.config(text=f'Current applied caches: {len(self.cc_applied_caches)}')
         messagebox.showinfo('CConfigs', f"Applied '{info.get('name', '')}'.\nRecorded caches: {len(self.cc_applied_caches)}\n\nInstalled only rbx-storage.db.", parent=self)
-
     def _cc_export_db(self):
         info = self._cc_selected_info()
         if not info:
@@ -9797,7 +9267,6 @@ class App(_TkAppBase):
                 except Exception:
                     pass
         messagebox.showinfo('CConfigs', f'Normal .db exported:\n{path}', parent=self)
-
     def _cc_delete_db(self):
         info = self._cc_selected_info()
         if not info:
@@ -9810,7 +9279,6 @@ class App(_TkAppBase):
             messagebox.showerror('CConfigs', f'Failed to delete DB:\n{e}', parent=self)
             return
         self._cc_refresh_list()
-
     def _build_cconfigs_tab(self):
         tab = ttk.Frame(self.nb, padding=0)
         self.nb.add(tab, text='Configs')
@@ -9852,7 +9320,6 @@ class App(_TkAppBase):
         self.cc_details.pack(fill='both', expand=True)
         self.cc_details.configure(state='disabled')
         self._cc_refresh_list()
-
     def _open_selected_roblox(self):
         path = self.settings.get('roblox_path', '') if hasattr(self, 'settings') else ''
         if not path:
@@ -9878,7 +9345,6 @@ class App(_TkAppBase):
                 messagebox.showerror('RoUtils', f'Could not open Roblox:\n{e}')
             except Exception:
                 pass
-
     def _build_utils_tab(self):
         tab_outer = _ScrollableTab(self.nb, padding=0)
         tab = tab_outer.inner
@@ -9954,10 +9420,8 @@ class App(_TkAppBase):
         ttk.Button(others, text='Delete', command=lambda: self._delete_other_file('font')).grid(row=4, column=1, padx=5)
         ttk.Button(others, text='Choose', command=lambda: self._choose_other_file('font')).grid(row=4, column=2)
         others.columnconfigure(0, weight=1)
-
     def _version_path(self):
         return os.path.join(DATA_DIR, 'version.txt')
-
     def _reset_version_file(self):
         try:
             vp = self._version_path()
@@ -9970,7 +9434,6 @@ class App(_TkAppBase):
                 f.write(APP_VERSION)
         except Exception:
             pass
-
     def _local_version(self):
         try:
             if not os.path.exists(self._version_path()):
@@ -9980,7 +9443,6 @@ class App(_TkAppBase):
                 return f.read().strip() or APP_VERSION
         except Exception:
             return APP_VERSION
-
     def _build_home_tab(self):
         tab = ttk.Frame(self.nb, padding=12)
         self.nb.insert(0, tab, text='Home')
@@ -9988,7 +9450,6 @@ class App(_TkAppBase):
         ttk.Label(tab, text=f"Welcome Dear, {platform.node() or os.environ.get('COMPUTERNAME', 'System')}", font=('Segoe UI Semibold', 14)).pack(anchor='w', pady=(14, 14))
         links = ttk.Frame(tab)
         links.pack(anchor='w', fill='x')
-
         def add_link(text_value, url):
             label = tk.Label(links, text=text_value, fg='#4da6ff', bg=_CURRENT_PALETTE['bg_dark'], cursor='hand2', font=('Segoe UI Semibold', 12), anchor='w')
             label.pack(anchor='w', pady=3)
@@ -10034,7 +9495,6 @@ class App(_TkAppBase):
         self.home_download_label.pack(anchor='w')
         self.home_download_progress = ttk.Progressbar(self.home_download_frame, orient='horizontal', mode='determinate', length=320)
         self.home_download_progress.pack(anchor='w', fill='x', pady=(3, 0))
-
     def _set_update_progress(self, downloaded=0, total=0, visible=True):
         try:
             if visible:
@@ -10054,7 +9514,6 @@ class App(_TkAppBase):
                 self.home_download_frame.pack_forget()
         except Exception:
             pass
-
     def _extract_profile_from_cookies(self):
         path = os.path.join(os.environ.get('LOCALAPPDATA', ''), 'Roblox', 'LocalStorage', 'RobloxCookies.dat')
         if not os.path.isfile(path):
@@ -10091,7 +9550,6 @@ class App(_TkAppBase):
             return (username, uid)
         except Exception:
             return (None, None)
-
     def _detect_roblox_profile(self):
         username, uid = self._extract_profile_from_cookies()
         if username:
@@ -10099,23 +9557,18 @@ class App(_TkAppBase):
         if uid:
             self.settings['roblox_user_id'] = uid
         save_settings(self.settings)
-
     def _start_profile_detection(self):
-
         def worker():
             self._detect_roblox_profile()
         threading.Thread(target=worker, daemon=True).start()
-
     @staticmethod
     def _version_tuple(version):
         parts = re.findall('\\d+', str(version or ''))
         if not parts:
             return (0,)
         return tuple((int(x) for x in parts[:4]))
-
     def _is_newer_version(self, latest, current):
         return self._version_tuple(latest) > self._version_tuple(current)
-
     def _show_outdated_dialog(self, latest):
         if self._outdated_dialog_shown or self._auto_update_in_progress:
             return
@@ -10138,7 +9591,6 @@ class App(_TkAppBase):
             ttk.Label(outer, text=f'Download New Version ({latest})', font=('Segoe UI', 11)).pack(pady=(0, 20))
             buttons = ttk.Frame(outer)
             buttons.pack()
-
             def download():
                 try:
                     dlg.grab_release()
@@ -10149,7 +9601,6 @@ class App(_TkAppBase):
                 except Exception:
                     pass
                 webbrowser.open(f'https://github.com/offp001/routils/releases/download/{latest}/RoUtils.exe')
-
             def later():
                 try:
                     dlg.grab_release()
@@ -10167,12 +9618,10 @@ class App(_TkAppBase):
             dlg.focus_force()
         except Exception:
             self._outdated_dialog_shown = False
-
     def _start_auto_update(self, latest):
         if self._auto_update_in_progress:
             return
         self._auto_update_in_progress = True
-
         def worker():
             try:
                 current = self._local_version()
@@ -10224,20 +9673,16 @@ class App(_TkAppBase):
                 except Exception:
                     pass
         threading.Thread(target=worker, daemon=True, name='RoUtils-AutoUpdate').start()
-
     def _show_update_error(self, error):
         self._auto_update_in_progress = False
         try:
             messagebox.showwarning('RoUtils Update', f'Automatic update failed:\n{error}', parent=self)
         except Exception:
             pass
-
     def _start_version_check(self):
-
         def worker():
             current = self._local_version()
             latest = current
-
             def set_state(state, color):
                 try:
                     self.after(0, lambda: (self.home_version_value.config(text=current), self.home_version_state.config(text=state, foreground=color), self.home_version_var.set(f'Version: {current} ({state})')))
@@ -10265,19 +9710,18 @@ class App(_TkAppBase):
                 else:
                     self.after(0, lambda v=latest: self._show_outdated_dialog(v))
         threading.Thread(target=worker, daemon=True, name='RoUtils-VersionCheck').start()
-
     def _reorder_tabs(self):
-        defaults = ['Home', 'Cache', 'FFlags', 'Configs', 'Modifications', 'Subplace Joiner', 'Server Viewer', 'History', 'Client', 'Themes', 'Plugins', 'Console', 'Settings']
-        saved = self.settings.get('tab_order', [])
-        order = [str(name) for name in saved if str(name) in defaults] if isinstance(saved, list) else []
-        order.extend(name for name in defaults if name not in order)
-        for i, name in enumerate(order):
-            for tab_id in self.nb.tabs():
-                if self.nb.tab(tab_id, 'text') == name:
-                    self.nb.insert(i, tab_id)
-                    break
+        defaults = ['Home', 'Cache', 'FFlags', 'Emote Manager', 'Configs', 'Modifications', 'Subplace Joiner', 'Server Viewer', 'History', 'Client', 'Themes', 'Plugins', 'Console', 'Settings']
+        current_tabs = list(self.nb.tabs())
+        current_names = {str(self.nb.tab(tab_id, 'text')): tab_id for tab_id in current_tabs}
+        order = [name for name in defaults if name in current_names]
+        order.extend(str(self.nb.tab(tab_id, 'text')) for tab_id in current_tabs if str(self.nb.tab(tab_id, 'text')) not in defaults)
+        for index, name in enumerate(order):
+            tab_id = current_names.get(name)
+            if tab_id is not None:
+                self.nb.insert(index, tab_id)
+        self.settings['tab_order'] = order
         self._refresh_tab_nav()
-
     def _fflag_json_editor(self):
         dlg = tk.Toplevel(self)
         dlg.title('JSON Editor')
@@ -10286,7 +9730,6 @@ class App(_TkAppBase):
         txt = tk.Text(dlg, wrap='none', font=('Consolas', 10), bg=_CURRENT_PALETTE['bg_medium'], fg=_CURRENT_PALETTE['fg'], insertbackground='#fff')
         txt.pack(fill='both', expand=True, padx=10, pady=10)
         ttk.Button(dlg, text='Add', command=lambda: self._add_json_editor_value(txt, dlg)).pack(pady=(0, 10))
-
     def _add_json_editor_value(self, txt, dlg):
         try:
             data = json.loads(txt.get('1.0', 'end'))
@@ -10304,7 +9747,6 @@ class App(_TkAppBase):
         self._save_fflag_flags()
         self._refresh_fflag_list()
         dlg.destroy()
-
     def _refresh_json_list(self):
         if not hasattr(self, 'json_tree'):
             return
@@ -10312,7 +9754,6 @@ class App(_TkAppBase):
         for n in sorted(os.listdir(self.jsons_dir)) if os.path.isdir(self.jsons_dir) else []:
             if n.lower().endswith('.json'):
                 self.json_tree.insert('end', n)
-
     def _apply_selected_json(self):
         if not hasattr(self, 'json_tree'):
             return
@@ -10336,14 +9777,12 @@ class App(_TkAppBase):
             messagebox.showinfo('FFlags', f'Applied {len(flags)} flags from {os.path.basename(path)}.', parent=self)
         except Exception as e:
             messagebox.showerror('FFlags', f'Failed to apply JSON:\n{e}', parent=self)
-
     def _choose_roblox_path(self):
         path = filedialog.askopenfilename(parent=self, title='Select RobloxPlayerBeta.exe', filetypes=[('Roblox Player', 'RobloxPlayerBeta.exe'), ('Executable', '*.exe')])
         if path and os.path.basename(path).lower() == 'robloxplayerbeta.exe':
             self.roblox_path_var.set(path)
             self.settings['roblox_path'] = path
             self._save_settings()
-
     def _default_mesh_path(self, name):
         root = self.roblox_path_var.get().strip()
         if not root or os.path.basename(root).lower() != 'robloxplayerbeta.exe':
@@ -10351,7 +9790,6 @@ class App(_TkAppBase):
         root = os.path.dirname(root)
         folder = 'heads' if name.lower() == 'head.mesh' else 'meshes'
         return os.path.join(root, 'content', 'avatar', folder, name)
-
     def _choose_default_mesh(self, name):
         target = self._default_mesh_path(name)
         if not target:
@@ -10369,7 +9807,6 @@ class App(_TkAppBase):
             shutil.copy2(src, target)
         except Exception as e:
             messagebox.showerror('Default Mesh Changer', f'Failed:\n{e}', parent=self)
-
     def _delete_default_mesh(self, name):
         target = self._default_mesh_path(name)
         if not target:
@@ -10379,13 +9816,11 @@ class App(_TkAppBase):
                 os.remove(target)
         except Exception as e:
             messagebox.showerror('Default Mesh Changer', f'Failed:\n{e}', parent=self)
-
     def _skybox_path(self, name):
         root = self.roblox_path_var.get().strip()
         if not root or os.path.basename(root).lower() != 'robloxplayerbeta.exe':
             return None
         return os.path.join(os.path.dirname(root), 'PlatformContent', 'pc', 'textures', 'sky', name)
-
     def _choose_skybox_texture(self, name):
         target = self._skybox_path(name)
         if not target:
@@ -10403,7 +9838,6 @@ class App(_TkAppBase):
             self._console_log(f'Skybox texture replaced: {name}')
         except Exception as e:
             messagebox.showerror('Skybox Changer', f'Failed:\n{e}', parent=self)
-
     def _delete_skybox_texture(self, name):
         target = self._skybox_path(name)
         if not target:
@@ -10414,16 +9848,13 @@ class App(_TkAppBase):
                 self._console_log(f'Skybox texture deleted: {name}')
         except Exception as e:
             messagebox.showerror('Skybox Changer', f'Failed:\n{e}', parent=self)
-
     def _roblox_content_path(self, *parts):
         root = self.roblox_path_var.get().strip()
         if not root or os.path.basename(root).lower() != 'robloxplayerbeta.exe':
             return None
         return os.path.join(os.path.dirname(root), *parts)
-
     def _sound_path(self, name):
         return self._roblox_content_path('content', 'sounds', name)
-
     def _choose_roblox_sound(self, name):
         target = self._sound_path(name)
         if not target:
@@ -10441,7 +9872,6 @@ class App(_TkAppBase):
             self._console_log(f'Sound replaced: {name}')
         except Exception as e:
             messagebox.showerror('Sounds', f'Failed:\n{e}', parent=self)
-
     def _delete_roblox_sound(self, name):
         target = self._sound_path(name)
         if not target:
@@ -10453,7 +9883,6 @@ class App(_TkAppBase):
                 self._console_log(f'Sound deleted: {name}')
         except Exception as e:
             messagebox.showerror('Sounds', f'Failed:\n{e}', parent=self)
-
     def _other_path(self, kind):
         if kind == 'studs':
             return self._roblox_content_path('PlatformContent', 'pc', 'textures', 'plastic', 'normal.dds')
@@ -10462,7 +9891,6 @@ class App(_TkAppBase):
         if kind == 'font':
             return self._roblox_content_path('content', 'fonts', 'CustomFont.ttf')
         return None
-
     def _choose_other_file(self, kind):
         target = self._other_path(kind)
         if not target:
@@ -10489,7 +9917,6 @@ class App(_TkAppBase):
             self._console_log(f'Other file replaced: {os.path.basename(target)}')
         except Exception as e:
             messagebox.showerror('Others', f'Failed:\n{e}', parent=self)
-
     def _delete_other_file(self, kind):
         target = self._other_path(kind)
         if not target:
@@ -10501,7 +9928,6 @@ class App(_TkAppBase):
                 self._console_log(f'Other file deleted: {os.path.basename(target)}')
         except Exception as e:
             messagebox.showerror('Others', f'Failed:\n{e}', parent=self)
-
     def _utils_mesh_to_obj(self):
         src = filedialog.askopenfilename(parent=self, title='Select Roblox Mesh', filetypes=[('Roblox Mesh', '*.mesh'), ('All files', '*.*')])
         if not src:
@@ -10517,7 +9943,6 @@ class App(_TkAppBase):
             print(f'Converted: {out}')
         except Exception as e:
             messagebox.showerror('Mesh to OBJ', f'Conversion failed:\n{e}', parent=self)
-
     def _utils_roblox_file_convert(self):
         src = filedialog.askopenfilename(parent=self, title='Select Roblox File', filetypes=[('Roblox Files', '*.rbxm *.rbxh *.rbxmx'), ('RBXM', '*.rbxm'), ('RBXH', '*.rbxh'), ('RBXMX', '*.rbxmx'), ('All files', '*.*')])
         if not src:
@@ -10548,7 +9973,6 @@ class App(_TkAppBase):
             self._console_log(f'Converted Roblox file: {output_path}')
         except Exception as e:
             messagebox.showerror('Roblox File Converter', f'Conversion failed:\n{e}', parent=self)
-
     def _history_load(self):
         try:
             if not os.path.exists(HISTORY_PATH):
@@ -10558,7 +9982,6 @@ class App(_TkAppBase):
             return data if isinstance(data, list) else []
         except Exception:
             return []
-
     def _history_save(self, data):
         try:
             tmp = HISTORY_PATH + '.tmp'
@@ -10567,7 +9990,6 @@ class App(_TkAppBase):
             os.replace(tmp, HISTORY_PATH)
         except Exception:
             pass
-
     def _resolve_history_game_name(self, place_id):
         place_id = str(place_id or '').strip()
         if not place_id.isdigit():
@@ -10600,7 +10022,6 @@ class App(_TkAppBase):
         except Exception:
             pass
         return None
-
     def _history_add(self, place_id, job_id):
         place_id = str(place_id or '').strip()
         job_id = str(job_id or '').strip()
@@ -10610,7 +10031,6 @@ class App(_TkAppBase):
         if self._history_last_game == key:
             return
         self._history_last_game = key
-
         def worker():
             name = self._resolve_history_game_name(place_id) or place_id
             now = datetime.now()
@@ -10625,7 +10045,6 @@ class App(_TkAppBase):
             except Exception:
                 pass
         threading.Thread(target=worker, daemon=True).start()
-
     def _detect_current_game(self, silent=True):
         logs_dir = os.path.join(os.environ.get('LOCALAPPDATA', ''), 'Roblox', 'logs')
         uuid_re = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'
@@ -10662,9 +10081,7 @@ class App(_TkAppBase):
             if place_id and job_id:
                 return (place_id, job_id)
         return (None, None)
-
     def _start_history_watcher(self):
-
         def worker():
             while True:
                 try:
@@ -10675,7 +10092,6 @@ class App(_TkAppBase):
                     pass
                 time.sleep(2.5)
         threading.Thread(target=worker, daemon=True).start()
-
     def _build_history_tab(self):
         tab = ttk.Frame(self.nb, padding=12)
         self.nb.add(tab, text='History')
@@ -10701,11 +10117,9 @@ class App(_TkAppBase):
         self.history_inner.bind('<Configure>', lambda _e: self._schedule_ui('history_region', 30, lambda: self.history_canvas.configure(scrollregion=self.history_canvas.bbox('all'))))
         self.history_canvas.bind('<Configure>', lambda e: self._history_resize_canvas(e))
         self._history_refresh()
-
     def _history_resize_canvas(self, event):
         width = int(getattr(event, 'width', 0) or 0)
         self._apply_or_defer_canvas_window_width(self.history_canvas, self.history_window, width, '_history_canvas_width')
-
     def _history_refresh(self):
         if not hasattr(self, 'history_inner'):
             return
@@ -10741,28 +10155,24 @@ class App(_TkAppBase):
             ttk.Label(row, text=dt).grid(row=0, column=3, sticky='w', padx=6)
             ttk.Button(row, text='Copy Deeplink', command=lambda l=link: self._history_copy(l)).grid(row=0, column=4, padx=4)
             ttk.Button(row, text='Join', command=lambda l=link: self._history_join(l)).grid(row=0, column=5, padx=(2, 6))
-
     def _history_copy(self, link):
         try:
             self.clipboard_clear()
             self.clipboard_append(link)
         except Exception as e:
             messagebox.showerror('History', f'Could not copy deeplink:{e}', parent=self)
-
     def _history_join(self, link):
         try:
             os.startfile(link)
             self._console_log(f'Joined from history: {link}')
         except Exception as e:
             messagebox.showerror('History', f'Could not launch Roblox:{e}', parent=self)
-
     def _history_clear(self):
         if not messagebox.askyesno('History', 'Clear all saved game history?', parent=self):
             return
         self._history_save([])
         self._history_last_game = None
         self._history_refresh()
-
     def _build_client_tab(self):
         self._client_tab_active = True
         tab_outer = _ScrollableTab(self.nb, padding=0)
@@ -10797,7 +10207,6 @@ class App(_TkAppBase):
         self.fps_value_label.pack(anchor='w')
         self.fps_pid_label = ttk.Label(fps_box, text='PID: Waiting for Roblox...', foreground='#9aa0a6')
         self.fps_pid_label.pack(anchor='w', pady=(0, 4))
-
         def _fps_ui(value=None):
             fps = int(round(float(self.fps_limit.get() if value is None else value)))
             fps = max(0, min(240, fps))
@@ -10806,7 +10215,6 @@ class App(_TkAppBase):
             self.fps_value_label.config(text='FPS: Uncap' if fps == 0 else f'FPS: {fps}')
             if hasattr(self, '_fps_text_var') and self._fps_text_var.get() != str(fps):
                 self._fps_text_var.set(str(fps))
-
         def _fps_slider_released(_event=None):
             if getattr(self, '_fps_release_job', None):
                 try:
@@ -10820,7 +10228,6 @@ class App(_TkAppBase):
         self._fps_text_var = tk.StringVar(value=str(self.fps_limit.get()))
         self._fps_text_entry = ttk.Entry(fps_box, textvariable=self._fps_text_var, width=12)
         self._fps_text_entry.pack(anchor='w', pady=(6, 0))
-
         def _fps_text_apply(_event=None):
             try:
                 fps = int(self._fps_text_var.get().strip())
@@ -10847,13 +10254,11 @@ class App(_TkAppBase):
         self._client_system_prev = None
         self._client_refresh()
         self.after(UI_CLIENT_INTERVAL_MS, self._client_live_update)
-
     def _client_roblox_pids(self):
         if os.name != 'nt':
             return []
         try:
             import ctypes
-
             class PROCESSENTRY32W(ctypes.Structure):
                 _fields_ = [('dwSize', ctypes.wintypes.DWORD), ('cntUsage', ctypes.wintypes.DWORD), ('th32ProcessID', ctypes.wintypes.DWORD), ('th32DefaultHeapID', ctypes.POINTER(ctypes.c_ulong)), ('th32ModuleID', ctypes.wintypes.DWORD), ('cntThreads', ctypes.wintypes.DWORD), ('th32ParentProcessID', ctypes.wintypes.DWORD), ('pcPriClassBase', ctypes.c_long), ('dwFlags', ctypes.wintypes.DWORD), ('szExeFile', ctypes.wintypes.WCHAR * 260)]
             snap = ctypes.windll.kernel32.CreateToolhelp32Snapshot(2, 0)
@@ -10884,7 +10289,6 @@ class App(_TkAppBase):
             return list(pids)
         except Exception:
             return []
-
     def _client_process_stats(self, pids):
         if not pids:
             return (None, None)
@@ -10892,7 +10296,6 @@ class App(_TkAppBase):
             import ctypes, ctypes.wintypes as wt
             PROCESS_QUERY_LIMITED_INFORMATION = 4096
             PROCESS_VM_READ = 16
-
             class PMC(ctypes.Structure):
                 _fields_ = [('cb', wt.DWORD), ('PageFaultCount', wt.DWORD), ('PeakWorkingSetSize', ctypes.c_size_t), ('WorkingSetSize', ctypes.c_size_t), ('QuotaPeakPagedPoolUsage', ctypes.c_size_t), ('QuotaPagedPoolUsage', ctypes.c_size_t), ('QuotaPeakNonPagedPoolUsage', ctypes.c_size_t), ('QuotaNonPagedPoolUsage', ctypes.c_size_t), ('PagefileUsage', ctypes.c_size_t), ('PeakPagefileUsage', ctypes.c_size_t)]
             total_cpu = 0
@@ -10934,7 +10337,6 @@ class App(_TkAppBase):
             return (cpu_data, total_ram if any_ram else None)
         except Exception:
             return (None, None)
-
     def _client_game_refresh(self, place_id, job_id):
         place_id = str(place_id or '').strip()
         self.client_place_var.set(place_id or '—')
@@ -10943,7 +10345,6 @@ class App(_TkAppBase):
             self.client_game_var.set('Not in a game')
             return
         self.client_game_var.set('Resolving game name...')
-
         def worker():
             name = None
             try:
@@ -10953,7 +10354,6 @@ class App(_TkAppBase):
             if not name:
                 name = f'Place {place_id}'
             try:
-
                 def update():
                     self.client_game_var.set(name)
                     self.client_place_var.set(f'{place_id} — {name}')
@@ -10961,7 +10361,6 @@ class App(_TkAppBase):
             except Exception:
                 pass
         threading.Thread(target=worker, daemon=True).start()
-
     def _client_live_update(self):
         if getattr(self, '_resize_active', False):
             try:
@@ -11011,7 +10410,6 @@ class App(_TkAppBase):
             self.after(UI_CLIENT_INTERVAL_MS, self._client_live_update)
         except Exception:
             pass
-
     def _client_refresh(self):
         pids = self._client_roblox_pids()
         pid = pids[0] if pids else _fflag_find_pid()
@@ -11038,7 +10436,6 @@ class App(_TkAppBase):
         self._client_game_refresh(place_id, job_id)
         self._client_cpu_prev = None
         self._client_system_prev = None
-
     def _build_subplace_joiner_tab(self):
         tab = ttk.Frame(self.nb, padding=0)
         self.nb.add(tab, text='Subplace Joiner')
@@ -11061,7 +10458,6 @@ class App(_TkAppBase):
         buttons.grid(row=3, column=0, sticky='e', pady=8)
         ttk.Button(buttons, text='Join Selected', command=self._subplace_join).pack(side='left', padx=(0, 6))
         ttk.Button(buttons, text='Copy Deeplink', command=self._subplace_copy_deeplink).pack(side='left')
-
     def _subplace_search(self):
         pid = self.subplace_id.get().strip()
         if not pid.isdigit():
@@ -11080,7 +10476,6 @@ class App(_TkAppBase):
                 self.subplace_tree.insert('', 'end', values=(x.get('id', ''), x.get('name', x.get('id', ''))))
         except Exception as e:
             messagebox.showerror('Subplace Joiner', f'Search failed:\n{e}', parent=self)
-
     def _subplace_copy_deeplink(self):
         place_id = None
         game_instance_id = None
@@ -11132,7 +10527,6 @@ class App(_TkAppBase):
             messagebox.showinfo('Subplace Joiner', "Current game's deeplink copied to clipboard.", parent=self)
         except Exception as e:
             messagebox.showerror('Subplace Joiner', f'Could not copy deeplink:\n{e}', parent=self)
-
     def _subplace_join(self):
         sel = self.subplace_tree.selection()
         if not sel:
@@ -11143,7 +10537,6 @@ class App(_TkAppBase):
             self._console_log(f'Joined subplace {pid}')
         except Exception as e:
             messagebox.showerror('Subplace Joiner', f'Could not launch Roblox:\n{e}', parent=self)
-
     def _build_server_viewer_tab(self):
         tab = ttk.Frame(self.nb, padding=12)
         self.nb.add(tab, text='Server Viewer')
@@ -11192,7 +10585,6 @@ class App(_TkAppBase):
         _set_pane_minsize(body, left, 280)
         _set_pane_minsize(body, right, 280)
         self.after_idle(lambda: self._center_server_viewer_pane(body))
-
     @staticmethod
     def _center_server_viewer_pane(body):
         try:
@@ -11201,7 +10593,6 @@ class App(_TkAppBase):
                 body.sashpos(0, width // 2)
         except Exception:
             pass
-
     @staticmethod
     def _server_viewer_parse_deeplink(value):
         value = str(value or '').strip()
@@ -11230,14 +10621,12 @@ class App(_TkAppBase):
         if not place_id or not job_id:
             raise ValueError('The deeplink must contain both placeId and gameInstanceId/jobId.')
         return (str(place_id), str(job_id))
-
     def _server_viewer_clear(self):
         self.server_viewer_link.set('')
         for var in self.server_viewer_vars.values():
             var.set('—')
         self.server_viewer_players.delete(0, tk.END)
         self.server_viewer_status.config(text='Paste a Roblox server deeplink', foreground='#9aa0a6')
-
     def _server_viewer_load(self):
         try:
             place_id, job_id = self._server_viewer_parse_deeplink(self.server_viewer_link.get())
@@ -11250,7 +10639,6 @@ class App(_TkAppBase):
         for var in self.server_viewer_vars.values():
             var.set('—')
         threading.Thread(target=self._server_viewer_worker, args=(place_id, job_id), daemon=True, name='RoUtils-ServerViewer').start()
-
     def _server_viewer_worker(self, place_id, job_id):
         try:
             cursor = None
@@ -11287,7 +10675,6 @@ class App(_TkAppBase):
             self.after(0, lambda result=result: self._server_viewer_show(result))
         except Exception as e:
             self.after(0, lambda msg=str(e): self._server_viewer_error(msg))
-
     def _server_viewer_show(self, result):
         for key in ('place_id', 'job_id', 'players', 'max_players', 'ping', 'fps'):
             self.server_viewer_vars[key].set(result[key])
@@ -11307,11 +10694,364 @@ class App(_TkAppBase):
         else:
             self.server_viewer_players.insert(tk.END, '')
         self.server_viewer_status.config(text='Server loaded', foreground='#65d98b')
-
     def _server_viewer_error(self, message):
         self.server_viewer_status.config(text='Failed to load server', foreground='#ff6b6b')
         messagebox.showerror('Server Viewer', f'Could not load server:\n{message}', parent=self)
-
+    def _build_emote_manager_tab(self):
+        tab = ttk.Frame(self.nb, padding=12)
+        self.nb.add(tab, text='Emote Manager')
+        tab.columnconfigure(0, weight=1)
+        tab.rowconfigure(2, weight=1)
+        head = ttk.Frame(tab)
+        head.grid(row=0, column=0, sticky='ew', pady=(0, 8))
+        ttk.Label(head, text='Emote Manager', font=('Segoe UI Semibold', 15)).pack(side='left')
+        self.emote_status = ttk.Label(head, text='Waiting for Roblox...', foreground='#9aa0a6')
+        self.emote_status.pack(side='right', padx=(8, 0))
+        bar = ttk.Frame(tab)
+        bar.grid(row=1, column=0, sticky='ew', pady=(0, 8))
+        ttk.Button(bar, text='Remove Bind', command=self._emote_remove_bind).pack(side='left', padx=(0, 6))
+        ttk.Button(bar, text='Add Bind', command=self._emote_add_bind).pack(side='left')
+        self.emote_tree = ttk.Treeview(tab, columns=('hotkey', 'dance'), show='headings', selectmode='browse')
+        self.emote_tree.heading('hotkey', text='Hotkey')
+        self.emote_tree.heading('dance', text='Dance')
+        self.emote_tree.column('hotkey', width=220, anchor='center', stretch=True)
+        self.emote_tree.column('dance', width=300, anchor='w', stretch=True)
+        self.emote_tree.grid(row=2, column=0, sticky='nsew')
+        scroll = ttk.Scrollbar(tab, orient='vertical', command=self.emote_tree.yview)
+        scroll.grid(row=2, column=1, sticky='ns')
+        self.emote_tree.configure(yscrollcommand=scroll.set)
+        bottom = ttk.Frame(tab)
+        bottom.grid(row=3, column=0, sticky='ew', pady=(8, 0))
+        self.emote_action_status = ttk.Label(bottom, text='Last hotkey: none', foreground='#9aa0a6')
+        self.emote_action_status.pack(side='left', fill='x', expand=True)
+        ttk.Button(bottom, text='Save', command=self._emote_save_binds).pack(side='right')
+        self._emote_refresh_list()
+        self.after(100, self._emote_status_tick)
+    def _emote_refresh_list(self):
+        if not hasattr(self, 'emote_tree') or not self.emote_tree.winfo_exists():
+            return
+        selected = self.emote_tree.selection()
+        selected_dance = self.emote_tree.item(selected[0], 'values')[1] if selected else None
+        self.emote_tree.delete(*self.emote_tree.get_children())
+        for dance in self.emote_names:
+            key = self.emote_binds.get(dance, '') or '***'
+            self.emote_tree.insert('', 'end', iid=dance, values=(key, dance))
+        if selected_dance and selected_dance in self.emote_names:
+            self.emote_tree.selection_set(selected_dance)
+    def _emote_selected_dance(self):
+        if not hasattr(self, 'emote_tree'):
+            return None
+        selected = self.emote_tree.selection()
+        if not selected:
+            messagebox.showinfo('Emote Manager', 'Select a dance from the list first.', parent=self)
+            return None
+        return self.emote_tree.item(selected[0], 'values')[1]
+    def _emote_add_bind(self):
+        dance = self._emote_selected_dance()
+        if not dance:
+            return
+        if getattr(self, '_emote_capture_dialog', None):
+            try:
+                if self._emote_capture_dialog.winfo_exists():
+                    self._emote_capture_dialog.destroy()
+            except Exception:
+                pass
+        dlg = tk.Toplevel(self)
+        self._emote_capture_dialog = dlg
+        dlg.title('Add Bind')
+        dlg.transient(self)
+        dlg.resizable(False, False)
+        theme_toplevel(dlg)
+        ttk.Label(dlg, text=f'Press any key for {dance}', font=('Segoe UI Semibold', 11)).pack(padx=20, pady=(18, 8))
+        key_var = tk.StringVar(value='Waiting for key...')
+        ttk.Label(dlg, textvariable=key_var).pack(padx=20, pady=(0, 18))
+        captured = {'key': ''}
+        def capture(event):
+            if event.keysym in ('Shift_L', 'Shift_R', 'Control_L', 'Control_R', 'Alt_L', 'Alt_R', 'Win_L', 'Win_R'):
+                return 'break'
+            key = event.keysym.upper()
+            if key == 'ESCAPE':
+                key = 'ESC'
+            if not fflag_key_to_vk(key):
+                return 'break'
+            captured['key'] = key
+            key_var.set(key)
+            self.emote_binds[dance] = key
+            self._emote_refresh_list()
+            dlg.after(120, dlg.destroy)
+            return 'break'
+        dlg.bind('<KeyPress>', capture)
+        dlg.bind('<Button-1>', lambda _e: dlg.focus_force())
+        dlg.after(100, dlg.focus_force)
+    def _emote_remove_bind(self):
+        dance = self._emote_selected_dance()
+        if not dance:
+            return
+        self.emote_binds[dance] = ''
+        self._emote_refresh_list()
+    def _emote_save_binds(self):
+        used = {}
+        for dance, key in self.emote_binds.items():
+            key = str(key or '').upper()
+            if key and key in used:
+                messagebox.showerror('Emote Manager', f'{key} is already assigned to {used[key]}.', parent=self)
+                return
+            if key:
+                used[key] = dance
+        self.settings['emote_binds'] = dict(self.emote_binds)
+        self._save_settings()
+        if hasattr(self, 'emote_status'):
+            self.emote_status.config(text='Binds saved', foreground='#65d98b')
+        self._emote_refresh_list()
+    def _emote_status_tick(self):
+        if not getattr(self, 'winfo_exists', lambda: False)():
+            return
+        if hasattr(self, 'emote_status') and self.emote_status.winfo_exists():
+            pid = self.fflag_pid if getattr(self, 'fflag_pid', 0) else _fflag_find_pid()
+            if pid:
+                self.emote_status.config(text=f'Roblox attached  PID {pid}', foreground='#65d98b')
+            else:
+                self.emote_status.config(text='Waiting for Roblox...', foreground='#9aa0a6')
+        self.after(1000, self._emote_status_tick)
+    def _emote_set_action_status(self, message, color='#9aa0a6'):
+        try:
+            if hasattr(self, 'emote_action_status') and self.emote_action_status.winfo_exists():
+                self.emote_action_status.config(text=message, foreground=color)
+        except Exception:
+            pass
+    def _handle_emote_hotkey(self, binding):
+        dance = str(binding.get('dance', '')).strip()
+        key = str(binding.get('key', '')).upper()
+        if dance not in self.emote_names:
+            return
+        with self._emote_typing_lock:
+            if self._emote_typing_active:
+                return
+            self._emote_typing_active = True
+        self._emote_set_action_status(f'Hotkey {key} → {dance}: starting...', '#f2c94c')
+        worker = threading.Thread(target=self._emote_type_command, args=(dance, key), daemon=True, name='RoUtilsEmote')
+        try:
+            worker.start()
+        except Exception as e:
+            with self._emote_typing_lock:
+                self._emote_typing_active = False
+            self._emote_set_action_status(f'Emote error: {e}', '#ff6b6b')
+    def _emote_type_command(self, dance, key=''):
+        user32 = None
+        foreground = None
+        thread_id = 0
+        old_layout = None
+        english_layout = None
+        layout_switched = False
+        pressed_keys = set()
+        def status(message, color='#9aa0a6'):
+            try:
+                self.after(0, lambda message=message, color=color: self._emote_set_action_status(message, color))
+            except Exception:
+                pass
+        try:
+            if sys.platform != 'win32':
+                status('Emote hotkeys require Windows.', '#ff6b6b')
+                return
+            roblox_pid = self.fflag_pid or _fflag_find_pid()
+            if not roblox_pid:
+                status(f'{key} → {dance}: Roblox not detected.', '#ff6b6b')
+                return
+            user32 = ctypes.WinDLL('user32', use_last_error=True)
+            user32.GetForegroundWindow.restype = ctypes.wintypes.HWND
+            user32.GetWindowThreadProcessId.argtypes = [ctypes.wintypes.HWND, ctypes.POINTER(ctypes.wintypes.DWORD)]
+            user32.GetWindowThreadProcessId.restype = ctypes.wintypes.DWORD
+            user32.GetKeyboardLayout.argtypes = [ctypes.wintypes.DWORD]
+            user32.GetKeyboardLayout.restype = ctypes.c_void_p
+            user32.LoadKeyboardLayoutW.argtypes = [ctypes.wintypes.LPCWSTR, ctypes.wintypes.UINT]
+            user32.LoadKeyboardLayoutW.restype = ctypes.c_void_p
+            user32.SendMessageTimeoutW.argtypes = [ctypes.wintypes.HWND, ctypes.wintypes.UINT, ctypes.c_size_t, ctypes.c_ssize_t, ctypes.wintypes.UINT, ctypes.wintypes.UINT, ctypes.POINTER(ctypes.c_size_t)]
+            user32.SendMessageTimeoutW.restype = ctypes.c_ssize_t
+            user32.VkKeyScanExW.argtypes = [ctypes.wintypes.WCHAR, ctypes.c_void_p]
+            user32.VkKeyScanExW.restype = ctypes.c_short
+            user32.MapVirtualKeyExW.argtypes = [ctypes.wintypes.UINT, ctypes.wintypes.UINT, ctypes.c_void_p]
+            user32.MapVirtualKeyExW.restype = ctypes.wintypes.UINT
+            ULONG_PTR = ctypes.wintypes.WPARAM
+            class MOUSEINPUT(ctypes.Structure):
+                _fields_ = [('dx', ctypes.wintypes.LONG), ('dy', ctypes.wintypes.LONG), ('mouseData', ctypes.wintypes.DWORD), ('dwFlags', ctypes.wintypes.DWORD), ('time', ctypes.wintypes.DWORD), ('dwExtraInfo', ULONG_PTR)]
+            class KEYBDINPUT(ctypes.Structure):
+                _fields_ = [('wVk', ctypes.wintypes.WORD), ('wScan', ctypes.wintypes.WORD), ('dwFlags', ctypes.wintypes.DWORD), ('time', ctypes.wintypes.DWORD), ('dwExtraInfo', ULONG_PTR)]
+            class HARDWAREINPUT(ctypes.Structure):
+                _fields_ = [('uMsg', ctypes.wintypes.DWORD), ('wParamL', ctypes.wintypes.WORD), ('wParamH', ctypes.wintypes.WORD)]
+            class INPUTUNION(ctypes.Union):
+                _fields_ = [('mi', MOUSEINPUT), ('ki', KEYBDINPUT), ('hi', HARDWAREINPUT)]
+            class INPUT(ctypes.Structure):
+                _fields_ = [('type', ctypes.wintypes.DWORD), ('u', INPUTUNION)]
+            user32.SendInput.argtypes = [ctypes.wintypes.UINT, ctypes.POINTER(INPUT), ctypes.c_int]
+            user32.SendInput.restype = ctypes.wintypes.UINT
+            WM_INPUTLANGCHANGEREQUEST = 0x0050
+            KLF_ACTIVATE = 0x00000001
+            KLF_SUBSTITUTE_OK = 0x00000002
+            SMTO_ABORTIFHUNG = 0x0002
+            KEYEVENTF_KEYUP = 0x0002
+            KEYEVENTF_SCANCODE = 0x0008
+            KEYEVENTF_EXTENDEDKEY = 0x0001
+            MAPVK_VK_TO_VSC_EX = 0x04
+            VK_SHIFT = 0x10
+            VK_RETURN = 0x0D
+            foreground = user32.GetForegroundWindow()
+            foreground_pid = ctypes.wintypes.DWORD(0)
+            if foreground:
+                user32.GetWindowThreadProcessId(foreground, ctypes.byref(foreground_pid))
+            if not foreground or int(foreground_pid.value) != int(roblox_pid):
+                status(f'{key} → {dance}: Roblox is not focused.', '#ff6b6b')
+                return
+            thread_id = user32.GetWindowThreadProcessId(foreground, None)
+            old_layout = user32.GetKeyboardLayout(thread_id)
+            if not old_layout:
+                raise OSError('Could not read the current keyboard layout')
+            english_layout = user32.LoadKeyboardLayoutW('00000409', KLF_ACTIVATE | KLF_SUBSTITUTE_OK)
+            if not english_layout:
+                raise OSError('Could not load English (US) keyboard layout')
+            def switch_layout(layout, timeout=1.5):
+                if not layout:
+                    raise OSError('Keyboard layout handle is invalid')
+                result = ctypes.c_size_t(0)
+                sent = user32.SendMessageTimeoutW(
+                    foreground,
+                    WM_INPUTLANGCHANGEREQUEST,
+                    0,
+                    ctypes.c_ssize_t(int(layout)).value,
+                    SMTO_ABORTIFHUNG,
+                    int(timeout * 1000),
+                    ctypes.byref(result)
+                )
+                if not sent:
+                    raise OSError('Windows did not accept the keyboard layout change')
+                deadline = time.monotonic() + timeout
+                while time.monotonic() < deadline:
+                    current = user32.GetKeyboardLayout(thread_id)
+                    if current and int(current) == int(layout):
+                        return True
+                    time.sleep(0.025)
+                current = user32.GetKeyboardLayout(thread_id)
+                if not current or int(current) != int(layout):
+                    raise OSError('Keyboard layout did not change in Roblox')
+                return True
+            scan_code_cache = {}
+            def send_key_event(vk, key_up=False):
+                vk = int(vk) & 0xFF
+                scan_info = scan_code_cache.get(vk)
+                if scan_info is None:
+                    mapped = int(user32.MapVirtualKeyExW(vk, MAPVK_VK_TO_VSC_EX, english_layout))
+                    if not mapped:
+                        raise OSError(f'Could not map virtual key {vk} to an English keyboard scan code')
+                    scan = mapped & 0xFF
+                    extended = (mapped & 0xFF00) in (0xE000, 0xE100)
+                    scan_info = (scan, extended)
+                    scan_code_cache[vk] = scan_info
+                scan, extended = scan_info
+                flags = KEYEVENTF_SCANCODE
+                if key_up:
+                    flags |= KEYEVENTF_KEYUP
+                if extended:
+                    flags |= KEYEVENTF_EXTENDEDKEY
+                item = INPUT()
+                item.type = 1
+                item.u.ki.wVk = 0
+                item.u.ki.wScan = scan
+                item.u.ki.dwFlags = flags
+                item.u.ki.time = 0
+                item.u.ki.dwExtraInfo = 0
+                sent = user32.SendInput(1, ctypes.byref(item), ctypes.sizeof(INPUT))
+                if sent != 1:
+                    error = ctypes.get_last_error()
+                    raise OSError(error, f'SendInput failed for English scan code {scan:#x}')
+            def key_down(vk):
+                vk = int(vk) & 0xFF
+                send_key_event(vk, False)
+                pressed_keys.add(vk)
+            def key_up(vk):
+                vk = int(vk) & 0xFF
+                send_key_event(vk, True)
+                pressed_keys.discard(vk)
+            def tap_vk(vk, shift=False):
+                if shift:
+                    key_down(VK_SHIFT)
+                    time.sleep(0.00115)
+                try:
+                    key_down(vk)
+                    time.sleep(0.0019)
+                finally:
+                    if (int(vk) & 0xFF) in pressed_keys:
+                        key_up(vk)
+                time.sleep(0.0019)
+                if shift and VK_SHIFT in pressed_keys:
+                    key_up(VK_SHIFT)
+                    time.sleep(0.00115)
+            def tap_character(character):
+                mapping = user32.VkKeyScanExW(character, english_layout)
+                if mapping == -1:
+                    raise OSError(f'Character cannot be mapped on English (US): {character!r}')
+                vk = mapping & 0xFF
+                modifiers = (mapping >> 8) & 0xFF
+                if modifiers & 0x06:
+                    raise OSError(f'Unsupported keyboard modifier for character: {character!r}')
+                tap_vk(vk, bool(modifiers & 0x01))
+            status(f'{key} → {dance}: switching to English...', '#f2c94c')
+            switch_layout(english_layout)
+            layout_switched = True
+            command_name = str(dance).strip()
+            if command_name.lower().startswith('/e '):
+                command_name = command_name[3:].strip()
+            command_name = command_name.strip(" \'\"")
+            if not command_name:
+                raise ValueError('Emote command is empty')
+            if not re.fullmatch(r'[A-Za-z0-9_-]+', command_name):
+                raise ValueError('Emote name contains unsupported characters')
+            status(f'{key} → {dance}: opening chat and typing command...', '#f2c94c')
+            text_to_type = f'//e {command_name}'
+            for index, character in enumerate(text_to_type):
+                tap_character(character)
+                if index == 0:
+                    time.sleep(0.08)
+                else:
+                    time.sleep(0.0015)
+            time.sleep(0.013)
+            tap_vk(VK_RETURN)
+            time.sleep(0.30)
+            status(f'{key} → {dance}: command sent; restoring keyboard...', '#65d98b')
+        except Exception as e:
+            status(f'Emote error: {e}', '#ff6b6b')
+        finally:
+            if user32 is not None:
+                for vk in tuple(pressed_keys):
+                    try:
+                        send_key_event(vk, True)
+                    except Exception:
+                        pass
+                pressed_keys.clear()
+                if foreground and old_layout:
+                    try:
+                        result = ctypes.c_size_t(0)
+                        user32.SendMessageTimeoutW(
+                            foreground,
+                            0x0050,
+                            0,
+                            ctypes.c_ssize_t(int(old_layout)).value,
+                            0x0002,
+                            1500,
+                            ctypes.byref(result)
+                        )
+                        deadline = time.monotonic() + 1.0
+                        while time.monotonic() < deadline:
+                            current = user32.GetKeyboardLayout(thread_id)
+                            if current and int(current) == int(old_layout):
+                                break
+                            time.sleep(0.025)
+                    except Exception:
+                        pass
+            time.sleep(0.15)
+            try:
+                with self._emote_typing_lock:
+                    self._emote_typing_active = False
+            except Exception:
+                self._emote_typing_active = False
     def _build_fflag_tab(self):
         tab = ttk.Frame(self.nb, padding=12)
         self.nb.insert(1, tab, text='FFlags')
@@ -11367,7 +11107,6 @@ class App(_TkAppBase):
         fflag_ybar.grid(row=1, column=1, sticky='ns')
         self.fflag_tree.bind('<Double-1>', self._fflag_inline_edit)
         self.fflag_tree.bind('<Button-1>', self._fflag_tree_click_remove, add='+')
-
         self.fflag_side_notebook = ttk.Notebook(right)
         self.fflag_side_notebook.grid(row=0, column=0, sticky='nsew')
         reference_tab = ttk.Frame(self.fflag_side_notebook, padding=8)
@@ -11402,7 +11141,6 @@ class App(_TkAppBase):
         self._fflag_reference_render_job = None
         self._fflag_reference_render_token = 0
         self._fflag_reference_load_started = False
-
         saved_tab.rowconfigure(1, weight=1)
         saved_tab.columnconfigure(0, weight=1)
         ttk.Label(saved_tab, text='Saved JSONs', font=('Segoe UI Semibold', 10)).grid(row=0, column=0, sticky='w', pady=(0, 6))
@@ -11417,9 +11155,10 @@ class App(_TkAppBase):
         ttk.Button(json_buttons, text='Apply Selected', command=self._apply_selected_json).pack(side='left', fill='x', expand=True, padx=(0, 4))
         ttk.Button(json_buttons, text='Refresh', command=self._refresh_json_list).pack(side='right')
         self._refresh_json_list()
-
         bottom = ttk.Frame(tab)
         bottom.grid(row=3, column=0, sticky='ew', pady=(8, 0))
+        self.fflag_auto_apply_button = ttk.Button(bottom, text='Auto Apply: ON' if self.fflag_auto_apply.get() else 'Auto Apply: OFF', command=self._toggle_fflag_auto_apply)
+        self.fflag_auto_apply_button.pack(side='right', padx=(5, 0))
         ttk.Button(bottom, text='Apply to Roblox', command=self._fflag_apply).pack(side='right', padx=(5, 0))
         ttk.Button(bottom, text='Save Flags', command=self._save_fflag_flags).pack(side='right')
         ttk.Button(bottom, text='Refresh', command=self._fflag_refresh_process).pack(side='left')
@@ -11427,7 +11166,6 @@ class App(_TkAppBase):
         self._refresh_fflag_list()
         self.after(350, self._fflag_refresh_process)
         self._load_fflag_reference_panel()
-
     def _load_fflag_reference_panel(self, force=False):
         if not hasattr(self, 'fflag_reference_tree'):
             return
@@ -11447,7 +11185,6 @@ class App(_TkAppBase):
             except Exception:
                 pass
         threading.Thread(target=worker, daemon=True, name='RoUtils-FFlagReference').start()
-
     def _fflag_reference_loaded(self, result):
         if not hasattr(self, 'fflag_reference_tree'):
             return
@@ -11468,7 +11205,6 @@ class App(_TkAppBase):
             self.fflag_reference_status.configure(text='Could not load flags')
             if errors:
                 self._console_log(f'FFlag reference load failed: {errors}')
-
     def _refresh_fflag_reference_panel(self):
         tree = getattr(self, 'fflag_reference_tree', None)
         if tree is None:
@@ -11522,7 +11258,6 @@ class App(_TkAppBase):
             else:
                 self._fflag_reference_render_job = None
         insert_batch(0)
-
     def _responsive_fflag_toolbar(self, _event=None):
         bar = getattr(self, '_fflag_toolbar_frame', None)
         buttons = getattr(self, '_fflag_toolbar', [])
@@ -11543,7 +11278,6 @@ class App(_TkAppBase):
                 bar.columnconfigure(col, weight=1 if col < columns else 0)
         except Exception:
             pass
-
     def _fflag_conflicts(self):
         counts = {}
         for flag in self.fflag_flags:
@@ -11552,7 +11286,6 @@ class App(_TkAppBase):
                 key = name.lower()
                 counts[key] = counts.get(key, 0) + 1
         return {name for name, count in counts.items() if count > 1}
-
     def _refresh_fflag_list(self):
         if not hasattr(self, 'fflag_tree'):
             return
@@ -11569,7 +11302,6 @@ class App(_TkAppBase):
                 continue
             tags = ('conflict',) if name.lower() in conflicts else ()
             self.fflag_tree.insert('', 'end', iid=str(i), values=(name, flag.get('type', ''), flag.get('value', ''), '×'), tags=tags)
-
     def _fflag_tree_click_remove(self, event):
         try:
             row = self.fflag_tree.identify_row(event.y)
@@ -11585,7 +11317,6 @@ class App(_TkAppBase):
         except Exception:
             pass
         return None
-
     def _fflag_add_dialog(self):
         dlg = tk.Toplevel(self)
         dlg.title('Add FFlag')
@@ -11598,7 +11329,6 @@ class App(_TkAppBase):
         ttk.Label(dlg, text='Value:').grid(row=2, column=0, padx=10, pady=(8, 4), sticky='w')
         value = ttk.Entry(dlg, width=48)
         value.grid(row=3, column=0, padx=10, sticky='ew')
-
         def add():
             n, v = (name.get().strip(), value.get().strip())
             if not n or not v:
@@ -11616,7 +11346,6 @@ class App(_TkAppBase):
         ttk.Button(btns, text='Cancel', command=dlg.destroy).pack(side='left', padx=4)
         dlg.columnconfigure(0, weight=1)
         name.focus_set()
-
     def _fflag_inline_edit(self, event):
         tree = self.fflag_tree
         row = tree.identify_row(event.y)
@@ -11634,7 +11363,6 @@ class App(_TkAppBase):
         entry.insert(0, str(self.fflag_flags[idx].get(column, '')))
         entry.focus_set()
         entry.selection_range(0, 'end')
-
         def save(_=None):
             value = entry.get().strip()
             if value:
@@ -11647,7 +11375,6 @@ class App(_TkAppBase):
         entry.bind('<Return>', save)
         entry.bind('<FocusOut>', save)
         entry.bind('<Escape>', lambda _e: entry.destroy())
-
     def _fflag_remove(self):
         sel = self.fflag_tree.selection()
         if not sel:
@@ -11657,7 +11384,6 @@ class App(_TkAppBase):
         self._save_fflag_flags()
         self._refresh_fflag_list()
         self._console_log(f'Removed FFlag {removed}')
-
     def _fflag_remove_all(self):
         if not self.fflag_flags or not messagebox.askyesno('FFlags', 'Remove all flags?', parent=self):
             return
@@ -11665,7 +11391,6 @@ class App(_TkAppBase):
         self._save_fflag_flags()
         self._refresh_fflag_list()
         self._console_log('Removed all FFlags')
-
     def _fflag_presets_dialog(self):
         dlg = tk.Toplevel(self)
         dlg.title('FFlag Presets')
@@ -11688,7 +11413,6 @@ class App(_TkAppBase):
         inner.bind('<Configure>', lambda _e: canvas.configure(scrollregion=canvas.bbox('all')))
         canvas.bind('<Configure>', lambda e: canvas.itemconfigure(window, width=e.width))
         state = {'files': []}
-
         def load_preset(url, filename, add_to_current=False):
             try:
                 req = urllib.request.Request(url, headers={'User-Agent': 'RoUtils'})
@@ -11727,7 +11451,6 @@ class App(_TkAppBase):
                 dlg.destroy()
             except Exception as e:
                 messagebox.showerror('FFlag Preset', f'Failed to load {filename}:\n{e}', parent=dlg)
-
         def render(*_):
             for w in inner.winfo_children():
                 w.destroy()
@@ -11741,7 +11464,6 @@ class App(_TkAppBase):
                 row.pack(fill='x', pady=3)
                 ttk.Button(row, text=label, command=lambda u=item['download_url'], n=label: load_preset(u, n, False)).pack(side='left', fill='x', expand=True, padx=(0, 4))
                 ttk.Button(row, text='Add to Current FFlags', command=lambda u=item['download_url'], n=label: load_preset(u, n, True)).pack(side='right')
-
         def worker():
             try:
                 req = urllib.request.Request(GITHUB_PRESETS_API, headers={'User-Agent': 'RoUtils'})
@@ -11749,7 +11471,6 @@ class App(_TkAppBase):
                     items = json.loads(r.read().decode('utf-8'))
                 files = [x for x in items if x.get('type') == 'file' and str(x.get('name', '')).lower().endswith('.json')]
                 files.sort(key=lambda x: str(x.get('name', '')).lower())
-
                 def done():
                     state['files'] = files
                     render()
@@ -11761,7 +11482,6 @@ class App(_TkAppBase):
         search.trace_add('write', render)
         ttk.Label(inner, text='Loading presets...', foreground='#9aa0a6').pack(pady=20)
         threading.Thread(target=worker, daemon=True).start()
-
     def _show_fflag_reference_panel(self):
         if not hasattr(self, 'nb'):
             return
@@ -11783,24 +11503,19 @@ class App(_TkAppBase):
                     return
             except Exception:
                 continue
-
     def _open_default_fflag_values(self):
         self._show_fflag_reference_panel()
-
     def _open_latest_fflag_list(self):
         self._show_fflag_reference_panel()
-
     def _fetch_fflag_reference_data(self):
         cached = getattr(self, '_fflag_reference_cache', None)
         if cached and time.time() - cached.get('time', 0) < 900 and len(cached.get('offsets', {})) >= 500:
             return cached
         headers = {'User-Agent': f'RoUtils/{APP_VERSION}', 'Accept': 'application/json,text/plain,*/*'}
-
         def fetch(url):
             request = urllib.request.Request(url, headers=headers)
             with urllib.request.urlopen(request, timeout=20) as response:
                 return response.read().decode('utf-8', 'replace')
-
         def extract_block(text, namespace_name):
             match = re.search(r'\bnamespace\s+' + re.escape(namespace_name) + r'\s*\{', text)
             if not match:
@@ -11816,7 +11531,6 @@ class App(_TkAppBase):
                     if depth == 0:
                         return text[open_brace + 1:index]
             return text[open_brace + 1:]
-
         def parse_offsets(text):
             text = html.unescape(str(text or ''))
             text = re.sub(r'/\*.*?\*/', '', text, flags=re.S)
@@ -11849,7 +11563,6 @@ class App(_TkAppBase):
                         if name not in {'Pointer', 'ToFlag', 'ToValue', 'FFlagList'}:
                             offsets.setdefault(name, value.lower())
             return offsets
-
         defaults = {}
         defaults_error = ''
         default_names = {}
@@ -11873,7 +11586,6 @@ class App(_TkAppBase):
                     default_names[key] = full_name
         except Exception as exc:
             defaults_error = str(exc)
-
         offsets = {}
         offsets_error = ''
         source_errors = []
@@ -11891,7 +11603,6 @@ class App(_TkAppBase):
                 source_errors.append(f'{url}: {exc}')
         if len(offsets) < 500:
             offsets_error = '; '.join(source_errors) or 'No usable offset list was found.'
-
         rows = []
         for bare_name, offset in offsets.items():
             key = str(bare_name).casefold()
@@ -11907,7 +11618,6 @@ class App(_TkAppBase):
         if len(offsets) >= 500:
             self._fflag_reference_cache = result
         return result
-
     def _copy_fflag_reference_row(self, tree):
         try:
             selection = tree.selection()
@@ -11924,7 +11634,6 @@ class App(_TkAppBase):
             messagebox.showinfo('FFlags', 'Copied to clipboard.', parent=self)
         except Exception as exc:
             self._console_log(f'FFlag copy failed: {exc}')
-
     def _fflag_import(self):
         path = filedialog.askopenfilename(parent=self, title='Import FFlags', filetypes=[('JSON files', '*.json'), ('All files', '*.*')])
         if not path:
@@ -11955,7 +11664,6 @@ class App(_TkAppBase):
             self._console_log(f'Imported {count} FFlag(s) from {os.path.basename(path)}')
         except Exception as e:
             messagebox.showerror('FFlags', f'Import failed:\n{e}', parent=self)
-
     def _fflag_export(self):
         if not self.fflag_flags:
             return
@@ -11972,7 +11680,6 @@ class App(_TkAppBase):
         ttk.Entry(dialog, textvariable=name_var).pack(fill='x', padx=14, pady=(0, 12))
         buttons = ttk.Frame(dialog)
         buttons.pack(fill='x', padx=14)
-
         def save_json(path, target_label):
             try:
                 base = _sanitize_filename_for_windows(name_var.get().strip()) or 'fflags'
@@ -11997,13 +11704,11 @@ class App(_TkAppBase):
             except Exception as e:
                 messagebox.showerror('FFlags', f'Export failed:\n{e}', parent=dialog)
         ttk.Button(buttons, text='JSONs (FFlags Saves)', command=lambda: save_json(None, 'JSONs')).pack(side='left', expand=True, fill='x', padx=(0, 6))
-
         def choose_path():
             path = filedialog.asksaveasfilename(parent=dialog, title='Choose FFlag export location', initialfile=name_var.get().strip() + '.json', defaultextension='.json', filetypes=[('JSON files', '*.json'), ('All files', '*.*')])
             if path:
                 save_json(path, 'chosen location')
         ttk.Button(buttons, text='Choose...', command=choose_path).pack(side='left', expand=True, fill='x')
-
     def _fflag_refresh_process(self):
         pid = _fflag_find_pid()
         if pid and pid != self.fflag_pid:
@@ -12021,7 +11726,7 @@ class App(_TkAppBase):
                 if hasattr(self, 'fps_pid_label'):
                     self.fps_pid_label.config(text=f'PID: {pid} selected', foreground='#65d98b')
                 if self.fflag_auto_apply.get():
-                    self.after(6000, self._fflag_apply)
+                    self.after(0, lambda: self._fflag_apply(silent=True))
             else:
                 self.fflag_status.config(text='Roblox found, attach failed', foreground='#ff6b6b')
                 self._console_log(f'Roblox Detected but attach failed: PID {pid}')
@@ -12037,11 +11742,9 @@ class App(_TkAppBase):
             if hasattr(self, 'fps_pid_label'):
                 self.fps_pid_label.config(text='PID: Waiting for Roblox...', foreground='#9aa0a6')
         self.after(1000, self._fflag_refresh_process)
-
     def _fps_flag_value(self):
         fps = max(0, min(240, int(self.fps_limit.get())))
         return str(fps)
-
     def _sync_fps_flag_to_manager(self):
         full_name = 'TaskSchedulerTargetFps'
         normalized_name = fflag_strip_prefix(full_name)
@@ -12066,7 +11769,6 @@ class App(_TkAppBase):
         self._save_fflag_flags()
         if hasattr(self, 'fflag_tree'):
             self._refresh_fflag_list()
-
     def _apply_fps_flag(self, silent=True):
         self._sync_fps_flag_to_manager()
         if not self.fflag_pid or not self.fflag_engine.handle:
@@ -12075,7 +11777,6 @@ class App(_TkAppBase):
             return False
         value = self._fps_flag_value()
         return bool(self.fflag_engine.set_flag_with_prefixes('DFIntTaskSchedulerTargetFps', value))
-
     def _apply_fps_after_slider(self):
         self._fps_release_job = None
         try:
@@ -12084,10 +11785,8 @@ class App(_TkAppBase):
             self._save_settings()
         except Exception:
             pass
-
     def _fps_apply_tick(self):
         return
-
     def _fflag_write_offset(self, name, value, value_type):
         cache = getattr(self, '_fflag_reference_cache', None)
         if not cache or not isinstance(cache.get('offsets'), dict):
@@ -12121,7 +11820,6 @@ class App(_TkAppBase):
             return bool(ok and written.value == len(data))
         except Exception:
             return False
-
     def _fflag_apply(self, silent=False):
         conflicts = self._fflag_conflicts()
         if conflicts:
@@ -12183,13 +11881,11 @@ class App(_TkAppBase):
         self._console_log(f'FFlag {method} apply complete: {ok}/{len(self.fflag_flags)} flags applied, {failed} failed for PID {self.fflag_pid}')
         if not silent and not ok:
             messagebox.showwarning('FFlags', f'No flags were applied using {method}. Check the current offsets and Roblox version.', parent=self)
-
     def _fflag_status_text(self, text, color='#9aa0a6'):
         try:
             self.fflag_status.config(text=text, foreground=color)
         except Exception:
             pass
-
     def _fflag_unapply(self):
         self.fflag_auto_apply.set(False)
         if not self.fflag_pid or not self.fflag_engine.handle:
@@ -12212,16 +11908,31 @@ class App(_TkAppBase):
         self.fflag_original_values.clear()
         self.fflag_status.config(text=f'Unapplied {restored} flag(s)' + (f', {failed} failed' if failed else ''), foreground='#65d98b' if not failed else '#ff6b6b')
         self._console_log(f'FFlag restore complete: {restored} restored, {failed} failed')
-
+    def _toggle_fflag_auto_apply(self):
+        enabled = not bool(self.fflag_auto_apply.get())
+        self.fflag_auto_apply.set(enabled)
+        self.settings['fflag_auto_apply'] = enabled
+        self._save_settings()
+        if hasattr(self, 'fflag_auto_apply_button'):
+            self.fflag_auto_apply_button.config(text='Auto Apply: ON' if enabled else 'Auto Apply: OFF')
+        self._fflag_status_text('Auto Apply enabled (every 60 seconds)' if enabled else 'Auto Apply disabled', '#65d98b' if enabled else '#9aa0a6')
+        if enabled and self.fflag_pid and self.fflag_engine.handle:
+            threading.Thread(target=lambda: self.after(0, lambda: self._fflag_apply(silent=True)), name='RoUtilsFFlagAutoApply', daemon=True).start()
     def _fflag_auto_apply_tick(self):
-        return
-
+        try:
+            if self.fflag_auto_apply.get() and self.fflag_pid and self.fflag_engine.handle:
+                self._fflag_apply(silent=True)
+        except Exception:
+            pass
+        try:
+            self.after(60000, self._fflag_auto_apply_tick)
+        except Exception:
+            pass
     def _plugin_files(self):
         try:
             return sorted((os.path.join(self.plugins_dir, name) for name in os.listdir(self.plugins_dir) if name.lower().endswith('.py')))
         except Exception:
             return []
-
     def _plugin_load_python(self, path):
         module_name = 'routils_plugin_' + re.sub('[^a-zA-Z0-9_]', '_', os.path.splitext(os.path.basename(path))[0]) + '_' + uuid.uuid4().hex[:8]
         spec = importlib.util.spec_from_file_location(module_name, path)
@@ -12232,7 +11943,6 @@ class App(_TkAppBase):
         if not callable(getattr(module, 'register', None)):
             raise ValueError('Python plugin must define register(app).')
         return module
-
     def _plugin_forget_tabs(self, name):
         tabs = list(self._plugin_tabs.pop(name, []) or [])
         module = self._plugin_modules.get(name)
@@ -12252,7 +11962,6 @@ class App(_TkAppBase):
                     self.nb.forget(tab)
                 except Exception:
                     pass
-
     def _plugin_enable(self, path, enabled=True):
         name = os.path.basename(path)
         enabled = bool(enabled)
@@ -12305,7 +12014,6 @@ class App(_TkAppBase):
             self._plugin_enabled[name] = False
             self._save_settings()
             messagebox.showerror('Plugin', f'Could not enable {name}:\n{exc}', parent=self)
-
     def _plugin_open_guide(self, path):
         try:
             with open(path, 'r', encoding='utf-8') as f:
@@ -12320,7 +12028,6 @@ class App(_TkAppBase):
             txt.configure(state='disabled')
         except Exception as exc:
             messagebox.showerror('Plugin', f'Could not open guide:\n{exc}', parent=self)
-
     def _build_plugins_tab(self):
         tab = ttk.Frame(self.nb, padding=14)
         self.nb.add(tab, text='Plugins')
@@ -12352,7 +12059,6 @@ class App(_TkAppBase):
                 ttk.Checkbutton(row, text='Enable', variable=enabled, command=lambda p=path, v=enabled: self._plugin_enable(p, v.get())).pack(side='left')
                 if self._plugin_enabled.get(name, False) and name not in self._plugin_modules:
                     self._plugin_enable(path, True)
-
     def _import_plugin_file(self):
         path = filedialog.askopenfilename(parent=self, title='Import RoUtils Python Plugin', filetypes=[('Python plugin', '*.py')])
         if not path:
@@ -12367,7 +12073,6 @@ class App(_TkAppBase):
             messagebox.showinfo('Plugin', f'Imported {os.path.basename(path)}.\nEnable it from the Plugins tab to load Python code.', parent=self)
         except Exception as exc:
             messagebox.showerror('Plugin', f'Could not import plugin:\n{exc}', parent=self)
-
     def _reload_lazy_tab(self, tab_name):
         for tab_id in list(self.nb.tabs()):
             if str(self.nb.tab(tab_id, 'text')) == tab_name:
@@ -12379,19 +12084,16 @@ class App(_TkAppBase):
         self._lazy_tabs = {k: v for k, v in self._lazy_tabs.items() if v[0] != tab_name}
         self._lazy_tab_ids.pop(tab_name, None)
         self._recreate_special_tab(tab_name)
-
     def _recreate_special_tab(self, tab_name):
         builder = {'Plugins': self._build_plugins_tab}.get(tab_name)
         if builder:
             builder()
             self._reorder_tabs()
             self._refresh_tab_nav()
-
     def _settings_canvas_resize(self, canvas, window_id, event):
         width = int(getattr(event, 'width', 0) or 0)
         key = f'_canvas_width_{id(canvas)}'
         self._apply_or_defer_canvas_window_width(canvas, window_id, width, key)
-
     def _build_settings_tab(self):
         try:
             st = ttk.Style(self)
@@ -12415,7 +12117,6 @@ class App(_TkAppBase):
         canvas.pack(side='left', fill='both', expand=True)
         inner.bind('<Configure>', lambda _e: self._schedule_ui('settings_region', 30, lambda: canvas.configure(scrollregion=canvas.bbox('all'))))
         canvas.bind('<Configure>', lambda e: self._settings_canvas_resize(canvas, window_id, e))
-
         def update_scrollbar(_e=None):
             key = f'settings_scrollbar_{id(canvas)}'
             def apply_scrollbar_state():
@@ -12436,17 +12137,14 @@ class App(_TkAppBase):
         inner.bind('<Configure>', update_scrollbar, add='+')
         canvas.bind('<Configure>', update_scrollbar, add='+')
         middle = {'y': None}
-
         def middle_press(event):
             middle['y'] = event.y
             return 'break'
-
         def middle_drag(event):
             if middle['y'] is not None:
                 canvas.yview_scroll(int((middle['y'] - event.y) / 2), 'units')
                 middle['y'] = event.y
             return 'break'
-
         def middle_release(_event):
             middle['y'] = None
             return 'break'
@@ -12454,7 +12152,6 @@ class App(_TkAppBase):
         canvas.bind_class(middle_tag, '<Button-2>', middle_press)
         canvas.bind_class(middle_tag, '<B2-Motion>', middle_drag)
         canvas.bind_class(middle_tag, '<ButtonRelease-2>', middle_release)
-
         def attach_middle_scroll(parent):
             for child in parent.winfo_children():
                 try:
@@ -12534,7 +12231,6 @@ class App(_TkAppBase):
         backup_buttons.pack(fill='x', padx=8, pady=8)
         ttk.Button(backup_buttons, text='Export Config…', command=self._export_settings).pack(side='left')
         ttk.Button(backup_buttons, text='Import Config…', command=self._import_settings).pack(side='left', padx=(7, 0))
-
     def _save_dpi_setting_only(self):
         try:
             percent = max(50, min(200, int(self.dpi_percent.get())))
@@ -12542,7 +12238,6 @@ class App(_TkAppBase):
             self._save_settings()
         except Exception as exc:
             self._console_log(f'DPI setting error: {exc}')
-
     def _export_settings(self):
         self._save_settings()
         path = filedialog.asksaveasfilename(parent=self, title='Export RoUtils Config', defaultextension='.rconfig', filetypes=[('RoUtils Config', '*.rconfig'), ('ZIP archive', '*.zip'), ('JSON settings', '*.json')])
@@ -12574,7 +12269,6 @@ class App(_TkAppBase):
             messagebox.showinfo('Config Backup', 'Config exported successfully.', parent=self)
         except Exception as exc:
             messagebox.showerror('Config Backup', f'Could not export config:\n{exc}', parent=self)
-
     def _import_settings(self):
         path = filedialog.askopenfilename(parent=self, title='Import RoUtils Config', filetypes=[('RoUtils Config', '*.rconfig *.zip'), ('ZIP archive', '*.zip'), ('JSON settings', '*.json'), ('All files', '*.*')])
         if not path:
@@ -12633,7 +12327,6 @@ class App(_TkAppBase):
             messagebox.showinfo('Config Backup', 'Config imported successfully. Restart RoUtils to apply every saved setting.', parent=self)
         except Exception as exc:
             messagebox.showerror('Config Backup', f'Could not import config:\n{exc}', parent=self)
-
     def _console_log(self, message):
         if threading.get_ident() != getattr(self, '_ui_thread_id', threading.get_ident()):
             try:
@@ -12654,7 +12347,6 @@ class App(_TkAppBase):
             if getattr(self, '_console_render_pending', False):
                 return
             self._console_render_pending = True
-
             def render():
                 try:
                     self._console_render_pending = False
@@ -12669,7 +12361,6 @@ class App(_TkAppBase):
                 self.after(0, render)
             except Exception:
                 pass
-
     def _load_console_history(self):
         try:
             with open(CONSOLE_HISTORY_PATH, 'r', encoding='utf-8') as f:
@@ -12677,7 +12368,6 @@ class App(_TkAppBase):
             return [str(x) for x in data][-1000:] if isinstance(data, list) else []
         except Exception:
             return []
-
     def _save_console_history(self):
         self._console_save_job = None
         if getattr(self, '_resize_active', False):
@@ -12694,7 +12384,6 @@ class App(_TkAppBase):
             os.replace(temp, CONSOLE_HISTORY_PATH)
         except Exception:
             pass
-
     def _console_undo(self):
         if not self._console_undo_stack:
             self._console_log('Nothing to undo.')
@@ -12720,14 +12409,12 @@ class App(_TkAppBase):
                 f.write(data)
             self._cc_refresh_list()
             self._console_log(f'Restored config {os.path.basename(path)}.')
-
     def _console_select_tab(self, name):
         for tab_id in self.nb.tabs():
             if self.nb.tab(tab_id, 'text') == name:
                 self.nb.select(tab_id)
                 return True
         return False
-
     def _console_cache_search(self, query=''):
         query = str(query or '').lower().strip()
         rows = []
@@ -12736,7 +12423,6 @@ class App(_TkAppBase):
             if not query or query in text:
                 rows.append(f'{it.name} | {it.hash} | {it.kind}')
         self._console_log('Cache search:\n' + ('\n'.join(rows) if rows else '(no matches)'))
-
     def _console_create_backup(self, name='backup'):
         safe = _sanitize_filename_for_windows(str(name).strip()) or 'backup'
         backup_dir = os.path.join(DATA_DIR, 'backups')
@@ -12755,7 +12441,6 @@ class App(_TkAppBase):
                             source = os.path.join(current, filename)
                             archive.write(source, os.path.relpath(source, DATA_DIR))
         self._console_log(f'Created backup: {path}')
-
     def _console_restore_backup(self, path):
         path = os.path.abspath(os.path.expandvars(os.path.expanduser(str(path))))
         if not os.path.isfile(path) or not path.lower().endswith('.zip'):
@@ -12770,7 +12455,6 @@ class App(_TkAppBase):
         if hasattr(self, 'replacer'):
             self.replacer.refresh_view(preserve_selection=True)
         self._console_log(f'Restored backup: {path}')
-
     def _console_command(self, raw):
         raw = str(raw or '').strip()
         if not raw:
@@ -12912,7 +12596,6 @@ class App(_TkAppBase):
                 self._console_log('Invalid command or arguments. Type help for English command descriptions.')
         except Exception as e:
             self._console_log('Error: ' + str(e))
-
     def _console_apply_cache(self, path, hash_value):
         path = os.path.abspath(os.path.expandvars(os.path.expanduser(path)))
         clean = re.sub('[^0-9A-Fa-f]', '', str(hash_value))
@@ -12931,7 +12614,6 @@ class App(_TkAppBase):
         finally:
             conn.close()
         self._console_log(f'Applied cache {clean} from {path}')
-
     def _console_delete_cache(self, hash_value):
         clean = re.sub('[^0-9A-Fa-f]', '', str(hash_value)).lower()
         if not clean or len(clean) % 2:
@@ -12969,7 +12651,6 @@ class App(_TkAppBase):
         if deleted and old_blob is not None:
             self._console_undo_stack.append(('cache', (clean, old_blob)))
         self._console_log(f'Deleted cache {clean}' if deleted else f'Cache not found: {clean}')
-
     def _console_list_caches(self, query=''):
         query = str(query or '').lower()
         rows = []
@@ -12978,7 +12659,6 @@ class App(_TkAppBase):
             if not query or query in text:
                 rows.append(f"{item.hash} | {item.name or '(unnamed)'} | {item.kind}")
         self._console_log('Caches:\n' + ('\n'.join(rows) if rows else '(none loaded)'))
-
     def _console_delete_fflag(self, query):
         query = fflag_strip_prefix(str(query)).lower()
         matches = [x for x in self.fflag_flags if fflag_strip_prefix(x.get('name', '')).lower() == query]
@@ -12989,16 +12669,13 @@ class App(_TkAppBase):
         self._refresh_fflag_list()
         self._fflag_apply(silent=True)
         self._console_log(f'Deleted FFlag {query}')
-
     def _console_list_fflags(self):
         rows = [f"{x.get('name', '')} = {x.get('value', '')}" for x in self.fflag_flags]
         self._console_log('FFlags:\n' + ('\n'.join(rows) if rows else '(none)'))
-
     def _console_list_configs(self):
         configs = self._cc_scan_packages()
         rows = [f"{x.get('name', '')} | {x.get('_file', '')}" for x in configs]
         self._console_log('Configs:\n' + ('\n'.join(rows) if rows else '(none)'))
-
     def _console_delete_config(self, query):
         q = str(query).lower()
         matches = [x for x in self._cc_scan_packages() if str(x.get('name', '')).lower().startswith(q)]
@@ -13010,10 +12687,8 @@ class App(_TkAppBase):
         os.remove(path)
         self._cc_refresh_list()
         self._console_log(f"Deleted config {matches[0].get('name', '')}")
-
     def _console_apply_config(self, query):
         self._console_select_tab('Configs')
-
         def apply():
             candidates = self._cc_scan_packages()
             q = str(query).lower()
@@ -13027,13 +12702,11 @@ class App(_TkAppBase):
             self._cc_apply_db()
             self._console_log(f"Applying config {matches[0].get('name', '')}")
         self.after(150, lambda: self._console_safe_call(apply))
-
     def _console_safe_call(self, fn):
         try:
             fn()
         except Exception as e:
             self._console_log('Error: ' + str(e))
-
     def _console_mesh_to_obj(self, path):
         path = os.path.abspath(os.path.expandvars(os.path.expanduser(path)))
         if not os.path.isfile(path):
@@ -13043,7 +12716,6 @@ class App(_TkAppBase):
             data = f.read()
         convert(data, out)
         self._console_log(f'Converted mesh to {out}')
-
     def _console_replace_mesh(self, mesh_name, replacement, roblox_path=''):
         mesh_aliases = {'head': 'Head.mesh', 'torso': 'Torso.mesh', 'left arm': 'Left Arm.mesh', 'right arm': 'Right Arm.mesh', 'left leg': 'Left Leg.mesh', 'right leg': 'Right Leg.mesh'}
         mesh_name = mesh_aliases.get(str(mesh_name).strip().lower(), str(mesh_name).strip())
@@ -13060,19 +12732,16 @@ class App(_TkAppBase):
         os.makedirs(os.path.dirname(target), exist_ok=True)
         shutil.copy2(source, target)
         self._console_log(f'Replaced {mesh_name}')
-
     def _console_apply_theme(self, query):
         names = [x for x in THEME_NAMES if x.lower() == str(query).lower() or x.lower().startswith(str(query).lower())]
         if len(names) != 1:
             raise ValueError('Theme not found or prefix is ambiguous.')
         self._console_select_tab('Themes')
-
         def apply():
             self.theme_var.set(names[0])
             self._apply_theme()
             self._console_log(f'Applied theme {names[0]}')
         self.after(150, lambda: self._console_safe_call(apply))
-
     def _build_console_tab(self):
         tab = ttk.Frame(self.nb, padding=10)
         self.nb.add(tab, text='Console')
@@ -13089,7 +12758,6 @@ class App(_TkAppBase):
         self.console_entry.grid(row=0, column=1, sticky='ew')
         self.console_entry.bind('<Return>', lambda _e: (self._console_command(self.console_entry.get()), self.console_entry.delete(0, 'end'), 'break')[2])
         self._console_log('RoUtils Console ready. Type help for commands.')
-
     def _save_gemini_api_key(self):
         key = self.gemini_api_key.get().strip()
         if not key:
@@ -13098,12 +12766,10 @@ class App(_TkAppBase):
         self.settings['gemini_api_key'] = key
         self._save_settings()
         messagebox.showinfo('Gemini AI', 'Gemini API Key added successfully.', parent=self)
-
     def _ai_canvas_resize(self, canvas, window_id, event):
         width = int(getattr(event, 'width', 0) or 0)
         key = f'_ai_canvas_width_{id(canvas)}'
         self._apply_or_defer_canvas_window_width(canvas, window_id, width, key)
-
     def _apply_or_defer_canvas_window_width(self, canvas, window_id, width, state_key):
         try:
             width = max(1, int(width))
@@ -13118,7 +12784,6 @@ class App(_TkAppBase):
             setattr(self, state_key, width)
         except Exception:
             pass
-
     def _open_ai_chat(self):
         self._console_log('Opened RoUtils AI')
         key = self.gemini_api_key.get().strip()
@@ -13154,13 +12819,11 @@ class App(_TkAppBase):
         messages.bind('<Configure>', lambda _e: self._schedule_ui(f'ai_region_{id(canvas)}', 30, lambda: canvas.configure(scrollregion=canvas.bbox('all'))))
         canvas.bind('<Configure>', lambda e: self._ai_canvas_resize(canvas, window_id, e))
         middle_scroll = {'y': None, 'start': None}
-
         def middle_press(event):
             middle_scroll['y'] = event.y
             middle_scroll['start'] = canvas.yview()[0]
             canvas.configure(cursor='fleur')
             return 'break'
-
         def middle_drag(event):
             if middle_scroll['y'] is None:
                 return 'break'
@@ -13170,7 +12833,6 @@ class App(_TkAppBase):
             delta = (middle_scroll['y'] - event.y) / height
             canvas.yview_moveto(max(0.0, min(1.0 - span, middle_scroll['start'] + delta)))
             return 'break'
-
         def middle_release(event):
             middle_scroll['y'] = None
             middle_scroll['start'] = None
@@ -13184,7 +12846,6 @@ class App(_TkAppBase):
         messages.bind('<ButtonRelease-2>', middle_release)
         history = []
         busy = {'value': False}
-
         def copy_code(code):
             try:
                 win.clipboard_clear()
@@ -13192,7 +12853,6 @@ class App(_TkAppBase):
                 win.update_idletasks()
             except Exception:
                 pass
-
         def add_code_block(parent, code, language=''):
             box = tk.Frame(parent, bg='#202124', highlightthickness=1, highlightbackground='#55575c')
             box.pack(fill='x', pady=(7, 5))
@@ -13205,7 +12865,6 @@ class App(_TkAppBase):
             txt.insert('1.0', code)
             txt.configure(state='disabled')
             txt.pack(fill='x')
-
         def add_rich_line(parent, text, pady=1):
             line = tk.Text(parent, height=1, wrap='word', bg='#4a4a4a', fg='#e6e6e6', relief='flat', bd=0, highlightthickness=0, padx=0, pady=0, font=('Segoe UI', 10), cursor='arrow')
             line.pack(fill='x', pady=pady)
@@ -13219,7 +12878,6 @@ class App(_TkAppBase):
                 inline = token.startswith('`') and token.endswith('`') and (len(token) >= 2)
                 value = token[2:-2] if bold else token[1:-1] if inline else token
                 line.insert('end', value, 'bold' if bold else 'inline' if inline else '')
-
             height_job = {'id': None}
             def update_height(_event=None):
                 height_job['id'] = None
@@ -13240,7 +12898,6 @@ class App(_TkAppBase):
             line.bind('<Button-2>', lambda e: 'break')
             line.after_idle(update_height)
             return line
-
         def add_markdown_message(parent, text):
             lines = text.replace('\r\n', '\n').replace('\r', '\n').split('\n')
             i = 0
@@ -13291,7 +12948,6 @@ class App(_TkAppBase):
                 else:
                     tk.Frame(parent, bg='#4a4a4a', height=5).pack(fill='x')
                 i += 1
-
         def add_message(text, role):
             row = tk.Frame(messages, bg=_CURRENT_PALETTE['bg_dark'])
             row.pack(fill='x', padx=8, pady=6)
@@ -13304,7 +12960,6 @@ class App(_TkAppBase):
                 add_markdown_message(bubble, text)
             canvas.update_idletasks()
             canvas.yview_moveto(1.0)
-
         def send():
             if busy['value']:
                 return
@@ -13318,7 +12973,6 @@ class App(_TkAppBase):
             send_btn.config(state='disabled')
             input_box.config(state='disabled')
             add_message('Thinking...', 'model')
-
             def worker():
                 try:
                     payload = {'systemInstruction': {'parts': [{'text': 'You are RoUtils AI. Help the user with Roblox, FastFlags, RoUtils, Windows, programming, and general questions. Be concise, accurate, and practical. When the user asks for a FastFlag, explain how to apply it specifically in RoUtils: tell them to open the FFlags tab, click JSON Editor, paste the JSON you provide, click Add, and then click Apply. Always provide the exact FastFlag JSON when you know the correct flag and value. If you are unsure of a flag, say so rather than inventing one. Use Markdown headings, bold (**text**), inline code (`text`), lists, and fenced code blocks when useful.'}]}, 'contents': history}
@@ -13335,7 +12989,6 @@ class App(_TkAppBase):
                     err_text = str(e)
                     win.after(0, lambda err_text=err_text: finish(f'Error: {err_text}'))
             threading.Thread(target=worker, daemon=True).start()
-
         def finish(answer):
             for child in reversed(messages.winfo_children()):
                 try:
@@ -13360,7 +13013,6 @@ class App(_TkAppBase):
         input_box.bind('<Control-Return>', lambda _e: (send(), 'break')[1])
         add_message("Hi! I'm RoUtils AI. How can I help?", 'model')
         input_box.focus_set()
-
     def _build_viewer_widgets(self):
         top = ttk.Frame(self.viewer_root, padding=(8, 6))
         top.pack(fill='x')
@@ -13499,7 +13151,6 @@ class App(_TkAppBase):
         status.pack(fill='x')
         self.status_label = ttk.Label(status, text='')
         self.status_label.pack(side='left')
-
     def _responsive_cache_toolbar(self, _event=None):
         top = getattr(self, '_cache_top', None)
         if top is None:
@@ -13558,7 +13209,6 @@ class App(_TkAppBase):
                     top.columnconfigure(col, weight=0, uniform='')
         except Exception:
             pass
-
     def _ensure_pane_order(self):
         try:
             panes = self.vpaned.panes()
@@ -13573,7 +13223,6 @@ class App(_TkAppBase):
                 _set_pane_minsize(self.vpaned, self.details, 100)
         except Exception:
             pass
-
     def _clamp_hsash(self):
         try:
             panes = self.hpaned.panes()
@@ -13588,7 +13237,6 @@ class App(_TkAppBase):
                 self.hpaned.sashpos(0, max(min_left, min(pos, total - min_right)))
         except Exception:
             pass
-
     def _toggle_viewer_pane(self):
         if self.viewer_collapsed:
             try:
@@ -13637,7 +13285,6 @@ class App(_TkAppBase):
             self.viewer_collapsed = True
             self.collapse_btn.config(text='▶')
             self._save_settings()
-
     def _app_focus_changed(self, _event=None):
         try:
             focused = _routils_process_has_focus(self)
@@ -13657,7 +13304,6 @@ class App(_TkAppBase):
                 pass
         except Exception:
             pass
-
     def _finish_resize_activity(self):
         self._resize_idle_job = None
         self._resize_active = False
@@ -13696,7 +13342,6 @@ class App(_TkAppBase):
                     viewport.after(500, viewport._redraw_after_resize)
         except Exception:
             pass
-
     def _run_resize_release_jobs(self):
         self._resize_release_job = None
         if getattr(self, '_resize_active', False):
@@ -13729,7 +13374,6 @@ class App(_TkAppBase):
                 self.after_idle(run_one)
         except Exception:
             self._resize_release_job = None
-
     def _schedule_resize_canvas_flush(self, delay_ms=None):
         if self._resize_canvas_flush_job is not None or not self._deferred_canvas_widths:
             return
@@ -13739,7 +13383,6 @@ class App(_TkAppBase):
             self._resize_canvas_flush_job = self.after(max(0, int(delay_ms)), self._flush_deferred_canvas_widths)
         except Exception:
             self._resize_canvas_flush_job = None
-
     def _flush_deferred_canvas_widths(self):
         self._resize_canvas_flush_job = None
         if not self._deferred_canvas_widths:
@@ -13756,7 +13399,6 @@ class App(_TkAppBase):
             pass
         if self._deferred_canvas_widths:
             self._schedule_resize_canvas_flush(65 if getattr(self, '_resize_active', False) else 22)
-
     def _schedule_responsive_ui_scale(self, dimensions=None):
         try:
             if dimensions is None:
@@ -13778,7 +13420,6 @@ class App(_TkAppBase):
             self._responsive_scale_job = self.after(55, lambda value=ratio: self._apply_responsive_ui_scale(value))
         except Exception:
             pass
-
     def _apply_responsive_ui_scale(self, ratio):
         self._responsive_scale_job = None
         try:
@@ -13885,7 +13526,6 @@ class App(_TkAppBase):
                 pass
         except Exception:
             pass
-
     def _on_geometry_configure(self, event=None):
         if event is not None and event.widget is not self:
             return
@@ -13915,7 +13555,6 @@ class App(_TkAppBase):
                 self._geometry_configure_idle_job = self.after_idle(self._commit_geometry_configure)
         except Exception:
             return
-
     def _commit_geometry_configure(self):
         self._geometry_configure_idle_job = None
         if getattr(self, '_resize_active', False):
@@ -13931,7 +13570,6 @@ class App(_TkAppBase):
             self._geometry_save_job = self.after(1100, self._save_settings)
         except Exception:
             self._geometry_save_job = None
-
     def _apply_mesh_preview_vertices_setting(self):
         value = bool(self.mesh_preview_vertices.get())
         self.settings['preview_optimize_vertices'] = value
@@ -13941,7 +13579,6 @@ class App(_TkAppBase):
         except Exception:
             pass
         self._save_settings()
-
     def _save_settings(self):
         if getattr(self, '_resize_active', False):
             self._settings_save_deferred = True
@@ -13951,7 +13588,6 @@ class App(_TkAppBase):
         data.update({'autoscroll': self.autoscroll.get(), 'hide_tickets': self.hide_tickets.get(), 'stay_on_top': self.stay_on_top.get(), 'show_lines': self.show_lines.get(), 'preview_optimize_vertices': self.viewport_3d.reduce_polys.get() if hasattr(self, 'viewport_3d') else self.settings.get('preview_optimize_vertices', True), 'streamer_mode': self.streamer_mode.get() if hasattr(self, 'streamer_mode') else self.settings.get('streamer_mode', False), 'fps_limit': self.fps_limit.get() if hasattr(self, 'fps_limit') else self.settings.get('fps_limit', 0), 'autostart_watch': self.autostart_watch.get() if hasattr(self, 'autostart_watch') else self.settings.get('autostart_watch', False), 'max_rows': self.max_rows.get() if hasattr(self, 'max_rows') else self.settings.get('max_rows', 0), 'type_filter': self.type_filter.get(), 'columns': {c: var.get() for c, var in getattr(self, '_col_vars', {}).items()}, 'viewer_collapsed': self.viewer_collapsed, 'theme': self.theme_var.get() if hasattr(self, 'theme_var') else self.settings.get('theme', DEFAULT_THEME), 'fflag_hotkeys': self.fflag_hotkeys, 'fps_hotkeys': self.fps_hotkeys, 'fps_hotkey_slots': self.fps_hotkey_slots, 'fflag_auto_apply': self.fflag_auto_apply.get() if hasattr(self, 'fflag_auto_apply') else self.settings.get('fflag_auto_apply', False), 'launch_on_tray': self.launch_on_tray.get() if hasattr(self, 'launch_on_tray') else self.settings.get('launch_on_tray', False), 'launch_on_startup': self.launch_on_startup.get() if hasattr(self, 'launch_on_startup') else self.settings.get('launch_on_startup', False), 'hide_to_tray_on_close': self.hide_to_tray_on_close.get() if hasattr(self, 'hide_to_tray_on_close') else self.settings.get('hide_to_tray_on_close', False), 'auto_update': self.auto_update.get() if hasattr(self, 'auto_update') else self.settings.get('auto_update', False), 'dpi_percent': int(self.dpi_percent.get()) if hasattr(self, 'dpi_percent') else int(getattr(self, '_dpi_scale', 1.0) * 100), 'plugin_enabled': getattr(self, '_plugin_enabled', self.settings.get('plugin_enabled', {})), 'roblox_path': self.settings.get('roblox_path', ''), 'roblox_username': self.settings.get('roblox_username', ''), 'roblox_user_id': self.settings.get('roblox_user_id', ''), 'gemini_api_key': self.gemini_api_key.get().strip() if hasattr(self, 'gemini_api_key') else self.settings.get('gemini_api_key', ''), 'custom_theme': self.settings.get('custom_theme', {}), 'db_path': getattr(self, 'db_path', self.settings.get('db_path', '')), 'shard_root': getattr(self, 'shard_root', self.settings.get('shard_root', '')), 'window_geometry': self.geometry() if self.winfo_exists() else self.settings.get('window_geometry', STARTUP_GEOMETRY), 'include_cconfigs': self.include_cconfigs.get() if hasattr(self, 'include_cconfigs') else self.settings.get('include_cconfigs', False), 'include_cache_dumps': self.include_cache_dumps.get() if hasattr(self, 'include_cache_dumps') else self.settings.get('include_cache_dumps', False), 'tab_order': [self.nb.tab(t, 'text') for t in self.nb.tabs()] if hasattr(self, 'nb') else self.settings.get('tab_order', []), 'selected_tab': self.nb.tab(self.nb.select(), 'text') if hasattr(self, 'nb') and self.nb.select() else self.settings.get('selected_tab', 'Home'), 'hpaned_sash': self.hpaned.sashpos(0) if hasattr(self, 'hpaned') else self.settings.get('hpaned_sash', None), 'vpaned_sash': self.vpaned.sashpos(0) if hasattr(self, 'vpaned') else self.settings.get('vpaned_sash', None)})
         save_settings(data)
         self.settings = data
-
     def _apply_startup_layouts(self):
         if not getattr(self, '_cache_built', False):
             return
@@ -13981,7 +13617,6 @@ class App(_TkAppBase):
         except Exception:
             pass
         self._autosize_columns_once()
-
     def _autosize_columns_once(self, padding=24):
         cols = self.tree['columns']
         for c in cols:
@@ -13997,7 +13632,6 @@ class App(_TkAppBase):
             measured = min(max(w + padding, 80), 520)
             current = int(self.tree.column(c, 'width'))
             self.tree.column(c, width=max(current, measured))
-
     def _cache_type_matches(self, it, selected):
         cat = str(it.kind or '').split(' ', 1)[0].strip().lower()
         selected = str(selected).strip().lower()
@@ -14020,7 +13654,6 @@ class App(_TkAppBase):
         if selected == 'unknown':
             return cat == 'unknown'
         return False
-
     def _open_delete_cache_type(self):
         dlg = tk.Toplevel(self)
         dlg.title('Delete Cache Type')
@@ -14033,7 +13666,6 @@ class App(_TkAppBase):
         type_var = tk.StringVar(value='Mesh')
         combo = ttk.Combobox(outer, textvariable=type_var, values=('Mesh', 'Model/RBXM', 'Animation', 'Image', 'Audio', 'Video', 'Font', 'Text', 'Unknown'), state='readonly', width=18)
         combo.pack(fill='x')
-
         def do_delete():
             selected = type_var.get()
             dlg.destroy()
@@ -14043,7 +13675,6 @@ class App(_TkAppBase):
         ttk.Button(btns, text='Delete', command=do_delete).pack(side='left')
         ttk.Button(btns, text='Cancel', command=dlg.destroy).pack(side='right')
         combo.focus_set()
-
     def _delete_cache_type(self, selected):
         if getattr(self, '_cache_type_busy', False):
             return
@@ -14055,7 +13686,6 @@ class App(_TkAppBase):
         was_running = bool(self.watching)
         if was_running:
             self._stop_watching()
-
         def scan_worker():
             try:
                 if not os.path.isfile(self.db_path):
@@ -14068,7 +13698,6 @@ class App(_TkAppBase):
                 result = ('error', str(e))
             self.after(0, lambda r=result: self._delete_cache_type_scan_done(selected, r, was_running))
         threading.Thread(target=scan_worker, daemon=True, name='RoUtils-DeleteTypeScan').start()
-
     def _delete_cache_type_scan_done(self, selected, result, was_running):
         if result[0] == 'error':
             self._finish_delete_cache_type(('error', result[1]), was_running)
@@ -14085,7 +13714,6 @@ class App(_TkAppBase):
         if not ok:
             self._finish_delete_cache_type(('cancel', None), was_running)
             return
-
         def delete_worker():
             deleted_ids = []
             failed = 0
@@ -14115,7 +13743,6 @@ class App(_TkAppBase):
             except Exception as e:
                 self.after(0, lambda e=e: self._finish_delete_cache_type(('error', str(e)), was_running))
         threading.Thread(target=delete_worker, daemon=True, name='RoUtils-DeleteTypeDelete').start()
-
     def _finish_delete_cache_type(self, result, was_running):
         try:
             kind = result[0]
@@ -14157,10 +13784,8 @@ class App(_TkAppBase):
                 pass
             if was_running and (not self.watching):
                 self._start_watching()
-
     def _cache_type_label(self, result):
         return 'selected type'
-
     def _dump_blob_body(self, blob):
         meta = parse_rbxh(blob)
         body = meta.get('body') or b''
@@ -14175,7 +13800,6 @@ class App(_TkAppBase):
         except Exception:
             pass
         return (body, meta)
-
     def _dump_image_payload(self, body):
         try:
             label, off = find_embedded_image(body)
@@ -14201,7 +13825,6 @@ class App(_TkAppBase):
             return (out.getvalue(), ext)
         except Exception:
             return (None, None)
-
     def _dump_one_cache(self, it, dump_root):
         blob = self._fetch_full_blob(it)
         if not blob:
@@ -14278,7 +13901,6 @@ class App(_TkAppBase):
         with open(path, 'wb') as f:
             f.write(payload)
         return True
-
     def _dump_all_caches(self):
         dump_root = os.path.abspath(os.path.join(DATA_DIR, 'Dump'))
         self._last_dump_folder = dump_root
@@ -14289,18 +13911,15 @@ class App(_TkAppBase):
         self._console_log(f'Database: {self.db_path}')
         self._console_log(f'Dump folder: {dump_root}')
         self._console_log('Scanning cache...')
-
         if getattr(self, '_dump_caches_running', False):
             self._console_log('A cache dump is already running.')
             return
         self._dump_caches_running = True
-
         def log(message):
             try:
                 self.after(0, lambda m=str(message): self._console_log(m))
             except Exception:
                 pass
-
         def worker():
             try:
                 db_path, shard_root = default_paths()
@@ -14338,9 +13957,7 @@ class App(_TkAppBase):
                     self.after(0, lambda: setattr(self, '_dump_caches_running', False))
                 except Exception:
                     self._dump_caches_running = False
-
         threading.Thread(target=worker, daemon=True, name='RoUtils-DumpCaches').start()
-
     def _run_dump_caches_cli(self):
         if os.name == 'nt':
             try:
@@ -14385,7 +14002,6 @@ class App(_TkAppBase):
         print(f'Finished. Dumped: {dumped} | Failed: {failed}', flush=True)
         print(f'Output: {dump_root}', flush=True)
         return 0
-
     def _clear_storage_now(self):
         was = self.watching
         if was:
@@ -14422,7 +14038,6 @@ class App(_TkAppBase):
         messagebox.showinfo('Clear rbx-storage', f"Deleted shards: {deleted_shards}\nDeleted DB: {('yes' if deleted_db else 'no')}")
         if was:
             self._start_watching()
-
     def _install_selected_db(self, source_db):
         local = os.environ.get('LOCALAPPDATA') or os.path.expanduser('~')
         roblox_dir = os.path.join(local, 'Roblox')
@@ -14486,7 +14101,6 @@ class App(_TkAppBase):
             self.db_label.config(text=self.db_path)
         self._reset_seen(clear_list=True)
         return target
-
     def _choose_db(self):
         path = filedialog.askopenfilename(title='Select rbx-storage.db', filetypes=[('SQLite DB', '*.db'), ('All Files', '*.*')])
         if not path:
@@ -14504,14 +14118,12 @@ class App(_TkAppBase):
         if was_watching:
             self._start_watching()
         messagebox.showinfo('Choose DB File', 'Installed selected DB successfully.\n\nDeleted: rbx-storage.db, rbx-storage.db-shm, rbx-storage.db-wal, rbx-storage.id\nInstalled: rbx-storage.db only.')
-
     def _choose_shard_root(self):
         d = filedialog.askdirectory(title='Select shard root folder (rbx-storage)')
         if not d:
             return
         self.shard_root = d
         self._reset_seen(clear_list=False)
-
     def _toggle_watch(self):
         if self.watching:
             self._stop_watching()
@@ -14545,7 +14157,6 @@ class App(_TkAppBase):
                 except Exception:
                     pass
         self.after(40, begin)
-
     def _start_watching(self):
         if not os.path.isfile(self.db_path):
             self._update_status()
@@ -14557,26 +14168,22 @@ class App(_TkAppBase):
         self._update_status()
         self._launch_scan_loop()
         return True
-
     def _stop_watching(self):
         self.stop_event.set()
         self.watching = False
         if hasattr(self, 'toggle_btn'):
             self.toggle_btn.config(text='Start Watching')
         self._update_status()
-
     def _launch_scan_loop(self):
         if self.scan_thread and self.scan_thread.is_alive():
             return
         self.scan_thread = threading.Thread(target=self._scan_loop, daemon=True)
         self.scan_thread.start()
-
     def _update_scan_max_rows_value(self, *_):
         try:
             self._scan_max_rows_value = max(0, int(self.max_rows.get()))
         except Exception:
             self._scan_max_rows_value = 0
-
     def _scan_loop(self):
         first_scan = True
         while not self.stop_event.is_set():
@@ -14595,7 +14202,6 @@ class App(_TkAppBase):
                     first_scan = False
                     self._watch_initial_scan_done.set()
             self.stop_event.wait(WATCH_INTERVAL_SEC)
-
     def _drain_queue(self):
         if getattr(self, '_resize_active', False):
             self.after(max(120, UI_QUEUE_INTERVAL_MS), self._drain_queue)
@@ -14617,7 +14223,6 @@ class App(_TkAppBase):
             except Exception:
                 pass
         self.after(UI_QUEUE_INTERVAL_MS, self._drain_queue)
-
     def _should_display(self, it: ScanItem, filt: str) -> bool:
         if self.hide_tickets.get() and it.is_ticket:
             return False
@@ -14634,7 +14239,6 @@ class App(_TkAppBase):
         if filt and filt not in row_join:
             return False
         return True
-
     def _insert_items(self, items: List[ScanItem]):
         if not items or getattr(self, '_ui_dispatch_closed', False):
             return
@@ -14647,7 +14251,6 @@ class App(_TkAppBase):
                 self._tree_insert_pending_job = self.after(0, self._insert_items_batch)
             except Exception:
                 self._tree_insert_pending_job = None
-
     def _insert_items_batch(self):
         self._tree_insert_pending_job = None
         if getattr(self, '_ui_dispatch_closed', False) or not self._tree_insert_pending:
@@ -14712,7 +14315,6 @@ class App(_TkAppBase):
         else:
             self._tree_insert_pending = []
             self._tree_insert_pending_index = 0
-
     def _apply_filter(self):
         if not hasattr(self, 'tree'):
             return
@@ -14745,7 +14347,6 @@ class App(_TkAppBase):
             self._filter_render_job = self.after(0, lambda g=generation: self._apply_filter_batch(g))
         except Exception:
             self._filter_render_job = None
-
     def _apply_filter_batch(self, generation=None):
         self._filter_render_job = None
         if generation is None:
@@ -14823,10 +14424,8 @@ class App(_TkAppBase):
                 self._tree_insert_pending_job = self.after(1, self._insert_items_batch)
             except Exception:
                 self._tree_insert_pending_job = None
-
     def _apply_stay_on_top(self):
         self._app_focus_changed()
-
     def _apply_show_lines(self):
         self.viewport_3d.show_wireframe.set(self.show_lines.get())
         if hasattr(self, '_titlebar'):
@@ -14840,7 +14439,6 @@ class App(_TkAppBase):
                 pass
         if self.viewport_3d.winfo_ismapped():
             self.viewport_3d.draw_frame()
-
     def _show_details(self):
         self._cancel_image_preview()
         sel = self.tree.selection()
@@ -14868,7 +14466,6 @@ class App(_TkAppBase):
             lines.append('Note: This is a signed-URL ticket cached by the client before fetching the real asset.')
         self.details_text.insert('1.0', '\n'.join(lines))
         self.details_text.configure(state='disabled')
-
     def _update_preview(self):
         sel = self.tree.selection()
         if not sel:
@@ -14910,7 +14507,6 @@ class App(_TkAppBase):
             self.viewport_3d.show(is_anim=False, mode_label='Model View')
         else:
             self.viewport_3d.show(is_anim=False, mode_label='Audio View')
-
     def _close_animation_preview(self):
         win = getattr(self, '_animation_preview_win', None)
         if win is not None:
@@ -14919,7 +14515,6 @@ class App(_TkAppBase):
                     win.withdraw()
             except Exception:
                 pass
-
     def _update_displaycolumns(self, save: bool=True):
         cols = [c for c in self.columns if self._col_vars[c].get()]
         if not cols:
@@ -14932,15 +14527,12 @@ class App(_TkAppBase):
             self.tree.column(c, width=w)
         if save:
             self._save_settings()
-
     def _on_tree_select(self, event):
         self._clear_tree_hover()
         self._schedule_ui('tree_select', 20, self._update_selected_view)
-
     def _update_selected_view(self):
         self._show_details()
         self._update_preview()
-
     def _clear_tree_hover(self):
         if self._tree_hover_iid:
             tags = list(self.tree.item(self._tree_hover_iid, 'tags'))
@@ -14948,11 +14540,9 @@ class App(_TkAppBase):
                 tags.remove('hover')
                 self.tree.item(self._tree_hover_iid, tags=tags)
             self._tree_hover_iid = None
-
     def _on_tree_leave(self, event):
         self._cancel_image_preview()
         self._clear_tree_hover()
-
     def _on_tree_right_click(self, event):
         self._cancel_image_preview()
         region = self.tree.identify_region(event.x, event.y)
@@ -14982,7 +14572,6 @@ class App(_TkAppBase):
                 self._ctx.tk_popup(event.x_root, event.y_root)
             finally:
                 self._ctx.grab_release()
-
     def _copy_selected_hash(self):
         items = self._get_selected_items()
         if not items:
@@ -14991,7 +14580,6 @@ class App(_TkAppBase):
         self.clipboard_clear()
         self.clipboard_append(joined)
         messagebox.showinfo('Copied', f'Copied {len(items)} hash(es) to clipboard.')
-
     def _on_tree_motion(self, event):
         row = self.tree.identify_row(event.y)
         self._hover_preview_xy = (event.x_root, event.y_root)
@@ -15015,7 +14603,6 @@ class App(_TkAppBase):
         if cat in ('Image', 'Decal', 'Texture'):
             self._hover_preview_iid = row
             self._hover_preview_job = self.after(1200, self._show_image_preview)
-
     def _cancel_image_preview(self):
         if self._hover_preview_job:
             try:
@@ -15032,7 +14619,6 @@ class App(_TkAppBase):
             self._img_preview_fade_job = None
         if self._img_preview_win and self._img_preview_win.winfo_exists():
             self._fade_preview(0.0)
-
     def _show_image_preview(self):
         self._hover_preview_job = None
         iid = self._hover_preview_iid
@@ -15079,7 +14665,6 @@ class App(_TkAppBase):
         self._img_preview_win.deiconify()
         self._img_preview_win.lift()
         self._fade_preview(1.0)
-
     def _fade_preview(self, target: float, step: float=0.12):
         if not self._img_preview_win or not self._img_preview_win.winfo_exists():
             return
@@ -15099,7 +14684,6 @@ class App(_TkAppBase):
         cur += step if target > cur else -step
         self._img_preview_win.attributes('-alpha', cur)
         self._img_preview_fade_job = self.after(25, self._fade_preview, target, step)
-
     def _fetch_full_blob(self, it: ScanItem) -> Optional[bytes]:
         try:
             conn = connect_ro(self.db_path)
@@ -15119,7 +14703,6 @@ class App(_TkAppBase):
         if content is not None:
             return content
         return read_shard_bytes(self.shard_root, it.hash)
-
     def _export_selected_full(self):
         items = self._get_selected_items()
         if not items:
@@ -15145,7 +14728,6 @@ class App(_TkAppBase):
             except Exception:
                 pass
         messagebox.showinfo('Export Blob', f'Exported {saved} of {len(items)} blobs to:\n{directory}')
-
     def _export_one_full(self, it):
         blob = self._fetch_full_blob(it)
         if not blob:
@@ -15162,7 +14744,6 @@ class App(_TkAppBase):
             messagebox.showinfo('Export Blob', f'Saved full blob:\n{path}')
         except Exception as e:
             messagebox.showerror('Export Blob', f'Failed to save file:\n{e}')
-
     def _export_selected_rbxm(self):
         items = self._get_selected_items()
         if not items:
@@ -15203,7 +14784,6 @@ class App(_TkAppBase):
             messagebox.showinfo('Export RBXM', f'Saved model:\n{path}')
         except Exception as e:
             messagebox.showerror('Export RBXM', f'Failed to save file:\n{e}')
-
     def _export_selected_mesh_obj(self):
         items = [it for it in self._get_selected_items() if (it.kind or '').split(' ', 1)[0] == 'Mesh']
         if not items:
@@ -15243,7 +14823,6 @@ class App(_TkAppBase):
             messagebox.showerror('Export as OBJ', 'Some meshes failed:\n' + '\n'.join(errors), parent=self)
         elif saved:
             messagebox.showinfo('Export as OBJ', f'Exported {saved} mesh(es).', parent=self)
-
     def _video_signed_query_values(self, source_url: str) -> Dict[str, str]:
         values = {}
         try:
@@ -15254,12 +14833,10 @@ class App(_TkAppBase):
         except Exception:
             pass
         return values
-
     @staticmethod
     def _video_has_placeholders(text: str) -> bool:
         low = str(text or '').lower()
         return any((x in low for x in ('{$__token_}', '{$__token__}', '{$expires}', '{$policy}', '{$signature}', '{$key-pair-id}', '${__token_}', '${expires}', '${policy}', '${signature}', '${key-pair-id}')))
-
     @staticmethod
     def _extract_signed_urls_from_bytes(payload: bytes) -> List[str]:
         if not payload:
@@ -15272,7 +14849,6 @@ class App(_TkAppBase):
             if 'rbxcdn.com' in low and any((k in low for k in ('__token_', 'signature', 'key-pair-id', 'policy', 'expires'))):
                 urls.append(u)
         return list(dict.fromkeys(urls))
-
     def _find_video_ticket_urls(self, video_it: ScanItem, manifest: bytes) -> List[str]:
         candidates = []
         manifest_text = manifest.decode('utf-8', 'ignore')
@@ -15346,12 +14922,10 @@ class App(_TkAppBase):
             if len(out) >= 80:
                 break
         return out
-
     def _resolve_hls_uri(self, uri: str, base_url: str, token_values: Dict[str, str]) -> str:
         uri = str(uri or '').strip().strip('"\'')
         if not uri:
             return ''
-
         def repl(match):
             key = match.group(1).strip().lower()
             return token_values.get(key, match.group(0))
@@ -15359,11 +14933,9 @@ class App(_TkAppBase):
         uri = re.sub('\\$\\{([^}]+)\\}', repl, uri)
         uri = re.sub('\\$([A-Za-z0-9_-]+)', repl, uri)
         return urljoin(base_url, uri)
-
     def _download_hls_video(self, manifest: bytes, source_url: str, video_it: Optional[ScanItem]=None, timeout: int=20):
         session = urllib.request.build_opener()
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) RoUtils/3.8', 'Accept': '*/*', 'Accept-Encoding': 'identity'}
-
         def fetch(url):
             req = urllib.request.Request(url, headers=headers)
             with session.open(req, timeout=timeout) as r:
@@ -15375,7 +14947,6 @@ class App(_TkAppBase):
         if source_url and (not self._video_has_placeholders(source_url)) and (source_url != '-'):
             initial_urls.append(source_url)
         initial_urls.extend(ticket_urls)
-
         def parse_manifest(data, base_url, token_values=None, depth=0):
             if depth > 5:
                 raise RuntimeError('HLS playlist nesting is too deep.')
@@ -15469,7 +15040,6 @@ class App(_TkAppBase):
             return parse_manifest(manifest, source_url, self._video_signed_query_values(source_url))
         detail = errors[0] if errors else 'No signed ticket URL was found in the cache.'
         raise RuntimeError('Could not recover the Roblox video ticket from cache. ' + detail)
-
     def _export_selected_video(self):
         items = self._get_selected_items()
         if not items:
@@ -15479,7 +15049,6 @@ class App(_TkAppBase):
         if not video_items:
             messagebox.showerror('Export Video', 'The selected cache does not contain a detected video.')
             return
-
         def get_video_payload(it):
             blob = self._fetch_full_blob(it)
             if not blob:
@@ -15549,7 +15118,6 @@ class App(_TkAppBase):
             messagebox.showinfo('Export Video', f'Saved video:\n{path}\n\nSize: {human_size(len(payload))}')
         except Exception as e:
             messagebox.showerror('Export Video', f'Failed to save video:\n{e}')
-
     def _rbxm_body(self, it):
         try:
             blob = self._fetch_full_blob(it)
@@ -15581,7 +15149,6 @@ class App(_TkAppBase):
         except Exception:
             return None
         return None
-
     def _export_selected_image(self):
         items = self._get_selected_items()
         if not items:
@@ -15622,7 +15189,6 @@ class App(_TkAppBase):
             messagebox.showinfo('Export Image', f'Saved image:\n{path}')
         except Exception as e:
             messagebox.showerror('Export Image', f'Failed to save file:\n{e}')
-
     def _image_from_item(self, it) -> Optional[Image.Image]:
         blob = self._fetch_full_blob(it)
         if not blob:
@@ -15636,7 +15202,6 @@ class App(_TkAppBase):
             return Image.open(io.BytesIO(body))
         except Exception:
             return None
-
     def _get_selected_item(self) -> Optional[ScanItem]:
         sel = self.tree.selection()
         if not sel:
@@ -15647,7 +15212,6 @@ class App(_TkAppBase):
             messagebox.showerror('Selection Error', 'Selected row is no longer available.')
             return None
         return it
-
     def _get_selected_items(self) -> List[ScanItem]:
         out: List[ScanItem] = []
         for s in self.tree.selection():
@@ -15655,17 +15219,14 @@ class App(_TkAppBase):
             if it:
                 out.append(it)
         return out
-
     def _pause_scanner(self):
         was = self.watching
         if was:
             self._stop_watching()
         return was
-
     def _resume_scanner(self, was_running: bool):
         if was_running:
             self._start_watching()
-
     def _parse_new_hash(self, s: str, expected_nibbles: int) -> bytes:
         if not s:
             raise ValueError('Empty input.')
@@ -15679,7 +15240,6 @@ class App(_TkAppBase):
             return bytes.fromhex(s)
         except Exception:
             raise ValueError('Invalid hex characters.')
-
     def _action_change_hash(self):
         it = self._get_selected_item()
         if not it:
@@ -15736,7 +15296,6 @@ class App(_TkAppBase):
             messagebox.showerror('Change Hash', f'Failed to change hash:\n{e}')
         finally:
             self._resume_scanner(was_running)
-
     def _action_delete_blob(self):
         items = self._get_selected_items()
         if not items:
@@ -15778,7 +15337,6 @@ class App(_TkAppBase):
             messagebox.showerror('Delete Blob', f'Failed to delete blob:\n{e}')
         finally:
             self._resume_scanner(was_running)
-
     def _action_save_hash_to_saves(self):
         items = self._get_selected_items()
         if not items:
@@ -15827,7 +15385,6 @@ class App(_TkAppBase):
         except Exception:
             pass
         messagebox.showinfo('Save Hash', f'Saved {saved} hash(es).')
-
     def _action_save_blob_to_saves(self):
         items = self._get_selected_items()
         if not items:
@@ -15875,7 +15432,6 @@ class App(_TkAppBase):
         except Exception:
             pass
         messagebox.showinfo('Save Blob', f'Saved {saved} blob(s).')
-
     def _reset_seen(self, clear_list: bool):
         self.seen_hashes.clear()
         if clear_list:
@@ -15902,7 +15458,6 @@ class App(_TkAppBase):
             except Exception:
                 pass
         self._update_status()
-
     def _sort_by(self, col_key: str, numeric: bool=False):
         fields = {'time': 'time', 'name': 'name', 'hash': 'hash', 'size': 'size', 'kind': 'kind', 'src': 'src'}
         field_name = fields.get(col_key)
@@ -15956,7 +15511,6 @@ class App(_TkAppBase):
                     self.tree.move(iid, '', idx)
                 except Exception:
                     pass
-
     def _update_status(self):
         if not hasattr(self, 'status_label'):
             return
@@ -15964,12 +15518,10 @@ class App(_TkAppBase):
         vis = len(self.items_by_iid)
         stat = 'Watching' if self.watching else 'Idle'
         self.status_label.config(text=f'Status: {stat}   Visible: {vis}   Total seen: {total}   Interval: {WATCH_INTERVAL_SEC:.1f}s')
-
     def _startup_setting_changed(self):
         self._save_settings()
         self._install_startup_shortcut()
         self._update_kill_routils_visibility()
-
     def _install_startup_shortcut(self):
         if os.name != 'nt':
             return
@@ -16000,12 +15552,10 @@ class App(_TkAppBase):
                 messagebox.showerror('Startup', f'Could not update Start with system:\n{exc}', parent=self)
             except Exception:
                 pass
-
     def _start_tray(self):
         if self._tray_icon is not None or self._tray_starting or os.name != 'nt':
             return
         self._tray_starting = True
-
         def worker():
             try:
                 self._tray_icon = _WindowsTrayIcon(icon_path=ICON_PATH, on_open=lambda: self.after(0, self._restore_from_tray), on_exit=lambda: self.after(0, self._exit_from_tray))
@@ -16016,7 +15566,6 @@ class App(_TkAppBase):
                 self._tray_starting = False
         self._tray_thread = threading.Thread(target=worker, daemon=True)
         self._tray_thread.start()
-
     def _hide_to_tray(self):
         self._start_tray()
         self._tray_hidden = True
@@ -16024,7 +15573,6 @@ class App(_TkAppBase):
             self.withdraw()
         except Exception:
             pass
-
     def _restore_from_tray(self):
         self._tray_hidden = False
         try:
@@ -16034,11 +15582,9 @@ class App(_TkAppBase):
             self.focus_force()
         except Exception:
             pass
-
     def _exit_from_tray(self):
         self._tray_hidden = False
         self._on_close(force=True)
-
     def _on_close(self, force=False):
         if not force and self.hide_to_tray_on_close.get():
             self._save_settings()
@@ -16067,7 +15613,6 @@ class App(_TkAppBase):
         self._resize_active = False
         self._settings_save_deferred = False
         self.destroy()
-
 def main():
     global _ACTIVE_APP
     _install_error_hooks()
