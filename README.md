@@ -1,7 +1,7 @@
-# 🛠️ RoUtils (Version 5.1.0)
+# 🛠️ RoUtils (Version 5.2)
 [Join Discord server if u need help!](https://discord.com/invite/849VtrYhm2)
 
-<img width="1919" height="1079" alt="routils" src="https://github.com/user-attachments/assets/47775620-805b-4f9e-882f-9eeeaa896d37" />
+<img width="1919" height="1079" alt="routils" src="https://github.com/user-attachments/assets/fb98c4b0-eaf8-4693-9c1f-58401a9eaaa8" />
 
 ## Features
 
@@ -63,7 +63,6 @@ RoUtils performs cache operations without intentionally blocking the main interf
 * **Presets** – Load FFlag presets from the RoUtils GitHub
 * **JSON Editor** – Edit FFlag JSON files directly
 * **Default FFlags/Offsets/Values ** – Open the list of FFlags/Offsets/Values
-* **RoUtils AI Chat** – Ask questions directly inside RoUtils (Add Gemini API Key on settings to use) (Powered by Gemini AI)
 
 #### How does FFlag Manager work?
 
@@ -99,8 +98,15 @@ RoUtils also creates a `jsons` folder where saved `.json` configurations can be 
 
 ---
 
-# Emote Manager
-* If you're lazy to type /e * this is for you, it types /e " for lazy people
+### Emote Manager
+* ** If you're lazy to type /e * this is for you, it types /e " for lazy people
+* ** Emote Controls: You dont need to set a bind to every emote. You can change the emote with hotkeys (you can set it yourself), and press to hotkey to use it!
+* ** Image for Emote Controls;
+<img width="182" height="80" alt="ec" src="https://github.com/user-attachments/assets/048382d0-e62e-4a5b-9103-a009857701c6" />
+
+
+### RoUtils AI
+* **RoUtils AI Chat** – Ask questions directly inside RoUtils (Add Gemini API Key on settings to use) (Powered by Gemini AI)
 
 ### 🛠️ Modifications
 
