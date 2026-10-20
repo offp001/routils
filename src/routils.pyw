@@ -31,14 +31,46 @@ UI_HOTKEY_INTERVAL_MS = 75
 UI_QUICK_PANEL_INTERVAL_MS = 50
 UI_QUEUE_INTERVAL_MS = 25
 UI_CLIENT_INTERVAL_MS = 250
-import platform
 import xml.etree.ElementTree as ET
 import tkinter as tk
 from PIL import Image, ImageTk
+
+_ROUTILS_ORIGINAL_URLOPEN = urllib.request.urlopen
+def _routils_is_network_error(error):
+    markers = ('getaddrinfo failed', 'urlopen error', '[errno 11001]', 'name or service not known', 'temporary failure in name resolution', 'nodename nor servname provided', 'connection timed out', 'timed out', 'network is unreachable', 'connection refused', 'connection reset', 'failed to establish a new connection')
+    pending = [error]
+    seen = set()
+    while pending:
+        current = pending.pop()
+        if current is None or id(current) in seen:
+            continue
+        seen.add(id(current))
+        try:
+            detail = str(current).lower()
+        except Exception:
+            detail = ''
+        if any(marker in detail for marker in markers):
+            return True
+        for name in ('reason', '__cause__', '__context__'):
+            try:
+                nested = getattr(current, name, None)
+                if nested is not None and nested is not current:
+                    pending.append(nested)
+            except Exception:
+                pass
+    return False
+def _routils_urlopen(url, *args, **kwargs):
+    for attempt in range(2):
+        try:
+            return _ROUTILS_ORIGINAL_URLOPEN(url, *args, **kwargs)
+        except Exception as error:
+            if attempt or not _routils_is_network_error(error):
+                raise
+            time.sleep(0.35)
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Iterable
-from tkinter import filedialog, simpledialog, messagebox, ttk
+from tkinter import filedialog, simpledialog, messagebox, ttk, colorchooser
 from tkinter import font as tkfont
 from typing import Dict, List, Optional, Tuple
 try:
@@ -59,9 +91,9 @@ DEFAULT_THEME = 'Midnight'
 _CURRENT_PALETTE = dict(THEMES[DEFAULT_THEME])
 STARTUP_GEOMETRY = '1400x800'
 PANED_TOP_FRACTION = 0.45
-HPANED_LEFT_FRACTION = 0.55
+HPANED_LEFT_FRACTION = 0.73
 VIEWER_MIN_WIDTH = 480
-REPLACER_MIN_WIDTH = 320
+REPLACER_MIN_WIDTH = 220
 WATCH_INTERVAL_SEC = 0.5
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 _LOCAL_APPDATA = os.environ.get('LOCALAPPDATA') or os.path.expanduser('~')
@@ -70,7 +102,7 @@ os.makedirs(DATA_DIR, exist_ok=True)
 SPLASH_DIR = os.path.join(DATA_DIR, 'src')
 SPLASH_IMAGE_PATH = os.path.join(SPLASH_DIR, 'routils.png')
 SPLASH_IMAGE_URL = 'https://raw.githubusercontent.com/offp001/routils/refs/heads/main/src/routils.png'
-APP_VERSION = '5.1.0'
+APP_VERSION = '5.2'
 HISTORY_PATH = os.path.join(DATA_DIR, 'history.json')
 SETTINGS_PATH = os.path.join(DATA_DIR, 'routils_settings.json')
 ERROR_REPORT_DIR = os.path.join(DATA_DIR, 'errors')
@@ -103,7 +135,7 @@ def _ensure_splash_image_file():
     temporary = SPLASH_IMAGE_PATH + '.download'
     try:
         request = urllib.request.Request(SPLASH_IMAGE_URL, headers={'User-Agent': 'RoUtils/4.1.1'})
-        with urllib.request.urlopen(request, timeout=12) as response:
+        with _routils_urlopen(request, timeout=12) as response:
             data = response.read(8 * 1024 * 1024 + 1)
         if not data or len(data) > 8 * 1024 * 1024:
             return False
@@ -120,9 +152,54 @@ def _ensure_splash_image_file():
         except Exception:
             pass
         return False
+_NOTIFICATION_HISTORY_PATH = os.path.join(DATA_DIR, 'notifications.json')
+_NOTIFICATION_HISTORY = []
+_NOTIFICATION_HISTORY_LOCK = threading.Lock()
+_ERROR_DEDUPE = {}
+def _load_notification_history():
+    global _NOTIFICATION_HISTORY
+    try:
+        with open(_NOTIFICATION_HISTORY_PATH, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        if isinstance(data, list):
+            _NOTIFICATION_HISTORY = [x for x in data if isinstance(x, dict)][-200:]
+    except Exception:
+        _NOTIFICATION_HISTORY = []
+def _save_notification_history():
+    try:
+        os.makedirs(DATA_DIR, exist_ok=True)
+        temporary = _NOTIFICATION_HISTORY_PATH + '.tmp'
+        with open(temporary, 'w', encoding='utf-8') as f:
+            json.dump(_NOTIFICATION_HISTORY[-200:], f, ensure_ascii=False, indent=2)
+        os.replace(temporary, _NOTIFICATION_HISTORY_PATH)
+    except Exception:
+        pass
+def _record_notification(title, message, kind='info'):
+    entry = {'time': datetime.now().strftime('%H:%M:%S'), 'date': datetime.now().strftime('%Y-%m-%d'), 'title': _routils_visible_text(str(title)), 'message': _routils_visible_text(str(message)), 'kind': str(kind)}
+    with _NOTIFICATION_HISTORY_LOCK:
+        _NOTIFICATION_HISTORY.append(entry)
+        del _NOTIFICATION_HISTORY[:-200]
+        _save_notification_history()
+    try:
+        app = _ACTIVE_APP
+        if app is not None and app.winfo_exists():
+            app.after(0, app._refresh_notification_center)
+    except Exception:
+        pass
+    return entry
+_load_notification_history()
 def _report_rotools_error(exc_type, exc_value, exc_tb, app=None):
     global _ERROR_REPORTING
     if _ERROR_REPORTING:
+        return
+    short = str(exc_value).strip().splitlines()[0] if str(exc_value).strip() else exc_type.__name__
+    target = app or _ACTIVE_APP
+    if isinstance(exc_value, tk.TclError) and re.search(r"Item .+ not found", short, re.IGNORECASE):
+        try:
+            if target is not None:
+                target._console_log('a cache item changed during refresh the old selection was skipped')
+        except Exception:
+            pass
         return
     _ERROR_REPORTING = True
     try:
@@ -135,19 +212,28 @@ def _report_rotools_error(exc_type, exc_value, exc_tb, app=None):
             f.write(f'Version: {APP_VERSION}\n')
             f.write(f'Time: {datetime.now().isoformat()}\n\n')
             f.write(detail)
-        short = str(exc_value).strip().splitlines()[0] if str(exc_value).strip() else exc_type.__name__
-        target = app or _ACTIVE_APP
+        signature = f'{exc_type.__name__}:{short}'
+        now = time.monotonic()
+        previous = _ERROR_DEDUPE.get(signature, 0)
+        _ERROR_DEDUPE[signature] = now
+        if now - previous < 5:
+            if target is not None:
+                try:
+                    target._console_log('the same issue happened again repeated alert skipped')
+                except Exception:
+                    pass
+            return
         if target is not None:
             try:
-                target._console_log(f'RoUtils encountered an error: {short} (details: {path})')
+                target._console_log('an unexpected issue occurred details were saved in the error folder')
             except Exception:
                 pass
-        message = f'RoUtils encountered an error.\n\nError: {short}\n\nDetailed report saved to:\n{path}\n\nCheck Console for more details.'
+        message = 'RoUtils could not complete this action\n\nA report was saved in the error folder\n\nTry again and check the Console if it keeps happening'
         try:
             if target is not None and target.winfo_exists():
-                target.after(0, lambda: messagebox.showerror('RoUtils Error', message, parent=target))
+                target.after(0, lambda: messagebox.showerror('RoUtils ran into a problem', message, parent=target))
             else:
-                messagebox.showerror('RoUtils Error', message)
+                messagebox.showerror('RoUtils ran into a problem', message)
         except Exception:
             pass
     finally:
@@ -1740,7 +1826,6 @@ def _quat_to_matrix(x: float, y: float, z: float, w: float) -> tuple[float, ...]
     wx, wy, wz = (w * x, w * y, w * z)
     return (1 - 2 * (yy + zz), 2 * (xy - wz), 2 * (xz + wy), 2 * (xy + wz), 1 - 2 * (xx + zz), 2 * (yz - wx), 2 * (xz - wy), 2 * (yz + wx), 1 - 2 * (xx + yy))
 import struct
-import zlib
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 import lz4.block
@@ -2850,6 +2935,8 @@ def apply_visual_polish(root: tk.Tk, theme: Optional[str]='system', palette: Opt
     style.map('TButton', background=[('pressed', accent), ('active', bg_hover), ('disabled', bg_medium)], foreground=[('disabled', '#6f6f6f')], bordercolor=[('active', accent)])
     style.configure('TCheckbutton', background=bg_dark, foreground=fg_white, padding=_check_pad, font=('Segoe UI', _small_font))
     style.map('TCheckbutton', background=[('active', bg_dark)], foreground=[('active', fg_white)])
+    style.configure('primary.TCheckbutton', background=bg_dark, foreground=fg_white, padding=_check_pad, font=('Segoe UI', _small_font))
+    style.map('primary.TCheckbutton', background=[('active', bg_dark)], foreground=[('disabled', '#6f6f6f'), ('active', fg_white)])
     style.configure('TRadiobutton', background=bg_dark, foreground=fg_white, padding=_check_pad, font=('Segoe UI', _small_font))
     style.map('TRadiobutton', background=[('active', bg_dark)], foreground=[('active', fg_white)])
     style.configure('TEntry', fieldbackground=bg_medium, foreground=fg_white, insertcolor='#ffffff', bordercolor=border, padding=_ctrl_pad)
@@ -6542,7 +6629,7 @@ def _routils_popup_chrome(win):
         bar.pack_propagate(False)
         title_label = tk.Label(bar, text=title, bg=bar_bg, fg=fg, font=('Segoe UI Semibold', 9), anchor='w')
         title_label.pack(side='left', fill='both', expand=True, padx=(11, 4))
-        close = tk.Label(bar, text='×', bg=bar_bg, fg='#ff777d', font=('Segoe UI', 16), width=3, cursor='hand2')
+        close = tk.Label(bar, text='×', bg=bar_bg, fg='#ff777d', font=('Segoe UI', 13), width=2, cursor='hand2')
         close.pack(side='right', fill='y')
         close.bind('<Button-1>', lambda _e, w=win: _routils_close_popup(w))
         close.bind('<Enter>', lambda _e, w=close: w.configure(bg='#542a31'))
@@ -6625,13 +6712,17 @@ def _routils_refresh_popup_chrome(win):
         pass
 _original_toplevel_init = tk.Toplevel.__init__
 def _routils_toplevel_init(self, *args, **kwargs):
+    skip_popup_chrome = bool(getattr(tk, '_routils_skip_next_popup_chrome', False))
+    if skip_popup_chrome:
+        tk._routils_skip_next_popup_chrome = False
     _original_toplevel_init(self, *args, **kwargs)
     try:
         master = self.master
         if master is not None and isinstance(master, (tk.Tk, tk.Toplevel)) and master.winfo_exists():
             self.transient(master)
         self.bind('<Destroy>', lambda event, w=self: _routils_clear_window_references(event, w), add='+')
-        self.after_idle(lambda w=self: _routils_popup_chrome(w) if w.winfo_exists() else None)
+        if not skip_popup_chrome:
+            self.after_idle(lambda w=self: _routils_popup_chrome(w) if w.winfo_exists() else None)
     except Exception:
         pass
 tk.Toplevel.__init__ = _routils_toplevel_init
@@ -6668,7 +6759,7 @@ class _MacNotification:
         ordered = list(reversed(cls._active))
         for index, (win, height) in enumerate(ordered):
             try:
-                width = 390
+                width = 280
                 root = getattr(win, '_routils_notification_parent', None)
                 if root is not None and root.winfo_exists():
                     root.update_idletasks()
@@ -6692,6 +6783,7 @@ class _MacNotification:
             if parent is None or not parent.winfo_exists():
                 return
             root = parent.winfo_toplevel()
+            _record_notification(title, message, kind)
             accent = _CURRENT_PALETTE.get('accent', '#8ab4f8')
             if kind == 'error':
                 accent = '#ff5f68'
@@ -6700,8 +6792,8 @@ class _MacNotification:
             bg = _CURRENT_PALETTE.get('bg_dark', '#111318')
             panel = _CURRENT_PALETTE.get('bg_medium', '#1a1d24')
             fg = _CURRENT_PALETTE.get('fg', '#e6e9ef')
-            lines = max(2, min(6, (len(str(message)) // 54) + 1))
-            height = 62 + lines * 18
+            lines = max(1, min(4, (len(str(message)) // 46) + 1))
+            height = 46 + lines * 14
             toast = tk.Toplevel(root)
             toast._routils_notification_parent = root
             toast._skip_custom_chrome = True
@@ -6716,14 +6808,14 @@ class _MacNotification:
             outer.pack(fill='both', expand=True, padx=0, pady=0)
             card = tk.Frame(outer, bg=panel, bd=0)
             card.pack(fill='both', expand=True, padx=2, pady=2)
-            header = tk.Frame(card, bg=panel, height=31)
+            header = tk.Frame(card, bg=panel, height=25)
             header.pack(fill='x')
             header.pack_propagate(False)
-            tk.Label(header, text=str(title), bg=panel, fg=fg, font=('Segoe UI Semibold', 9), anchor='w').pack(side='left', fill='both', expand=True, padx=(12, 4))
-            close = tk.Label(header, text='×', bg=panel, fg='#ff8a90', font=('Segoe UI', 16), width=3, cursor='hand2')
+            tk.Label(header, text=str(title), bg=panel, fg=fg, font=('Segoe UI Semibold', 8), anchor='w').pack(side='left', fill='both', expand=True, padx=(7, 2))
+            close = tk.Label(header, text='×', bg=panel, fg='#ff8a90', font=('Segoe UI', 13), width=2, cursor='hand2')
             close.pack(side='right', fill='y')
-            body = tk.Label(card, text=str(message), bg=panel, fg=fg, justify='left', anchor='w', wraplength=350, font=('Segoe UI', 9))
-            body.pack(fill='both', expand=True, padx=12, pady=(2, 12))
+            body = tk.Label(card, text=str(message), bg=panel, fg=fg, justify='left', anchor='w', wraplength=238, font=('Segoe UI', 8))
+            body.pack(fill='both', expand=True, padx=9, pady=(1, 7))
             state = {'count': 0, 'closed': False}
             def close_toast():
                 if state['closed']:
@@ -7219,7 +7311,14 @@ class App(_TkAppBase):
         except Exception:
             pass
         _t = self.settings.get('theme', DEFAULT_THEME)
-        apply_visual_polish(self, theme=UI_THEME, palette=THEMES.get(_t, THEMES[DEFAULT_THEME]))
+        _initial_palette = dict(THEMES[DEFAULT_THEME] if _t == 'Custom' else THEMES.get(_t, THEMES[DEFAULT_THEME]))
+        if _t == 'Custom':
+            _saved_custom_palette = self.settings.get('custom_theme', {})
+            if isinstance(_saved_custom_palette, dict):
+                for _color_key, _fallback_color in THEMES[DEFAULT_THEME].items():
+                    _saved_color = _saved_custom_palette.get(_color_key, _fallback_color)
+                    _initial_palette[_color_key] = _saved_color if isinstance(_saved_color, str) and re.fullmatch(r'#[0-9a-fA-F]{6}', _saved_color) else _fallback_color
+        apply_visual_polish(self, theme=UI_THEME, palette=_initial_palette)
         self.title('RoUtils')
         saved_geometry = str(self.settings.get('window_geometry', '') or '')
         screen_width = max(800, int(self.winfo_screenwidth() or 1920))
@@ -7336,13 +7435,13 @@ class App(_TkAppBase):
         self.hpaned = ttk.PanedWindow(self.tab_viewer, orient='horizontal')
         self.hpaned.pack(fill='both', expand=True)
         self.viewer_root = ttk.Frame(self.hpaned)
-        self.hpaned.add(self.viewer_root, weight=3)
+        self.hpaned.add(self.viewer_root, weight=4)
         _set_pane_minsize(self.hpaned, self.viewer_root, VIEWER_MIN_WIDTH)
         self.replacer = ReplacerPane(self.hpaned)
-        self.hpaned.add(self.replacer, weight=2)
+        self.hpaned.add(self.replacer, weight=1)
         _set_pane_minsize(self.hpaned, self.replacer, REPLACER_MIN_WIDTH)
         self.hpaned.bind('<B1-Motion>', lambda e: self._clamp_hsash())
-        self.hpaned.bind('<ButtonRelease-1>', lambda e: self._clamp_hsash())
+        self.hpaned.bind('<ButtonRelease-1>', self._on_hsash_release)
         self.viewer_collapsed = False
         self._restore_geom: Optional[Tuple[int, int, int, int]] = None
         self._saved_sash: Optional[int] = None
@@ -7416,9 +7515,20 @@ class App(_TkAppBase):
         self.fflag_pid = 0
         self.fflag_original_values = {}
         self.fflag_auto_apply = tk.BooleanVar(value=self.settings.get('fflag_auto_apply', False))
-        self.emote_names = ['/e dance1', '/e dance2', '/e dance3', '/e laugh', '/e cheer', '/e wave', '/e point']
+        self.emote_names = ['/e dance1', '/e dance2', '/e dance3', '/e cheer', '/e laugh', '/e wave', '/e point']
         saved_emotes = self.settings.get('emote_binds', {})
         self.emote_binds = {name: str(saved_emotes.get(name, '') or '').upper() for name in self.emote_names} if isinstance(saved_emotes, dict) else {name: '' for name in self.emote_names}
+        saved_nav_binds = self.settings.get('emote_nav_binds', {})
+        self._emote_nav_binds = {action: str(saved_nav_binds.get(action, '') or '').upper() for action in ('previous', 'next', 'play')} if isinstance(saved_nav_binds, dict) else {'previous': '', 'next': '', 'play': ''}
+        self._emote_hotkeys_enabled = bool(self.settings.get('emote_hotkeys_enabled', True))
+        self._emote_current_index = 0
+        self._emote_control_capture_action = None
+        self._emote_controls_window = None
+        self._emote_controls_labels = {}
+        self._emote_hud = None
+        self._emote_hud_canvas = None
+        self._emote_hud_text = None
+        self._emote_hud_position_job = None
         self._emote_capture_dialog = None
         self.launch_on_startup = tk.BooleanVar(value=self.settings.get('launch_on_startup', False))
         self.launch_on_tray = tk.BooleanVar(value=self.settings.get('launch_on_tray', False))
@@ -7446,8 +7556,8 @@ class App(_TkAppBase):
         self._lazy_tab_ids = {}
         self.nb.bind('<<NotebookTabChanged>>', self._lazy_tab_changed, add='+')
         self._build_home_tab()
-        lazy_builders = {'Cache': self._lazy_build_cache, 'FFlags': self._build_fflag_tab, 'Emote Manager': self._build_emote_manager_tab, 'Modifications': self._build_utils_tab, 'Configs': self._build_cconfigs_tab, 'Subplace Joiner': self._build_subplace_joiner_tab, 'Server Viewer': self._build_server_viewer_tab, 'History': self._build_history_tab, 'Client': self._build_client_tab, 'Themes': self._build_themes_tab, 'Settings': self._build_settings_tab, 'Plugins': self._build_plugins_tab, 'Console': self._build_console_tab}
-        for tab_name in ('Cache', 'FFlags', 'Emote Manager', 'Configs', 'Modifications', 'Subplace Joiner', 'Server Viewer', 'History', 'Client', 'Themes', 'Settings', 'Plugins', 'Console'):
+        lazy_builders = {'Cache': self._lazy_build_cache, 'FFlags': self._build_fflag_tab, 'Emote Manager': self._build_emote_manager_tab, 'AI': self._build_ai_tab, 'Modifications': self._build_utils_tab, 'Configs': self._build_cconfigs_tab, 'Subplace Joiner': self._build_subplace_joiner_tab, 'Server Viewer': self._build_server_viewer_tab, 'History': self._build_history_tab, 'Client': self._build_client_tab, 'Customize': self._build_themes_tab, 'Settings': self._build_settings_tab, 'Plugins': self._build_plugins_tab, 'Console': self._build_console_tab}
+        for tab_name in ('Cache', 'FFlags', 'Emote Manager', 'AI', 'Configs', 'Modifications', 'Subplace Joiner', 'Server Viewer', 'History', 'Client', 'Customize', 'Settings', 'Plugins', 'Console'):
             if tab_name == 'Cache':
                 tab = self.tab_viewer
             else:
@@ -7461,6 +7571,8 @@ class App(_TkAppBase):
         self._refresh_tab_nav()
         if self.nb.tabs():
             preferred = str(self.settings.get('selected_tab', 'Home'))
+            if preferred == 'Themes':
+                preferred = 'Customize'
             selected_id = next((tid for tid in self.nb.tabs() if self.nb.tab(tid, 'text') == preferred), None)
             if selected_id is None:
                 selected_id = next((tid for tid in self.nb.tabs() if self.nb.tab(tid, 'text') == 'Home'), self.nb.tabs()[0])
@@ -7477,6 +7589,7 @@ class App(_TkAppBase):
         self._start_global_hotkeys()
         self.after(UI_HOTKEY_INTERVAL_MS, self._process_global_hotkeys)
         self.after(UI_QUICK_PANEL_INTERVAL_MS, self._quick_panel_tick)
+        self.after(800, self._restore_enabled_plugins)
         if self.settings.get('viewer_collapsed'):
             self.after(250, self._apply_saved_viewer_state)
         self.after(UI_QUEUE_INTERVAL_MS, self._drain_queue)
@@ -7576,10 +7689,13 @@ class App(_TkAppBase):
             canvas = self._routils_splash_canvas
             if splash is None or canvas is None or not splash.winfo_exists() or not os.path.isfile(SPLASH_IMAGE_PATH):
                 return
+            canvas.update_idletasks()
+            target_width = max(1, int(canvas.winfo_width() or 436))
+            target_height = max(1, int(canvas.winfo_height() or 172))
             with Image.open(SPLASH_IMAGE_PATH) as source:
                 resampling_group = getattr(Image, 'Resampling', Image)
                 resampling = getattr(resampling_group, 'LANCZOS', getattr(resampling_group, 'BICUBIC', 3))
-                image = source.convert('RGB').resize((415, 156), resampling)
+                image = source.convert('RGB').resize((target_width, target_height), resampling)
             photo = ImageTk.PhotoImage(image, master=splash)
             canvas.delete('splash_background')
             canvas.create_image(0, 0, image=photo, anchor='nw', tags=('splash_background',))
@@ -7756,14 +7872,36 @@ class App(_TkAppBase):
             return
         def worker():
             user32 = ctypes.windll.user32
+            toggle_was_down = False
             while not self._hotkey_stop.is_set():
                 try:
+                    ctrl_down = bool(user32.GetAsyncKeyState(0x11) & 32768)
+                    f3_vk = fflag_key_to_vk('F3') or 0x72
+                    f3_down = bool(user32.GetAsyncKeyState(f3_vk) & 32768)
+                    toggle_down = ctrl_down and f3_down
+                    if toggle_down and not toggle_was_down:
+                        self._global_hotkey_q.put(('emote_controls_toggle', {}))
+                    if toggle_down:
+                        self._hotkey_prev[f3_vk] = True
+                    toggle_was_down = toggle_down
+                    if toggle_down:
+                        time.sleep(0.025)
+                        continue
+                    if getattr(self, '_emote_control_capture_action', None):
+                        time.sleep(0.025)
+                        continue
                     bindings = [('quick_panel', 'F7', {})]
-                    emote_binds = getattr(self, 'emote_binds', {})
-                    for dance, key in emote_binds.items():
-                        key = str(key or '').upper()
-                        if key:
-                            bindings.append(('emote', key, {'key': key, 'dance': dance}))
+                    if bool(getattr(self, '_emote_hotkeys_enabled', True)):
+                        nav_binds = getattr(self, '_emote_nav_binds', {})
+                        for action, key in nav_binds.items():
+                            key = str(key or '').upper()
+                            if key:
+                                bindings.append(('emote_nav', key, {'key': key, 'action': action}))
+                        emote_binds = getattr(self, 'emote_binds', {})
+                        for dance, key in emote_binds.items():
+                            key = str(key or '').upper()
+                            if key:
+                                bindings.append(('emote', key, {'key': key, 'dance': dance}))
                     for binding in self.fflag_hotkeys:
                         key = str(binding.get('key', '')).upper()
                         if key:
@@ -7784,7 +7922,7 @@ class App(_TkAppBase):
                         if self._emote_typing_active:
                             continue
                         if down and (not was_down):
-                            if kind == 'emote':
+                            if kind in ('emote', 'emote_nav'):
                                 foreground = user32.GetForegroundWindow()
                                 foreground_pid = ctypes.wintypes.DWORD()
                                 if not foreground:
@@ -7809,10 +7947,16 @@ class App(_TkAppBase):
                 kind, binding = self._global_hotkey_q.get_nowait()
                 if kind == 'quick_panel':
                     self._toggle_quick_panel()
+                elif kind == 'emote_controls_toggle':
+                    self._toggle_emote_controls()
                 elif kind == 'fps':
                     self._handle_fps_hotkey(binding)
                 elif kind == 'emote':
-                    self._handle_emote_hotkey(binding)
+                    if bool(getattr(self, '_emote_hotkeys_enabled', True)):
+                        self._handle_emote_hotkey(binding)
+                elif kind == 'emote_nav':
+                    if bool(getattr(self, '_emote_hotkeys_enabled', True)):
+                        self._handle_emote_nav_hotkey(binding)
                 else:
                     self._handle_fflag_hotkey(binding)
         except queue.Empty:
@@ -7855,11 +7999,14 @@ class App(_TkAppBase):
                 self.geometry(self._quick_panel_restore_geometry)
             self._quick_panel_visible = False
             if to_tray:
-                self.withdraw()
-                self._start_tray()
-                self._tray_hidden = True
+                self._hide_to_tray()
             else:
+                self._emote_controls_detach_from_main(no_activate=True)
                 self.iconify()
+                try:
+                    self.after(80, self._emote_controls_ensure_visible_after_hide)
+                except Exception:
+                    pass
         except Exception:
             self._quick_panel_visible = False
     def _toggle_quick_panel(self):
@@ -8227,11 +8374,17 @@ class App(_TkAppBase):
         self._titlebar_canvas = tk.Canvas(self._titlebar, bg=_CURRENT_PALETTE.get('bg_dark', '#1b1b1c'), bd=0, highlightthickness=0, height=38)
         self._titlebar_canvas.pack(fill='both', expand=True)
         self._titlebar_canvas.create_text(0, 19, text='RoUtils', anchor='center', fill='#f2f2f2', font=('Segoe UI Semibold', 10), tags=('title',))
-        self._titlebar_canvas.create_text(0, 19, text='⌕ Search', anchor='w', fill='#b7c5df', font=('Segoe UI', 9), tags=('spotlight',))
+        self._titlebar_canvas.create_text(0, 19, text='⌕ Search - (Ctrl + K)', anchor='w', fill='#b7c5df', font=('Segoe UI', 9), tags=('spotlight',))
         self._titlebar_canvas.tag_bind('spotlight', '<Button-1>', lambda _e: self._open_spotlight(), add='+')
+        self.bind_all('<Control-k>', lambda _e: (self._open_spotlight(), 'break')[1], add='+')
+        self.bind_all('<Control-K>', lambda _e: (self._open_spotlight(), 'break')[1], add='+')
         self._titlebar_canvas.tag_bind('spotlight', '<Enter>', lambda _e: self._titlebar_canvas.configure(cursor='hand2'), add='+')
         self._titlebar_canvas.tag_bind('spotlight', '<Leave>', lambda _e: self._titlebar_canvas.configure(cursor=''), add='+')
         self._titlebar_buttons = {}
+        self._notification_button = self._titlebar_canvas.create_text(0, 19, text='🔔', fill='#d7dce5', font=('Segoe UI Emoji', 11), tags=('notification_button',))
+        self._titlebar_canvas.tag_bind('notification_button', '<Button-1>', lambda _e: self._open_notification_center(), add='+')
+        self._titlebar_canvas.tag_bind('notification_button', '<Enter>', lambda _e: self._titlebar_canvas.configure(cursor='hand2'), add='+')
+        self._titlebar_canvas.tag_bind('notification_button', '<Leave>', lambda _e: self._titlebar_canvas.configure(cursor=''), add='+')
         self._kill_ro_utils_items = None
         controls = (('close', '#ff5f57', self._titlebar_close), ('max', '#28c840', self._titlebar_toggle_maximize), ('min', '#febc2e', self._titlebar_minimize))
         for name, color, command in controls:
@@ -8246,7 +8399,110 @@ class App(_TkAppBase):
         self._titlebar_last_xy = None
         self._titlebar_last_layout_width = 0
         self._titlebar_drag_job = None
+        saved_button_colors = self.settings.get('topbar_button_colors', {})
+        legacy_button_color = self.settings.get('topbar_button_color')
+        default_button_colors = {'close': '#ff5f57', 'max': '#28c840', 'min': '#febc2e'}
+        if not isinstance(saved_button_colors, dict):
+            saved_button_colors = {}
+        for name, (item, command, old_color) in list(self._titlebar_buttons.items()):
+            selected_color = saved_button_colors.get(name, legacy_button_color or default_button_colors.get(name, old_color))
+            if not isinstance(selected_color, str) or not re.fullmatch(r'#[0-9a-fA-F]{6}', selected_color):
+                selected_color = default_button_colors.get(name, old_color)
+            self._titlebar_buttons[name] = (item, command, selected_color)
+            self._titlebar_canvas.itemconfigure(item, fill=selected_color)
         self.after_idle(self._restore_windows_taskbar_presence)
+    def _open_notification_center(self):
+        panel = getattr(self, '_notification_center_panel', None)
+        if panel is not None:
+            try:
+                if panel.winfo_exists():
+                    if panel.winfo_ismapped():
+                        panel.place_forget()
+                    else:
+                        self._refresh_notification_center()
+                        panel.place(relx=1.0, x=-12, y=42, anchor='ne', width=390, height=430)
+                        panel.lift()
+                    return
+            except Exception:
+                pass
+        bg = _CURRENT_PALETTE.get('bg_dark', '#111318')
+        surface = _CURRENT_PALETTE.get('bg_medium', '#1a1d24')
+        fg = _CURRENT_PALETTE.get('fg', '#e6e9ef')
+        accent = _CURRENT_PALETTE.get('accent', '#8ab4f8')
+        panel = tk.Frame(self, bg=bg, bd=0, highlightthickness=1, highlightbackground=accent)
+        self._notification_center_panel = panel
+        panel.place(relx=1.0, x=-12, y=42, anchor='ne', width=390, height=430)
+        header = tk.Frame(panel, bg=bg)
+        header.pack(fill='x', padx=10, pady=(8, 6))
+        tk.Label(header, text='Notifications', bg=bg, fg=fg, font=('Segoe UI Semibold', 11)).pack(side='left')
+        ttk.Button(header, text='Clear', command=self._clear_notification_history).pack(side='right', padx=(4, 0))
+        close = tk.Label(header, text='×', bg=bg, fg=fg, font=('Segoe UI', 16), cursor='hand2')
+        close.pack(side='right', padx=(6, 4))
+        close.bind('<Button-1>', lambda _e: panel.place_forget())
+        listing = tk.Frame(panel, bg=surface)
+        listing.pack(fill='both', expand=True, padx=10, pady=(0, 8))
+        listbox = tk.Listbox(listing, bg=surface, fg=fg, selectbackground=accent, selectforeground='#ffffff', bd=0, highlightthickness=0, activestyle='none', font=('Segoe UI', 8), exportselection=False)
+        scroll = ttk.Scrollbar(listing, orient='vertical', command=listbox.yview)
+        listbox.configure(yscrollcommand=scroll.set)
+        listbox.pack(side='left', fill='both', expand=True)
+        scroll.pack(side='right', fill='y')
+        details = tk.Text(panel, height=5, wrap='word', bg=surface, fg=fg, bd=0, highlightthickness=0, font=('Segoe UI', 8), padx=8, pady=6)
+        details.pack(fill='x', padx=10, pady=(0, 10))
+        details.configure(state='disabled')
+        self._notification_center_listbox = listbox
+        self._notification_center_details = details
+        listbox.bind('<<ListboxSelect>>', self._notification_center_show_selected)
+        self._refresh_notification_center()
+        panel.lift()
+        return panel
+    def _refresh_notification_center(self):
+        panel = getattr(self, '_notification_center_panel', None)
+        listbox = getattr(self, '_notification_center_listbox', None)
+        details = getattr(self, '_notification_center_details', None)
+        if panel is None or listbox is None or details is None:
+            return
+        try:
+            if not panel.winfo_exists() or not listbox.winfo_exists() or not details.winfo_exists():
+                return
+            with _NOTIFICATION_HISTORY_LOCK:
+                entries = list(reversed(_NOTIFICATION_HISTORY))
+            self._notification_center_entries = entries
+            listbox.delete(0, 'end')
+            for entry in entries:
+                title = str(entry.get('title', 'Notification')).strip() or 'Notification'
+                listbox.insert('end', f"{entry.get('time', '')}  ·  {title}")
+            if entries:
+                listbox.selection_set(0)
+                self._notification_center_show_selected()
+            else:
+                details.configure(state='normal')
+                details.delete('1.0', 'end')
+                details.insert('1.0', 'No notifications yet. RoUtils will keep recent updates here.')
+                details.configure(state='disabled')
+        except tk.TclError:
+            pass
+    def _notification_center_show_selected(self, _event=None):
+        listbox = getattr(self, '_notification_center_listbox', None)
+        details = getattr(self, '_notification_center_details', None)
+        if listbox is None or details is None:
+            return
+        try:
+            selection = listbox.curselection()
+            entries = getattr(self, '_notification_center_entries', [])
+            if not selection or selection[0] >= len(entries):
+                return
+            entry = entries[selection[0]]
+            details.configure(state='normal')
+            details.delete('1.0', 'end')
+            details.insert('1.0', f"{entry.get('title', 'Notification')}\n{entry.get('date', '')} {entry.get('time', '')}\n\n{entry.get('message', '')}")
+            details.configure(state='disabled')
+        except tk.TclError:
+            pass
+    def _clear_notification_history(self):
+        with _NOTIFICATION_HISTORY_LOCK:
+            _NOTIFICATION_HISTORY.clear()
+            _save_notification_history()
+        self._refresh_notification_center()
     def _open_spotlight(self):
         existing = getattr(self, '_spotlight_window', None)
         if existing is not None:
@@ -8316,7 +8572,8 @@ class App(_TkAppBase):
                 'Server Viewer': ('View Roblox server', 'Server deeplink', 'Job ID'),
                 'History': ('Recent games', 'Recent servers', 'Join history', 'Copy deeplink'),
                 'Client': ('Roblox client info', 'CPU usage', 'RAM usage', 'Refresh client info'),
-                'Themes': ('Appearance', 'Change theme', 'Customize colors'),
+                'Customize': ('Appearance', 'Change theme', 'Customize colors', 'Topbar button colors'),
+                'AI': ('Ask AI', 'Gemini chat', 'RoUtils help'),
                 'Plugins': ('Manage plugins', 'Enable plugins', 'Disable plugins'),
                 'Console': ('Commands', 'Command console', 'Cache commands', 'FFlag commands'),
                 'Settings': ('Preferences', 'Performance settings', 'Startup settings', 'Hotkeys', 'Update settings')
@@ -8358,6 +8615,10 @@ class App(_TkAppBase):
             terms = [part for part in query.split() if part]
             matches.clear()
             results.delete(0, 'end')
+            ai_tab_id = next((tid for tid in self.nb.tabs() if self.nb.tab(tid, 'text') == 'AI'), None)
+            if ai_tab_id is not None:
+                matches.append(('Ask to AI', 'AI', ai_tab_id, '__ask_ai__'))
+                results.insert('end', '✦ Ask to AI')
             for item in all_items:
                 text, tab_name = item[0], item[1]
                 haystack = f'{text} {tab_name}'.lower()
@@ -8375,6 +8636,14 @@ class App(_TkAppBase):
             if not selection or selection[0] >= len(matches):
                 return
             _text, _tab_name, tab_id, widget = matches[selection[0]]
+            if widget == '__ask_ai__':
+                prompt = var.get().strip()
+                try:
+                    win.destroy()
+                except Exception:
+                    pass
+                self._open_ai_chat(prompt if prompt else None)
+                return
             try:
                 self.nb.select(tab_id)
                 self._lazy_tab_changed()
@@ -8463,12 +8732,13 @@ class App(_TkAppBase):
             if w == getattr(self, '_titlebar_last_layout_width', 0) and (not force):
                 return
             self._titlebar_last_layout_width = w
-            self._titlebar_canvas.coords('title', w / 2 - 26, 19)
-            self._titlebar_canvas.coords('spotlight', w / 2 + 26, 19)
+            self._titlebar_canvas.coords('title', w / 2 - 86, 19)
+            self._titlebar_canvas.coords('spotlight', w / 2 - 18, 19)
             kill_items = getattr(self, '_kill_ro_utils_items', None)
             if kill_items:
                 self._titlebar_canvas.coords(kill_items[0], 10, 12, 24, 26)
                 self._titlebar_canvas.coords(kill_items[1], 31, 19)
+            self._titlebar_canvas.coords(self._notification_button, w - 103, 19)
             x = w - 25
             for name in ('close', 'max', 'min'):
                 item = self._titlebar_buttons[name][0]
@@ -8483,6 +8753,12 @@ class App(_TkAppBase):
                 box = self._titlebar_canvas.bbox(item)
                 if box and box[0] - 6 <= x <= box[2] + 6 and (box[1] - 6 <= y <= box[3] + 6):
                     return ('kill_ro_utils', self._kill_ro_utils)
+        try:
+            box = self._titlebar_canvas.bbox('notification_button')
+            if box and box[0] - 5 <= x <= box[2] + 5 and box[1] - 5 <= y <= box[3] + 5:
+                return ('notifications', self._open_notification_center)
+        except Exception:
+            pass
         try:
             box = self._titlebar_canvas.bbox('spotlight')
             if box and box[0] <= x <= box[2] and box[1] <= y <= box[3]:
@@ -8722,6 +8998,13 @@ class App(_TkAppBase):
                     if isinstance(w, _ScrollableTab):
                         target = w.canvas
                         break
+                    if isinstance(w, tk.Canvas):
+                        try:
+                            if w.cget('yscrollcommand'):
+                                target = w
+                                break
+                        except Exception:
+                            pass
                     try:
                         parent = w.nametowidget(w.winfo_parent())
                         if parent is w:
@@ -8860,85 +9143,311 @@ class App(_TkAppBase):
             style.configure('RoUtils.ActiveNav.TButton', foreground=_CURRENT_PALETTE.get('accent', '#7f8cff'))
         except Exception:
             pass
-        self._refresh_tab_nav()
+        try:
+            self._refresh_tab_nav()
+        except Exception:
+            pass
     def _build_themes_tab(self):
+        self.settings.pop('background_image', None)
+        self.settings.pop('background_opacity', None)
         tab = ttk.Frame(self.nb, padding=12)
-        self.nb.add(tab, text='Themes')
-        ttk.Label(tab, text='Themes', font=('Segoe UI Semibold', 15)).pack(anchor='w')
-        ttk.Label(tab, text='Choose a complete UI palette or create your own.', foreground='#9aa0a6').pack(anchor='w', pady=(0, 10))
+        self.nb.add(tab, text='Customize')
+        ttk.Label(tab, text='Customize App', font=('Segoe UI Semibold', 16)).pack(anchor='w')
+        ttk.Label(tab, text='Choose a theme and personalize the app colors.', foreground='#9aa0a6').pack(anchor='w', pady=(0, 10))
         outer = ttk.Frame(tab)
         outer.pack(fill='both', expand=True)
         left = ttk.Frame(outer)
         left.pack(side='left', fill='both', expand=True)
-        right = ttk.LabelFrame(outer, text='Custom Theme', padding=12)
+        right = ttk.LabelFrame(outer, text='Appearance', padding=12)
         right.pack(side='right', fill='y', padx=(14, 0))
         self.theme_var = tk.StringVar(value=self.settings.get('theme', DEFAULT_THEME))
-        lb = tk.Listbox(left, bg=_CURRENT_PALETTE['bg_medium'], fg=_CURRENT_PALETTE['fg'], selectbackground=_CURRENT_PALETTE['accent'], relief='flat', bd=0)
+        lb = tk.Listbox(left, bg=_CURRENT_PALETTE['bg_medium'], fg=_CURRENT_PALETTE['fg'], selectbackground=_CURRENT_PALETTE['accent'], relief='flat', bd=0, font=('Segoe UI', 10), exportselection=False)
         lb.pack(fill='both', expand=True)
-        for name in THEME_NAMES:
+        self._theme_listbox = lb
+        theme_names = THEME_NAMES + (['Custom'] if 'Custom' not in THEME_NAMES else [])
+        for name in theme_names:
             lb.insert('end', name)
         try:
-            lb.selection_set(THEME_NAMES.index(self.theme_var.get()))
+            lb.selection_set(theme_names.index(self.theme_var.get()))
+            lb.see(theme_names.index(self.theme_var.get()))
         except Exception:
             pass
         lb.bind('<<ListboxSelect>>', lambda _e: self._theme_list_apply(lb))
-        self.custom_theme_vars = {}
         custom = self.settings.get('custom_theme', {})
-        for key in ('bg_dark', 'bg_medium', 'bg_light', 'bg_hover', 'fg', 'accent', 'border'):
+        if not isinstance(custom, dict):
+            custom = {}
+        self.custom_theme_vars = {}
+        self._custom_theme_swatches = {}
+        ttk.Label(right, text='Appearance colors', font=('Segoe UI Semibold', 10)).pack(anchor='w', pady=(0, 4))
+        palette_defaults = THEMES[DEFAULT_THEME]
+        palette_labels = (
+            ('bg_dark', 'Main background'),
+            ('bg_medium', 'Surface'),
+            ('bg_light', 'Panel'),
+            ('bg_hover', 'Hover'),
+            ('fg', 'Text'),
+            ('accent', 'Accent'),
+            ('border', 'Border'),
+        )
+        for key, label_text in palette_labels:
+            chosen = custom.get(key, palette_defaults[key])
+            if not isinstance(chosen, str) or not re.fullmatch(r'#[0-9a-fA-F]{6}', chosen):
+                chosen = palette_defaults[key]
+            color_var = tk.StringVar(value=chosen)
+            self.custom_theme_vars[key] = color_var
             row = ttk.Frame(right)
-            row.pack(fill='x', pady=3)
-            ttk.Label(row, text=key, width=10).pack(side='left')
-            v = tk.StringVar(value=custom.get(key, THEMES[DEFAULT_THEME][key]))
-            self.custom_theme_vars[key] = v
-            ttk.Entry(row, textvariable=v, width=12).pack(side='left')
-        ttk.Button(right, text='Apply Custom', command=self._apply_custom_theme).pack(fill='x', pady=(10, 4))
-        ttk.Button(right, text='Save Custom', command=self._save_custom_theme).pack(fill='x')
-    def _theme_list_apply(self, lb):
-        sel = lb.curselection()
-        if not sel:
+            row.pack(fill='x', pady=2)
+            ttk.Label(row, text=label_text, width=15).pack(side='left')
+            swatch = tk.Button(row, text='    ', bg=chosen, activebackground=chosen, relief='flat', bd=0, cursor='hand2', command=lambda k=key: self._choose_custom_theme_color(k))
+            swatch.pack(side='left', padx=(0, 6))
+            self._custom_theme_swatches[key] = swatch
+            ttk.Button(row, text='Choose…', command=lambda k=key: self._choose_custom_theme_color(k)).pack(side='left', fill='x', expand=True)
+            ttk.Button(row, text='Reset color', command=lambda k=key: self._reset_custom_theme_color(k)).pack(side='left', padx=(4, 0))
+        ttk.Button(right, text='Apply Appearance Colors', command=self._apply_custom_theme).pack(fill='x', pady=(7, 3))
+        ttk.Button(right, text='Save Custom Theme', command=self._save_custom_theme).pack(fill='x', pady=(0, 7))
+        ttk.Separator(right).pack(fill='x', pady=6)
+        ttk.Label(right, text='Topbar button colors', font=('Segoe UI Semibold', 10)).pack(anchor='w', pady=(0, 4))
+        saved_button_colors = self.settings.get('topbar_button_colors', {})
+        if not isinstance(saved_button_colors, dict):
+            saved_button_colors = {}
+        legacy_button_color = self.settings.get('topbar_button_color')
+        defaults = {'close': '#ff5f57', 'max': '#28c840', 'min': '#febc2e'}
+        self._topbar_button_color_vars = {}
+        self._topbar_button_color_swatches = {}
+        self._topbar_button_default_colors = defaults.copy()
+        for button_name, label_text in (('close', 'Close'), ('max', 'Maximize'), ('min', 'Minimize')):
+            chosen = saved_button_colors.get(button_name, legacy_button_color or defaults[button_name])
+            if not isinstance(chosen, str) or not re.fullmatch(r'#[0-9a-fA-F]{6}', chosen):
+                chosen = defaults[button_name]
+            color_var = tk.StringVar(value=chosen)
+            self._topbar_button_color_vars[button_name] = color_var
+            color_row = ttk.Frame(right)
+            color_row.pack(fill='x', pady=2)
+            ttk.Label(color_row, text=label_text, width=15).pack(side='left')
+            swatch = tk.Button(color_row, text='    ', bg=chosen, activebackground=chosen, relief='flat', bd=0, cursor='hand2', command=lambda n=button_name: self._choose_topbar_button_color(n))
+            swatch.pack(side='left', padx=(0, 5))
+            self._topbar_button_color_swatches[button_name] = swatch
+            ttk.Button(color_row, text='Choose…', command=lambda n=button_name: self._choose_topbar_button_color(n)).pack(side='left', fill='x', expand=True)
+            ttk.Button(color_row, text='Reset color', command=lambda n=button_name: self._reset_topbar_button_color(n)).pack(side='left', padx=(4, 0))
+        self.settings.pop('background_image', None)
+        self.settings.pop('background_opacity', None)
+    def _choose_custom_theme_color(self, key):
+        variables = getattr(self, 'custom_theme_vars', {})
+        variable = variables.get(key)
+        if variable is None:
             return
-        self.theme_var.set(lb.get(sel[0]))
-        self._apply_theme()
+        current = variable.get().strip()
+        if not re.fullmatch(r'#[0-9a-fA-F]{6}', current):
+            current = THEMES[DEFAULT_THEME].get(key, '#7f8cff')
+        selected = colorchooser.askcolor(color=current, title=f'Choose {key.replace("_", " ")} color', parent=self)
+        color = selected[1] if selected and selected[1] else None
+        if not color or not re.fullmatch(r'#[0-9a-fA-F]{6}', color):
+            return
+        variable.set(color)
+        swatch = getattr(self, '_custom_theme_swatches', {}).get(key)
+        if swatch is not None:
+            try:
+                swatch.configure(bg=color, activebackground=color)
+            except tk.TclError:
+                pass
+    def _reset_custom_theme_color(self, key):
+        if key not in THEMES[DEFAULT_THEME]:
+            return
+        color = THEMES[DEFAULT_THEME][key]
+        variable = getattr(self, 'custom_theme_vars', {}).get(key)
+        if variable is not None:
+            variable.set(color)
+        swatch = getattr(self, '_custom_theme_swatches', {}).get(key)
+        if swatch is not None:
+            try:
+                swatch.configure(bg=color, activebackground=color)
+            except tk.TclError:
+                pass
     def _apply_custom_theme(self):
-        palette = {k: v.get().strip() for k, v in self.custom_theme_vars.items()}
+        palette_defaults = THEMES[DEFAULT_THEME]
+        palette = {}
+        for key, default in palette_defaults.items():
+            variable = getattr(self, 'custom_theme_vars', {}).get(key)
+            value = variable.get().strip() if variable is not None else default
+            palette[key] = value if isinstance(value, str) and re.fullmatch(r'#[0-9a-fA-F]{6}', value) else default
         self.settings['theme'] = 'Custom'
         self.settings['custom_theme'] = palette
-        apply_visual_polish(self, theme=UI_THEME, palette=palette)
-        darken_menus(self._collect_menus())
-        self._save_settings()
+        if hasattr(self, 'theme_var'):
+            self.theme_var.set('Custom')
+        try:
+            if hasattr(self, '_theme_listbox') and self._theme_listbox.winfo_exists():
+                names = self._theme_listbox.get(0, 'end')
+                if 'Custom' in names:
+                    index = names.index('Custom')
+                    self._theme_listbox.selection_clear(0, 'end')
+                    self._theme_listbox.selection_set(index)
+                    self._theme_listbox.see(index)
+        except (tk.TclError, ValueError):
+            pass
+        self._apply_theme()
     def _save_custom_theme(self):
         self._apply_custom_theme()
-        messagebox.showinfo('Themes', 'Custom theme saved.', parent=self)
+        messagebox.showinfo('Customize App', 'Your custom appearance has been saved.', parent=self)
+    def _choose_topbar_button_color(self, button_name):
+        if button_name not in {'close', 'max', 'min'}:
+            return
+        variables = getattr(self, '_topbar_button_color_vars', {})
+        current = variables.get(button_name)
+        saved_colors = self.settings.get('topbar_button_colors', {})
+        if not isinstance(saved_colors, dict):
+            saved_colors = {}
+        current_color = current.get() if current is not None else saved_colors.get(button_name, '#7f8cff')
+        selected = colorchooser.askcolor(color=current_color, title=f'Choose {button_name.title()} button color', parent=self)
+        color = selected[1] if selected and selected[1] else None
+        if not color or not re.fullmatch(r'#[0-9a-fA-F]{6}', color):
+            return
+        if current is not None:
+            current.set(color)
+        swatch = getattr(self, '_topbar_button_color_swatches', {}).get(button_name)
+        if swatch is not None:
+            try:
+                swatch.configure(bg=color, activebackground=color)
+            except tk.TclError:
+                pass
+        saved_colors[button_name] = color
+        self.settings['topbar_button_colors'] = saved_colors
+        try:
+            item, command, _old_color = self._titlebar_buttons[button_name]
+            self._titlebar_buttons[button_name] = (item, command, color)
+            self._titlebar_canvas.itemconfigure(item, fill=color)
+        except (AttributeError, KeyError, tk.TclError):
+            pass
+        self._save_settings()
+    def _reset_topbar_button_color(self, button_name):
+        defaults = getattr(self, '_topbar_button_default_colors', {'close': '#ff5f57', 'max': '#28c840', 'min': '#febc2e'})
+        if button_name not in defaults:
+            return
+        color = defaults[button_name]
+        variable = getattr(self, '_topbar_button_color_vars', {}).get(button_name)
+        if variable is not None:
+            variable.set(color)
+        swatch = getattr(self, '_topbar_button_color_swatches', {}).get(button_name)
+        if swatch is not None:
+            try:
+                swatch.configure(bg=color, activebackground=color)
+            except tk.TclError:
+                pass
+        saved = self.settings.get('topbar_button_colors', {})
+        if not isinstance(saved, dict):
+            saved = {}
+        saved[button_name] = color
+        self.settings['topbar_button_colors'] = saved
+        try:
+            item, command, _old_color = self._titlebar_buttons[button_name]
+            self._titlebar_buttons[button_name] = (item, command, color)
+            self._titlebar_canvas.itemconfigure(item, fill=color)
+        except (AttributeError, KeyError, tk.TclError):
+            pass
+        self._save_settings()
+    def _apply_topbar_button_color(self):
+        variables = getattr(self, '_topbar_button_color_vars', {})
+        saved = self.settings.get('topbar_button_colors', {})
+        if not isinstance(saved, dict):
+            saved = {}
+        for name, variable in variables.items():
+            color = variable.get().strip()
+            if re.fullmatch(r'#[0-9a-fA-F]{6}', color):
+                saved[name] = color
+        self.settings['topbar_button_colors'] = saved
+        for name, color in saved.items():
+            try:
+                item, command, _old_color = self._titlebar_buttons[name]
+                self._titlebar_buttons[name] = (item, command, color)
+                self._titlebar_canvas.itemconfigure(item, fill=color)
+            except (AttributeError, KeyError, tk.TclError):
+                pass
+        self._save_settings()
+    def _theme_list_apply(self, lb):
+        try:
+            sel = lb.curselection()
+            if not sel:
+                return
+            self.theme_var.set(lb.get(sel[0]))
+            self._apply_theme()
+        except (tk.TclError, AttributeError, IndexError):
+            return
     def _apply_theme(self):
-        name = self.theme_var.get()
+        theme_variable = getattr(self, 'theme_var', None)
+        name = str((theme_variable.get() if theme_variable is not None else self.settings.get('theme', DEFAULT_THEME)) or DEFAULT_THEME)
+        if name not in THEMES and name != 'Custom':
+            name = DEFAULT_THEME
         self.settings['theme'] = name
-        palette = self.settings.get('custom_theme', THEMES[DEFAULT_THEME]) if name == 'Custom' else THEMES.get(name, THEMES[DEFAULT_THEME])
+        defaults = THEMES[DEFAULT_THEME]
+        custom_palette = self.settings.get('custom_theme', {})
+        if not isinstance(custom_palette, dict):
+            custom_palette = {}
+        palette = dict(defaults if name == 'Custom' else THEMES.get(name, defaults))
+        if name == 'Custom':
+            for key, fallback in defaults.items():
+                value = custom_palette.get(key, fallback)
+                palette[key] = value if isinstance(value, str) and re.fullmatch(r'#[0-9a-fA-F]{6}', value) else fallback
+            self.settings['custom_theme'] = palette.copy()
         try:
             apply_visual_polish(self, theme=UI_THEME, palette=palette)
-        except Exception:
-            pass
-        self._apply_titlebar_theme()
-        darken_menus(self._collect_menus())
-        for w in (self._ctx, self._colmenu, getattr(self.replacer, 'ctx_menu', None)):
-            if w is not None:
-                try:
-                    w.configure(bg=palette['bg_dark'], fg=palette['fg'], activebackground=palette['accent'], activeforeground='#ffffff')
-                except Exception:
-                    pass
-        if hasattr(self, '_titlebar'):
+        except Exception as exc:
             try:
-                self._titlebar.configure(bg=_CURRENT_PALETTE['bg_dark'])
-                self._titlebar_canvas.configure(bg=_CURRENT_PALETTE['bg_dark'])
-                for child in self._titlebar.winfo_children():
-                    if isinstance(child, tk.Label):
-                        child.configure(bg=_CURRENT_PALETTE['bg_dark'], fg=_CURRENT_PALETTE['fg'])
+                self._console_log(f'Theme update failed: {exc}')
             except Exception:
                 pass
-        for popup in list(self.winfo_children()):
-            if isinstance(popup, tk.Toplevel):
-                _routils_refresh_popup_chrome(popup)
-        if getattr(self, 'viewport_3d', None) is not None and self.viewport_3d.winfo_ismapped():
-            self.viewport_3d.draw_frame()
+        self._apply_titlebar_theme()
+        try:
+            darken_menus(self._collect_menus())
+        except Exception:
+            pass
+        try:
+            theme_listbox = getattr(self, '_theme_listbox', None)
+            if theme_listbox is not None and theme_listbox.winfo_exists():
+                theme_listbox.configure(bg=palette['bg_medium'], fg=palette['fg'], selectbackground=palette['accent'], selectforeground='#ffffff')
+        except (tk.TclError, AttributeError):
+            pass
+        menu_widgets = (
+            getattr(self, '_ctx', None),
+            getattr(self, '_colmenu', None),
+            getattr(getattr(self, 'replacer', None), 'ctx_menu', None),
+        )
+        for menu in menu_widgets:
+            if menu is not None:
+                try:
+                    menu.configure(bg=palette['bg_dark'], fg=palette['fg'], activebackground=palette['accent'], activeforeground='#ffffff')
+                except (tk.TclError, AttributeError):
+                    pass
+        try:
+            titlebar = getattr(self, '_titlebar', None)
+            canvas = getattr(self, '_titlebar_canvas', None)
+            if titlebar is not None and titlebar.winfo_exists():
+                titlebar.configure(bg=palette['bg_dark'])
+            if canvas is not None and canvas.winfo_exists():
+                canvas.configure(bg=palette['bg_dark'])
+                canvas.itemconfigure('title', fill=palette['fg'])
+                canvas.itemconfigure('spotlight', fill=palette['accent'])
+                canvas.itemconfigure('notification_button', fill=palette['fg'])
+                for name, (item, command, color) in getattr(self, '_titlebar_buttons', {}).items():
+                    canvas.itemconfigure(item, fill=color)
+            for child in titlebar.winfo_children() if titlebar is not None else ():
+                if isinstance(child, tk.Label):
+                    child.configure(bg=palette['bg_dark'], fg=palette['fg'])
+        except (tk.TclError, AttributeError):
+            pass
+        try:
+            self._refresh_tab_nav()
+        except (tk.TclError, AttributeError):
+            pass
+        try:
+            for popup in list(self.winfo_children()):
+                if isinstance(popup, tk.Toplevel):
+                    _routils_refresh_popup_chrome(popup)
+        except tk.TclError:
+            pass
+        try:
+            if getattr(self, 'viewport_3d', None) is not None and self.viewport_3d.winfo_ismapped():
+                self.viewport_3d.draw_frame()
+        except (tk.TclError, AttributeError):
+            pass
         self._save_settings()
     def _collect_menus(self):
         out = []
@@ -9447,7 +9956,7 @@ class App(_TkAppBase):
         tab = ttk.Frame(self.nb, padding=12)
         self.nb.insert(0, tab, text='Home')
         ttk.Label(tab, text='RoUtils', font=('Segoe UI Semibold', 20)).pack(anchor='w')
-        ttk.Label(tab, text=f"Welcome Dear, {platform.node() or os.environ.get('COMPUTERNAME', 'System')}", font=('Segoe UI Semibold', 14)).pack(anchor='w', pady=(14, 14))
+        ttk.Label(tab, text='Welcome to RoUtils', font=('Segoe UI Semibold', 14)).pack(anchor='w', pady=(14, 14))
         links = ttk.Frame(tab)
         links.pack(anchor='w', fill='x')
         def add_link(text_value, url):
@@ -9635,7 +10144,7 @@ class App(_TkAppBase):
                 self.after(0, lambda: self._set_update_progress(0, 0, True))
                 self.after(0, lambda v=latest: self._console_log(f'Update {v} download started.'))
                 req = urllib.request.Request(download_url, headers={'User-Agent': 'RoUtils-AutoUpdater'})
-                with urllib.request.urlopen(req, timeout=30) as response:
+                with _routils_urlopen(req, timeout=30) as response:
                     total = int(response.headers.get('Content-Length', '0') or 0)
                     downloaded = 0
                     with open(temp_path, 'wb') as out:
@@ -9691,7 +10200,7 @@ class App(_TkAppBase):
             set_state('Checking', '#f2c94c')
             try:
                 req = urllib.request.Request('https://api.github.com/repos/offp001/routils/releases/latest', headers={'User-Agent': 'RoUtils'})
-                with urllib.request.urlopen(req, timeout=5) as r:
+                with _routils_urlopen(req, timeout=5) as r:
                     data = json.loads(r.read().decode('utf-8', 'replace'))
                 tag = str(data.get('tag_name', '')).strip()
                 if tag:
@@ -9711,7 +10220,7 @@ class App(_TkAppBase):
                     self.after(0, lambda v=latest: self._show_outdated_dialog(v))
         threading.Thread(target=worker, daemon=True, name='RoUtils-VersionCheck').start()
     def _reorder_tabs(self):
-        defaults = ['Home', 'Cache', 'FFlags', 'Emote Manager', 'Configs', 'Modifications', 'Subplace Joiner', 'Server Viewer', 'History', 'Client', 'Themes', 'Plugins', 'Console', 'Settings']
+        defaults = ['Home', 'Cache', 'FFlags', 'Emote Manager', 'AI', 'Configs', 'Modifications', 'Subplace Joiner', 'Server Viewer', 'History', 'Client', 'Customize', 'Plugins', 'Console', 'Settings']
         current_tabs = list(self.nb.tabs())
         current_names = {str(self.nb.tab(tab_id, 'text')): tab_id for tab_id in current_tabs}
         order = [name for name in defaults if name in current_names]
@@ -9997,7 +10506,7 @@ class App(_TkAppBase):
         for url in (f'https://games.roblox.com/v1/games/multiget-place-details?placeIds={place_id}', f'https://develop.roblox.com/v1/places/{place_id}'):
             try:
                 req = urllib.request.Request(url, headers={'User-Agent': 'RoUtils/3.3'})
-                with urllib.request.urlopen(req, timeout=8) as r:
+                with _routils_urlopen(req, timeout=8) as r:
                     data = json.load(r)
                 if isinstance(data, list):
                     data = data[0] if data else {}
@@ -10008,11 +10517,11 @@ class App(_TkAppBase):
                 pass
         try:
             req = urllib.request.Request(f'https://apis.roblox.com/universes/v1/places/{place_id}/universe', headers={'User-Agent': 'RoUtils/3.3'})
-            with urllib.request.urlopen(req, timeout=8) as r:
+            with _routils_urlopen(req, timeout=8) as r:
                 universe_id = json.load(r).get('universeId')
             if universe_id:
                 req = urllib.request.Request(f'https://games.roblox.com/v1/games?universeIds={universe_id}', headers={'User-Agent': 'RoUtils/3.3'})
-                with urllib.request.urlopen(req, timeout=8) as r:
+                with _routils_urlopen(req, timeout=8) as r:
                     data = json.load(r)
                 rows = data.get('data', []) if isinstance(data, dict) else []
                 if rows:
@@ -10464,12 +10973,12 @@ class App(_TkAppBase):
             return
         try:
             req = urllib.request.Request(f'https://apis.roblox.com/universes/v1/places/{pid}/universe')
-            with urllib.request.urlopen(req, timeout=10) as r:
+            with _routils_urlopen(req, timeout=10) as r:
                 universe_id = json.load(r).get('universeId')
             if not universe_id:
                 raise ValueError('Universe not found for this Place ID.')
             req = urllib.request.Request(f'https://develop.roblox.com/v1/universes/{universe_id}/places?limit=100&sortOrder=Asc')
-            with urllib.request.urlopen(req, timeout=10) as r:
+            with _routils_urlopen(req, timeout=10) as r:
                 data = json.load(r)
             self.subplace_tree.delete(*self.subplace_tree.get_children())
             for x in data.get('data', []):
@@ -10652,7 +11161,7 @@ class App(_TkAppBase):
                     params += '&cursor=' + quote(cursor, safe='')
                 url = f'https://games.roblox.com/v1/games/{place_id}/servers/Public?{params}'
                 req = urllib.request.Request(url, headers={'User-Agent': 'RoUtils/3.4'})
-                with urllib.request.urlopen(req, timeout=15) as r:
+                with _routils_urlopen(req, timeout=15) as r:
                     data = json.loads(r.read().decode('utf-8', 'replace'))
                 for server in data.get('data', []):
                     if str(server.get('id', '')) == job_id:
@@ -10714,7 +11223,7 @@ class App(_TkAppBase):
         self.emote_tree = ttk.Treeview(tab, columns=('hotkey', 'dance'), show='headings', selectmode='browse')
         self.emote_tree.heading('hotkey', text='Hotkey')
         self.emote_tree.heading('dance', text='Dance')
-        self.emote_tree.column('hotkey', width=220, anchor='center', stretch=True)
+        self.emote_tree.column('hotkey', width=150, anchor='center', stretch=True)
         self.emote_tree.column('dance', width=300, anchor='w', stretch=True)
         self.emote_tree.grid(row=2, column=0, sticky='nsew')
         scroll = ttk.Scrollbar(tab, orient='vertical', command=self.emote_tree.yview)
@@ -10724,8 +11233,13 @@ class App(_TkAppBase):
         bottom.grid(row=3, column=0, sticky='ew', pady=(8, 0))
         self.emote_action_status = ttk.Label(bottom, text='Last hotkey: none', foreground='#9aa0a6')
         self.emote_action_status.pack(side='left', fill='x', expand=True)
+        self._emote_hotkeys_button = ttk.Button(bottom, text='Hotkeys: ON', command=self._toggle_emote_hotkeys)
+        self._emote_hotkeys_button.pack(side='left', padx=(4, 4))
+        self._emote_controls_button = ttk.Button(bottom, text='Emote Controls', command=self._toggle_emote_controls)
+        self._emote_controls_button.pack(side='left', padx=(4, 4))
         ttk.Button(bottom, text='Save', command=self._emote_save_binds).pack(side='right')
         self._emote_refresh_list()
+        self._emote_update_control_button_states()
         self.after(100, self._emote_status_tick)
     def _emote_refresh_list(self):
         if not hasattr(self, 'emote_tree') or not self.emote_tree.winfo_exists():
@@ -10791,18 +11305,466 @@ class App(_TkAppBase):
         self._emote_refresh_list()
     def _emote_save_binds(self):
         used = {}
-        for dance, key in self.emote_binds.items():
+        all_bindings = [(dance, key) for dance, key in self.emote_binds.items()]
+        all_bindings.extend(({'previous': 'Previous emote', 'next': 'Next emote', 'play': 'Play current emote'}.get(action, action), key) for action, key in self._emote_nav_binds.items())
+        for label, key in all_bindings:
             key = str(key or '').upper()
             if key and key in used:
-                messagebox.showerror('Emote Manager', f'{key} is already assigned to {used[key]}.', parent=self)
+                messagebox.showerror('Emote Manager', f'{key} is already assigned to {used[key]}. Choose a different key.', parent=self)
                 return
             if key:
-                used[key] = dance
+                used[key] = label
         self.settings['emote_binds'] = dict(self.emote_binds)
+        self.settings['emote_nav_binds'] = dict(self._emote_nav_binds)
         self._save_settings()
         if hasattr(self, 'emote_status'):
             self.emote_status.config(text='Binds saved', foreground='#65d98b')
         self._emote_refresh_list()
+    def _emote_update_control_button_states(self):
+        try:
+            enabled = bool(getattr(self, '_emote_hotkeys_enabled', True))
+            if hasattr(self, '_emote_hotkeys_button') and self._emote_hotkeys_button.winfo_exists():
+                self._emote_hotkeys_button.configure(text=f'Hotkeys: {"ON" if enabled else "OFF"}')
+            panel = getattr(self, '_emote_controls_window', None)
+            if hasattr(self, '_emote_controls_button') and self._emote_controls_button.winfo_exists():
+                self._emote_controls_button.configure(text='Close Controls' if panel is not None and panel.winfo_exists() else 'Emote Controls')
+        except Exception:
+            pass
+    def _set_emote_hotkeys_enabled(self, enabled, persist=True):
+        self._emote_hotkeys_enabled = bool(enabled)
+        self.settings['emote_hotkeys_enabled'] = self._emote_hotkeys_enabled
+        self._emote_update_control_button_states()
+        if persist:
+            self._save_settings()
+    def _toggle_emote_hotkeys(self):
+        self._set_emote_hotkeys_enabled(not bool(getattr(self, '_emote_hotkeys_enabled', True)))
+        enabled = bool(getattr(self, '_emote_hotkeys_enabled', True))
+        self._emote_set_action_status('Emote hotkeys are on.' if enabled else 'Emote hotkeys are off.', '#65d98b' if enabled else '#f2c94c')
+    def _emote_current_dance(self):
+        names = list(getattr(self, 'emote_names', ['/e dance1']))
+        if not names:
+            return '/e dance1'
+        self._emote_current_index = max(0, min(int(getattr(self, '_emote_current_index', 0)), len(names) - 1))
+        return names[self._emote_current_index]
+    def _emote_key_label(self, action):
+        key = str(getattr(self, '_emote_nav_binds', {}).get(action, '') or '').upper()
+        return key if key else '—'
+    def _emote_refresh_controls(self, capture_action=None):
+        labels = getattr(self, '_emote_controls_labels', {})
+        dance = self._emote_current_dance()
+        for action, label in list(labels.items()):
+            try:
+                if not label.winfo_exists():
+                    continue
+                if capture_action == action:
+                    label.configure(text='Choose a key...', fg='#88c7ff')
+                elif action == 'previous':
+                    label.configure(text=f"<\n{self._emote_key_label(action)}", fg='#ffffff')
+                elif action == 'next':
+                    label.configure(text=f">\n{self._emote_key_label(action)}", fg='#ffffff')
+                elif action == 'play':
+                    label.configure(text=f"{dance}\n{self._emote_key_label(action)}", fg='#ffffff')
+            except Exception:
+                pass
+        self._emote_update_control_button_states()
+    def _emote_controls_remove_duplicate_windows(self):
+        if os.name != 'nt':
+            return
+        try:
+            user32 = ctypes.windll.user32
+            panel = getattr(self, '_emote_controls_window', None)
+            keep_hwnd = _win32_root_hwnd(panel) if panel is not None and panel.winfo_exists() else 0
+            enum_proc_type = getattr(ctypes, 'WINFUNCTYPE', ctypes.CFUNCTYPE)
+            callback_type = enum_proc_type(ctypes.wintypes.BOOL, ctypes.wintypes.HWND, ctypes.wintypes.LPARAM)
+            def visit(hwnd, _lparam):
+                try:
+                    hwnd_value = int(hwnd)
+                    if keep_hwnd and hwnd_value == int(keep_hwnd):
+                        return True
+                    length = int(user32.GetWindowTextLengthW(hwnd))
+                    buffer = ctypes.create_unicode_buffer(max(2, length + 2))
+                    user32.GetWindowTextW(hwnd, buffer, len(buffer))
+                    window_title = buffer.value.strip().casefold()
+                    rect = ctypes.wintypes.RECT()
+                    if not user32.GetWindowRect(hwnd, ctypes.byref(rect)):
+                        return True
+                    width = int(rect.right - rect.left)
+                    height = int(rect.bottom - rect.top)
+                    small_window = 140 <= width <= 360 and 55 <= height <= 190
+                    is_emote_window = 'emote manager - hide: ctrl + f3' in window_title or (window_title == 'routils' and small_window)
+                    if is_emote_window and small_window:
+                        user32.ShowWindow(hwnd, 0)
+                        user32.PostMessageW(hwnd, 0x0010, 0, 0)
+                except Exception:
+                    pass
+                return True
+            callback = callback_type(visit)
+            user32.EnumWindows.argtypes = [callback_type, ctypes.wintypes.LPARAM]
+            user32.EnumWindows.restype = ctypes.wintypes.BOOL
+            user32.EnumWindows(callback, 0)
+        except Exception:
+            pass
+    def _toggle_emote_controls(self):
+        panel = getattr(self, '_emote_controls_window', None)
+        if panel is not None:
+            try:
+                if panel.winfo_exists():
+                    panel.destroy()
+            except Exception:
+                pass
+            self._emote_controls_window = None
+            self._emote_controls_labels = {}
+            self._emote_control_capture_action = None
+            job = getattr(self, '_emote_controls_position_job', None)
+            if job is not None:
+                try:
+                    self.after_cancel(job)
+                except Exception:
+                    pass
+            self._emote_controls_position_job = None
+            self._emote_update_control_button_states()
+            return
+        self._set_emote_hotkeys_enabled(True, persist=True)
+        self._emote_controls_remove_duplicate_windows()
+        tk._routils_skip_next_popup_chrome = True
+        try:
+            panel = tk.Toplevel(self)
+        finally:
+            tk._routils_skip_next_popup_chrome = False
+        panel.title('Emote Manager - Hide: Ctrl + F3')
+        panel._skip_custom_chrome = True
+        panel._skip_popup_centering = True
+        panel.withdraw()
+        self._emote_controls_window = panel
+        panel.overrideredirect(True)
+        panel.resizable(False, False)
+        try:
+            panel.attributes('-topmost', True)
+        except Exception:
+            pass
+        palette = _CURRENT_PALETTE if isinstance(_CURRENT_PALETTE, dict) else THEMES[DEFAULT_THEME]
+        surface = palette.get('bg_medium', '#252526')
+        topbar_bg = _routils_darken_color(palette.get('bg_dark', '#1b1b1c'), 0.16)
+        fg = palette.get('fg', '#eeeeee')
+        accent = palette.get('accent', '#7f8cff')
+        border = palette.get('border', '#444446')
+        hover_bg = palette.get('bg_hover', '#464648')
+        panel.configure(bg=surface, bd=0, highlightthickness=0, relief='flat')
+        try:
+            panel.minsize(180, 80)
+            panel.maxsize(180, 80)
+        except Exception:
+            pass
+        panel.geometry('180x80+0+0')
+        shell = tk.Frame(panel, bg=surface, bd=0, highlightthickness=0, relief='flat')
+        shell.pack(fill='both', expand=True, padx=0, pady=0)
+        topbar = tk.Frame(shell, bg=topbar_bg, height=17, bd=0, highlightthickness=0, relief='flat')
+        topbar.pack(fill='x', side='top')
+        topbar.pack_propagate(False)
+        title = tk.Label(topbar, text='Emote Manager - Hide: Ctrl + F3', bg=topbar_bg, fg=fg, font=('Segoe UI Semibold', 8), anchor='w', bd=0, highlightthickness=0)
+        title.pack(side='left', fill='both', expand=True, padx=(7, 2))
+        close = tk.Label(topbar, text='×', bg=topbar_bg, fg='#ff7a82', font=('Segoe UI', 10), width=2, cursor='hand2', bd=0, highlightthickness=0)
+        close.pack(side='right', fill='y')
+        close.bind('<Button-1>', lambda _e: self._toggle_emote_controls())
+        close.bind('<Enter>', lambda _e: close.configure(bg='#542a31'))
+        close.bind('<Leave>', lambda _e: close.configure(bg=topbar_bg))
+        row = tk.Frame(shell, bg=surface, bd=0, highlightthickness=0, relief='flat')
+        row.pack(fill='both', expand=True, padx=2, pady=(2, 1))
+        previous = tk.Label(row, text='', bg=surface, fg=fg, font=('Segoe UI Semibold', 8), cursor='hand2', relief='flat', bd=0, highlightthickness=1, highlightbackground=border, highlightcolor=border, justify='center', wraplength=36, anchor='center')
+        current = tk.Label(row, text='', bg=surface, fg=fg, font=('Segoe UI Semibold', 8), cursor='hand2', relief='flat', bd=0, highlightthickness=1, highlightbackground=border, highlightcolor=border, justify='center', wraplength=78, anchor='center')
+        next_label = tk.Label(row, text='', bg=surface, fg=fg, font=('Segoe UI Semibold', 8), cursor='hand2', relief='flat', bd=0, highlightthickness=1, highlightbackground=border, highlightcolor=border, justify='center', wraplength=36, anchor='center')
+        previous.place(x=1, y=1, width=40, height=57)
+        current.place(x=45, y=1, width=84, height=57)
+        next_label.place(x=133, y=1, width=40, height=57)
+        self._emote_controls_labels = {'previous': previous, 'play': current, 'next': next_label}
+        previous.bind('<Button-1>', lambda _e: self._emote_begin_key_capture('previous'))
+        next_label.bind('<Button-1>', lambda _e: self._emote_begin_key_capture('next'))
+        current.bind('<Button-1>', lambda _e: self._emote_begin_key_capture('play'))
+        def set_button_hover(widget, hovering):
+            try:
+                if not widget.winfo_exists():
+                    return
+                if hovering:
+                    widget.configure(bg=hover_bg, highlightbackground=accent, highlightcolor=accent)
+                else:
+                    widget.configure(bg=surface, highlightbackground=border, highlightcolor=border)
+            except Exception:
+                pass
+        for label in (previous, current, next_label):
+            label.bind('<Enter>', lambda _e, w=label: set_button_hover(w, True))
+            def leave_button(event, widget=label):
+                def clear_if_outside():
+                    try:
+                        if not widget.winfo_exists():
+                            return
+                        px, py = widget.winfo_pointerx(), widget.winfo_pointery()
+                        target = widget.winfo_containing(px, py)
+                        if target is not widget:
+                            set_button_hover(widget, False)
+                    except Exception:
+                        set_button_hover(widget, False)
+                try:
+                    widget.after_idle(clear_if_outside)
+                except Exception:
+                    set_button_hover(widget, False)
+            label.bind('<Leave>', leave_button)
+        panel.bind('<KeyPress>', self._emote_controls_keypress, add='+')
+        panel.bind('<Escape>', lambda _e: self._toggle_emote_controls(), add='+')
+        panel.bind('<Destroy>', self._emote_controls_destroyed, add='+')
+        self._emote_refresh_controls()
+        self._emote_update_control_button_states()
+        self._emote_controls_position_tick()
+        try:
+            panel.deiconify()
+            panel.lift()
+            panel.focus_force()
+            panel.update_idletasks()
+            self._emote_controls_detach_from_main()
+        except Exception:
+            pass
+    def _emote_controls_detach_from_main(self, no_activate=False):
+        panel = getattr(self, '_emote_controls_window', None)
+        if panel is None or os.name != 'nt':
+            return
+        try:
+            if not panel.winfo_exists():
+                return
+            native_hwnd = _win32_root_hwnd(panel)
+            if not native_hwnd:
+                native_hwnd = int(panel.winfo_id())
+            hwnd = ctypes.wintypes.HWND(native_hwnd)
+            user32 = ctypes.windll.user32
+            get_long = getattr(user32, 'GetWindowLongPtrW', None)
+            set_long = getattr(user32, 'SetWindowLongPtrW', None)
+            if get_long is None:
+                get_long = user32.GetWindowLongW
+            if set_long is None:
+                set_long = user32.SetWindowLongW
+            get_long.argtypes = [ctypes.wintypes.HWND, ctypes.c_int]
+            get_long.restype = ctypes.c_ssize_t
+            set_long.argtypes = [ctypes.wintypes.HWND, ctypes.c_int, ctypes.c_ssize_t]
+            set_long.restype = ctypes.c_ssize_t
+            owner = get_long(hwnd, -8)
+            if owner:
+                set_long(hwnd, -8, 0)
+            ex_style = get_long(hwnd, -20)
+            ex_style |= 0x00000080
+            ex_style &= ~0x00040000
+            if no_activate:
+                ex_style |= 0x08000000
+            else:
+                ex_style &= ~0x08000000
+            set_long(hwnd, -20, ex_style)
+            user32.SetWindowPos.argtypes = [ctypes.wintypes.HWND, ctypes.wintypes.HWND, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.wintypes.UINT]
+            user32.SetWindowPos.restype = ctypes.wintypes.BOOL
+            flags = 0x0001 | 0x0002 | 0x0010 | 0x0040
+            user32.SetWindowPos(hwnd, ctypes.wintypes.HWND(-1), 0, 0, 0, 0, flags)
+            if no_activate:
+                user32.ShowWindow.argtypes = [ctypes.wintypes.HWND, ctypes.c_int]
+                user32.ShowWindow.restype = ctypes.wintypes.BOOL
+                user32.ShowWindow(hwnd, 8)
+            try:
+                panel.attributes('-topmost', True)
+            except Exception:
+                pass
+            self._emote_controls_noactivate = bool(no_activate)
+        except Exception:
+            try:
+                panel.attributes('-topmost', True)
+                if not no_activate:
+                    panel.lift()
+            except Exception:
+                pass
+
+    def _emote_controls_ensure_visible_after_hide(self):
+        panel = getattr(self, '_emote_controls_window', None)
+        if panel is None:
+            return
+        try:
+            if not panel.winfo_exists():
+                return
+            if panel.state() in ('withdrawn', 'iconic'):
+                panel.deiconify()
+            panel.update_idletasks()
+            self._emote_controls_position_tick()
+            self._emote_controls_detach_from_main(no_activate=True)
+            if os.name == 'nt':
+                native_hwnd = _win32_root_hwnd(panel)
+                if not native_hwnd:
+                    native_hwnd = int(panel.winfo_id())
+                hwnd = ctypes.wintypes.HWND(native_hwnd)
+                user32 = ctypes.windll.user32
+                user32.ShowWindow.argtypes = [ctypes.wintypes.HWND, ctypes.c_int]
+                user32.ShowWindow.restype = ctypes.wintypes.BOOL
+                user32.ShowWindow(hwnd, 8)
+                user32.SetWindowPos(hwnd, ctypes.wintypes.HWND(-1), 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010 | 0x0040)
+        except Exception:
+            pass
+
+    def _emote_controls_restore_activation(self):
+        panel = getattr(self, '_emote_controls_window', None)
+        if panel is None:
+            return
+        try:
+            if not panel.winfo_exists():
+                return
+            if panel.state() in ('withdrawn', 'iconic'):
+                panel.deiconify()
+            self._emote_controls_detach_from_main(no_activate=False)
+            panel.attributes('-topmost', True)
+        except Exception:
+            pass
+    def _emote_controls_position_tick(self):
+        panel = getattr(self, '_emote_controls_window', None)
+        if panel is None:
+            self._emote_controls_position_job = None
+            return
+        try:
+            if not panel.winfo_exists():
+                self._emote_controls_position_job = None
+                return
+            width, height = 180, 80
+            left, top = 0, 0
+            right = int(panel.winfo_screenwidth())
+            bottom = int(panel.winfo_screenheight())
+            try:
+                if sys.platform == 'win32':
+                    class RECT(ctypes.Structure):
+                        _fields_ = [('left', ctypes.wintypes.LONG), ('top', ctypes.wintypes.LONG), ('right', ctypes.wintypes.LONG), ('bottom', ctypes.wintypes.LONG)]
+                    rect = RECT()
+                    if ctypes.windll.user32.SystemParametersInfoW(0x0030, 0, ctypes.byref(rect), 0):
+                        left, top, right, bottom = rect.left, rect.top, rect.right, rect.bottom
+            except Exception:
+                pass
+            x = max(left + 2, right - width - 12)
+            y = max(top + 2, bottom - height - 12)
+            expected = f'{width}x{height}{x:+d}{y:+d}'
+            if panel.geometry() != expected:
+                panel.geometry(expected)
+            try:
+                scan_at = float(getattr(self, '_emote_duplicate_scan_at', 0.0))
+                if time.monotonic() >= scan_at:
+                    self._emote_duplicate_scan_at = time.monotonic() + 1.0
+                    self._emote_controls_remove_duplicate_windows()
+                main_state = self.state()
+                main_hidden = bool(getattr(self, '_tray_hidden', False)) or main_state in ('iconic', 'withdrawn')
+                if main_hidden:
+                    if panel.state() in ('withdrawn', 'iconic'):
+                        panel.deiconify()
+                    self._emote_controls_detach_from_main(no_activate=True)
+                    if os.name == 'nt':
+                        native_hwnd = _win32_root_hwnd(panel)
+                        if not native_hwnd:
+                            native_hwnd = int(panel.winfo_id())
+                        hwnd = ctypes.wintypes.HWND(native_hwnd)
+                        ctypes.windll.user32.ShowWindow(hwnd, 8)
+                else:
+                    if getattr(self, '_emote_controls_noactivate', False):
+                        self._emote_controls_detach_from_main(no_activate=False)
+                    panel.attributes('-topmost', True)
+                    panel.lift()
+            except Exception:
+                pass
+            self._emote_controls_position_job = self.after(250, self._emote_controls_position_tick)
+        except Exception:
+            self._emote_controls_position_job = None
+    def _emote_controls_destroyed(self, event=None):
+        try:
+            if event is not None and getattr(event, 'widget', None) is self._emote_controls_window:
+                self._emote_controls_window = None
+                self._emote_controls_labels = {}
+                self._emote_control_capture_action = None
+                job = getattr(self, '_emote_controls_position_job', None)
+                if job is not None:
+                    try:
+                        self.after_cancel(job)
+                    except Exception:
+                        pass
+                self._emote_controls_position_job = None
+                self._emote_update_control_button_states()
+        except Exception:
+            pass
+    def _emote_begin_key_capture(self, action):
+        if action not in ('previous', 'next', 'play'):
+            return
+        panel = getattr(self, '_emote_controls_window', None)
+        if panel is None or not panel.winfo_exists():
+            return
+        self._emote_control_capture_action = action
+        self._emote_refresh_controls(capture_action=action)
+        try:
+            self._emote_controls_detach_from_main(no_activate=False)
+            panel.lift()
+            panel.focus_force()
+        except Exception:
+            pass
+    def _emote_controls_keypress(self, event):
+        action = getattr(self, '_emote_control_capture_action', None)
+        if not action:
+            return None
+        if event.keysym in ('Shift_L', 'Shift_R', 'Control_L', 'Control_R', 'Alt_L', 'Alt_R', 'Win_L', 'Win_R'):
+            return 'break'
+        key = str(event.keysym or '').upper()
+        if key == 'ESCAPE':
+            self._emote_control_capture_action = None
+            self._emote_refresh_controls()
+            try:
+                main_hidden = bool(getattr(self, '_tray_hidden', False)) or self.state() in ('iconic', 'withdrawn')
+                if main_hidden:
+                    self._emote_controls_detach_from_main(no_activate=True)
+            except Exception:
+                pass
+            return 'break'
+        if key in ('SPACE', 'RETURN', 'KP_ENTER'):
+            key = {'SPACE': 'SPACE', 'RETURN': 'ENTER', 'KP_ENTER': 'ENTER'}[key]
+        if not key or not fflag_key_to_vk(key):
+            return 'break'
+        all_existing = {str(v or '').upper() for v in self.emote_binds.values() if str(v or '').strip()}
+        all_existing.update(str(v or '').upper() for k, v in self._emote_nav_binds.items() if k != action and str(v or '').strip())
+        all_existing.update(str(item.get('key', '') or '').upper() for item in getattr(self, 'fflag_hotkeys', []) if isinstance(item, dict))
+        all_existing.update(str(v or '').upper() for v in getattr(self, 'fps_hotkeys', {}).values() if str(v or '').strip())
+        all_existing.add('F7')
+        if key in all_existing:
+            self._emote_control_capture_action = None
+            self._emote_refresh_controls()
+            self._emote_set_action_status(f'{key} is already assigned. Choose another key.', '#ff6b6b')
+            try:
+                main_hidden = bool(getattr(self, '_tray_hidden', False)) or self.state() in ('iconic', 'withdrawn')
+                if main_hidden:
+                    self._emote_controls_detach_from_main(no_activate=True)
+            except Exception:
+                pass
+            return 'break'
+        self._emote_nav_binds[action] = key
+        try:
+            main_hidden = bool(getattr(self, '_tray_hidden', False)) or self.state() in ('iconic', 'withdrawn')
+            if main_hidden:
+                self._emote_controls_detach_from_main(no_activate=True)
+        except Exception:
+            pass
+        vk = fflag_key_to_vk(key)
+        if vk:
+            self._hotkey_prev[vk] = True
+        self._emote_control_capture_action = None
+        self.settings['emote_nav_binds'] = dict(self._emote_nav_binds)
+        self._save_settings()
+        self._emote_refresh_controls()
+        action_text = {'previous': 'Previous emote', 'next': 'Next emote', 'play': 'Play current emote'}.get(action, action)
+        self._emote_set_action_status(f'{action_text} key set to {key}.', '#65d98b')
+        return 'break'
+    def _handle_emote_nav_hotkey(self, binding):
+        action = str(binding.get('action', '')).lower()
+        key = str(binding.get('key', '')).upper()
+        if action == 'previous':
+            self._emote_current_index = (self._emote_current_index - 1) % len(self.emote_names)
+            self._emote_refresh_controls()
+            self._emote_set_action_status(f"Current emote: {self._emote_current_dance()}", '#65d98b')
+        elif action == 'next':
+            self._emote_current_index = (self._emote_current_index + 1) % len(self.emote_names)
+            self._emote_refresh_controls()
+            self._emote_set_action_status(f"Current emote: {self._emote_current_dance()}", '#65d98b')
+        elif action == 'play':
+            self._handle_emote_hotkey({'key': key, 'dance': self._emote_current_dance()})
     def _emote_status_tick(self):
         if not getattr(self, 'winfo_exists', lambda: False)():
             return
@@ -11065,14 +12027,18 @@ class App(_TkAppBase):
         bar = ttk.Frame(tab)
         bar.grid(row=1, column=0, sticky='ew', pady=(0, 8))
         buttons = [('+ Add', self._fflag_add_dialog), ('Remove', self._fflag_remove), ('Remove All', self._fflag_remove_all), ('Presets', self._fflag_presets_dialog), ('Import', self._fflag_import), ('Export', self._fflag_export), ('Hotkeys', self._fflag_hotkeys_dialog), ('JSON Editor', self._fflag_json_editor)]
+        try:
+            ttk.Style(self).configure('RoUtils.FFlag.Small.TButton', font=('Segoe UI', 8), padding=(4, 1))
+        except Exception:
+            pass
         self._fflag_toolbar = []
         self._fflag_toolbar_frame = bar
         for index, (text, cmd) in enumerate(buttons):
-            button = ttk.Button(bar, text=text, command=cmd)
-            button.grid(row=index // 5, column=index % 5, sticky='ew', padx=(0, 5), pady=(0, 3))
+            button = ttk.Button(bar, text=text, command=cmd, style='RoUtils.FFlag.Small.TButton')
+            button.grid(row=index // 8, column=index % 8, sticky='w', padx=(0, 4), pady=(0, 2))
             self._fflag_toolbar.append(button)
-        for col in range(5):
-            bar.columnconfigure(col, weight=1)
+        for col in range(8):
+            bar.columnconfigure(col, weight=0)
         bar.bind('<Configure>', self._responsive_fflag_toolbar, add='+')
         frame = ttk.PanedWindow(tab, orient='horizontal')
         frame.grid(row=2, column=0, sticky='nsew')
@@ -11162,7 +12128,6 @@ class App(_TkAppBase):
         ttk.Button(bottom, text='Apply to Roblox', command=self._fflag_apply).pack(side='right', padx=(5, 0))
         ttk.Button(bottom, text='Save Flags', command=self._save_fflag_flags).pack(side='right')
         ttk.Button(bottom, text='Refresh', command=self._fflag_refresh_process).pack(side='left')
-        ttk.Button(bottom, text='AI', command=self._open_ai_chat).pack(side='left', padx=(5, 0))
         self._refresh_fflag_list()
         self.after(350, self._fflag_refresh_process)
         self._load_fflag_reference_panel()
@@ -11268,14 +12233,14 @@ class App(_TkAppBase):
             return
         try:
             width = max(1, bar.winfo_width())
-            columns = 3 if width < 720 else 4 if width < 980 else 5
+            columns = 8 if width >= 900 else 6 if width >= 680 else 4 if width >= 430 else 2
             if columns == getattr(self, '_fflag_toolbar_columns', None):
                 return
             self._fflag_toolbar_columns = columns
             for index, button in enumerate(buttons):
-                button.grid_configure(row=index // columns, column=index % columns, sticky='ew')
-            for col in range(5):
-                bar.columnconfigure(col, weight=1 if col < columns else 0)
+                button.grid_configure(row=index // columns, column=index % columns, sticky='w')
+            for col in range(8):
+                bar.columnconfigure(col, weight=0)
         except Exception:
             pass
     def _fflag_conflicts(self):
@@ -11416,7 +12381,7 @@ class App(_TkAppBase):
         def load_preset(url, filename, add_to_current=False):
             try:
                 req = urllib.request.Request(url, headers={'User-Agent': 'RoUtils'})
-                with urllib.request.urlopen(req, timeout=15) as r:
+                with _routils_urlopen(req, timeout=15) as r:
                     data = json.loads(r.read().decode('utf-8'))
                 flags = _normalize_fflag_json(data)
                 if not flags:
@@ -11467,7 +12432,7 @@ class App(_TkAppBase):
         def worker():
             try:
                 req = urllib.request.Request(GITHUB_PRESETS_API, headers={'User-Agent': 'RoUtils'})
-                with urllib.request.urlopen(req, timeout=15) as r:
+                with _routils_urlopen(req, timeout=15) as r:
                     items = json.loads(r.read().decode('utf-8'))
                 files = [x for x in items if x.get('type') == 'file' and str(x.get('name', '')).lower().endswith('.json')]
                 files.sort(key=lambda x: str(x.get('name', '')).lower())
@@ -11514,7 +12479,7 @@ class App(_TkAppBase):
         headers = {'User-Agent': f'RoUtils/{APP_VERSION}', 'Accept': 'application/json,text/plain,*/*'}
         def fetch(url):
             request = urllib.request.Request(url, headers=headers)
-            with urllib.request.urlopen(request, timeout=20) as response:
+            with _routils_urlopen(request, timeout=20) as response:
                 return response.read().decode('utf-8', 'replace')
         def extract_block(text, namespace_name):
             match = re.search(r'\bnamespace\s+' + re.escape(namespace_name) + r'\s*\{', text)
@@ -12014,6 +12979,20 @@ class App(_TkAppBase):
             self._plugin_enabled[name] = False
             self._save_settings()
             messagebox.showerror('Plugin', f'Could not enable {name}:\n{exc}', parent=self)
+    def _restore_enabled_plugins(self):
+        if getattr(self, '_restoring_enabled_plugins', False):
+            return
+        self._restoring_enabled_plugins = True
+        try:
+            enabled_names = {name for name, enabled in self._plugin_enabled.items() if enabled}
+            if not enabled_names:
+                return
+            for path in self._plugin_files():
+                name = os.path.basename(path)
+                if name in enabled_names and name not in self._plugin_modules:
+                    self._plugin_enable(path, True)
+        finally:
+            self._restoring_enabled_plugins = False
     def _plugin_open_guide(self, path):
         try:
             with open(path, 'r', encoding='utf-8') as f:
@@ -12334,7 +13313,7 @@ class App(_TkAppBase):
             except Exception:
                 pass
             return
-        lines = str(message).replace('\r', '').splitlines() or ['']
+        lines = _routils_visible_text(str(message)).replace('\r', '').splitlines() or ['']
         history = getattr(self, '_console_history', [])
         history.extend(lines)
         self._console_history = history[-1000:]
@@ -12365,7 +13344,7 @@ class App(_TkAppBase):
         try:
             with open(CONSOLE_HISTORY_PATH, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-            return [str(x) for x in data][-1000:] if isinstance(data, list) else []
+            return [_routils_visible_text(str(x)) for x in data][-1000:] if isinstance(data, list) else []
         except Exception:
             return []
     def _save_console_history(self):
@@ -12736,7 +13715,7 @@ class App(_TkAppBase):
         names = [x for x in THEME_NAMES if x.lower() == str(query).lower() or x.lower().startswith(str(query).lower())]
         if len(names) != 1:
             raise ValueError('Theme not found or prefix is ambiguous.')
-        self._console_select_tab('Themes')
+        self._console_select_tab('Customize')
         def apply():
             self.theme_var.set(names[0])
             self._apply_theme()
@@ -12784,122 +13763,151 @@ class App(_TkAppBase):
             setattr(self, state_key, width)
         except Exception:
             pass
-    def _open_ai_chat(self):
+    def _build_ai_tab(self):
+        tab = ttk.Frame(self.nb, padding=0)
+        self.nb.add(tab, text='AI')
+        self.ai_tab = tab
+        self._construct_ai_chat(tab)
+    def _open_ai_chat(self, prompt=None):
+        ai_id = next((tid for tid in self.nb.tabs() if self.nb.tab(tid, 'text') == 'AI'), None)
+        if ai_id is not None:
+            self.nb.select(ai_id)
+            self._lazy_tab_changed()
+        if prompt and str(prompt).strip():
+            def submit_when_ready(attempt=0):
+                callback = getattr(self, '_ai_send_callback', None)
+                input_box = getattr(self, '_ai_input_box', None)
+                if callback is not None and input_box is not None and input_box.winfo_exists():
+                    input_box.delete('1.0', 'end')
+                    input_box.insert('1.0', str(prompt).strip())
+                    callback()
+                elif attempt < 20:
+                    self.after(100, lambda: submit_when_ready(attempt + 1))
+            self.after(150, submit_when_ready)
         self._console_log('Opened RoUtils AI')
-        key = self.gemini_api_key.get().strip()
-        if not key:
-            messagebox.showwarning('Gemini AI', "You didn't add Gemini API Key.\nAdd API Key on Settings Tab.", parent=self)
-            return
-        win = tk.Toplevel(self)
-        win.title('RoUtils AI')
-        win.geometry('760x680')
-        win.minsize(600, 520)
-        win.transient(self)
-        theme_toplevel(win)
-        header = ttk.Frame(win, padding=(16, 12))
-        header.pack(fill='x')
-        ttk.Label(header, text='RoUtils AI', font=('Segoe UI Semibold', 16)).pack(side='left')
-        ttk.Label(header, text='Powered by Gemini', foreground='#9aa0a6').pack(side='left', padx=8)
-        model_names = {'Gemini 3.8 Flash': 'gemini-3.8-flash', 'Gemini 3.7 Flash': 'gemini-3.7-flash', 'Gemini 3.6 Flash': 'gemini-3.6-flash', 'Gemini 3.5 Flash': 'gemini-3.5-flash', 'Gemini 3.5 Flash-Lite': 'gemini-3.5-flash-lite', 'Gemini 3.1 Flash-Lite': 'gemini-3.1-flash-lite', 'Gemini 3.1 Pro': 'gemini-3.1-pro-preview', 'Gemini 2.5 Pro': 'gemini-2.5-pro', 'Gemini 2.5 Flash': 'gemini-2.5-flash', 'Gemini 2.5 Flash-Lite': 'gemini-2.5-flash-lite'}
-        model_var = tk.StringVar(value='Gemini 3.5 Flash-Lite')
+    def _construct_ai_chat(self, win):
+        palette = _CURRENT_PALETTE
+        win.columnconfigure(0, weight=1)
+        win.rowconfigure(1, weight=1)
+        header = tk.Frame(win, bg=palette.get('bg_medium', '#252526'), padx=16, pady=12)
+        header.grid(row=0, column=0, sticky='ew')
+        header.columnconfigure(1, weight=1)
+        tk.Label(header, text='✦ RoUtils AI', bg=palette.get('bg_medium', '#252526'), fg=palette.get('fg', '#e6e6e6'), font=('Segoe UI Semibold', 16)).grid(row=0, column=0, sticky='w')
+        tk.Label(header, text='RoUtils AI · Powered by Gemini', bg=palette.get('bg_medium', '#252526'), fg='#a6abb4', font=('Segoe UI', 9)).grid(row=1, column=0, sticky='w', pady=(3, 0))
+        model_names = {
+            'Gemini 3.8 Flash': 'gemini-3.8-flash',
+            'Gemini 3.7 Flash': 'gemini-3.7-flash',
+            'Gemini 3.6 Flash': 'gemini-3.6-flash',
+            'Gemini 3.5 Flash': 'gemini-3.5-flash',
+            'Gemini 3.5 Flash-Lite': 'gemini-3.5-flash-lite',
+            'Gemini 3.1 Flash-Lite': 'gemini-3.1-flash-lite',
+            'Gemini 3.1 Pro Preview': 'gemini-3.1-pro-preview',
+            'Gemini 3 Flash Preview': 'gemini-3-flash-preview',
+            'Gemini 2.5 Flash': 'gemini-2.5-flash',
+            'Gemini 2.5 Pro': 'gemini-2.5-pro',
+            'Gemini 2.5 Flash-Lite': 'gemini-2.5-flash-lite'
+        }
+        saved_model = self.settings.get('ai_model', 'Gemini 3.8 Flash')
+        if saved_model not in model_names:
+            saved_model = 'Gemini 3.8 Flash'
+        model_var = tk.StringVar(value=saved_model)
         model_box = ttk.Combobox(header, textvariable=model_var, values=list(model_names.keys()), state='readonly', width=24)
-        model_box.pack(side='right')
-        ttk.Label(header, text='Model', foreground='#9aa0a6').pack(side='right', padx=(0, 8))
-        body = ttk.Frame(win)
-        body.pack(fill='both', expand=True, padx=12, pady=(0, 8))
+        model_box.grid(row=0, column=2, sticky='e')
+        model_box.bind('<<ComboboxSelected>>', lambda _e: (self.settings.__setitem__('ai_model', model_var.get()), self._save_settings()))
+        tk.Label(header, text='MODEL', bg=palette.get('bg_medium', '#252526'), fg='#a6abb4', font=('Segoe UI Semibold', 8)).grid(row=1, column=2, sticky='e', pady=(3, 0))
+        body = tk.Frame(win, bg=palette.get('bg_dark', '#1b1b1c'), padx=10, pady=10)
+        body.grid(row=1, column=0, sticky='nsew')
         body.rowconfigure(0, weight=1)
         body.columnconfigure(0, weight=1)
-        canvas = tk.Canvas(body, bg=_CURRENT_PALETTE['bg_dark'], highlightthickness=0, bd=0)
+        canvas = tk.Canvas(body, bg=palette.get('bg_dark', '#1b1b1c'), highlightthickness=0, bd=0)
         scroll = ttk.Scrollbar(body, orient='vertical', command=canvas.yview)
-        messages = ttk.Frame(canvas)
+        messages = tk.Frame(canvas, bg=palette.get('bg_dark', '#1b1b1c'))
         canvas.configure(yscrollcommand=scroll.set)
         canvas.grid(row=0, column=0, sticky='nsew')
         scroll.grid(row=0, column=1, sticky='ns')
         window_id = canvas.create_window((0, 0), window=messages, anchor='nw')
-        messages.bind('<Configure>', lambda _e: self._schedule_ui(f'ai_region_{id(canvas)}', 30, lambda: canvas.configure(scrollregion=canvas.bbox('all'))))
-        canvas.bind('<Configure>', lambda e: self._ai_canvas_resize(canvas, window_id, e))
-        middle_scroll = {'y': None, 'start': None}
-        def middle_press(event):
-            middle_scroll['y'] = event.y
-            middle_scroll['start'] = canvas.yview()[0]
-            canvas.configure(cursor='fleur')
-            return 'break'
-        def middle_drag(event):
-            if middle_scroll['y'] is None:
-                return 'break'
-            first, last = canvas.yview()
-            span = max(last - first, 0.001)
-            height = max(canvas.winfo_height(), 1)
-            delta = (middle_scroll['y'] - event.y) / height
-            canvas.yview_moveto(max(0.0, min(1.0 - span, middle_scroll['start'] + delta)))
-            return 'break'
-        def middle_release(event):
-            middle_scroll['y'] = None
-            middle_scroll['start'] = None
-            canvas.configure(cursor='')
-            return 'break'
-        canvas.bind('<Button-2>', middle_press)
-        canvas.bind('<B2-Motion>', middle_drag)
-        canvas.bind('<ButtonRelease-2>', middle_release)
-        messages.bind('<Button-2>', middle_press)
-        messages.bind('<B2-Motion>', middle_drag)
-        messages.bind('<ButtonRelease-2>', middle_release)
+        messages.bind('<Configure>', lambda _e: canvas.configure(scrollregion=canvas.bbox('all')))
+        canvas.bind('<Configure>', lambda e: canvas.itemconfigure(window_id, width=max(1, e.width)))
         history = []
         busy = {'value': False}
+        attachment = {'path': None}
+        thinking = {'row': None, 'bubble': None, 'started': 0.0}
+        bubble_bg = '#ded8cd'
+        bubble_fg = '#242424'
+        def scroll_bottom():
+            try:
+                canvas.update_idletasks()
+                canvas.configure(scrollregion=canvas.bbox('all'))
+                canvas.yview_moveto(1.0)
+            except Exception:
+                pass
         def copy_code(code):
             try:
                 win.clipboard_clear()
                 win.clipboard_append(code)
-                win.update_idletasks()
             except Exception:
                 pass
+        def save_generated_file(content, language=''):
+            extensions = {'python': '.py', 'py': '.py', 'json': '.json', 'javascript': '.js', 'js': '.js', 'html': '.html', 'css': '.css', 'xml': '.xml', 'yaml': '.yaml', 'yml': '.yml', 'csv': '.csv', 'markdown': '.md', 'md': '.md', 'text': '.txt', 'txt': '.txt', 'powershell': '.ps1', 'ps1': '.ps1', 'lua': '.lua', 'sql': '.sql', 'bat': '.bat', 'bash': '.sh', 'sh': '.sh'}
+            ext = extensions.get((language or '').strip().lower(), '.txt')
+            path = filedialog.asksaveasfilename(parent=self, title='Save AI generated file', defaultextension=ext, initialfile='routils_ai_output' + ext, filetypes=[('Generated file', '*' + ext), ('All files', '*.*')])
+            if not path:
+                return
+            try:
+                with open(path, 'w', encoding='utf-8', newline='') as f:
+                    f.write(content)
+                messagebox.showinfo('RoUtils AI', 'File saved successfully.', parent=self)
+            except Exception as exc:
+                messagebox.showerror('RoUtils AI', f'Could not save file:\n{exc}', parent=self)
         def add_code_block(parent, code, language=''):
-            box = tk.Frame(parent, bg='#202124', highlightthickness=1, highlightbackground='#55575c')
-            box.pack(fill='x', pady=(7, 5))
-            top = tk.Frame(box, bg='#292b2f', height=30)
+            box = tk.Frame(parent, bg='#cfc8bc', highlightthickness=1, highlightbackground='#b6ad9f')
+            box.pack(fill='x', pady=(6, 5))
+            top = tk.Frame(box, bg='#c4bcae', height=29)
             top.pack(fill='x')
             top.pack_propagate(False)
-            tk.Label(top, text=language or 'code', bg='#292b2f', fg='#aeb3ba', font=('Segoe UI', 8)).pack(side='left', padx=9)
-            tk.Button(top, text='Copy', command=lambda c=code: copy_code(c), bg='#3a3d42', fg='#eeeeee', activebackground='#484b51', activeforeground='#ffffff', relief='flat', bd=0, padx=9, pady=2, cursor='hand2', font=('Segoe UI Semibold', 8)).pack(side='right', padx=5, pady=4)
-            txt = tk.Text(box, height=max(2, min(14, code.count('\n') + 2)), wrap='none', bg='#202124', fg='#eeeeee', insertbackground='#ffffff', relief='flat', bd=0, padx=10, pady=8, font=('Consolas', 9))
+            tk.Label(top, text=language or 'code', bg='#c4bcae', fg='#38342f', font=('Segoe UI', 8)).pack(side='left', padx=8)
+            tk.Button(top, text='Download / Save as…', command=lambda c=code, lang=language: save_generated_file(c, lang), bg='#b7ad9d', fg='#292622', activebackground='#a79c8b', relief='flat', bd=0, padx=8, font=('Segoe UI Semibold', 8), cursor='hand2').pack(side='right', padx=5, pady=3)
+            tk.Button(top, text='Copy', command=lambda c=code: copy_code(c), bg='#b7ad9d', fg='#292622', activebackground='#a79c8b', relief='flat', bd=0, padx=8, font=('Segoe UI Semibold', 8), cursor='hand2').pack(side='right', padx=2, pady=3)
+            txt = tk.Text(box, width=1, height=max(2, min(14, code.count('\n') + 2)), wrap='word', bg='#d9d2c6', fg='#242424', insertbackground='#242424', relief='flat', bd=0, padx=9, pady=7, font=('Consolas', 9))
             txt.insert('1.0', code)
             txt.configure(state='disabled')
             txt.pack(fill='x')
-        def add_rich_line(parent, text, pady=1):
-            line = tk.Text(parent, height=1, wrap='word', bg='#4a4a4a', fg='#e6e6e6', relief='flat', bd=0, highlightthickness=0, padx=0, pady=0, font=('Segoe UI', 10), cursor='arrow')
+        def add_rich_line(parent, text, pady=2):
+            visible_text = re.sub(r'\*\*|__|`', '', str(text))
+            line_font = tkfont.Font(family='Segoe UI', size=10)
+            max_content_width = max(90, bubble_max_width() - 42)
+            char_unit = max(1, line_font.measure('0'))
+            natural_width = line_font.measure(visible_text)
+            text_units = max(1, min(len(visible_text) or 1, int((max_content_width + char_unit - 1) / char_unit), int((natural_width + char_unit - 1) / char_unit) + 1))
+            line = tk.Text(parent, width=text_units, height=1, wrap='word', bg=bubble_bg, fg=bubble_fg, relief='flat', bd=0, highlightthickness=0, padx=0, pady=0, font=('Segoe UI', 10), cursor='arrow')
             line.pack(fill='x', pady=pady)
-            line.tag_configure('bold', font=('Segoe UI Semibold', 10), foreground='#ffffff')
-            line.tag_configure('inline', font=('Consolas', 9), foreground='#e6e6e6')
-            tokens = re.split('(\\*\\*.*?\\*\\*|__.*?__|`[^`]+`)', text)
+            line.tag_configure('bold', font=('Segoe UI Semibold', 10), foreground='#171717')
+            line.tag_configure('inline', font=('Consolas', 9), foreground='#303030', background='#d0c8bb')
+            tokens = re.split(r'(\*\*.*?\*\*|__.*?__|`[^`]+`)', str(text))
             for token in tokens:
                 if not token:
                     continue
-                bold = token.startswith('**') and token.endswith('**') or (token.startswith('__') and token.endswith('__'))
-                inline = token.startswith('`') and token.endswith('`') and (len(token) >= 2)
+                bold = (token.startswith('**') and token.endswith('**')) or (token.startswith('__') and token.endswith('__'))
+                inline = token.startswith('`') and token.endswith('`') and len(token) >= 2
                 value = token[2:-2] if bold else token[1:-1] if inline else token
                 line.insert('end', value, 'bold' if bold else 'inline' if inline else '')
-            height_job = {'id': None}
-            def update_height(_event=None):
-                height_job['id'] = None
+            line.configure(state='disabled')
+            def sync_display_height(widget=line):
                 try:
-                    display_lines = line.count('1.0', 'end-1c', 'displaylines')[0]
-                    line.configure(height=max(1, display_lines))
+                    if not widget.winfo_exists() or widget.winfo_width() < 8:
+                        return
+                    count = widget.count('1.0', 'end', 'displaylines')
+                    desired = max(1, int(count[0]) if count else 1)
+                    if int(widget.cget('height')) != desired:
+                        widget.configure(height=desired)
                 except Exception:
                     pass
-            def schedule_height(_event=None):
-                if height_job['id'] is not None:
-                    try:
-                        line.after_cancel(height_job['id'])
-                    except Exception:
-                        pass
-                height_job['id'] = line.after_idle(update_height)
-            line.configure(state='disabled')
-            line.bind('<Configure>', schedule_height)
-            line.bind('<Button-2>', lambda e: 'break')
-            line.after_idle(update_height)
+            line.bind('<Configure>', lambda _e, w=line: w.after_idle(lambda: sync_display_height(w)), add='+')
+            line.after_idle(lambda w=line: sync_display_height(w))
+            line.bind('<Button-1>', lambda _e, w=line: (w.configure(state='normal'), w.focus_set()), add='+')
             return line
         def add_markdown_message(parent, text):
-            lines = text.replace('\r\n', '\n').replace('\r', '\n').split('\n')
+            lines = str(text).replace('\r\n', '\n').replace('\r', '\n').split('\n')
             i = 0
             while i < len(lines):
                 line = lines[i]
@@ -12908,110 +13916,360 @@ class App(_TkAppBase):
                     language = stripped[3:].strip()
                     i += 1
                     code = []
-                    while i < len(lines) and (not lines[i].strip().startswith('```')):
+                    while i < len(lines) and not lines[i].strip().startswith('```'):
                         code.append(lines[i])
                         i += 1
                     if i < len(lines):
                         i += 1
                     add_code_block(parent, '\n'.join(code), language)
                     continue
-                heading = re.match('^#{1,6}\\s+(.+)$', stripped)
+                heading = re.match(r'^#{1,6}\s+(.+)$', stripped)
                 if heading:
-                    w = add_rich_line(parent, heading.group(1), pady=(5, 5))
+                    w = add_rich_line(parent, heading.group(1), pady=(5, 4))
                     w.configure(state='normal')
-                    w.tag_configure('heading', font=('Segoe UI Semibold', 12 if stripped.startswith('# ') else 11), foreground='#ffffff')
+                    w.tag_configure('heading', font=('Segoe UI Semibold', 12 if stripped.startswith('# ') else 11), foreground='#171717')
                     w.tag_add('heading', '1.0', 'end')
                     w.configure(state='disabled')
                     i += 1
                     continue
-                if i + 1 < len(lines) and '|' in line and re.match('^\\s*\\|?\\s*:?-+:?\\s*(\\|\\s*:?-+:?\\s*)+\\|?\\s*$', lines[i + 1].strip()):
+                if i + 1 < len(lines) and '|' in line and re.match(r'^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?\s*$', lines[i + 1].strip()):
                     rows = [[x.strip() for x in line.strip().strip('|').split('|')]]
                     i += 2
                     while i < len(lines) and '|' in lines[i] and lines[i].strip():
                         rows.append([x.strip() for x in lines[i].strip().strip('|').split('|')])
                         i += 1
-                    table = tk.Frame(parent, bg='#66686c')
+                    table = tk.Frame(parent, bg='#bdb4a6')
                     table.pack(fill='x', pady=6)
-                    cols = max((len(r) for r in rows))
+                    cols = max(len(r) for r in rows)
                     for r, row_data in enumerate(rows):
                         for c in range(cols):
                             value = row_data[c] if c < len(row_data) else ''
-                            tk.Label(table, text=value, bg='#55575b' if r == 0 else '#3f4145', fg='#ffffff', justify='left', anchor='w', padx=7, pady=5, wraplength=220, font=('Segoe UI Semibold' if r == 0 else 'Segoe UI', 9)).grid(row=r, column=c, sticky='nsew', padx=1, pady=1)
+                            tk.Label(table, text=value, bg='#c8c0b3' if r == 0 else bubble_bg, fg=bubble_fg, justify='left', anchor='w', padx=7, pady=5, wraplength=420, font=('Segoe UI Semibold' if r == 0 else 'Segoe UI', 9)).grid(row=r, column=c, sticky='nsew', padx=1, pady=1)
                     for c in range(cols):
                         table.grid_columnconfigure(c, weight=1)
                     continue
                 if stripped:
-                    bullet = re.match('^[-*]\\s+(.+)$', stripped)
+                    bullet = re.match(r'^[-*]\s+(.+)$', stripped)
                     if bullet:
                         stripped = '• ' + bullet.group(1)
                     add_rich_line(parent, stripped)
                 else:
-                    tk.Frame(parent, bg='#4a4a4a', height=5).pack(fill='x')
+                    tk.Frame(parent, bg=bubble_bg, height=4).pack(fill='x')
                 i += 1
-        def add_message(text, role):
-            row = tk.Frame(messages, bg=_CURRENT_PALETTE['bg_dark'])
-            row.pack(fill='x', padx=8, pady=6)
+        def bubble_max_width():
+            canvas_width = canvas.winfo_width()
+            if canvas_width <= 1:
+                canvas_width = 760
+            return max(180, int((canvas_width - 42) * 0.72))
+        def measured_bubble_width(text, font, include_markdown=False):
+            available = bubble_max_width()
+            lines = str(text).replace('\r\n', '\n').replace('\r', '\n').split('\n')
+            widths = []
+            for line in lines:
+                candidate = line.strip()
+                if not candidate or candidate.startswith('```'):
+                    continue
+                if include_markdown:
+                    candidate = re.sub(r'[`*_#>|]', '', candidate)
+                widths.append(font.measure(candidate))
+            natural = max(widths, default=font.measure('Thinking...'))
+            return max(72, min(available, natural + 34))
+        def make_rounded_bubble(parent, color, border, width, side, padx=10, pady=7):
+            max_width = bubble_max_width()
+            size_state = {'width': max(72, min(max_width, int(width)))}
+            outer = tk.Canvas(parent, width=size_state['width'], height=42, bg=palette.get('bg_dark', '#1b1b1c'), highlightthickness=0, bd=0)
+            outer.pack(side=side, anchor='e' if side == 'right' else 'w', padx=(35, 0) if side == 'right' else (0, 35))
+            inner = tk.Frame(outer, bg=color, bd=0, padx=padx, pady=pady)
+            window_id = outer.create_window(7, 7, window=inner, anchor='nw', width=max(58, size_state['width'] - 14))
+            def redraw(_event=None):
+                try:
+                    max_width_now = bubble_max_width()
+                    requested = inner.winfo_reqwidth() + 14
+                    actual_w = max(72, min(max_width_now, max(size_state['width'], requested)))
+                    actual_h = max(34, inner.winfo_reqheight() + 14)
+                    current_width = int(float(outer.cget('width')))
+                    current_height = int(float(outer.cget('height')))
+                    if current_width != actual_w or current_height != actual_h:
+                        outer.configure(width=actual_w, height=actual_h)
+                    outer.coords(window_id, 7, 7)
+                    outer.itemconfigure(window_id, width=max(58, actual_w - 14))
+                    outer.delete('bubble-shape')
+                    r = min(12, max(7, actual_h // 4))
+                    points = [r, 0, actual_w-r, 0, actual_w, r, actual_w, actual_h-r, actual_w-r, actual_h, r, actual_h, 0, actual_h-r, 0, r]
+                    outer.create_polygon(points, smooth=True, splinesteps=18, fill=color, outline=border, width=1.5, tags='bubble-shape')
+                    outer.tag_lower('bubble-shape', window_id)
+                except Exception:
+                    pass
+            def set_bubble_width(new_width):
+                try:
+                    size_state['width'] = max(72, min(bubble_max_width(), int(new_width)))
+                    outer.after_idle(redraw)
+                except Exception:
+                    pass
+            inner._routils_set_bubble_width = set_bubble_width
+            inner._routils_resize_bubble = redraw
+            inner.bind('<Configure>', redraw, add='+')
+            outer.bind('<Configure>', redraw, add='+')
+            outer.after_idle(redraw)
+            return inner, outer
+        def make_row(role, text, meta=''):
+            row = tk.Frame(messages, bg=palette.get('bg_dark', '#1b1b1c'))
+            row.pack(fill='x', padx=7, pady=6)
             if role == 'user':
-                bubble = tk.Label(row, text=text, bg=_CURRENT_PALETTE['accent'], fg='#ffffff', padx=12, pady=8, justify='left', anchor='w', wraplength=500, font=('Segoe UI', 10))
-                bubble.pack(side='right', anchor='e')
+                bubble_color = palette.get('accent', '#7f8cff')
+                user_font = tkfont.Font(family='Segoe UI', size=10)
+                estimated_width = measured_bubble_width(text, user_font)
+                bubble, outer = make_rounded_bubble(row, bubble_color, _routils_darken_color(bubble_color, 0.18), estimated_width, 'right', padx=10, pady=7)
+                tk.Label(bubble, text=str(text), bg=bubble_color, fg='#ffffff', justify='left', anchor='w', wraplength=max(45, estimated_width - 28), font=('Segoe UI', 10)).pack(anchor='w', fill='x')
+                if meta:
+                    tk.Label(bubble, text=meta, bg=bubble_color, fg='#f0f0f0', font=('Segoe UI', 8)).pack(anchor='e', pady=(4, 0))
+                return row, bubble
+            header_row = tk.Frame(row, bg=palette.get('bg_dark', '#1b1b1c'))
+            header_row.pack(fill='x', padx=(0, 60), pady=(0, 3))
+            title_label = tk.Label(header_row, text='RoUtils AI' + (f' · {meta}' if meta else ''), bg=palette.get('bg_dark', '#1b1b1c'), fg='#aeb4be', font=('Segoe UI Semibold', 8))
+            title_label.pack(side='left')
+            ai_font = tkfont.Font(family='Segoe UI', size=10)
+            estimated_width = measured_bubble_width(text, ai_font, include_markdown=True)
+            bubble, outer = make_rounded_bubble(row, bubble_bg, '#c5bdaf', estimated_width, 'left', padx=10, pady=7)
+            if text == 'Thinking...':
+                tk.Label(bubble, text='Thinking...', bg=bubble_bg, fg='#4a463f', font=('Segoe UI', 10, 'italic')).pack(anchor='w')
             else:
-                bubble = tk.Frame(row, bg='#4a4a4a', padx=12, pady=8)
-                bubble.pack(side='left', anchor='w')
                 add_markdown_message(bubble, text)
-            canvas.update_idletasks()
-            canvas.yview_moveto(1.0)
+            return row, bubble, title_label
+        def update_thinking(elapsed):
+            row = thinking.get('row')
+            if row is None:
+                return
+            try:
+                if not row.winfo_exists() or not busy['value']:
+                    return
+                title = thinking.get('title')
+                if title is not None and title.winfo_exists():
+                    title.configure(text=f'RoUtils AI · Thinking... {int(elapsed)}s')
+                win.after(1000, lambda: update_thinking(time.monotonic() - thinking['started']))
+            except Exception:
+                pass
+        def choose_file():
+            path = filedialog.askopenfilename(parent=self, title='Attach a file', filetypes=[('Supported files', '*.txt *.md *.py *.json *.csv *.log *.yaml *.yml *.xml *.html *.css *.js *.png *.jpg *.jpeg *.webp *.gif *.bmp *.pdf'), ('All files', '*.*')])
+            if not path:
+                return
+            attachment['path'] = path
+            filename = os.path.basename(path)
+            ext = os.path.splitext(filename)[1] or 'file'
+            attach_label.configure(text=f'📎  {filename}  ·  {ext}', state='normal')
+            for child in attach_preview.winfo_children():
+                child.destroy()
+            attachment.pop('preview_photo', None)
+            if ext.lower() in {'.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp'}:
+                try:
+                    from PIL import Image, ImageTk
+                    with Image.open(path) as source_image:
+                        preview_image = source_image.copy()
+                    preview_image.thumbnail((210, 125), Image.Resampling.LANCZOS if hasattr(Image, 'Resampling') else Image.LANCZOS)
+                    photo = ImageTk.PhotoImage(preview_image, master=self)
+                    attachment['preview_photo'] = photo
+                    tk.Label(attach_preview, image=photo, bg=palette.get('bg_medium', '#252526'), bd=0).pack(anchor='w', pady=(4, 2))
+                    tk.Label(attach_preview, text=f'Image preview · {preview_image.width} × {preview_image.height}', bg=palette.get('bg_medium', '#252526'), fg=palette.get('fg', '#e6e6e6'), font=('Segoe UI', 8)).pack(anchor='w')
+                except Exception as exc:
+                    tk.Label(attach_preview, text=f'Preview unavailable: {exc}', bg=palette.get('bg_medium', '#252526'), fg=palette.get('fg', '#e6e6e6'), font=('Segoe UI', 8)).pack(anchor='w')
+            elif ext.lower() == '.pdf':
+                tk.Label(attach_preview, text='PDF attached · content will be sent to Gemini', bg=palette.get('bg_medium', '#252526'), fg=palette.get('fg', '#e6e6e6'), font=('Segoe UI', 8)).pack(anchor='w', pady=(4, 2))
+            attach_row.grid()
+            input_box.configure(height=5)
+            scroll_bottom()
+        def clear_file():
+            attachment['path'] = None
+            attachment.pop('preview_photo', None)
+            for child in attach_preview.winfo_children():
+                child.destroy()
+            attach_row.grid_remove()
+            input_box.configure(height=3)
         def send():
             if busy['value']:
                 return
             text = input_box.get('1.0', 'end-1c').strip()
-            if not text:
+            path = attachment.get('path')
+            if not text and not path:
+                return
+            normalized_greeting = re.sub(r'[^\w]+', ' ', text.casefold(), flags=re.UNICODE).strip()
+            simple_greetings = {'hello', 'hi', 'hey', 'hello there', 'hi there', 'hey there', 'merhaba', 'selam', 'selamlar', 'sa', 'günaydın', 'iyi günler', 'good morning', 'good afternoon', 'good evening'}
+            if not path and normalized_greeting in simple_greetings:
+                input_box.delete('1.0', 'end')
+                make_row('user', text)
+                history.append({'role': 'user', 'parts': [{'text': text}]})
+                greeting_answer = 'Hey! Need a hand with RoUtils?'
+                history.append({'role': 'model', 'parts': [{'text': greeting_answer}]})
+                make_row('model', greeting_answer)
+                scroll_bottom()
+                input_box.focus_set()
+                return
+            settings_queries = {'settings', 'setting', 'settings help', 'help with settings', 'settings tab', 'how to use settings', 'ayarlar', 'ayarlar yardımı', 'ayarlar sekmesi'}
+            if not path and normalized_greeting in settings_queries:
+                input_box.delete('1.0', 'end')
+                make_row('user', text)
+                history.append({'role': 'user', 'parts': [{'text': text}]})
+                settings_answer = 'You can find app options in Settings. To set up Gemini, open Settings > Gemini AI and add your API key. You can change the app theme in Customize. Tell me the name of a setting and I’ll point you to it.'
+                history.append({'role': 'model', 'parts': [{'text': settings_answer}]})
+                make_row('model', settings_answer)
+                scroll_bottom()
+                input_box.focus_set()
+                return
+            key = self.gemini_api_key.get().strip()
+            if not key:
+                messagebox.showwarning('Gemini AI', "Add your Gemini API key in Settings before sending a message.", parent=self)
                 return
             input_box.delete('1.0', 'end')
-            add_message(text, 'user')
-            history.append({'role': 'user', 'parts': [{'text': text}]})
+            filename = os.path.basename(path) if path else ''
+            user_display = text if text else 'Please analyze the attached file.'
+            if filename:
+                user_display += f'\n\n📎 {filename}'
+            make_row('user', user_display)
+            user_parts = [{'text': user_display}]
+            history.append({'role': 'user', 'parts': user_parts})
             busy['value'] = True
-            send_btn.config(state='disabled')
-            input_box.config(state='disabled')
-            add_message('Thinking...', 'model')
+            send_btn.configure(state='disabled')
+            input_box.configure(state='disabled')
+            attach_btn.configure(state='disabled')
+            clear_btn.configure(state='disabled')
+            row, bubble, title_label = make_row('model', 'Thinking...')
+            thinking.update({'row': row, 'bubble': bubble, 'title': title_label, 'started': time.monotonic()})
+            update_thinking(0)
+            selected_model = model_names.get(model_var.get(), 'gemini-3.8-flash')
+            history_snapshot = [dict(item) for item in history]
+            for item in history_snapshot:
+                item['parts'] = list(item.get('parts', []))
             def worker():
                 try:
-                    payload = {'systemInstruction': {'parts': [{'text': 'You are RoUtils AI. Help the user with Roblox, FastFlags, RoUtils, Windows, programming, and general questions. Be concise, accurate, and practical. When the user asks for a FastFlag, explain how to apply it specifically in RoUtils: tell them to open the FFlags tab, click JSON Editor, paste the JSON you provide, click Add, and then click Apply. Always provide the exact FastFlag JSON when you know the correct flag and value. If you are unsure of a flag, say so rather than inventing one. Use Markdown headings, bold (**text**), inline code (`text`), lists, and fenced code blocks when useful.'}]}, 'contents': history}
-                    req = urllib.request.Request('https://generativelanguage.googleapis.com/v1beta/models/' + model_names[model_var.get()] + ':generateContent', data=json.dumps(payload).encode('utf-8'), headers={'Content-Type': 'application/json', 'x-goog-api-key': key}, method='POST')
-                    with urllib.request.urlopen(req, timeout=60) as response:
+                    parts = [{'text': user_display}]
+                    if path:
+                        size = os.path.getsize(path)
+                        if size > 12 * 1024 * 1024:
+                            parts.append({'text': 'The selected file is larger than 12 MB; only its filename was attached.'})
+                        else:
+                            import mimetypes
+                            mime = mimetypes.guess_type(path)[0] or 'application/octet-stream'
+                            ext_lower = os.path.splitext(path)[1].lower()
+                            if ext_lower in {'.txt', '.md', '.py', '.json', '.csv', '.log', '.yaml', '.yml', '.xml', '.html', '.css', '.js'}:
+                                with open(path, 'r', encoding='utf-8', errors='replace') as f:
+                                    content = f.read(1_000_000)
+                                parts.append({'text': f'\n\nAttached file content ({filename}):\n```\n{content}\n```'})
+                            elif mime.startswith('image/') or mime == 'application/pdf':
+                                with open(path, 'rb') as f:
+                                    encoded = base64.b64encode(f.read()).decode('ascii')
+                                parts.append({'inline_data': {'mime_type': mime, 'data': encoded}})
+                            else:
+                                parts.append({'text': f'Attached file: {filename} ({mime}). This file type is not embedded; ask the user to paste relevant content if needed.'})
+                    history_snapshot[-1]['parts'] = parts
+                    prompt_rules = """you are routils ai a helper inside the windows app routils made by offp001
+always answer in clear natural english even when the user writes in another language
+use simple words and short helpful replies
+write like a real person and do not repeat greetings
+use normal sentence case and do not capitalize every word
+avoid full stops at the end of short messages unless using an ellipsis
+use commas only when they help
+do not show raw tracebacks or long technical errors to the user
+
+when the user only says hello hi or hey say hey need a hand with routils
+do not bring up settings or api keys unless the user asks
+when they ask about settings explain the right option in simple steps
+
+use the real features and tab names in this guide
+fflags are in the fflags tab and can be edited in the list or json editor
+use apply to roblox when available and do not promise every flag works
+cache is used to inspect cached files with search and filters
+start watching turns cache watching on or off
+back up cache data before changing or removing it
+configs can be saved imported selected applied exported or deleted
+themes are in customize
+the gemini api key is in settings under gemini ai
+console commands include help fflag list fflag apply fflag unapply config list watch start watch stop theme list status and ai
+official github https://github.com/offp001/routils
+official discord https://discord.gg/849VtrYhm2
+if asked who made routils say offp001
+never make up a feature setting result or link
+answer general questions directly and do not add unrelated offers to help with settings
+if unsure say so and tell the user where to check"""
+                    payload = {'systemInstruction': {'parts': [{'text': prompt_rules}]}, 'contents': history_snapshot}
+                    req = urllib.request.Request('https://generativelanguage.googleapis.com/v1beta/models/' + selected_model + ':generateContent', data=json.dumps(payload).encode('utf-8'), headers={'Content-Type': 'application/json', 'x-goog-api-key': key}, method='POST')
+                    with _routils_urlopen(req, timeout=45) as response:
                         result = json.loads(response.read().decode('utf-8'))
-                    parts = result.get('candidates', [{}])[0].get('content', {}).get('parts', [])
-                    answer = ''.join((str(part.get('text', '')) for part in parts)).strip()
+                    parts_out = result.get('candidates', [{}])[0].get('content', {}).get('parts', [])
+                    answer = ''.join(str(part.get('text', '')) for part in parts_out).strip()
                     if not answer:
                         raise RuntimeError('Gemini returned an empty response.')
                     history.append({'role': 'model', 'parts': [{'text': answer}]})
-                    win.after(0, lambda: finish(answer))
-                except Exception as e:
-                    err_text = str(e)
-                    win.after(0, lambda err_text=err_text: finish(f'Error: {err_text}'))
-            threading.Thread(target=worker, daemon=True).start()
+                    win.after(0, lambda a=answer: finish(a))
+                except Exception as exc:
+                    error_text = str(exc)
+                    try:
+                        win.after(0, lambda e=error_text: finish(f'**Request failed**\n\n{e}'))
+                    except Exception:
+                        pass
+            threading.Thread(target=worker, daemon=True, name='RoUtilsGeminiRequest').start()
         def finish(answer):
-            for child in reversed(messages.winfo_children()):
-                try:
-                    labels = [x for x in child.winfo_children() if isinstance(x, tk.Label)]
-                    if labels and labels[0].cget('text') == 'Thinking...':
+            try:
+                elapsed = max(0, int(time.monotonic() - thinking['started']))
+                bubble = thinking.get('bubble')
+                title_label = thinking.get('title')
+                if bubble is not None and bubble.winfo_exists():
+                    for child in bubble.winfo_children():
                         child.destroy()
-                        break
-                except Exception:
-                    pass
-            add_message(answer, 'model')
+                    bubble_font = tkfont.Font(family='Segoe UI', size=10)
+                    bubble._routils_set_bubble_width(measured_bubble_width(answer, bubble_font, include_markdown=True))
+                    add_markdown_message(bubble, answer)
+                    bubble.after_idle(bubble._routils_resize_bubble)
+                if title_label is not None and title_label.winfo_exists():
+                    title_label.configure(text=f'RoUtils AI · {elapsed}s')
+            except Exception:
+                row, bubble, title_label = make_row('model', answer, f'{int(time.monotonic() - thinking["started"])}s')
             busy['value'] = False
-            send_btn.config(state='normal')
-            input_box.config(state='normal')
+            thinking.update({'row': None, 'bubble': None, 'title': None})
+            send_btn.configure(state='normal')
+            input_box.configure(state='normal')
+            attach_btn.configure(state='normal')
+            clear_btn.configure(state='normal')
+            clear_file()
             input_box.focus_set()
-        composer = ttk.Frame(win, padding=(12, 4, 12, 12))
-        composer.pack(fill='x')
-        composer.columnconfigure(0, weight=1)
-        input_box = tk.Text(composer, height=4, wrap='word', font=('Segoe UI', 10), bg=_CURRENT_PALETTE['bg_medium'], fg=_CURRENT_PALETTE['fg'], insertbackground='#ffffff', relief='flat', bd=0, padx=10, pady=8)
-        input_box.grid(row=0, column=0, sticky='ew', padx=(0, 8))
-        send_btn = ttk.Button(composer, text='Send', command=send, width=10)
-        send_btn.grid(row=0, column=1, sticky='se')
-        input_box.bind('<Control-Return>', lambda _e: (send(), 'break')[1])
-        add_message("Hi! I'm RoUtils AI. How can I help?", 'model')
+            scroll_bottom()
+        composer_outer = tk.Frame(win, bg=palette.get('bg_dark', '#1b1b1c'), padx=12, pady=10)
+        composer_outer.grid(row=2, column=0, sticky='ew')
+        composer_outer.columnconfigure(0, weight=1)
+        composer_card = tk.Frame(composer_outer, bg=palette.get('bg_medium', '#252526'), highlightthickness=1, highlightbackground=palette.get('border', '#444446'), padx=8, pady=7)
+        composer_card.grid(row=0, column=0, sticky='ew')
+        composer_card.columnconfigure(1, weight=1)
+        attach_btn = tk.Button(composer_card, text='+', command=choose_file, bg=palette.get('bg_light', '#3a3a3c'), fg=palette.get('fg', '#e6e6e6'), activebackground=palette.get('accent', '#7f8cff'), relief='flat', bd=0, width=3, font=('Segoe UI Semibold', 15), cursor='hand2')
+        attach_btn.grid(row=0, column=0, rowspan=2, sticky='ns', padx=(0, 8))
+        input_box = tk.Text(composer_card, height=3, wrap='word', font=('Segoe UI', 10), bg=palette.get('bg_medium', '#252526'), fg=palette.get('fg', '#e6e6e6'), insertbackground=palette.get('fg', '#ffffff'), relief='flat', bd=0, padx=8, pady=7)
+        input_box.grid(row=0, column=1, sticky='ew')
+        send_btn = tk.Button(composer_card, text='Send  ➤', command=send, bg=palette.get('accent', '#7f8cff'), fg='#ffffff', activebackground=_routils_darken_color(palette.get('accent', '#7f8cff'), .15), relief='flat', bd=0, padx=14, pady=8, font=('Segoe UI Semibold', 9), cursor='hand2')
+        send_btn.grid(row=0, column=2, rowspan=2, sticky='ns', padx=(8, 0))
+        attach_row = tk.Frame(composer_card, bg=palette.get('bg_medium', '#252526'))
+        attach_row.grid(row=1, column=1, sticky='ew', pady=(5, 0))
+        attach_label = tk.Label(attach_row, text='', bg=palette.get('bg_medium', '#252526'), fg=palette.get('fg', '#e6e6e6'), font=('Segoe UI', 8), anchor='w')
+        attach_label.pack(side='left', fill='x', expand=True)
+        clear_btn = tk.Button(attach_row, text='×', command=clear_file, bg=palette.get('bg_light', '#3a3a3c'), fg=palette.get('fg', '#e6e6e6'), relief='flat', bd=0, padx=8)
+        clear_btn.pack(side='right')
+        attach_preview = tk.Frame(composer_card, bg=palette.get('bg_medium', '#252526'))
+        attach_preview.grid(row=2, column=1, sticky='ew')
+        attach_preview.grid_remove()
+        original_choose_file = choose_file
+        def choose_file_with_preview_layout():
+            original_choose_file()
+            if attachment.get('path'):
+                attach_preview.grid()
+        choose_file = choose_file_with_preview_layout
+        original_clear_file = clear_file
+        def clear_file_with_preview_layout():
+            original_clear_file()
+            attach_preview.grid_remove()
+        clear_file = clear_file_with_preview_layout
+        attach_row.grid_remove()
+        input_box.bind('<Return>', lambda e: None if e.state & 0x1 else (send(), 'break')[1])
+        input_box.bind('<Shift-Return>', lambda _e: None)
+        self._ai_input_box = input_box
+        self._ai_send_callback = send
+        self._ai_model_var = model_var
+        make_row('model', 'Hey! Need a hand with RoUtils?')
         input_box.focus_set()
     def _build_viewer_widgets(self):
         top = ttk.Frame(self.viewer_root, padding=(8, 6))
@@ -13042,7 +14300,7 @@ class App(_TkAppBase):
         type_combo = ttk.Combobox(top, textvariable=self.type_filter, values=[t[0] for t in TYPE_FILTERS], state='readonly', width=14)
         self._cache_type_combo = type_combo
         type_combo.grid(row=2, column=1, sticky='w', padx=(8, 0), pady=(4, 0))
-        type_combo.bind('<<ComboboxSelected>>', lambda e: self._apply_filter())
+        type_combo.bind('<<ComboboxSelected>>', lambda e: self.after_idle(self._safe_apply_filter))
         self._cache_filter_label = ttk.Label(top, text='Filter:')
         self._cache_filter_label.grid(row=3, column=0, sticky='w', pady=(4, 0))
         f_entry = ttk.Entry(top, textvariable=self.filter_text)
@@ -13223,6 +14481,9 @@ class App(_TkAppBase):
                 _set_pane_minsize(self.vpaned, self.details, 100)
         except Exception:
             pass
+    def _on_hsash_release(self, _event=None):
+        self._clamp_hsash()
+        self._save_settings()
     def _clamp_hsash(self):
         try:
             panes = self.hpaned.panes()
@@ -13585,7 +14846,8 @@ class App(_TkAppBase):
             self._geometry_save_job = None
             return
         data = dict(self.settings)
-        data.update({'autoscroll': self.autoscroll.get(), 'hide_tickets': self.hide_tickets.get(), 'stay_on_top': self.stay_on_top.get(), 'show_lines': self.show_lines.get(), 'preview_optimize_vertices': self.viewport_3d.reduce_polys.get() if hasattr(self, 'viewport_3d') else self.settings.get('preview_optimize_vertices', True), 'streamer_mode': self.streamer_mode.get() if hasattr(self, 'streamer_mode') else self.settings.get('streamer_mode', False), 'fps_limit': self.fps_limit.get() if hasattr(self, 'fps_limit') else self.settings.get('fps_limit', 0), 'autostart_watch': self.autostart_watch.get() if hasattr(self, 'autostart_watch') else self.settings.get('autostart_watch', False), 'max_rows': self.max_rows.get() if hasattr(self, 'max_rows') else self.settings.get('max_rows', 0), 'type_filter': self.type_filter.get(), 'columns': {c: var.get() for c, var in getattr(self, '_col_vars', {}).items()}, 'viewer_collapsed': self.viewer_collapsed, 'theme': self.theme_var.get() if hasattr(self, 'theme_var') else self.settings.get('theme', DEFAULT_THEME), 'fflag_hotkeys': self.fflag_hotkeys, 'fps_hotkeys': self.fps_hotkeys, 'fps_hotkey_slots': self.fps_hotkey_slots, 'fflag_auto_apply': self.fflag_auto_apply.get() if hasattr(self, 'fflag_auto_apply') else self.settings.get('fflag_auto_apply', False), 'launch_on_tray': self.launch_on_tray.get() if hasattr(self, 'launch_on_tray') else self.settings.get('launch_on_tray', False), 'launch_on_startup': self.launch_on_startup.get() if hasattr(self, 'launch_on_startup') else self.settings.get('launch_on_startup', False), 'hide_to_tray_on_close': self.hide_to_tray_on_close.get() if hasattr(self, 'hide_to_tray_on_close') else self.settings.get('hide_to_tray_on_close', False), 'auto_update': self.auto_update.get() if hasattr(self, 'auto_update') else self.settings.get('auto_update', False), 'dpi_percent': int(self.dpi_percent.get()) if hasattr(self, 'dpi_percent') else int(getattr(self, '_dpi_scale', 1.0) * 100), 'plugin_enabled': getattr(self, '_plugin_enabled', self.settings.get('plugin_enabled', {})), 'roblox_path': self.settings.get('roblox_path', ''), 'roblox_username': self.settings.get('roblox_username', ''), 'roblox_user_id': self.settings.get('roblox_user_id', ''), 'gemini_api_key': self.gemini_api_key.get().strip() if hasattr(self, 'gemini_api_key') else self.settings.get('gemini_api_key', ''), 'custom_theme': self.settings.get('custom_theme', {}), 'db_path': getattr(self, 'db_path', self.settings.get('db_path', '')), 'shard_root': getattr(self, 'shard_root', self.settings.get('shard_root', '')), 'window_geometry': self.geometry() if self.winfo_exists() else self.settings.get('window_geometry', STARTUP_GEOMETRY), 'include_cconfigs': self.include_cconfigs.get() if hasattr(self, 'include_cconfigs') else self.settings.get('include_cconfigs', False), 'include_cache_dumps': self.include_cache_dumps.get() if hasattr(self, 'include_cache_dumps') else self.settings.get('include_cache_dumps', False), 'tab_order': [self.nb.tab(t, 'text') for t in self.nb.tabs()] if hasattr(self, 'nb') else self.settings.get('tab_order', []), 'selected_tab': self.nb.tab(self.nb.select(), 'text') if hasattr(self, 'nb') and self.nb.select() else self.settings.get('selected_tab', 'Home'), 'hpaned_sash': self.hpaned.sashpos(0) if hasattr(self, 'hpaned') else self.settings.get('hpaned_sash', None), 'vpaned_sash': self.vpaned.sashpos(0) if hasattr(self, 'vpaned') else self.settings.get('vpaned_sash', None)})
+        data['emote_hotkeys_enabled'] = bool(getattr(self, '_emote_hotkeys_enabled', self.settings.get('emote_hotkeys_enabled', True)))
+        data.update({'autoscroll': self.autoscroll.get(), 'hide_tickets': self.hide_tickets.get(), 'stay_on_top': self.stay_on_top.get(), 'show_lines': self.show_lines.get(), 'preview_optimize_vertices': self.viewport_3d.reduce_polys.get() if hasattr(self, 'viewport_3d') else self.settings.get('preview_optimize_vertices', True), 'streamer_mode': self.streamer_mode.get() if hasattr(self, 'streamer_mode') else self.settings.get('streamer_mode', False), 'fps_limit': self.fps_limit.get() if hasattr(self, 'fps_limit') else self.settings.get('fps_limit', 0), 'autostart_watch': self.autostart_watch.get() if hasattr(self, 'autostart_watch') else self.settings.get('autostart_watch', False), 'max_rows': self.max_rows.get() if hasattr(self, 'max_rows') else self.settings.get('max_rows', 0), 'type_filter': self.type_filter.get(), 'columns': {c: var.get() for c, var in getattr(self, '_col_vars', {}).items()}, 'viewer_collapsed': self.viewer_collapsed, 'theme': self.theme_var.get() if hasattr(self, 'theme_var') else self.settings.get('theme', DEFAULT_THEME), 'fflag_hotkeys': self.fflag_hotkeys, 'fps_hotkeys': self.fps_hotkeys, 'fps_hotkey_slots': self.fps_hotkey_slots, 'fflag_auto_apply': self.fflag_auto_apply.get() if hasattr(self, 'fflag_auto_apply') else self.settings.get('fflag_auto_apply', False), 'launch_on_tray': self.launch_on_tray.get() if hasattr(self, 'launch_on_tray') else self.settings.get('launch_on_tray', False), 'launch_on_startup': self.launch_on_startup.get() if hasattr(self, 'launch_on_startup') else self.settings.get('launch_on_startup', False), 'hide_to_tray_on_close': self.hide_to_tray_on_close.get() if hasattr(self, 'hide_to_tray_on_close') else self.settings.get('hide_to_tray_on_close', False), 'auto_update': self.auto_update.get() if hasattr(self, 'auto_update') else self.settings.get('auto_update', False), 'dpi_percent': int(self.dpi_percent.get()) if hasattr(self, 'dpi_percent') else int(getattr(self, '_dpi_scale', 1.0) * 100), 'plugin_enabled': getattr(self, '_plugin_enabled', self.settings.get('plugin_enabled', {})), 'emote_nav_binds': dict(getattr(self, '_emote_nav_binds', self.settings.get('emote_nav_binds', {}))), 'emote_hud_enabled': False, 'hpaned_sash_v2': self.hpaned.sashpos(0) if hasattr(self, 'hpaned') and self.hpaned.winfo_width() > 0 and self.hpaned.sashpos(0) > 0 else self.settings.get('hpaned_sash_v2', None), 'roblox_path': self.settings.get('roblox_path', ''), 'roblox_username': self.settings.get('roblox_username', ''), 'roblox_user_id': self.settings.get('roblox_user_id', ''), 'gemini_api_key': self.gemini_api_key.get().strip() if hasattr(self, 'gemini_api_key') else self.settings.get('gemini_api_key', ''), 'custom_theme': self.settings.get('custom_theme', {}), 'db_path': getattr(self, 'db_path', self.settings.get('db_path', '')), 'shard_root': getattr(self, 'shard_root', self.settings.get('shard_root', '')), 'window_geometry': self.geometry() if self.winfo_exists() else self.settings.get('window_geometry', STARTUP_GEOMETRY), 'include_cconfigs': self.include_cconfigs.get() if hasattr(self, 'include_cconfigs') else self.settings.get('include_cconfigs', False), 'include_cache_dumps': self.include_cache_dumps.get() if hasattr(self, 'include_cache_dumps') else self.settings.get('include_cache_dumps', False), 'tab_order': [self.nb.tab(t, 'text') for t in self.nb.tabs()] if hasattr(self, 'nb') else self.settings.get('tab_order', []), 'selected_tab': self.nb.tab(self.nb.select(), 'text') if hasattr(self, 'nb') and self.nb.select() else self.settings.get('selected_tab', 'Home'), 'hpaned_sash': self.hpaned.sashpos(0) if hasattr(self, 'hpaned') else self.settings.get('hpaned_sash', None), 'vpaned_sash': self.vpaned.sashpos(0) if hasattr(self, 'vpaned') else self.settings.get('vpaned_sash', None)})
         save_settings(data)
         self.settings = data
     def _apply_startup_layouts(self):
@@ -13606,11 +14868,11 @@ class App(_TkAppBase):
         try:
             total = self.hpaned.winfo_width()
             if total > VIEWER_MIN_WIDTH + REPLACER_MIN_WIDTH and len(self.hpaned.panes()) >= 2:
-                saved = self.settings.get('hpaned_sash')
+                saved = self.settings.get('hpaned_sash_v2')
                 scale = max(0.62, min(1.0, float(getattr(self, '_responsive_last_scale', 1.0) or 1.0)))
                 min_left = max(260, int(VIEWER_MIN_WIDTH * scale))
                 min_right = max(190, int(REPLACER_MIN_WIDTH * scale))
-                target = int(saved) if saved is not None else int(total * HPANED_LEFT_FRACTION)
+                target = int(saved) if saved is not None and int(saved) > 0 else int(total * HPANED_LEFT_FRACTION)
                 target = max(min_left, min(total - min_right, target))
                 self.hpaned.sashpos(0, target)
                 self._clamp_hsash()
@@ -14208,13 +15470,13 @@ class App(_TkAppBase):
             return
         processed = 0
         try:
-            while processed < 4:
+            while processed < 16:
                 items = self.new_items_q.get_nowait()
                 self._insert_items(items)
                 processed += 1
         except queue.Empty:
             pass
-        if getattr(self, '_watch_loading_active', False) and self._watch_initial_scan_done.is_set() and self.new_items_q.empty():
+        if getattr(self, '_watch_loading_active', False) and self._watch_initial_scan_done.is_set() and self.new_items_q.empty() and not self._tree_insert_pending and self._tree_insert_pending_job is None and self._filter_render_phase is None:
             self._watch_loading_active = False
             try:
                 self.toggle_btn.config(state='normal', text='Stop Watching' if self.watching else 'Start Watching')
@@ -14275,7 +15537,7 @@ class App(_TkAppBase):
         batch_count = 0
         last_iid = None
         started = time.perf_counter()
-        while index < len(pending) and batch_count < 72 and time.perf_counter() - started < 0.004:
+        while index < len(pending) and batch_count < 1200 and time.perf_counter() - started < 0.016:
             item = pending[index]
             index += 1
             batch_count += 1
@@ -14315,6 +15577,19 @@ class App(_TkAppBase):
         else:
             self._tree_insert_pending = []
             self._tree_insert_pending_index = 0
+    def _safe_apply_filter(self):
+        try:
+            self._apply_filter()
+        except tk.TclError:
+            try:
+                self.after(30, self._safe_apply_filter)
+            except Exception:
+                pass
+        except Exception as exc:
+            try:
+                self._console_log(f'Cache view refresh was retried: {exc}')
+            except Exception:
+                pass
     def _apply_filter(self):
         if not hasattr(self, 'tree'):
             return
@@ -14342,6 +15617,10 @@ class App(_TkAppBase):
         self._filter_clear_index = 0
         self._filter_render_phase = 'clear'
         self._filter_render_last_iid = None
+        try:
+            self.tree.selection_remove(self.tree.selection())
+        except Exception:
+            pass
         self.items_by_iid.clear()
         try:
             self._filter_render_job = self.after(0, lambda g=generation: self._apply_filter_batch(g))
@@ -14363,7 +15642,7 @@ class App(_TkAppBase):
                 self._filter_render_job = None
             return
         if self._filter_render_phase == 'clear':
-            stop = min(self._filter_clear_index + 80, len(self._filter_clear_iids))
+            stop = min(self._filter_clear_index + 600, len(self._filter_clear_iids))
             chunk = self._filter_clear_iids[self._filter_clear_index:stop]
             if chunk:
                 try:
@@ -14388,7 +15667,7 @@ class App(_TkAppBase):
         index = self._filter_render_index
         processed = 0
         started = time.perf_counter()
-        while index < len(snapshot) and processed < 72 and time.perf_counter() - started < 0.004:
+        while index < len(snapshot) and processed < 1500 and time.perf_counter() - started < 0.016:
             item = snapshot[index]
             index += 1
             processed += 1
@@ -14396,7 +15675,10 @@ class App(_TkAppBase):
                 continue
             values = (item.time, item.name, item.hash, human_size(item.size), item.kind, item.src)
             try:
-                self.tree.insert('', 'end', iid=item.hash, values=values)
+                if self.tree.exists(item.hash):
+                    self.tree.item(item.hash, values=values)
+                else:
+                    self.tree.insert('', 'end', iid=item.hash, values=values)
                 self.items_by_iid[item.hash] = item
                 self._filter_render_last_iid = item.hash
             except tk.TclError:
@@ -14440,73 +15722,81 @@ class App(_TkAppBase):
         if self.viewport_3d.winfo_ismapped():
             self.viewport_3d.draw_frame()
     def _show_details(self):
-        self._cancel_image_preview()
-        sel = self.tree.selection()
-        if not sel:
-            return
-        multi = len(sel)
-        iid = sel[0]
-        it = self.items_by_iid.get(iid) or self.items_by_hash.get(iid)
-        if not it:
-            return
-        self.details_text.configure(state='normal')
-        self.details_text.delete('1.0', 'end')
-        lines = [f'Hash:    {it.hash}', f'Name:    {it.name}', f'Time:    {it.time}', f'Source:  {it.src}', f'Wrapped: {it.wrapped}', f'Size:    {human_size(it.size)}', f'Type:    {it.kind}']
-        if multi > 1:
-            lines.append(f'Selection: {multi} rows (actions apply to all selected)')
-        if it.content_type:
-            lines.append(f'Content-Type: {it.content_type}')
-        lines.append(f'URL:     {it.url}')
-        lines.append('')
-        if it.header_text:
-            lines.append('RBXH headers (best-effort):')
-            lines.append(it.header_text.strip())
-            lines.append('')
-        if it.is_ticket:
-            lines.append('Note: This is a signed-URL ticket cached by the client before fetching the real asset.')
-        self.details_text.insert('1.0', '\n'.join(lines))
-        self.details_text.configure(state='disabled')
-    def _update_preview(self):
-        sel = self.tree.selection()
-        if not sel:
-            return
-        iid = sel[0]
-        it = self.items_by_iid.get(iid) or self.items_by_hash.get(iid)
-        if not it:
-            return
-        blob = self._fetch_full_blob(it)
-        if not blob:
-            self.viewport_3d.hide()
-            return
-        meta = parse_rbxh(blob)
-        body = meta.get('body') or b''
-        cat = it.kind.split(' ', 1)[0]
-        is_mesh = cat == 'Mesh'
-        is_anim = cat == 'Animation' or (cat in ('RBXM', 'Model') and any((marker in body[:262144] for marker in (b'Keyframe', b'CurveAnimation', b'KeyframeSequence', b'AnimationClip'))))
-        is_audio = cat == 'Sound'
-        is_model = cat in ('Model', 'RBXM', 'rbxl (place)')
-        if not (is_mesh or is_anim or is_audio or is_model):
-            self.viewport_3d.hide()
-            return
-        if is_anim:
-            self.viewport_3d.hide()
-            return
-        self._close_animation_preview()
-        temp_pkg_path = os.path.join(TEMP_EMU_DIR, f'preview_{it.hash}.bin')
         try:
-            with open(temp_pkg_path, 'wb') as f:
-                f.write(body)
-        except Exception:
-            pass
-        self.viewport_3d.set_asset_data_from_temp(temp_pkg_path, is_anim=is_anim, is_mesh=is_mesh, is_model=is_model, is_audio=is_audio)
-        if is_anim:
-            self.viewport_3d.show(is_anim=True, mode_label='Animation View')
-        elif is_mesh:
-            self.viewport_3d.show(is_anim=False, mode_label='Mesh View')
-        elif is_model:
-            self.viewport_3d.show(is_anim=False, mode_label='Model View')
-        else:
-            self.viewport_3d.show(is_anim=False, mode_label='Audio View')
+            self._cancel_image_preview()
+            sel = self.tree.selection()
+            if not sel:
+                return
+            iid = sel[0]
+            if not self.tree.exists(iid):
+                return
+            it = self.items_by_iid.get(iid) or self.items_by_hash.get(iid)
+            if not it:
+                return
+            self.details_text.configure(state='normal')
+            self.details_text.delete('1.0', 'end')
+            lines = [f'Hash:    {it.hash}', f'Name:    {it.name}', f'Time:    {it.time}', f'Source:  {it.src}', f'Wrapped: {it.wrapped}', f'Size:    {human_size(it.size)}', f'Type:    {it.kind}']
+            if len(sel) > 1:
+                lines.append(f'Selection: {len(sel)} rows (actions apply to all selected)')
+            if it.content_type:
+                lines.append(f'Content-Type: {it.content_type}')
+            lines.extend((f'URL:     {it.url}', ''))
+            if it.header_text:
+                lines.extend(('RBXH headers (best-effort):', it.header_text.strip(), ''))
+            if it.is_ticket:
+                lines.append('Note: This is a signed-URL ticket cached by the client before fetching the real asset.')
+            self.details_text.insert('1.0', '\n'.join(lines))
+            self.details_text.configure(state='disabled')
+        except tk.TclError:
+            return
+    def _update_preview(self):
+        try:
+            sel = self.tree.selection()
+            if not sel:
+                self.viewport_3d.hide()
+                return
+            iid = sel[0]
+            if not self.tree.exists(iid):
+                self.viewport_3d.hide()
+                return
+            it = self.items_by_iid.get(iid) or self.items_by_hash.get(iid)
+            if not it:
+                self.viewport_3d.hide()
+                return
+            blob = self._fetch_full_blob(it)
+            if not blob:
+                self.viewport_3d.hide()
+                return
+            meta = parse_rbxh(blob)
+            body = meta.get('body') or b''
+            cat = it.kind.split(' ', 1)[0]
+            is_mesh = cat == 'Mesh'
+            is_anim = cat == 'Animation' or (cat in ('RBXM', 'Model') and any((marker in body[:262144] for marker in (b'Keyframe', b'CurveAnimation', b'KeyframeSequence', b'AnimationClip'))))
+            is_audio = cat == 'Sound'
+            is_model = cat in ('Model', 'RBXM', 'rbxl (place)')
+            if not (is_mesh or is_anim or is_audio or is_model) or is_anim:
+                self.viewport_3d.hide()
+                return
+            self._close_animation_preview()
+            temp_pkg_path = os.path.join(TEMP_EMU_DIR, f'preview_{it.hash}.bin')
+            try:
+                with open(temp_pkg_path, 'wb') as f:
+                    f.write(body)
+            except OSError:
+                self.viewport_3d.hide()
+                return
+            self.viewport_3d.set_asset_data_from_temp(temp_pkg_path, is_anim=is_anim, is_mesh=is_mesh, is_model=is_model, is_audio=is_audio)
+            if is_mesh:
+                self.viewport_3d.show(is_anim=False, mode_label='Mesh View')
+            elif is_model:
+                self.viewport_3d.show(is_anim=False, mode_label='Model View')
+            elif is_audio:
+                self.viewport_3d.show(is_anim=False, mode_label='Audio View')
+        except (tk.TclError, FileNotFoundError, OSError):
+            try:
+                self.viewport_3d.hide()
+            except Exception:
+                pass
     def _close_animation_preview(self):
         win = getattr(self, '_animation_preview_win', None)
         if win is not None:
@@ -14534,12 +15824,19 @@ class App(_TkAppBase):
         self._show_details()
         self._update_preview()
     def _clear_tree_hover(self):
-        if self._tree_hover_iid:
-            tags = list(self.tree.item(self._tree_hover_iid, 'tags'))
+        iid = self._tree_hover_iid
+        self._tree_hover_iid = None
+        if not iid:
+            return
+        try:
+            if not self.tree.exists(iid):
+                return
+            tags = list(self.tree.item(iid, 'tags'))
             if 'hover' in tags:
                 tags.remove('hover')
-                self.tree.item(self._tree_hover_iid, tags=tags)
-            self._tree_hover_iid = None
+                self.tree.item(iid, tags=tags)
+        except tk.TclError:
+            pass
     def _on_tree_leave(self, event):
         self._cancel_image_preview()
         self._clear_tree_hover()
@@ -14553,8 +15850,12 @@ class App(_TkAppBase):
                 self._colmenu.grab_release()
             return
         row = self.tree.identify_row(event.y)
+        if row and not self.tree.exists(row):
+            row = ''
         if row:
             sel = self.tree.selection()
+            if not self.tree.exists(row):
+                return
             if row not in sel:
                 self.tree.selection_set(row)
             items = self._get_selected_items()
@@ -14581,28 +15882,34 @@ class App(_TkAppBase):
         self.clipboard_append(joined)
         messagebox.showinfo('Copied', f'Copied {len(items)} hash(es) to clipboard.')
     def _on_tree_motion(self, event):
-        row = self.tree.identify_row(event.y)
-        self._hover_preview_xy = (event.x_root, event.y_root)
-        if row != self._tree_hover_iid:
-            self._clear_tree_hover()
-            if row:
-                tags = list(self.tree.item(row, 'tags'))
-                if 'hover' not in tags:
-                    tags.append('hover')
-                    self.tree.item(row, tags=tags)
-                self._tree_hover_iid = row
-        if row == self._hover_preview_iid:
-            return
-        self._cancel_image_preview()
-        if not row:
-            return
-        it = self.items_by_iid.get(row) or self.items_by_hash.get(row)
-        if not it:
-            return
-        cat = it.kind.split(' ', 1)[0]
-        if cat in ('Image', 'Decal', 'Texture'):
-            self._hover_preview_iid = row
-            self._hover_preview_job = self.after(1200, self._show_image_preview)
+        try:
+            row = self.tree.identify_row(event.y)
+            if row and not self.tree.exists(row):
+                row = ''
+            self._hover_preview_xy = (event.x_root, event.y_root)
+            if row != self._tree_hover_iid:
+                self._clear_tree_hover()
+                if row and self.tree.exists(row):
+                    tags = list(self.tree.item(row, 'tags'))
+                    if 'hover' not in tags:
+                        tags.append('hover')
+                        self.tree.item(row, tags=tags)
+                    self._tree_hover_iid = row
+            if row == self._hover_preview_iid:
+                return
+            self._cancel_image_preview()
+            if not row or not self.tree.exists(row):
+                return
+            it = self.items_by_iid.get(row) or self.items_by_hash.get(row)
+            if not it:
+                return
+            cat = it.kind.split(' ', 1)[0]
+            if cat in ('Image', 'Decal', 'Texture'):
+                self._hover_preview_iid = row
+                self._hover_preview_job = self.after(1200, self._show_image_preview)
+        except tk.TclError:
+            self._tree_hover_iid = None
+            self._hover_preview_iid = None
     def _cancel_image_preview(self):
         if self._hover_preview_job:
             try:
@@ -14623,6 +15930,13 @@ class App(_TkAppBase):
         self._hover_preview_job = None
         iid = self._hover_preview_iid
         if not iid:
+            return
+        try:
+            if not self.tree.exists(iid):
+                self._hover_preview_iid = None
+                return
+        except tk.TclError:
+            self._hover_preview_iid = None
             return
         it = self.items_by_iid.get(iid) or self.items_by_hash.get(iid)
         if not it:
@@ -14685,23 +15999,29 @@ class App(_TkAppBase):
         self._img_preview_win.attributes('-alpha', cur)
         self._img_preview_fade_job = self.after(25, self._fade_preview, target, step)
     def _fetch_full_blob(self, it: ScanItem) -> Optional[bytes]:
+        if it is None or not getattr(it, 'hash', None):
+            return None
+        conn = None
+        row = None
         try:
+            if not os.path.isfile(self.db_path):
+                return read_shard_bytes(self.shard_root, it.hash)
             conn = connect_ro(self.db_path)
             cur = conn.cursor()
             cur.execute('SELECT content FROM files WHERE id=?', (it.id_bytes,))
             row = cur.fetchone()
+        except (FileNotFoundError, sqlite3.Error, OSError):
+            row = None
         except Exception:
             row = None
         finally:
-            try:
-                conn.close()
-            except Exception:
-                pass
-        if row is None:
-            return read_shard_bytes(self.shard_root, it.hash)
-        content = row[0]
-        if content is not None:
-            return content
+            if conn is not None:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+        if row is not None and row[0] is not None:
+            return row[0]
         return read_shard_bytes(self.shard_root, it.hash)
     def _export_selected_full(self):
         items = self._get_selected_items()
@@ -15203,21 +16523,27 @@ class App(_TkAppBase):
         except Exception:
             return None
     def _get_selected_item(self) -> Optional[ScanItem]:
-        sel = self.tree.selection()
-        if not sel:
-            messagebox.showinfo('No Selection', 'Select a row first.')
+        try:
+            sel = self.tree.selection()
+            if not sel:
+                return None
+            iid = sel[0]
+            if not self.tree.exists(iid):
+                return None
+            return self.items_by_iid.get(iid) or self.items_by_hash.get(iid)
+        except tk.TclError:
             return None
-        it = self.items_by_iid.get(sel[0]) or self.items_by_hash.get(sel[0])
-        if not it:
-            messagebox.showerror('Selection Error', 'Selected row is no longer available.')
-            return None
-        return it
     def _get_selected_items(self) -> List[ScanItem]:
         out: List[ScanItem] = []
-        for s in self.tree.selection():
-            it = self.items_by_iid.get(s) or self.items_by_hash.get(s)
-            if it:
-                out.append(it)
+        try:
+            for iid in self.tree.selection():
+                if not self.tree.exists(iid):
+                    continue
+                it = self.items_by_iid.get(iid) or self.items_by_hash.get(iid)
+                if it:
+                    out.append(it)
+        except tk.TclError:
+            return []
         return out
     def _pause_scanner(self):
         was = self.watching
@@ -15570,7 +16896,15 @@ class App(_TkAppBase):
         self._start_tray()
         self._tray_hidden = True
         try:
+            self._emote_controls_detach_from_main(no_activate=True)
+        except Exception:
+            pass
+        try:
             self.withdraw()
+        except Exception:
+            pass
+        try:
+            self.after(80, self._emote_controls_ensure_visible_after_hide)
         except Exception:
             pass
     def _restore_from_tray(self):
@@ -15582,6 +16916,10 @@ class App(_TkAppBase):
             self.focus_force()
         except Exception:
             pass
+        try:
+            self.after(100, self._emote_controls_restore_activation)
+        except Exception:
+            pass
     def _exit_from_tray(self):
         self._tray_hidden = False
         self._on_close(force=True)
@@ -15590,6 +16928,7 @@ class App(_TkAppBase):
             self._save_settings()
             self._hide_to_tray()
             return
+        self._emote_hud_closing_from_app = True
         self.watching = False
         self.stop_event.set()
         self._hotkey_stop.set()
@@ -15613,8 +16952,177 @@ class App(_TkAppBase):
         self._resize_active = False
         self._settings_save_deferred = False
         self.destroy()
+
+def _routils_visible_text(value):
+    if not isinstance(value, str) or not value:
+        return value
+    lowered_value = value.lower()
+    if _routils_is_network_error(value):
+        return 'could not reach the server check your internet connection and try again'
+    special_phrases = (
+        'Emote Manager', 'Gemini AI', 'RoUtils AI', 'Roblox File Converter',
+        'Subplace Joiner', 'Server Viewer', 'Global FFlag Hotkeys',
+        'R6 Animation → R15', 'Mesh to OBJ'
+    )
+    saved_phrases = []
+    for index, phrase in enumerate(special_phrases):
+        marker = chr(0xE000 + index)
+        if re.search(re.escape(phrase), value, re.IGNORECASE):
+            value = re.sub(re.escape(phrase), marker, value, flags=re.IGNORECASE)
+            saved_phrases.append((marker, phrase))
+    def clean_line(line):
+        if not line.strip():
+            return line
+        abbreviation_tokens = ('e.g.', 'i.e.', 'mr.', 'mrs.', 'dr.', 'vs.')
+        protected = []
+        for index, token in enumerate(abbreviation_tokens):
+            marker = chr(0xE100 + index)
+            if re.search(re.escape(token), line, re.IGNORECASE):
+                line = re.sub(re.escape(token), marker, line, flags=re.IGNORECASE)
+                protected.append((marker, token))
+        parts = re.split(r'(?<!\.)\.(?!\.)(?=\s+)', line)
+        if len(parts) > 1:
+            leading = line[:len(line) - len(line.lstrip())]
+            result = '\n'.join((leading if index == 0 else '') + clean_line(part.strip()) for index, part in enumerate(parts) if part.strip())
+            for marker, token in protected:
+                result = result.replace(marker, token)
+            return result
+        line = re.sub(r'(?<!\.)\.(?!\.)(?=\s|$)', '', line)
+        for marker, token in protected:
+            line = line.replace(marker, token)
+        plain = line.strip()
+        if not plain or any(token in plain for token in ('://', '\\', '/e ', '{', '}', '```')):
+            return line
+        words = re.findall(r"[A-Za-z][A-Za-z0-9]*", plain)
+        special = {'routils', 'roblox', 'fflag', 'fflags', 'ai', 'api', 'pid', 'fps', 'json', 'xml', 'csv', 'url', 'cpu', 'ram', 'http', 'https', 'obj', 'rbxm', 'rbxmx', 'rbxl', 'ctrl', 'shift', 'alt', 'esc', 'enter', 'tab', 'ui', 'hashsaves', 'filesaves', 'cconfigs', 'id', 'dpi', 'gpu', 'ram', 'f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9', 'f10', 'f11', 'f12'}
+        def title_like(word):
+            low = word.lower()
+            if low in special or word.isupper() or re.fullmatch(r'[A-Z]+\d+', word) or re.fullmatch(r'\d+', word):
+                return True
+            return len(word) > 0 and word[0].isupper() and word[1:].islower()
+        if len(words) >= 2 and all(title_like(word) for word in words):
+            first_alpha = True
+            def convert(match):
+                nonlocal first_alpha
+                word = match.group(0)
+                low = word.lower()
+                if low in special:
+                    mapping = {'routils':'RoUtils','roblox':'Roblox','fflag':'FFlag','fflags':'FFlags','ai':'AI','api':'API','pid':'PID','fps':'FPS','json':'JSON','xml':'XML','csv':'CSV','url':'URL','cpu':'CPU','ram':'RAM','http':'HTTP','https':'HTTPS','obj':'OBJ','rbxm':'RBXM','rbxmx':'RBXMX','rbxl':'RBXL','ctrl':'Ctrl','shift':'Shift','alt':'Alt','esc':'Esc','enter':'Enter','tab':'Tab','ui':'UI','hashsaves':'HashSaves','filesaves':'FileSaves','cconfigs':'CConfigs','id':'ID','dpi':'DPI','gpu':'GPU'}
+                    return mapping.get(low, word)
+                if word.isupper() or re.fullmatch(r'[A-Z]+\d+', word) or re.fullmatch(r'\d+', word):
+                    return word
+                if first_alpha:
+                    first_alpha = False
+                    return word[:1].upper() + word[1:].lower()
+                first_alpha = False
+                return word.lower()
+            plain = re.sub(r'[A-Za-z][A-Za-z0-9]*', convert, plain)
+            leading = line[:len(line) - len(line.lstrip())]
+            trailing = line[len(line.rstrip()):]
+            line = leading + plain + trailing
+        return line
+    value = '\n'.join(clean_line(line) for line in value.split('\n'))
+    for marker, phrase in saved_phrases:
+        value = value.replace(marker, phrase)
+    return value
+
+def _routils_install_text_rules():
+    widget_classes = (
+        (tk.Label, False, False), (tk.Button, False, False), (tk.Checkbutton, True, False),
+        (tk.Radiobutton, False, False), (tk.LabelFrame, False, False),
+        (ttk.Label, False, False), (ttk.Button, False, False), (ttk.Checkbutton, True, True),
+        (ttk.Radiobutton, False, False), (ttk.LabelFrame, False, False)
+    )
+    for widget_class, is_checkbutton, is_ttk_checkbutton in widget_classes:
+        if getattr(widget_class, '_routils_text_rules_installed', False):
+            continue
+        original_init = widget_class.__init__
+        original_configure = widget_class.configure
+        def wrapped_init(self, *args, __original=original_init, __is_check=is_checkbutton, __ttk_check=is_ttk_checkbutton, __widget_class=widget_class, **kwargs):
+            if 'text' in kwargs:
+                kwargs['text'] = _routils_visible_text(kwargs['text'])
+            if __ttk_check and ttkbootstrap is not None and kwargs.get('style') in (None, '', 'TCheckbutton'):
+                kwargs['style'] = 'primary.TCheckbutton'
+            if __is_check and __widget_class is tk.Checkbutton:
+                kwargs.setdefault('selectcolor', '#1688e8')
+            __original(self, *args, **kwargs)
+        def wrapped_configure(self, cnf=None, __original=original_configure, __is_check=is_checkbutton, __ttk_check=is_ttk_checkbutton, **kwargs):
+            if isinstance(cnf, dict):
+                cnf = dict(cnf)
+                if 'text' in cnf:
+                    cnf['text'] = _routils_visible_text(cnf['text'])
+            if 'text' in kwargs:
+                kwargs['text'] = _routils_visible_text(kwargs['text'])
+            if __ttk_check and ttkbootstrap is not None and kwargs.get('style') == 'TCheckbutton':
+                kwargs['style'] = 'primary.TCheckbutton'
+            return __original(self, cnf, **kwargs)
+        widget_class.__init__ = wrapped_init
+        widget_class.configure = wrapped_configure
+        widget_class.config = wrapped_configure
+        widget_class._routils_text_rules_installed = True
+    for widget_class in (tk.Tk, tk.Toplevel):
+        original_title = widget_class.title
+        def wrapped_title(self, text=None, __original=original_title):
+            if text is None:
+                return __original(self)
+            return __original(self, _routils_visible_text(text))
+        widget_class.title = wrapped_title
+    original_create_text = tk.Canvas.create_text
+    def wrapped_create_text(self, *args, **kwargs):
+        if 'text' in kwargs:
+            kwargs['text'] = _routils_visible_text(kwargs['text'])
+        return original_create_text(self, *args, **kwargs)
+    tk.Canvas.create_text = wrapped_create_text
+    original_itemconfigure = tk.Canvas.itemconfigure
+    def wrapped_itemconfigure(self, *args, **kwargs):
+        if isinstance(kwargs.get('text'), str):
+            kwargs['text'] = _routils_visible_text(kwargs['text'])
+        return original_itemconfigure(self, *args, **kwargs)
+    tk.Canvas.itemconfigure = wrapped_itemconfigure
+    tk.Canvas.itemconfig = wrapped_itemconfigure
+    for method_name in ('add_command', 'add_cascade', 'add_radiobutton', 'add_checkbutton'):
+        original_menu_method = getattr(tk.Menu, method_name)
+        def wrapped_menu_method(self, *args, __original=original_menu_method, **kwargs):
+            if 'label' in kwargs:
+                kwargs['label'] = _routils_visible_text(kwargs['label'])
+            if 'text' in kwargs:
+                kwargs['text'] = _routils_visible_text(kwargs['text'])
+            return __original(self, *args, **kwargs)
+        setattr(tk.Menu, method_name, wrapped_menu_method)
+    original_heading = ttk.Treeview.heading
+    def wrapped_heading(self, column, option=None, **kwargs):
+        if isinstance(kwargs.get('text'), str):
+            kwargs['text'] = _routils_visible_text(kwargs['text'])
+        return original_heading(self, column, option, **kwargs)
+    ttk.Treeview.heading = wrapped_heading
+    original_notebook_add = ttk.Notebook.add
+    def wrapped_notebook_add(self, child, **kwargs):
+        if isinstance(kwargs.get('text'), str):
+            kwargs['text'] = _routils_visible_text(kwargs['text'])
+        return original_notebook_add(self, child, **kwargs)
+    ttk.Notebook.add = wrapped_notebook_add
+    with _NOTIFICATION_HISTORY_LOCK:
+        for entry in _NOTIFICATION_HISTORY:
+            if isinstance(entry, dict):
+                entry['title'] = _routils_visible_text(str(entry.get('title', 'Notification')))
+                entry['message'] = _routils_visible_text(str(entry.get('message', '')))
+
+    for name in ('showinfo', 'showwarning', 'showerror', 'askquestion', 'askokcancel', 'askyesno', 'askretrycancel'):
+        original_messagebox = getattr(messagebox, name, None)
+        if not callable(original_messagebox):
+            continue
+        def wrapped_messagebox(title, text, *args, __original=original_messagebox, __name=name, **kwargs):
+            title = _routils_visible_text(title)
+            text = _routils_visible_text(text)
+            if __name == 'showerror' and isinstance(text, str) and re.search(r'(Traceback|AttributeError|TclError|WinError|RuntimeError|FileNotFoundError|No module named)', text, re.IGNORECASE):
+                text = 'RoUtils could not complete this action\n\nTry again and check the error log if it keeps happening'
+            return __original(title, text, *args, **kwargs)
+        setattr(messagebox, name, wrapped_messagebox)
+
+
 def main():
     global _ACTIVE_APP
+    _routils_install_text_rules()
     _install_error_hooks()
     if '--webview2' in sys.argv:
         try:
