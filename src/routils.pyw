@@ -1,40 +1,870 @@
+import base64
+import ctypes
+import ctypes.wintypes
+import enum
 import gzip
-import heapq
 import hashlib
+import heapq
 import html
+import importlib.util
 import io
+import json
+import logging
 import math
+import mimetypes
+import numpy as np
 import os
 import queue
 import re
 import shlex
-import uuid
 import shutil
 import sqlite3
 import struct
-import json
-import sys
-import ctypes
-import ctypes.wintypes
-import urllib.request
-import webbrowser
-import tempfile
 import subprocess
-import zipfile
-import base64
-import traceback
-import importlib.util
-import winreg
+import sys
+import tempfile
 import threading
 import time
+import tkinter as tk
+import traceback
+import urllib.request
+import uuid
+import webbrowser
+import winreg
+import xml.etree.ElementTree as ET
+import zipfile
+from collections import defaultdict
+from dataclasses import dataclass, field
+from datetime import datetime
+from PIL import Image, ImageTk
+from tkinter import colorchooser, filedialog, messagebox, simpledialog, ttk
+from tkinter import font as tkfont
+from typing import Any, Dict, Iterable, List, Optional, Tuple, TYPE_CHECKING
+from urllib.parse import parse_qs, quote, urljoin, urlparse
+from xml.etree.ElementTree import Element, SubElement, indent, tostring
+import lz4.block
+try:
+    import sv_ttk
+except Exception:
+    sv_ttk = None
+try:
+    import ttkbootstrap as ttkbootstrap
+except Exception:
+    ttkbootstrap = None
+UI_TEXT = {
+    'a1': 'While refreshing a item changed, so the previous selection was skipped.',
+    'b1': 'The issue happend again. The duplicate was skipped',
+    'c1': 'Unexpected issue occurred, Details were saved to error folder',
+    'd1': 'RoUtils could not complete this action\n\nA report was saved in the error folder\n\nTry again and check the Console if it keeps happening',
+    'e1': 'RoUtils ran into a problem',
+    'f1': 'WebView2',
+    'g1': 'WebView2 support requires pywebview.\n\nInstall pywebview with: pip install pywebview\n\n',
+    'h1': 'Could not open WebView2 window:\n{p0}',
+    'i1': 'Could not start WebView2 window:\n{p0}',
+    'j1': 'Preview',
+    'k1': '✕',
+    'l1': '▶ Play',
+    'm1': '',
+    'n1': 'Wireframe lines',
+    'o1': 'Optimize vertices',
+    'p1': 'Audio',
+    'q1': 'Could not open audio:\n{p0}',
+    'r1': '⏸ Pause',
+    's1': 'Press ▶ to play Audio',
+    't1': 'Animation: no keyframes to draw a skeleton (No keyframe)',
+    'u1': 'No pose position data in skeleton (keyframe count shown above)',
+    'v1': 'Source:',
+    'w1': 'Filter:',
+    'x1': 'Create Cache',
+    'y1': 'Apply',
+    'z1': 'Save Hash',
+    'a2': 'Save File',
+    'b2': 'Delete',
+    'c2': 'Rename',
+    'd2': 'Create group',
+    'e2': 'Delete group',
+    'f2': 'Ungroup',
+    'g2': 'Hash saves:',
+    'h2': 'Custom Hash',
+    'i2': 'Enter custom hash value (hex):',
+    'j2': 'Info',
+    'k2': 'Using custom hash: {p0}',
+    'l2': 'Input Custom Hash',
+    'm2': 'File saves:',
+    'n2': 'Choose source file',
+    'o2': 'Selected file:\n{p0}',
+    'p2': 'Input Custom File',
+    'q2': 'Enter display name:',
+    'r2': 'Please choose a hash (or input a custom one).',
+    's2': 'Invalid hash.',
+    't2': 'Please choose a file (or input a custom one).',
+    'u2': 'Selected file is missing.',
+    'v2': 'Display name is required.',
+    'w2': 'Failed to create cache:\n{p0}',
+    'x2': 'Success',
+    'y2': 'Created cache:\n{p0}',
+    'z2': 'Created cache: {p0}',
+    'a3': 'OK',
+    'b3': 'Cancel',
+    'c3': 'Loading…',
+    'd3': 'No saved hashes found',
+    'e3': 'No saved files found',
+    'f3': 'Hash:',
+    'g3': 'Name:',
+    'h3': 'Error',
+    'i3': 'Both Hash and Name are required.',
+    'j3': 'Resulting file name is empty after sanitization.',
+    'k3': 'Failed to save: {p0}',
+    'l3': "Saved '{p0}'.",
+    'm3': 'Saved hash file: {p0}',
+    'n3': 'Choose file to save',
+    'o3': 'File:',
+    'p3': 'Browse…',
+    'q3': 'No file selected',
+    'r3': 'Please choose a file.',
+    's3': 'Please enter a Name.',
+    't3': 'Failed to save file: {p0}',
+    'u3': "{p0}: '{p1}'.",
+    'v3': '{p0}: {p1}',
+    'w3': 'No database path is set in the viewer.',
+    'x3': 'Select one or more cache items.',
+    'y3': 'Apply File',
+    'z3': 'Enter the target Roblox cache hash/asset ID:',
+    'a4': 'No valid cache items found to import.',
+    'b4': 'DB error:\n{p0}',
+    'c4': 'Imported {p0} of {p1} blob(s).',
+    'd4': 'Applied {p0}/{p1} selected cache blob(s)',
+    'e4': 'Enter new name:',
+    'f4': 'Rename failed: {p0}',
+    'g4': 'No item selected.',
+    'h4': "Are you sure you want to delete '{p0}'?",
+    'i4': 'Are you sure you want to delete {p0} items?',
+    'j4': 'Confirm',
+    'k4': 'Failed to delete group: {p0}',
+    'l4': 'Failed to delete file: {p0}',
+    'm4': 'Deleted {p0} item(s).',
+    'n4': 'Deleted {p0} cache item(s)',
+    'o4': "Are you sure you want to delete group '{p0}'?",
+    'p4': 'Are you sure you want to delete {p0} groups?',
+    'q4': 'Deleted {p0} group(s).',
+    'r4': 'Deleted {p0} cache group(s)',
+    's4': "Remove group '{p0}' and move its files back?",
+    't4': 'Remove {p0} groups and move their files back?',
+    'u4': 'Failed to ungroup: {p0}',
+    'v4': 'Ungrouped {p0} group(s), restored {p1} file(s).',
+    'w4': 'Ungrouped {p0} group(s), restored {p1} cache file(s)',
+    'x4': 'Items must share the same parent folder.',
+    'y4': 'Group name:',
+    'z4': 'A group with that name already exists.',
+    'a5': 'Failed to create group folder: {p0}',
+    'b5': "Created group '{p0}' with {p1} item(s).",
+    'c5': "Created empty group '{p0}'.",
+    'd5': "Created cache group '{p0}' with {p1} item(s)",
+    'e5': '×',
+    'f5': 'Cache',
+    'g5': '◀',
+    'h5': 'FFlags',
+    'i5': 'Emote Manager',
+    'j5': 'AI',
+    'k5': 'Modifications',
+    'l5': 'Configs',
+    'm5': 'Subplace Joiner',
+    'n5': 'Server Viewer',
+    'o5': 'History',
+    'p5': 'Client',
+    'q5': 'Customize',
+    'r5': 'Settings',
+    's5': 'Plugins',
+    't5': 'Release Notes',
+    'u5': 'Console',
+    'v5': 'Loading...',
+    'w5': 'Home',
+    'x5': 'RoUtils',
+    'y5': 'Could not load {p0}: {p1}',
+    'z5': 'FPS: Uncap',
+    'a6': 'FPS: {p0}',
+    'b6': 'FPS value (1-240):',
+    'c6': 'Press any keyboard or mouse button:',
+    'd6': 'Examples: F7, Insert, Mouse1, Mouse4, A, ;',
+    'e6': 'FPS Hotkey',
+    'f6': 'FPS must be a whole number from 1 to 240.',
+    'g6': 'Enter FPS 1-240 and a supported key.',
+    'h6': 'That key is already assigned.',
+    'i6': 'Save',
+    'j6': 'Clear',
+    'k6': '{p0} FPS [{p1}]',
+    'l6': 'Empty',
+    'm6': '+',
+    'n6': 'Global FFlag Hotkeys',
+    'o6': '+ Add Hotkey',
+    'p6': 'Edit',
+    'q6': 'Remove',
+    'r6': 'Close',
+    's6': 'Key:',
+    't6': 'FFlag:',
+    'u6': 'Action:',
+    'v6': 'Toggle 1 value:',
+    'w6': 'Toggle 2 value:',
+    'x6': 'Example: K + DebugDrawBroadPhaseAABBs + true/false toggles the value globally.',
+    'y6': 'FFlag Hotkeys',
+    'z6': 'Enter a supported keyboard key.',
+    'a7': 'Enter an FFlag name.',
+    'b7': '⌕ Search - (Ctrl + K)',
+    'c7': '🔔',
+    'd7': 'Notifications',
+    'e7': 'Search failed: {p0}',
+    'f7': 'Kill RoUtils',
+    'g7': '⠿',
+    'h7': 'Tab move failed: {p0}',
+    'i7': 'Customize App',
+    'j7': 'Choose a theme and personalize the app colors.',
+    'k7': 'Appearance',
+    'l7': 'Appearance colors',
+    'm7': '    ',
+    'n7': 'Choose…',
+    'o7': 'Reset color',
+    'p7': 'Apply Appearance Colors',
+    'q7': 'Save Custom Theme',
+    'r7': 'Topbar button colors',
+    's7': 'Choose {p0} color',
+    't7': 'Your custom appearance has been saved.',
+    'u7': 'Choose {p0} button color',
+    'v7': 'Theme update failed: {p0}',
+    'w7': 'Failed to save flags:\n{p0}',
+    'x7': 'R6 Animation → R15',
+    'y7': 'Roblox Animation',
+    'z7': 'All files',
+    'a8': 'Save R15 Animation',
+    'b8': 'RBXMX Animation',
+    'c8': 'R6 → R15',
+    'd8': 'R6 animation retargeted to R15.\n\n{p0}',
+    'e8': 'Converted R6 animation to R15: {p0}',
+    'f8': 'Could not convert animation:\n{p0}',
+    'g8': 'Current applied caches: {p0}',
+    'h8': 'Save DB',
+    'i8': 'Enter a name for this CConfigs DB:',
+    'j8': 'CConfigs',
+    'k8': 'Failed to save DB:\n{p0}',
+    'l8': "DB saved as '{p0}'.\n\nRecorded applied caches: {p1}",
+    'm8': 'Upload DB',
+    'n8': 'Database files',
+    'o8': 'SQLite DB',
+    'p8': 'CConfigs DB',
+    'q8': 'Failed to upload DB:\n{p0}',
+    'r8': "Uploaded '{p0}'.",
+    's8': 'Select a saved DB first.',
+    't8': 'Apply DB',
+    'u8': "Apply '{p0}' to Roblox?\n\nThis will delete rbx-storage.db, rbx-storage.db-shm, rbx-storage.db-wal and rbx-storage.id, then install only rbx-storage.db.",
+    'v8': 'Failed to apply DB.\n\n{p0}\n\nClose Roblox and try again. No force-delete was used.',
+    'w8': "Applied '{p0}'.\nRecorded caches: {p1}\n\nInstalled only rbx-storage.db.",
+    'x8': 'Export DB as normal .db',
+    'y8': 'Failed to export DB:\n{p0}',
+    'z8': 'Normal .db exported:\n{p0}',
+    'a9': 'Delete DB',
+    'b9': "Delete saved DB '{p0}'?",
+    'c9': 'Failed to delete DB:\n{p0}',
+    'd9': 'CONFIG',
+    'e9': 'CREATED',
+    'f9': 'APPLIED',
+    'g9': 'FILE',
+    'h9': 'Saved DB details',
+    'i9': 'Please select a valid RobloxPlayerBeta.exe first.',
+    'j9': 'Opened Roblox: {p0}',
+    'k9': 'Could not open Roblox:\n{p0}',
+    'l9': 'Roblox Modifications',
+    'm9': 'Converters',
+    'n9': 'Roblox File Converter (.rbxm / .rbxh / .rbxmx)',
+    'o9': 'Mesh to OBJ',
+    'p9': 'Default Mesh Changer',
+    'q9': 'It allows you to change the default R6 Meshes.',
+    'r9': 'Choose',
+    's9': 'Open Selected Roblox',
+    't9': 'Skybox Changer',
+    'u9': 'Replace Roblox skybox texture files from PlatformContent\\pc\\textures\\sky.',
+    'v9': 'Sounds',
+    'w9': 'Replace Roblox sound files from content\\sounds.',
+    'x9': 'Others',
+    'y9': 'Replace additional Roblox texture and font files.',
+    'z9': 'Studs (replaces plastic\nnormal.dds)',
+    'a10': 'Diffuse (diffuse.dds)',
+    'b10': 'Font (CustomFont.ttf)',
+    'c10': 'Welcome to RoUtils',
+    'd10': 'Support with me: offp001 on discord',
+    'e10': 'Version: ',
+    'f10': 'Checking',
+    'g10': 'Downloading update…',
+    'h10': 'Downloading update… {p0:.0f}%',
+    'i10': 'RoUtils is Outdated',
+    'j10': 'Download New Version ({p0})',
+    'k10': 'Download',
+    'l10': 'Later',
+    'm10': 'Update {p0} download started.',
+    'n10': 'Update downloaded to {p0}; launching from RoUtils folder.',
+    'o10': 'Update error: {p0}',
+    'p10': 'RoUtils Update',
+    'q10': 'Automatic update failed:\n{p0}',
+    'r10': 'Version: {p0} ({p1})',
+    's10': 'Add',
+    't10': 'JSON Editor',
+    'u10': 'Invalid JSON:\n{p0}',
+    'v10': 'Applied {p0} flags from {p1}.',
+    'w10': 'Failed to apply JSON:\n{p0}',
+    'x10': 'Select RobloxPlayerBeta.exe',
+    'y10': 'Roblox Player',
+    'z10': 'Executable',
+    'a11': 'Choose RobloxPlayerBeta.exe first.',
+    'b11': 'Choose replacement for {p0}',
+    'c11': 'Mesh files',
+    'd11': 'Failed:\n{p0}',
+    'e11': 'Texture files',
+    'f11': 'Skybox texture replaced: {p0}',
+    'g11': 'Skybox texture deleted: {p0}',
+    'h11': 'Audio files',
+    'i11': 'Sound replaced: {p0}',
+    'j11': 'Sound deleted: {p0}',
+    'k11': 'Other file replaced: {p0}',
+    'l11': 'Other file deleted: {p0}',
+    'm11': 'Select Roblox Mesh',
+    'n11': 'Roblox Mesh',
+    'o11': 'Selected Mesh Version "{p0}"',
+    'p11': 'Converting',
+    'q11': 'Converted: {p0}',
+    'r11': 'Conversion failed:\n{p0}',
+    's11': 'Select Roblox File',
+    't11': 'Roblox Files',
+    'u11': 'RBXM',
+    'v11': 'RBXH',
+    'w11': 'RBXMX',
+    'x11': 'Roblox File Converter',
+    'y11': 'Please select an .rbxm, .rbxh or .rbxmx file.',
+    'z11': 'Converted successfully.\n\n{p0}\nSize: {p1}',
+    'a12': 'Converted Roblox file: {p0}',
+    'b12': 'Game History',
+    'c12': 'Refresh',
+    'd12': 'Clear History',
+    'e12': 'Game History.',
+    'f12': 'No games recorded yet.',
+    'g12': 'Copy Deeplink',
+    'h12': 'Join',
+    'i12': 'Could not copy deeplink:{p0}',
+    'j12': 'Joined from history: {p0}',
+    'k12': 'Could not launch Roblox:{p0}',
+    'l12': 'Clear all saved game history?',
+    'm12': 'Roblox Client',
+    'n12': 'Live Roblox client information and current game details.',
+    'o12': 'Client Information',
+    'p12': 'Open Roblox',
+    'q12': 'FPS',
+    'r12': 'PID: Waiting for Roblox...',
+    's12': 'Reset Hotkeys',
+    't12': 'FPS Changer',
+    'u12': 'Running',
+    'v12': 'Not running',
+    'w12': 'Search',
+    'x12': 'PLACE ID',
+    'y12': 'NAME',
+    'z12': 'Join Selected',
+    'a13': 'Search failed:\n{p0}',
+    'b13': 'Could not read Roblox logs:\n{p0}',
+    'c13': 'Could not detect the current Roblox server. Make sure you are inside a game, then try again.',
+    'd13': "Current game's deeplink copied to clipboard.",
+    'e13': 'Could not copy deeplink:\n{p0}',
+    'f13': 'Joined subplace {p0}',
+    'g13': 'Could not launch Roblox:\n{p0}',
+    'h13': 'Paste a Roblox server deeplink',
+    'i13': 'View Server',
+    'j13': 'Server Information',
+    'k13': '\n',
+    'l13': 'Loading server...',
+    'm13': 'Loading server deeplink: {p0}',
+    'n13': 'Server loaded',
+    'o13': 'Failed to load server',
+    'p13': 'Could not load server:\n{p0}',
+    'q13': 'Waiting for Roblox...',
+    'r13': 'Remove Bind',
+    's13': 'Add Bind',
+    't13': 'Hotkey',
+    'u13': 'Dance',
+    'v13': 'Last hotkey: none',
+    'w13': 'Hotkeys: ON',
+    'x13': 'Emote Controls',
+    'y13': 'Select a dance from the list first.',
+    'z13': 'Press any key for {p0}',
+    'a14': '{p0} is already assigned to {p1}. Choose a different key.',
+    'b14': 'Binds saved',
+    'c14': 'Hotkeys: {p0}',
+    'd14': 'Close Controls',
+    'e14': 'Choose a key...',
+    'f14': '<\n{p0}',
+    'g14': '>\n{p0}',
+    'h14': '{p0}\n{p1}',
+    'i14': 'Emote Manager - Hide: Ctrl + F3',
+    'j14': 'Roblox attached  PID {p0}',
+    'k14': 'Search:',
+    'l14': 'TYPE',
+    'm14': 'VALUE',
+    'n14': 'Latest FFlags',
+    'o14': 'Saved JSONs',
+    'p14': 'Loading offsets…',
+    'q14': 'FFLAG',
+    'r14': 'OFFSET',
+    's14': 'DEFAULT VALUE',
+    't14': 'Apply Selected',
+    'u14': 'Auto Apply: ON',
+    'v14': 'Auto Apply: OFF',
+    'w14': 'Apply to Roblox',
+    'x14': 'Save Flags',
+    'y14': 'Could not load flags',
+    'z14': 'FFlag reference load failed: {p0}',
+    'a15': '{p0:,} flags',
+    'b15': 'Removed FFlag',
+    'c15': 'FFlag name',
+    'd15': 'Value:',
+    'e15': 'Added FFlag {p0} = {p1}',
+    'f15': 'Add Flag',
+    'g15': 'Removed FFlag {p0}',
+    'h15': 'Remove all flags?',
+    'i15': 'Removed all FFlags',
+    'j15': 'FFlag Presets',
+    'k15': 'Select a preset, then choose whether to replace or add its FFlags to the current list.',
+    'l15': 'FFlag Preset',
+    'm15': 'Added {p0} FFlags and updated {p1} existing FFlags from {p2}.',
+    'n15': 'Preset {p0}: added {p1}, updated {p2} FFlags',
+    'o15': 'Applied {p0} FFlags from {p1}.',
+    'p15': 'Applied FFlag preset {p0}: {p1} flags',
+    'q15': 'Failed to load {p0}:\n{p1}',
+    'r15': 'Add to Current FFlags',
+    's15': 'No JSON presets found.',
+    't15': 'Could not load presets: {p0}',
+    'u15': 'Loading presets...',
+    'v15': 'Copied to clipboard.',
+    'w15': 'FFlag copy failed: {p0}',
+    'x15': 'Import FFlags',
+    'y15': 'JSON files',
+    'z15': 'Imported {p0} flag(s).',
+    'a16': 'Imported {p0} FFlag(s) from {p1}',
+    'b16': 'Import failed:\n{p0}',
+    'c16': 'Export name',
+    'd16': 'Exported {p0} FFlag(s) to {p1}: {p2}',
+    'e16': 'Export failed:\n{p0}',
+    'f16': 'JSONs (FFlags Saves)',
+    'g16': 'Choose FFlag export location',
+    'h16': 'Choose...',
+    'i16': 'Roblox Detected: PID {p0}',
+    'j16': 'PID: {p0} selected',
+    'k16': 'Roblox found, attach failed',
+    'l16': 'Roblox Detected but attach failed: PID {p0}',
+    'm16': 'Roblox process closed; FFlag attachment removed',
+    'n16': 'FFlag conflict: duplicate names detected: ',
+    'o16': 'FFlags conflict.',
+    'p16': 'FFlag injection skipped: Roblox is not attached',
+    'q16': 'Roblox is not attached.',
+    'r16': 'Offset data is being refreshed. Apply again after it loads.',
+    's16': 'Applied {p0}/{p1}',
+    't16': 'FFlag {p0} apply complete: {p1}/{p2} flags applied, {p3} failed for PID {p4}',
+    'u16': 'No flags were applied using {p0}. Check the current offsets and Roblox version.',
+    'v16': 'Unapplied {p0} flag(s)',
+    'w16': ', {p0} failed',
+    'x16': 'FFlag restore complete: {p0} restored, {p1} failed',
+    'y16': 'Plugin',
+    'z16': 'Could not enable {p0}:\n{p1}',
+    'a17': 'Could not open guide:\n{p0}',
+    'b17': 'Import Python',
+    'c17': 'Only install plugins you trust. Python plugins can access the same files and processes as RoUtils.',
+    'd17': 'No plugins yet.\nImport a Python plugin to get started.',
+    'e17': 'Documentation / development guide',
+    'f17': 'Open Guide',
+    'g17': 'Enable',
+    'h17': 'Import RoUtils Python Plugin',
+    'i17': 'Python plugin',
+    'j17': 'Imported {p0}.\nEnable it from the Plugins tab to load Python code.',
+    'k17': 'Could not import plugin:\n{p0}',
+    'l17': 'Settings & Options',
+    'm17': 'General options.',
+    'n17': 'Interface Scale',
+    'o17': 'DPI Scale',
+    'p17': 'Window size stays the same; only the interface scales.',
+    'q17': 'You Should Restart it to Apply DPI Scale',
+    'r17': 'Cache Viewer',
+    's17': 'Start watching for new assets on launch',
+    't17': 'Auto-scroll to newest row',
+    'u17': 'Hide ticket assets',
+    'v17': 'Show lines (wireframe) for the Preview',
+    'w17': 'Wireframe lines on',
+    'x17': 'Optimize Mesh Preview Vertices (>500)',
+    'y17': 'Startup',
+    'z17': 'Launch on Tray',
+    'a18': 'Launch on Boot',
+    'b18': 'Hide to Tray when Close (F7 to Hide/Show)',
+    'c18': 'Streamer Mode',
+    'd18': 'Hide RoUtils from screen sharing and recording',
+    'e18': 'RoUtils does not appear in screen shares. (Only you can see it.)',
+    'f18': 'Updates',
+    'g18': 'Auto Update',
+    'h18': 'Updates RoUtils on Background',
+    'i18': 'Gemini AI',
+    'j18': 'Gemini API Key',
+    'k18': 'Tutorial',
+    'l18': 'Add Key',
+    'm18': 'Database',
+    'n18': 'Choose DB File…',
+    'o18': 'Choose Shard Root…',
+    'p18': 'Config Backup',
+    'q18': 'Include CConfigs',
+    'r18': 'Include Cache Dumps',
+    's18': 'Export Config…',
+    't18': 'Import Config…',
+    'u18': 'DPI setting error: {p0}',
+    'v18': 'Export RoUtils Config',
+    'w18': 'RoUtils Config',
+    'x18': 'ZIP archive',
+    'y18': 'JSON settings',
+    'z18': 'Exported RoUtils config to {p0}',
+    'a19': 'Config exported successfully.',
+    'b19': 'Could not export config:\n{p0}',
+    'c19': 'Import RoUtils Config',
+    'd19': 'Imported RoUtils config from {p0}',
+    'e19': 'Config imported successfully. Restart RoUtils to apply every saved setting.',
+    'f19': 'Could not import config:\n{p0}',
+    'g19': 'Nothing to undo.',
+    'h19': 'Undid the last FFlag change.',
+    'i19': 'Restored cache {p0}.',
+    'j19': 'Restored config {p0}.',
+    'k19': 'Cache search:\n',
+    'l19': '(no matches)',
+    'm19': 'Created backup: {p0}',
+    'n19': 'Restored backup: {p0}',
+    'o19': '$> ',
+    'p19': 'Please enter Y or N.',
+    'q19': 'Do you want to dump videos? (Y)es or (N)o:',
+    'r19': 'Commands:\n  cache "blob file path" "hash"  Apply a blob file to Roblox.\n  cache delete "hash"  Delete one cache by hash.\n  cache list [filter]  List visible caches.\n  cache search [text]  Search loaded caches by name, hash or type.\n  fflag "name" "value"  Add and apply one FastFlag.\n  fflag delete "name"  Remove one FastFlag.\n  fflag clear  Remove all saved FastFlags.\n  fflag list  List saved FastFlags.\n  fflag apply  Inject all saved FastFlags into Roblox.\n  fflag unapply  Restore the original FastFlag values.\n  fflag defaults  Open Default FFlag Values.\n  fflag latest  Open Latest FFlag List.\n  undo  Undo the last reversible console change.\n  history  Show saved console history from console_history.json.\n  config "name/prefix"  Apply a saved CConfig.\n  config save "name"  Save the current Roblox database as a CConfig.\n  config list  List saved CConfigs.\n  config delete "name/prefix"  Delete one saved CConfig.\n  modif meshtoobj "mesh file path"  Convert that mesh file to OBJ.\n  modif "head" "replacement mesh path" ["RobloxPlayerBeta.exe path"]  Replace R6 body mesh (head, torso, left arm, right arm, left leg, right leg).\n  join "place id"  Open a Roblox subplace.\n  viewserver "deeplink"  Load a server deeplink.\n  information  Open the live Client information.\n  theme "theme name"  Apply a saved theme.\n  theme list  List available themes.\n  watch start|stop  Start or stop cache watching.\n  fps "number"  Set and apply the FPS limit.\n  export all  Dump all caches; progress is shown in Console.\n  dump-folder  Open the folder where dumped caches are saved.\n  backup create "name"  Back up settings and File/Hash Saves.\n  backup restore "zip path"  Restore a RoUtils backup ZIP.\n  ai  Open RoUtils AI.\n  open "tab name"  Open a RoUtils tab.\n  status  Show Roblox PID, watcher and database status.\n  clear  Clear the Console.',
+    's19': 'Applied FFlag {p0} = {p1}',
+    't19': 'Cleared all saved FFlags',
+    'u19': 'FFlag injection requested',
+    'v19': 'FFlag values restored',
+    'w19': 'Opened Default FFlag Values',
+    'x19': 'Opened Latest FFlag List',
+    'y19': "Saved current DB as config '{p0}'.",
+    'z19': 'Opened subplace {p0}',
+    'a20': 'Opened Client information',
+    'b20': 'Themes: ',
+    'c20': 'Cache watching started',
+    'd20': 'Cache watching could not start: database file was not found.',
+    'e20': 'Cache watching stopped',
+    'f20': 'FPS limit set to {p0}',
+    'g20': 'Opened dump folder: {p0}',
+    'h20': 'Started full cache dump; progress is shown in Console.',
+    'i20': 'Opened tab {p0}',
+    'j20': 'Roblox PID: {p0}\nCache watcher: {p1}\nDatabase: {p2}',
+    'k20': 'Saved history:\n',
+    'l20': '(empty)',
+    'm20': 'Invalid command or arguments. Type help for command descriptions.',
+    'n20': 'Error: ',
+    'o20': 'Applied cache {p0} from {p1}',
+    'p20': 'Deleted cache {p0}',
+    'q20': 'Cache not found: {p0}',
+    'r20': 'Caches:\n',
+    's20': '(none loaded)',
+    't20': 'Deleted FFlag {p0}',
+    'u20': 'FFlags:\n',
+    'v20': '(none)',
+    'w20': 'Configs:\n',
+    'x20': 'Deleted config {p0}',
+    'y20': 'Applying config {p0}',
+    'z20': 'Converted mesh to {p0}',
+    'a21': 'Replaced {p0}',
+    'b21': 'Applied theme {p0}',
+    'c21': 'ROUTILS  /  RELEASE NOTES',
+    'd21': 'RoUtils Release History',
+    'e21': 'Open GitHub ↗',
+    'f21': 'Connecting to GitHub…',
+    'g21': 'Fetching official GitHub releases…',
+    'h21': 'Could not reach GitHub. Check the connection and try Refresh.',
+    'i21': 'Release notes are temporarily unavailable',
+    'j21': 'Open release page in browser',
+    'k21': 'Preview unavailable · {p0}',
+    'l21': 'No published releases were found.',
+    'm21': '{p0} Releases loaded',
+    'n21': '  {p0}  ',
+    'o21': 'Loading image · {p0}',
+    'p21': 'Open image on browser ↗',
+    'q21': 'Open release ↗',
+    'r21': '{p0} asset',
+    's21': 's',
+    't21': '+{p0} more',
+    'u21': 'No published releases to show.',
+    'v21': '$>',
+    'w21': 'RoUtils Console ready. Type help for commands.',
+    'x21': 'Please enter a Gemini API Key.',
+    'y21': 'Gemini API Key added successfully.',
+    'z21': 'Opened RoUtils AI',
+    'a22': '✦ RoUtils AI',
+    'b22': 'RoUtils AI · Powered by Gemini',
+    'c22': 'MODEL',
+    'd22': 'Save AI generated file',
+    'e22': 'Generated file',
+    'f22': 'RoUtils AI',
+    'g22': 'File saved successfully.',
+    'h22': 'Could not save file:\n{p0}',
+    'i22': 'Download / Save as…',
+    'j22': 'Copy',
+    'k22': ' · {p0}',
+    'l22': 'Thinking...',
+    'm22': 'RoUtils AI · Thinking... {p0}s',
+    'n22': 'Attach a file',
+    'o22': 'Supported files',
+    'p22': '📎  {p0}  ·  {p1}',
+    'q22': 'Image preview · {p0} × {p1}',
+    'r22': 'Preview unavailable: {p0}',
+    's22': 'PDF attached · content will be sent to Gemini',
+    't22': 'Add your Gemini API key in Settings before sending a message.',
+    'u22': 'you are routils ai a helper inside the windows app routils made by offp001\nuse simple words and short helpful replies\nwrite like a real person and do not repeat greetings\nuse normal sentence case and do not capitalize every word\navoid full stops at the end of short messages unless using an ellipsis\nuse commas only when they help\ndo not show raw tracebacks or long technical errors to the user\n\nwhen the user only says hello hi or hey say hey need a hand with routils\ndo not bring up settings or api keys unless the user asks\nwhen they ask about settings explain the right option in simple steps\n\nuse the real features and tab names in this guide\nfflags are in the fflags tab and can be edited in the list or json editor\nuse apply to roblox when available and do not promise every flag works\ncache is used to inspect cached files with search and filters\nstart watching turns cache watching on or off\nback up cache data before changing or removing it\nconfigs can be saved imported selected applied exported or deleted\nthemes are in customize\nthe gemini api key is in settings under gemini ai\nconsole commands include help fflag list fflag apply fflag unapply config list watch start watch stop theme list status and ai\nofficial github https://github.com/offp001/routils\nofficial discord https://discord.gg/849VtrYhm2\nnever make up a feature setting result or link\nanswer general questions directly and do not add unrelated offers to help with settings\nif unsure say so and tell the user where to check',
+    'v22': 'RoUtils AI · {p0}s',
+    'w22': 'Send  ➤',
+    'x22': 'Auto-scroll',
+    'y22': 'Hide tickets',
+    'z22': 'Stay on top',
+    'a23': 'Show lines',
+    'b23': 'Clear rbx-storage',
+    'c23': 'Delete Cache Type',
+    'd23': 'Start Watching',
+    'e23': 'Dump Caches',
+    'f23': 'Type:',
+    'g23': 'TIME',
+    'h23': 'HASH',
+    'i23': 'SIZE',
+    'j23': 'SOURCE',
+    'k23': 'Export ▸ Full Blob…',
+    'l23': 'Export ▸ RBXM…',
+    'm23': 'Export as OBJ',
+    'n23': 'Export ▸ Image…',
+    'o23': 'Export ▸ Video…',
+    'p23': 'Copy Hash',
+    'q23': 'Save Hash…',
+    'r23': 'Save Blob…',
+    's23': 'Asset Description',
+    't23': '▶',
+    'u23': 'Delete all caches of this type:',
+    'v23': 'Delete all {p0} {p1} cache(s)?\n\nThis cannot be undone.',
+    'w23': 'No caches of the selected type were found.',
+    'x23': 'A cache dump is already running.',
+    'y23': '=== Dump Caches ===',
+    'z23': 'Database: {p0}',
+    'a24': 'Dump folder: {p0}',
+    'b24': 'Video export enabled. Matching cached tickets may take a while.',
+    'c24': 'Video dumping skipped.',
+    'd24': 'Scanning cache...',
+    'e24': 'ERROR: rbx-storage.db was not found.',
+    'f24': 'RoUtils - Dump Caches',
+    'g24': 'ERROR while scanning: {p0}',
+    'h24': 'Found {p0} cache(s), including {p1} video cache(s).',
+    'i24': 'Skipping {p0} video cache(s).',
+    'j24': 'Failed {p0}: {p1}',
+    'k24': 'Processed {p0}/{p1} | dumped={p2} failed={p3}',
+    'l24': 'Finished. Dumped: {p0} | Failed: {p1}',
+    'm24': 'Output: {p0}',
+    'n24': 'Cleared rbx-storage: {p0} shard(s), DB={p1}',
+    'o24': 'Deleted shards: {p0}\nDeleted DB: {p1}',
+    'p24': 'Select rbx-storage.db',
+    'q24': 'All Files',
+    'r24': 'Choose DB File',
+    's24': 'Could not replace Roblox storage files.\n\n{p0}\n\nClose Roblox and try again. No force-delete was used.',
+    't24': 'Installed selected DB successfully.\n\nDeleted: rbx-storage.db, rbx-storage.db-shm, rbx-storage.db-wal, rbx-storage.id\nInstalled: rbx-storage.db only.',
+    'u24': 'Select shard root folder (rbx-storage)',
+    'v24': 'Cache watching failed: {p0}',
+    'w24': 'Stop Watching',
+    'x24': 'Cache scan error: {p0}',
+    'y24': 'Cache view refresh was retried: {p0}',
+    'z24': 'Copied',
+    'a25': 'Copied {p0} hash(es) to clipboard.',
+    'b25': 'Export Blob',
+    'c25': 'Select a row first.',
+    'd25': 'Export Full Blobs to folder',
+    'e25': 'Exported {p0} of {p1} blobs to:\n{p2}',
+    'f25': 'Unable to read blob (DB/shard).',
+    'g25': 'Export Full Blob',
+    'h25': 'RBXH blob',
+    'i25': 'Binary',
+    'j25': 'Saved full blob:\n{p0}',
+    'k25': 'Failed to save file:\n{p0}',
+    'l25': 'Export RBXM',
+    'm25': 'Export RBXM models to folder',
+    'n25': 'Exported {p0} of {p1} models to:\n{p2}',
+    'o25': 'Roblox model',
+    'p25': 'Saved model:\n{p0}',
+    'q25': 'Select a Mesh cache first.',
+    'r25': 'Export meshes as OBJ',
+    's25': 'Export Mesh as OBJ',
+    't25': 'Wavefront OBJ',
+    'u25': 'Exported Mesh as OBJ: {p0}',
+    'v25': 'Some meshes failed:\n',
+    'w25': 'Exported {p0} mesh(es).',
+    'x25': 'A video export is already running.',
+    'y25': 'Export Video',
+    'z25': 'The selected cache does not contain a detected video.',
+    'a26': 'Export videos to folder',
+    'b26': 'Video files',
+    'c26': 'Exporting {p0} video(s) in the background...',
+    'd26': 'Video export: {p0}/{p1} · {p2}',
+    'e26': 'Video export: {p0}/{p1} · failed',
+    'f26': 'Video export finished. Saved: {p0}/{p1} | Failed: {p2}',
+    'g26': 'Exported {p0} of {p1} video(s) to:\n{p2}',
+    'h26': 'Saved video:\n{p0}\n\nSize: {p1}',
+    'i26': 'No videos could be exported.',
+    'j26': 'Export Image',
+    'k26': 'Export images to folder',
+    'l26': 'Exported {p0} of {p1} images to:\n{p2}',
+    'm26': 'Blob does not contain a valid image.',
+    'n26': '{p0} image',
+    'o26': 'Saved image:\n{p0}',
+    'p26': 'Change Hash',
+    'q26': 'Enter new {p0}-hex hash for this blob:',
+    'r26': 'Invalid Hash',
+    's26': 'Confirm Change Hash',
+    't26': 'Update DB id and rename shard?\n\nOld: {p0}\nNew: {p1}',
+    'u26': 'Shard Rename',
+    'v26': 'DB updated, but shard rename failed:\n{p0}',
+    'w26': 'Hash updated successfully.',
+    'x26': 'Failed to change hash:\n{p0}',
+    'y26': 'Delete Blob',
+    'z26': 'Confirm Delete',
+    'a27': 'Delete {p0} blob(s) from DB and remove shard files?\n\n{p1}',
+    'b27': 'Deleted {p0} blob(s).',
+    'c27': 'Failed to delete blob:\n{p0}',
+    'd27': 'Name to show in Hash saves:',
+    'e27': 'Name cannot be empty.',
+    'f27': 'Hash saves folder not available.',
+    'g27': 'Saved {p0} hash(es).',
+    'h27': 'Save Blob',
+    'i27': 'File name to save in File saves:',
+    'j27': 'File saves folder not available.',
+    'k27': 'Failed to save blob: {p0}',
+    'l27': 'Saved {p0} blob(s).',
+    'm27': 'Status: {p0}   Visible: {p1}   Total seen: {p2}   Interval: {p3:.1f}s',
+    'n27': 'Could not update startup setting: {p0}',
+    'o27': 'Could not update Start with system:\n{p0}',
+    'p27': 'ERROR: {p0}',
+    'q27': 'FFlag Hotkey',
+    'r27': 'Search RoUtils',
+    's27': 'Select a saved DB to view its details.',
+    't27': 'No notifications yet. RoUtils will keep recent updates here.',
+    'u27': '✦ Ask to AI',
+    'v27': 'Emote hotkeys require Windows.',
+    'w27': 'Change Hash…',
+    'x27': 'Delete Blob',
+    'y27': 'TIME',
+    'z27': 'NAME',
+    'a28': 'TYPE',
+    'b28': 'SOURCE',
+    'c28': 'Do you want to dump videos? (Y)es or (N)o: ',
+    'd28': '\\nPress Enter',
+    'e28': 'Hey! Need a hand with RoUtils?',
+    'f28': 'Please analyze the attached file.',
+    'g28': 'Open RoUtils',
+    'h28': 'Exit RoUtils',
+    'i28': 'RoUtils Tray',
+    'j28': '3D Viewport',
+    'k28': 'Choose replacement for studs.dds (target: plastic\\normal.dds)',
+    'l28': 'Choose replacement for diffuse.dds',
+    'm28': 'Choose replacement for CustomFont.ttf',
+    'n28': 'Resolving game name...',
+    'o28': 'Place ID',
+    'p28': 'Job ID',
+    'q28': 'File Version',
+    'r28': 'CPU Usage',
+    's28': 'RAM Usage',
+    't28': 'Roblox Game Client not found',
+    'u28': 'Paste a Roblox deeplink first.',
+    'v28': 'The deeplink must contain both placeId and gameInstanceId/jobId.',
+    'w28': 'Waiting for key...',
+    'x28': 'Emote hotkeys are on.',
+    'y28': 'Emote hotkeys are off.',
+    'z28': 'Auto Apply enabled (every 60 seconds)',
+    'a29': 'Auto Apply disabled',
+    'b29': 'Could not create a Python plugin loader.',
+    'c29': 'Python plugin must define register(app).',
+    'd29': 'Backup ZIP file was not found.',
+    'e29': 'Cache file or hash is invalid.',
+    'f29': 'Cache hash is invalid.',
+    'g29': 'FFlag was not found or is ambiguous.',
+    'h29': 'Config was not found or the prefix is ambiguous.',
+    'i29': 'Choose RobloxPlayerBeta.exe first or pass its path.',
+    'j29': 'Theme not found or prefix is ambiguous.',
+    'k29': 'Date unavailable',
+    'l29': 'LATEST STABLE',
+    'm29': 'No description was provided for this release.',
+    'n29': 'No signed ticket URL was found in the cache.',
+    'o29': 'Official Github Link: https://github.com/offp001/routils',
+    'p29': 'Join Discord server: https://discord.gg/849VtrYhm2',
+    'q29': 'Model present, but no parts found to render',
+    'r29': 'Mesh present, but this variant isn’t supported by the converter',
+    's29': 'No Keyframe data found in the selected animation.',
+    't29': 'The current rbx-storage.db does not exist.',
+    'v29': 'Config name cannot be empty.',
+    'w29': 'Save Current DB',
+    'x29': 'Export DB',
+    'y29': 'Not in a game',
+    'a30': 'Max Capacity',
+    'b30': 'Server FPS',
+    'c30': 'No usable offset list was found.',
+    'd30': 'Checking...',
+    'e30': 'Detecting...',
+    'g30': 'Gemini 3.8 Flash',
+    'h30': 'Gemini 3.7 Flash',
+    'i30': 'Gemini 3.6 Flash',
+    'j30': 'Gemini 3.5 Flash',
+    'k30': 'Gemini 3.5 Flash-Lite',
+    'l30': 'Gemini 3.1 Flash-Lite',
+    'm30': 'Gemini 3.1 Pro Preview',
+    'n30': 'Gemini 3 Flash Preview',
+    'o30': 'Gemini 2.5 Flash',
+    'p30': 'Gemini 2.5 Pro',
+    'q30': 'Gemini 2.5 Flash-Lite',
+    'r30': 'Previous emote',
+    's30': 'Next emote',
+    't30': 'Play current emote',
+    'u30': 'Current emote: ',
+    'v30': 'Emote error: ',
+    'd31': 'Players',
+    'e31': 'Ping',
+    'f31': 'Status',
+    'g31': 'PID',
+    'h31': 'Path',
+    'i31': 'Game',
+    'j31': 'JOB ID',
+    'k31': 'DATE / TIME',
+    'y31': 'Add FFlag',
+    'z31': 'Export FFlags',
+    'f32': 'Release image',
+    'g32': 'Ticket (signed URL)',
+    'h32': 'Settings file must contain a JSON object.',
+    'i32': 'DracoPy not installed. v6/v7 mesh conversion will not work.',
+    'j32': 'DracoPy not available - cannot process v6/v7 meshes',
+    'k32': 'Invalid mesh data: file too small',
+    'l32': 'Data is not a valid RBXM/RBXMX document',
+    'm32': 'Unsupported Roblox conversion target: ',
+    'n32': 'XML root is not a Roblox document',
+    'o32': 'RBXM deserializer is unavailable.',
+    'p32': 'FPS Hotkey ',
+    'q32': '+ Add',
+    'r32': 'Remove All',
+    's32': 'Model: ',
+    't32': ' video cache(s).',
+    'u32': 'LOD parsing failed: ',
+    'v32': 'RBXM contains a ZSTD-compressed chunk; install zstandard to read it',
+    'w32': 'Invalid RBXM header: ',
+    'x32': 'No COREMESH chunk found in v6/v7 mesh',
+    'y32': 'Detected mesh version: ',
+    'z32': 'RBXM/RBXMX converted to RBXH blob and saved',
+    'a33': 'Hotkey ',
+    'b33': ': starting...',
+    'c33': ' key set to ',
+}
+_TkAppBase = tk.Tk
 UI_HOTKEY_INTERVAL_MS = 75
 UI_QUICK_PANEL_INTERVAL_MS = 50
 UI_QUEUE_INTERVAL_MS = 25
 UI_CLIENT_INTERVAL_MS = 250
-import xml.etree.ElementTree as ET
-import tkinter as tk
-from PIL import Image, ImageTk
-
 _ROUTILS_ORIGINAL_URLOPEN = urllib.request.urlopen
 def _routils_is_network_error(error):
     markers = ('getaddrinfo failed', 'urlopen error', '[errno 11001]', 'name or service not known', 'temporary failure in name resolution', 'nodename nor servname provided', 'connection timed out', 'timed out', 'network is unreachable', 'connection refused', 'connection reset', 'failed to establish a new connection')
@@ -67,22 +897,7 @@ def _routils_urlopen(url, *args, **kwargs):
             if attempt or not _routils_is_network_error(error):
                 raise
             time.sleep(0.35)
-from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Iterable
-from tkinter import filedialog, simpledialog, messagebox, ttk, colorchooser
-from tkinter import font as tkfont
-from typing import Dict, List, Optional, Tuple
-try:
-    import sv_ttk
-except Exception:
-    sv_ttk = None
-try:
-    import ttkbootstrap as ttkbootstrap
-except Exception:
-    ttkbootstrap = None
-_TkAppBase = tk.Tk
-from urllib.parse import parse_qs, urlparse, urljoin
+
 UI_THEME = 'clam'
 THEMES = {'Midnight': {'bg_dark': '#1b1b1c', 'bg_medium': '#252526', 'bg_light': '#3a3a3c', 'bg_hover': '#464648', 'fg': '#dcdcdc', 'accent': '#7f8cff', 'border': '#444446'}, 'Ocean': {'bg_dark': '#0f2436', 'bg_medium': '#153248', 'bg_light': '#1f425e', 'bg_hover': '#2a5474', 'fg': '#d7e6f0', 'accent': '#3aa0ff', 'border': '#28506e'}, 'Hacker': {'bg_dark': '#0a0f0a', 'bg_medium': '#0f180f', 'bg_light': '#1a2a1a', 'bg_hover': '#223522', 'fg': '#b8ffb0', 'accent': '#2fff2f', 'border': '#2a4a2a'}, 'Amethyst': {'bg_dark': '#1a1423', 'bg_medium': '#241b31', 'bg_light': '#35284a', 'bg_hover': '#453665', 'fg': '#e0d6f0', 'accent': '#b06bff', 'border': '#4a3a63'}, 'Onyx': {'bg_dark': '#101010', 'bg_medium': '#171717', 'bg_light': '#262626', 'bg_hover': '#303030', 'fg': '#cfcfcf', 'accent': '#c0c0c0', 'border': '#333333'}}
 THEMES.update({'Nord': {'bg_dark': '#1e2430', 'bg_medium': '#252d3a', 'bg_light': '#303a4a', 'bg_hover': '#3a4658', 'fg': '#d8dee9', 'accent': '#88c0d0', 'border': '#414b5d'}, 'Dracula': {'bg_dark': '#282a36', 'bg_medium': '#303241', 'bg_light': '#44475a', 'bg_hover': '#565a70', 'fg': '#f8f8f2', 'accent': '#bd93f9', 'border': '#44475a'}, 'Monokai': {'bg_dark': '#272822', 'bg_medium': '#2e2f2a', 'bg_light': '#3e3d32', 'bg_hover': '#49483e', 'fg': '#f8f8f2', 'accent': '#a6e22e', 'border': '#49483e'}, 'Solarized': {'bg_dark': '#002b36', 'bg_medium': '#073642', 'bg_light': '#586e75', 'bg_hover': '#657b83', 'fg': '#eee8d5', 'accent': '#2aa198', 'border': '#586e75'}, 'Rose Pine': {'bg_dark': '#191724', 'bg_medium': '#1f1d2e', 'bg_light': '#26233a', 'bg_hover': '#403d52', 'fg': '#e0def4', 'accent': '#ebbcba', 'border': '#403d52'}, 'Catppuccin': {'bg_dark': '#1e1e2e', 'bg_medium': '#313244', 'bg_light': '#45475a', 'bg_hover': '#585b70', 'fg': '#cdd6f4', 'accent': '#cba6f7', 'border': '#45475a'}, 'Gruvbox': {'bg_dark': '#282828', 'bg_medium': '#3c3836', 'bg_light': '#504945', 'bg_hover': '#665c54', 'fg': '#ebdbb2', 'accent': '#fabd2f', 'border': '#504945'}, 'Tokyo Night': {'bg_dark': '#16161e', 'bg_medium': '#1f2335', 'bg_light': '#292e42', 'bg_hover': '#3b4261', 'fg': '#c0caf5', 'accent': '#7aa2f7', 'border': '#3b4261'}, 'Synthwave': {'bg_dark': '#241b2f', 'bg_medium': '#30233d', 'bg_light': '#45304f', 'bg_hover': '#5a3e64', 'fg': '#f5d7fe', 'accent': '#ff7edb', 'border': '#5a3e64'}, 'Forest': {'bg_dark': '#102018', 'bg_medium': '#183025', 'bg_light': '#254638', 'bg_hover': '#315a48', 'fg': '#d8f3dc', 'accent': '#74c69d', 'border': '#315a48'}, 'Ruby': {'bg_dark': '#241417', 'bg_medium': '#351b20', 'bg_light': '#4a252d', 'bg_hover': '#63323d', 'fg': '#f7dfe3', 'accent': '#ff6b81', 'border': '#63323d'}, 'Amber': {'bg_dark': '#211a0e', 'bg_medium': '#33270f', 'bg_light': '#4a3815', 'bg_hover': '#61491d', 'fg': '#fff0c2', 'accent': '#ffb84d', 'border': '#61491d'}, 'Arctic': {'bg_dark': '#17212b', 'bg_medium': '#21303d', 'bg_light': '#304554', 'bg_hover': '#405b6d', 'fg': '#e7f5ff', 'accent': '#66c7ff', 'border': '#405b6d'}, 'Lavender': {'bg_dark': '#211d2b', 'bg_medium': '#2d263b', 'bg_light': '#3c3350', 'bg_hover': '#514466', 'fg': '#eee7ff', 'accent': '#c4a7ff', 'border': '#514466'}, 'Coffee': {'bg_dark': '#211915', 'bg_medium': '#30231d', 'bg_light': '#45332a', 'bg_hover': '#5b4437', 'fg': '#f1dfd0', 'accent': '#d69e78', 'border': '#5b4437'}, 'Slate': {'bg_dark': '#181c20', 'bg_medium': '#232a30', 'bg_light': '#313a42', 'bg_hover': '#414c56', 'fg': '#d9e1e8', 'accent': '#8ab4c7', 'border': '#414c56'}, 'Cyber': {'bg_dark': '#080b12', 'bg_medium': '#101522', 'bg_light': '#182033', 'bg_hover': '#26334d', 'fg': '#d9f7ff', 'accent': '#00e5ff', 'border': '#26334d'}, 'Sunset': {'bg_dark': '#241516', 'bg_medium': '#35201e', 'bg_light': '#4a2b27', 'bg_hover': '#633b35', 'fg': '#ffe4d6', 'accent': '#ff8a65', 'border': '#633b35'}, 'Mint': {'bg_dark': '#10211e', 'bg_medium': '#17312c', 'bg_light': '#24473f', 'bg_hover': '#315d52', 'fg': '#dcfff5', 'accent': '#62e6c8', 'border': '#315d52'}, 'Deep Blue': {'bg_dark': '#0b1424', 'bg_medium': '#10213a', 'bg_light': '#193153', 'bg_hover': '#24446f', 'fg': '#dcecff', 'accent': '#5ca9ff', 'border': '#24446f'}, 'Obsidian': {'bg_dark': '#111318', 'bg_medium': '#1a1d24', 'bg_light': '#292e38', 'bg_hover': '#363d49', 'fg': '#e6e9ef', 'accent': '#8ab4f8', 'border': '#3b4351'}, 'Aurora': {'bg_dark': '#101820', 'bg_medium': '#172633', 'bg_light': '#234353', 'bg_hover': '#2d5c6d', 'fg': '#e4fbff', 'accent': '#66e3d4', 'border': '#376878'}, 'Plasma': {'bg_dark': '#160d24', 'bg_medium': '#24143b', 'bg_light': '#38215b', 'bg_hover': '#4d2b79', 'fg': '#f4eaff', 'accent': '#e38cff', 'border': '#5d3d83'}, 'Ember': {'bg_dark': '#20110d', 'bg_medium': '#321a14', 'bg_light': '#4a2820', 'bg_hover': '#63362a', 'fg': '#ffede5', 'accent': '#ff9d5c', 'border': '#714334'}, 'Meadow': {'bg_dark': '#0d1b16', 'bg_medium': '#142a20', 'bg_light': '#204433', 'bg_hover': '#2c5c43', 'fg': '#e4ffef', 'accent': '#8be28b', 'border': '#38694e'}})
@@ -102,7 +917,18 @@ os.makedirs(DATA_DIR, exist_ok=True)
 SPLASH_DIR = os.path.join(DATA_DIR, 'src')
 SPLASH_IMAGE_PATH = os.path.join(SPLASH_DIR, 'routils.png')
 SPLASH_IMAGE_URL = 'https://raw.githubusercontent.com/offp001/routils/refs/heads/main/src/routils.png'
-APP_VERSION = '5.2'
+APP_VERSION = '5.2.1'
+RELEASES_URL = 'https://github.com/offp001/routils/releases'
+RELEASES_API_URL = 'https://api.github.com/repos/offp001/routils/releases?per_page=30'
+def _routils_request(url, timeout=10, headers=None, data=None, method=None):
+    request_headers = {
+        'User-Agent': f'RoUtils/{APP_VERSION}',
+        'Accept': 'application/json, */*'
+    }
+    if headers:
+        request_headers.update(headers)
+    request = urllib.request.Request(url, data=data, headers=request_headers, method=method)
+    return _routils_urlopen(request, timeout=timeout)
 HISTORY_PATH = os.path.join(DATA_DIR, 'history.json')
 SETTINGS_PATH = os.path.join(DATA_DIR, 'routils_settings.json')
 ERROR_REPORT_DIR = os.path.join(DATA_DIR, 'errors')
@@ -134,8 +960,7 @@ def _ensure_splash_image_file():
                 pass
     temporary = SPLASH_IMAGE_PATH + '.download'
     try:
-        request = urllib.request.Request(SPLASH_IMAGE_URL, headers={'User-Agent': 'RoUtils/4.1.1'})
-        with _routils_urlopen(request, timeout=12) as response:
+        with _routils_request(SPLASH_IMAGE_URL, timeout=12) as response:
             data = response.read(8 * 1024 * 1024 + 1)
         if not data or len(data) > 8 * 1024 * 1024:
             return False
@@ -197,7 +1022,7 @@ def _report_rotools_error(exc_type, exc_value, exc_tb, app=None):
     if isinstance(exc_value, tk.TclError) and re.search(r"Item .+ not found", short, re.IGNORECASE):
         try:
             if target is not None:
-                target._console_log('a cache item changed during refresh the old selection was skipped')
+                target._console_log(UI_TEXT['a1'])
         except Exception:
             pass
         return
@@ -219,21 +1044,21 @@ def _report_rotools_error(exc_type, exc_value, exc_tb, app=None):
         if now - previous < 5:
             if target is not None:
                 try:
-                    target._console_log('the same issue happened again repeated alert skipped')
+                    target._console_log(UI_TEXT['b1'])
                 except Exception:
                     pass
             return
         if target is not None:
             try:
-                target._console_log('an unexpected issue occurred details were saved in the error folder')
+                target._console_log(UI_TEXT['c1'])
             except Exception:
                 pass
-        message = 'RoUtils could not complete this action\n\nA report was saved in the error folder\n\nTry again and check the Console if it keeps happening'
+        message = UI_TEXT['d1']
         try:
             if target is not None and target.winfo_exists():
-                target.after(0, lambda: messagebox.showerror('RoUtils ran into a problem', message, parent=target))
+                target.after(0, lambda: messagebox.showerror(UI_TEXT['e1'], message, parent=target))
             else:
-                messagebox.showerror('RoUtils ran into a problem', message)
+                messagebox.showerror(UI_TEXT['e1'], message)
         except Exception:
             pass
     finally:
@@ -247,9 +1072,6 @@ def _install_error_hooks():
 CONSOLE_HISTORY_PATH = os.path.join(DATA_DIR, 'console_history.json')
 TEMP_EMU_DIR = os.path.join(tempfile.gettempdir(), 'RobloxStudio_TempView')
 os.makedirs(TEMP_EMU_DIR, exist_ok=True)
-import enum
-from dataclasses import dataclass, field
-from typing import Any
 class PropertyFormat(enum.IntEnum):
     UNKNOWN = 0
     STRING = 1
@@ -330,8 +1152,6 @@ class RbxDocument:
     shared_strings: list[bytes] = field(default_factory=list[bytes])
     raw_property_chunks: list[RbxRawPropertyChunk] = field(default_factory=list[RbxRawPropertyChunk])
     raw_chunks: list[RbxRawChunk] = field(default_factory=list[RbxRawChunk])
-import struct
-from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     pass
 def read_u8(data: bytes, offset: int) -> tuple[int, int]:
@@ -409,7 +1229,6 @@ def decode_ids(data: bytes, offset: int, count: int) -> tuple[list[int], int]:
         acc += d
         ids.append(acc)
     return (ids, offset + count * 4)
-import struct
 def write_u8(value: int) -> bytes:
     return bytes([value & 255])
 def write_u16(value: int) -> bytes:
@@ -480,10 +1299,6 @@ def encode_ids(ids: list[int]) -> bytes:
         deltas.append(v - prev)
         prev = v
     return interleave_i32(deltas)
-import struct
-from collections import defaultdict
-from typing import Any
-import lz4.block
 MAGIC_HEADER = b'<roblox!\x89\xff\r\n\x1a\n'
 FILE_VERSION = 0
 def write_rbxm(doc: RbxDocument) -> bytes:
@@ -564,8 +1379,6 @@ class RbxmSerializer:
             buf.extend(write_string(value))
         return bytes(buf)
     def _build_sstr(self) -> bytes:
-        import base64
-        import hashlib
         buf = bytearray()
         buf.extend(write_u32(0))
         buf.extend(write_u32(len(self._shared_strings)))
@@ -958,11 +1771,6 @@ class RbxmSerializer:
         buf.extend(encode_ids(child_ids))
         buf.extend(encode_ids(parent_ids))
         return bytes(buf)
-import base64
-import hashlib
-import logging
-from typing import Any
-from xml.etree.ElementTree import Element, SubElement, indent, tostring
 log = logging.getLogger(__name__)
 _shared_string_registry: dict[str, str] = {}
 def write_rbxmx(doc: RbxDocument) -> bytes:
@@ -1336,10 +2144,6 @@ def _fmt_float(value: Any) -> str:
             return str(int(value))
         return f'{value:.8g}'
     return str(value)
-import logging
-import struct
-from typing import Any
-import lz4.block
 log = logging.getLogger(__name__)
 MAGIC_HEADER = b'<roblox!\x89\xff\r\n\x1a\n'
 FILE_HEADER_SIZE = 32
@@ -1349,7 +2153,7 @@ def _decompress_chunk(raw: bytes, uncompressed_size: int) -> bytes:
         try:
             import zstandard
         except ImportError as exc:
-            msg = 'RBXM contains a ZSTD-compressed chunk; install zstandard to read it'
+            msg = UI_TEXT['v32']
             raise RuntimeError(msg) from exc
         return zstandard.ZstdDecompressor().decompress(raw, max_output_size=uncompressed_size)
     return lz4.block.decompress(raw, uncompressed_size=uncompressed_size)
@@ -1373,7 +2177,7 @@ class RbxmDeserializer:
     def _read_file_header(self, data: bytes) -> int:
         magic = data[:14]
         if magic != MAGIC_HEADER:
-            msg = f'Invalid RBXM header: {magic!r}'
+            msg = f"{UI_TEXT['w32']}{magic!r}"
             raise ValueError(msg)
         self._version = struct.unpack_from('<H', data, 14)[0]
         self._type_count = struct.unpack_from('<I', data, 16)[0]
@@ -1825,10 +2629,6 @@ def _quat_to_matrix(x: float, y: float, z: float, w: float) -> tuple[float, ...]
     xy, xz, yz = (x * y, x * z, y * z)
     wx, wy, wz = (w * x, w * y, w * z)
     return (1 - 2 * (yy + zz), 2 * (xy - wz), 2 * (xz + wy), 2 * (xy + wz), 1 - 2 * (xx + zz), 2 * (yz - wx), 2 * (xz - wy), 2 * (yz + wx), 1 - 2 * (xx + yy))
-import struct
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
-import lz4.block
 RBXM_MAGIC = b'<roblox!'
 RBXM_SIGNATURE = bytes([137, 255, 13, 10, 26, 10])
 @dataclass
@@ -2072,16 +2872,12 @@ class _EmbeddedLogBuffer:
         except Exception:
             pass
 log_buffer = _EmbeddedLogBuffer()
-import gzip
-import json
-import struct
-import numpy as np
 try:
     import DracoPy
     DRACO_AVAILABLE = True
 except ImportError:
     DRACO_AVAILABLE = False
-    log_buffer.log('Mesh', 'DracoPy not installed. v6/v7 mesh conversion will not work.')
+    log_buffer.log('Mesh', UI_TEXT['i32'])
 class Vertex:
     def __init__(self):
         self.px = self.py = self.pz = 0.0
@@ -2254,7 +3050,7 @@ def process_v2_to_v5(data: bytes, version_num: str) -> str:
                     faces = faces[:lod_offsets[1]]
                     log_buffer.log('Mesh', f'Applied LOD: {original_count} → {len(faces)} faces (offsets: {lod_offsets})')
             except Exception as e:
-                log_buffer.log('Mesh', f'LOD parsing failed: {e}')
+                log_buffer.log('Mesh', f"{UI_TEXT['u32']}{e}")
         v_lines = [f"v {fix_float(f'{v.px:.6f}')} {fix_float(f'{v.py:.6f}')} {fix_float(f'{v.pz:.6f}')} {fix_float(f'{v.r / 255.0:.6f}')} {fix_float(f'{v.g / 255.0:.6f}')} {fix_float(f'{v.b / 255.0:.6f}')}" for v in verts]
         n_lines = [f"vn {fix_float(f'{v.nx:.6f}')} {fix_float(f'{v.ny:.6f}')} {fix_float(f'{v.nz:.6f}')}" for v in verts]
         t_lines = [f"vt {fix_float(f'{v.tu:.6f}')} {fix_float(f'{v.tv:.6f}')} 0.0" for v in verts]
@@ -2265,7 +3061,7 @@ def process_v2_to_v5(data: bytes, version_num: str) -> str:
         return None
 def process_v6_v7(data: bytes) -> str:
     if not DRACO_AVAILABLE:
-        log_buffer.log('Mesh', 'DracoPy not available - cannot process v6/v7 meshes')
+        log_buffer.log('Mesh', UI_TEXT['j32'])
         return None
     try:
         version = data[:12].decode('utf-8', errors='replace').strip()
@@ -2296,7 +3092,7 @@ def process_v6_v7(data: bytes) -> str:
                 lod_data = chunk_content
             offset += data_size
         if not coremesh_data:
-            log_buffer.log('Mesh', 'No COREMESH chunk found in v6/v7 mesh')
+            log_buffer.log('Mesh', UI_TEXT['x32'])
             return None
         try:
             mesh = DracoPy.decode(coremesh_data)
@@ -2396,7 +3192,7 @@ def process_v6_v7(data: bytes) -> str:
                             max_faces = computed
                             log_buffer.log('Mesh', f'Applying high-quality LOD: {len(faces):,} → {max_faces:,} faces')
                 except Exception as e:
-                    log_buffer.log('Mesh', f'LOD parsing failed: {e}')
+                    log_buffer.log('Mesh', f"{UI_TEXT['u32']}{e}")
             if max_faces < len(faces):
                 faces = faces[:max_faces]
             v_lines = [f"v {fix_float(f'{v.px:.6f}')} {fix_float(f'{v.py:.6f}')} {fix_float(f'{v.pz:.6f}')} {fix_float(f'{v.r / 255.0:.6f}')} {fix_float(f'{v.g / 255.0:.6f}')} {fix_float(f'{v.b / 255.0:.6f}')}" for v in verts]
@@ -2406,12 +3202,10 @@ def process_v6_v7(data: bytes) -> str:
             return write_obj_data(v_lines, n_lines, t_lines, f_lines)
         except Exception as e:
             log_buffer.log('Mesh', f'DracoPy decoding error: {e}')
-            import traceback
             traceback.print_exc()
             return None
     except Exception as e:
         log_buffer.log('Mesh', f'Error processing v6/v7 mesh: {e}')
-        import traceback
         traceback.print_exc()
         return None
 SUPPORTED_MESH_HEADERS = ('version 1.', 'version 2.00', 'version 3.00', 'version 3.01', 'version 4.00', 'version 4.01', 'version 5.00', 'version 6.00', 'version 7.00')
@@ -2424,7 +3218,7 @@ def _mesh_header(data: bytes) -> str:
     return data[:12].decode('utf-8', errors='ignore').strip()
 def convert(data: bytes, output_path: str=None) -> str:
     if not data or len(data) < 12:
-        log_buffer.log('Mesh', 'Invalid mesh data: file too small')
+        log_buffer.log('Mesh', UI_TEXT['k32'])
         return None
     if data.startswith(b'\x1f\x8b'):
         try:
@@ -2433,7 +3227,7 @@ def convert(data: bytes, output_path: str=None) -> str:
             log_buffer.log('Mesh', f'Failed to decompress gzip mesh data: {e}')
             return None
     header = _mesh_header(data)
-    log_buffer.log('Mesh', f'Detected mesh version: {header}')
+    log_buffer.log('Mesh', f"{UI_TEXT['y32']}{header}")
     obj_content = None
     if header.startswith('version 1.'):
         obj_content = process_v1(data)
@@ -2477,7 +3271,7 @@ def _to_binary_document(data: bytes) -> bytes:
         RbxmDeserializer().deserialize(data)
         return data
     if _parse_roblox_xml(data) is None:
-        raise ValueError('Data is not a valid RBXM/RBXMX document')
+        raise ValueError(UI_TEXT['l32'])
     return write_rbxm(_xml_to_document(data))
 def _extract_rbxh_document(data: bytes) -> bytes:
     raw = data or b''
@@ -2501,7 +3295,7 @@ def convert_roblox_file(data: bytes, source_ext: str, target_ext: str, template_
     if target_ext == '.rbxmx':
         binary = _to_binary_document(document)
         return write_rbxmx(RbxmDeserializer().deserialize(binary))
-    raise ValueError(f'Unsupported Roblox conversion target: {target_ext}')
+    raise ValueError(f"{UI_TEXT['m32']}{target_ext}")
 def _wrap_rbxm_bytes(data: bytes, content_type: str='application/octet-stream', template_data: bytes=b'') -> bytes:
     raw = _to_binary_document(data)
     reserved = b'\x00' * 8
@@ -2565,7 +3359,7 @@ def _parse_roblox_xml(data: bytes) -> ET.Element | None:
 def _xml_to_document(data: bytes) -> RbxDocument:
     root = ET.fromstring(data)
     if _tag_name(root) != 'roblox':
-        raise ValueError('XML root is not a Roblox document')
+        raise ValueError(UI_TEXT['n32'])
     shared_by_md5: dict[str, bytes] = {}
     shared_strings: list[bytes] = []
     ss_root = _find_child(root, 'SharedStrings')
@@ -3176,8 +3970,8 @@ class _WindowsTrayIcon:
         menu = user32.CreatePopupMenu()
         if not menu:
             return
-        user32.AppendMenuW(menu, self.MF_STRING, self.ID_OPEN, 'Open RoUtils')
-        user32.AppendMenuW(menu, self.MF_STRING, self.ID_EXIT, 'Exit RoUtils')
+        user32.AppendMenuW(menu, self.MF_STRING, self.ID_OPEN, UI_TEXT['g28'])
+        user32.AppendMenuW(menu, self.MF_STRING, self.ID_EXIT, UI_TEXT['h28'])
         user32.SetForegroundWindow(self.hwnd)
         user32.TrackPopupMenu(menu, self.TPM_LEFTALIGN | self.TPM_BOTTOMALIGN, pt.x, pt.y, 0, self.hwnd, None)
         user32.DestroyMenu(menu)
@@ -3199,7 +3993,7 @@ class _WindowsTrayIcon:
         self._class_atom = user32.RegisterClassW(ctypes.byref(wc))
         if not self._class_atom:
             raise ctypes.WinError()
-        self.hwnd = user32.CreateWindowExW(0, self._class_name, 'RoUtils Tray', 0, 0, 0, 0, 0, 0, 0, hinstance, None)
+        self.hwnd = user32.CreateWindowExW(0, self._class_name, UI_TEXT['i28'], 0, 0, 0, 0, 0, 0, 0, hinstance, None)
         if not self.hwnd:
             raise ctypes.WinError()
         large = ctypes.c_void_p()
@@ -3250,14 +4044,14 @@ def _launch_webview2(url: str, title: str) -> None:
     try:
         import webview
     except Exception as e:
-        messagebox.showerror('WebView2', 'WebView2 support requires pywebview and the Microsoft Edge WebView2 Runtime.\n\nInstall pywebview with: pip install pywebview\n\n' + str(e))
+        messagebox.showerror(UI_TEXT['f1'], UI_TEXT['g1'] + str(e))
         return
     try:
         webview.create_window(title, url=url, width=1200, height=800, min_size=(700, 500), text_select=True)
         webview.start(gui='edgechromium', debug=False)
     except Exception as e:
         try:
-            messagebox.showerror('WebView2', f'Could not open WebView2 window:\n{e}')
+            messagebox.showerror(UI_TEXT['f1'], UI_TEXT['h1'].format(p0=e))
         except Exception:
             pass
 def _get_latest_offsets_webview_url() -> str:
@@ -3272,7 +4066,7 @@ def _open_webview2_process(url: str, title: str) -> None:
             args = [os.path.abspath(__file__), '--webview2', url, title]
         subprocess.Popen([target, *args], cwd=BASE_DIR, close_fds=True)
     except Exception as e:
-        messagebox.showerror('WebView2', f'Could not start WebView2 window:\n{e}')
+        messagebox.showerror(UI_TEXT['f1'], UI_TEXT['i1'].format(p0=e))
 def _normalize_fflag_json(data):
     flags = []
     if isinstance(data, dict):
@@ -3321,7 +4115,6 @@ def parse_rbxh(blob: bytes) -> Dict:
         return res
     res['wrapped'] = True
     data = memoryview(blob)[4:]
-    res['full_payload'] = bytes(data)
     if len(data) < 8:
         res['body'] = bytes(data)
         return res
@@ -3378,8 +4171,8 @@ def _content_type(headers: Dict[str, str]) -> str:
 _ticket_url_re = re.compile(b'https?://([A-Za-z0-9\\.\\-]+)\\S+', re.IGNORECASE)
 def detect_ticket(payload: bytes, url: Optional[str]) -> Tuple[bool, str]:
     if url and 'rbxcdn.com' in url and any((k in url for k in ('__token_', 'signature', 'key-pair-id', 'policy', 'expires'))):
-        return (True, 'Ticket (signed URL)')
-    n = len(payload)
+        return (True, UI_TEXT['g32'])
+    n = len(payload) - (4 if payload[:4] == RBXH_MAGIC else 0)
     if 100 <= n <= 4096:
         if b'rbxcdn.com' in payload and any((k in payload.lower() for k in (b'key-pair-id', b'signature', b'policy', b'__token_', b'expires'))):
             host = 'rbxcdn'
@@ -3392,26 +4185,27 @@ def detect_ticket(payload: bytes, url: Optional[str]) -> Tuple[bool, str]:
             return (True, f'Ticket ({host})')
     return (False, '')
 def find_embedded_image(body: bytes) -> Tuple[str, int]:
-    scan = body[:131072]
-    i = scan.find(b'RIFF')
-    while i != -1 and i + 12 <= len(scan):
-        if scan[i + 8:i + 12] == b'WEBP':
+    end = min(len(body), 131072)
+    i = body.find(b'RIFF', 0, end)
+    while i != -1 and i + 12 <= end:
+        if body[i + 8:i + 12] == b'WEBP':
             return ('WEBP', i)
-        i = scan.find(b'RIFF', i + 1)
+        i = body.find(b'RIFF', i + 1, end)
     sigs = [(b'\x89PNG\r\n\x1a\n', 'PNG'), (b'\xff\xd8\xff', 'JPEG'), (b'GIF8', 'GIF'), (b'DDS ', 'DDS'), (b'BM', 'BMP')]
     for sig, lbl in sigs:
-        j = scan.find(sig)
+        j = body.find(sig, 0, end)
         if j != -1:
             return (lbl, j)
     return ('', -1)
-def _is_ogg_at(scan: bytes, j: int) -> bool:
-    if j < 0 or j + 27 > len(scan):
+def _is_ogg_at(scan: bytes, j: int, end_limit=None) -> bool:
+    limit = min(len(scan), int(end_limit)) if end_limit is not None else len(scan)
+    if j < 0 or j + 27 > limit:
         return False
     if scan[j:j + 4] != b'OggS':
         return False
     if scan[j + 4] != 0:
         return False
-    tail = scan[j:j + 4096]
+    tail = scan[j:min(j + 4096, limit)]
     return b'vorbis' in tail or b'OpusHead' in tail
 _BITRATES = {(3, 3): [0, 32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448, 0], (3, 2): [0, 32, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384, 0], (3, 1): [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 0], (2, 3): [0, 32, 48, 56, 64, 80, 96, 112, 128, 144, 160, 176, 192, 224, 256, 0], (2, 2): [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 0], (2, 1): [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 0], (0, 3): [0, 32, 48, 56, 64, 80, 96, 112, 128, 144, 160, 176, 192, 224, 256, 0], (0, 2): [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 0], (0, 1): [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 0]}
 _SAMPLERATES = {3: [44100, 48000, 32000, 0], 2: [22050, 24000, 16000, 0], 0: [11025, 12000, 8000, 0]}
@@ -3465,16 +4259,16 @@ def _find_mp3_two_frames(scan: bytes) -> int:
         i += 1
     return -1
 def find_embedded_audio_robust(body: bytes) -> Tuple[str, int]:
-    scan = body[:131072]
-    i = scan.find(b'RIFF')
-    while i != -1 and i + 12 <= len(scan):
-        if scan[i + 8:i + 12] == b'WAVE':
+    end = min(len(body), 131072)
+    i = body.find(b'RIFF', 0, end)
+    while i != -1 and i + 12 <= end:
+        if body[i + 8:i + 12] == b'WAVE':
             return ('WAV', i)
-        i = scan.find(b'RIFF', i + 1)
-    j = scan.find(b'OggS')
-    if j != -1 and _is_ogg_at(scan, j):
+        i = body.find(b'RIFF', i + 1, end)
+    j = body.find(b'OggS', 0, end)
+    if j != -1 and _is_ogg_at(body, j, end):
         return ('OGG', j)
-    off = _find_mp3_two_frames(scan)
+    off = _find_mp3_two_frames(body)
     if off != -1:
         return ('MP3', off)
     return ('', -1)
@@ -3504,11 +4298,11 @@ def _label_ktx2(body: bytes, off: int) -> str:
         return 'KTX2 (ASTC)'
     return 'KTX2'
 def detect_ktx_anywhere(body: bytes) -> Tuple[str, str]:
-    scan = body[:131072]
-    i1 = scan.find(KTX1_MAGIC)
+    end = min(len(body), 131072)
+    i1 = body.find(KTX1_MAGIC, 0, end)
     if i1 != -1:
         return ('Texture', _label_ktx1(body, i1))
-    i2 = scan.find(KTX2_MAGIC)
+    i2 = body.find(KTX2_MAGIC, 0, end)
     if i2 != -1:
         return ('Texture', _label_ktx2(body, i2))
     return ('', '')
@@ -3526,7 +4320,7 @@ def detect_mesh_kind(payload: bytes) -> Tuple[str, str]:
         except Exception:
             return ('Mesh', 'ASCII')
         return ('Mesh', 'ASCII')
-    if b'DRACO' in payload[:4096] or b'MESH' in payload[:16]:
+    if payload.find(b'DRACO', 0, min(len(payload), 4096)) != -1 or payload.find(b'MESH', 0, min(len(payload), 16)) != -1:
         return ('Mesh', 'v6/v7 (binary)')
     return ('', '')
 def detect_font_kind(body: bytes, ct: str) -> Tuple[str, str]:
@@ -3551,20 +4345,20 @@ def detect_font_kind(body: bytes, ct: str) -> Tuple[str, str]:
         return ('Font', 'TTF')
     return ('', '')
 def _find_json_head_slice(body: bytes, headers: Dict[str, str]) -> Optional[str]:
-    scan = body[:262144]
-    i = scan.find(b'{')
+    end = min(len(body), 262144)
+    i = body.find(b'{', 0, end)
     if i != -1:
         try:
-            return scan[i:i + 8192].decode('utf-8', 'ignore')
+            return body[i:min(i + 8192, len(body))].decode('utf-8', 'ignore')
         except Exception:
             pass
     body_unz = _maybe_gunzip(body, headers)
     if body_unz is not body:
-        scan2 = body_unz[:262144]
-        j = scan2.find(b'{')
+        end_unz = min(len(body_unz), 262144)
+        j = body_unz.find(b'{', 0, end_unz)
         if j != -1:
             try:
-                return scan2[j:j + 8192].decode('utf-8', 'ignore')
+                return body_unz[j:min(j + 8192, len(body_unz))].decode('utf-8', 'ignore')
             except Exception:
                 pass
     return None
@@ -3588,9 +4382,18 @@ def detect_translation_json(body: bytes, headers: Dict[str, str]) -> Tuple[bool,
     return (False, '')
 _RBXM_BIN_MAGIC = b'<roblox!'
 _RBXM_SCAN_LIMIT = 8192
+_ROBLOX_TAG_RE = re.compile(b'<roblox', re.IGNORECASE)
+_ANIMATION_MARKER_RE = re.compile(b'keyframesequence|animationclip', re.IGNORECASE)
+def _leading_ws_offset(data: bytes) -> int:
+    if not data or data[0] not in (32, 9, 10, 11, 12, 13):
+        return 0
+    position = 0
+    length = len(data)
+    while position < length and data[position] in (32, 9, 10, 11, 12, 13):
+        position += 1
+    return position
 def detect_rbxm_binary(body: bytes) -> int:
-    window = body[:_RBXM_SCAN_LIMIT]
-    p = window.find(_RBXM_BIN_MAGIC)
+    p = body.find(_RBXM_BIN_MAGIC, 0, min(len(body), _RBXM_SCAN_LIMIT))
     if p != -1 and p <= 64:
         return p
     return -1
@@ -3630,7 +4433,8 @@ def _classify_rbxm_asset(body: bytes):
             raw = _decompress_document(body)
         except Exception:
             raw = body
-        if raw.lstrip().startswith(b'<roblox!'):
+        raw_start = _leading_ws_offset(raw)
+        if raw.startswith(b'<roblox!', raw_start):
             insts = {}
             try:
                 insts = parse_rbxm(raw)
@@ -3657,7 +4461,7 @@ def _classify_rbxm_asset(body: bytes):
             if prop_names & _RIG_NAMES:
                 return ('Animation', 'RBXM (bin)')
             return ('RBXM', '')
-        elif b'<roblox' in raw[:4096]:
+        elif raw.find(b'<roblox', 0, min(len(raw), 4096)) != -1:
             text = raw[:262144].decode('utf-8', 'replace')
             low = text.lower()
             if re.search('class\\s*=\\s*"(Keyframe|CurveAnimation|KeyframeSequence|AnimationClip|Pose|NumberPose)"', text, re.I):
@@ -3673,7 +4477,8 @@ def _classify_rbxm_asset(body: bytes):
     return (None, None)
 def _extract_rbxm_name(body: bytes) -> str:
     try:
-        if body.lstrip().startswith(b'<roblox!'):
+        body_start = _leading_ws_offset(body)
+        if body.startswith(b'<roblox!', body_start):
             instances = parse_rbxm(body)
             for node in instances.values():
                 if node.class_name in ('AnimationClip', 'CurveAnimation', 'KeyframeSequence', 'Model', 'Folder', 'Part'):
@@ -3684,7 +4489,7 @@ def _extract_rbxm_name(body: bytes) -> str:
                 nm = node.properties.get('Name')
                 if isinstance(nm, str) and nm.strip():
                     return nm.strip()
-        elif b'<roblox' in body[:4096]:
+        elif body.find(b'<roblox', 0, min(len(body), 4096)) != -1:
             text = body[:262144].decode('utf-8', 'ignore')
             m = re.search('<string name="Name">([^<]{1,120})</string>', text)
             if m and m.group(1).strip():
@@ -3705,6 +4510,59 @@ def sniff_kind(body: bytes, url: Optional[str], headers: Dict[str, str], full_pa
     is_t, ticket_label = detect_ticket(full_payload or body, url)
     if is_t:
         return ('Ticket', ticket_label, True)
+    ct = _content_type(headers)
+    is_decal_url = bool(url and ('tr.rbxcdn.com' in url.lower() or '/image/' in url.lower() or '/thumbnail/' in url.lower()))
+    if body.startswith(KTX1_MAGIC):
+        return ('Texture', _label_ktx1(body, 0), False)
+    if body.startswith(KTX2_MAGIC):
+        return ('Texture', _label_ktx2(body, 0), False)
+    if body[:8] == b'\x89PNG\r\n\x1a\n':
+        return ('Decal' if is_decal_url else 'Image', 'PNG', False)
+    if body[:3] == b'GIF':
+        return ('Decal' if is_decal_url else 'Image', 'GIF', False)
+    if body[:2] == b'\xff\xd8':
+        return ('Decal' if is_decal_url else 'Image', 'JPEG', False)
+    if len(body) >= 12 and body[:4] == b'RIFF' and body[8:12] == b'WEBP':
+        return ('Decal' if is_decal_url else 'Image', 'WEBP', False)
+    if body[:4] == b'OTTO':
+        return ('Font', 'OTF', False)
+    if body[:4] == b'ttcf':
+        return ('Font', 'TTC', False)
+    if body[:4] == b'wOFF':
+        return ('Font', 'WOFF', False)
+    if body[:4] == b'wOF2':
+        return ('Font', 'WOFF2', False)
+    if body[:4] == b'\x00\x01\x00\x00':
+        return ('Font', 'TTF', False)
+    if body[:3] == b'ID3':
+        return ('Sound', 'MP3', False)
+    if len(body) >= 12 and body[:4] == b'RIFF' and body[8:12] == b'WAVE':
+        return ('Sound', 'WAV', False)
+    if _is_ogg_at(body, 0, min(len(body), 131072)):
+        return ('Sound', 'OGG', False)
+    if body[:4] == b'\x1aE\xdf\xa3':
+        return ('Video', 'WebM', False)
+    if len(body) >= 12 and body[4:8] == b'ftyp':
+        return ('Video', 'MP4', False)
+    if body.find(b'DRACO', 0, min(len(body), 4096)) != -1 or body.find(b'MESH', 0, min(len(body), 16)) != -1:
+        m_cat, m_lbl = detect_mesh_kind(body)
+        if m_cat:
+            return (m_cat, m_lbl, False)
+    if ct.startswith('font/'):
+        f_cat, f_lbl = detect_font_kind(body, ct)
+        if f_cat:
+            return (f_cat, f_lbl, False)
+    if ct.startswith('video/') and not body[:256].lstrip().lower().startswith(b'#extm3u'):
+        subtype = ct.split('/', 1)[1].upper()
+        if subtype in ('X-MATROSKA', 'MATROSKA'):
+            subtype = 'WEBM'
+        elif subtype in ('MP4', 'X-M4V'):
+            subtype = 'MP4'
+        elif subtype in ('M3U8', 'X-MPEGURL', 'VND.APPLE.MPEGURL'):
+            subtype = 'M3U8'
+        return ('Video', subtype, False)
+    if body[:256].lstrip().lower().startswith(b'#extm3u'):
+        return ('Video', 'M3U', False)
     is_tr, tr_label = detect_translation_json(body, headers)
     if is_tr:
         return ('Translations', tr_label, False)
@@ -3728,12 +4586,12 @@ def sniff_kind(body: bytes, url: Optional[str], headers: Dict[str, str], full_pa
         except Exception:
             pass
         return ('RBXM', '', False)
-    low = body[:131072].lower()
-    if b'<roblox' in low:
+    scan_end = min(len(body), 131072)
+    if _ROBLOX_TAG_RE.search(body, 0, scan_end):
         rcat, rlbl = _classify_rbxm_asset(body)
         if rcat:
             return (rcat, rlbl, False)
-        if b'keyframesequence' in low or b'animationclip' in low:
+        if _ANIMATION_MARKER_RE.search(body, 0, scan_end):
             return ('Animation', 'KeyframeSequence', False)
         return ('Model', 'RBXMX/XML', False)
     m_cat, m_lbl = detect_mesh_kind(body)
@@ -3842,7 +4700,14 @@ def sniff_kind(body: bytes, url: Optional[str], headers: Dict[str, str], full_pa
     return ('Unknown', '', False)
 def connect_ro(db_path: str) -> sqlite3.Connection:
     uri = f'file:{db_path}?mode=ro&cache=shared'
-    return sqlite3.connect(uri, uri=True, timeout=0.5, isolation_level=None)
+    conn = sqlite3.connect(uri, uri=True, timeout=0.5, isolation_level=None)
+    try:
+        conn.execute('PRAGMA query_only=ON')
+        conn.execute('PRAGMA cache_size=-32768')
+        conn.execute('PRAGMA mmap_size=268435456')
+    except sqlite3.Error:
+        pass
+    return conn
 def connect_rw(db_path: str) -> sqlite3.Connection:
     uri = f'file:{db_path}?mode=rwc&cache=shared'
     return sqlite3.connect(uri, uri=True, timeout=5.0, isolation_level=None)
@@ -3860,7 +4725,9 @@ class ScanItem:
     is_ticket: bool
     name: str = ''
     id_bytes: bytes = field(repr=False, default=b'')
-def scan_db_once(db_path: str, shard_root: str, seen: set, max_rows: Optional[int]=None) -> List[ScanItem]:
+    size_text: str = ''
+    search_text: str = field(repr=False, default='')
+def scan_db_once(db_path: str, shard_root: str, seen: set, max_rows: Optional[int]=None, on_batch=None, batch_size: int=800) -> List[ScanItem]:
     out: List[ScanItem] = []
     try:
         conn = connect_ro(db_path)
@@ -3868,16 +4735,35 @@ def scan_db_once(db_path: str, shard_root: str, seen: set, max_rows: Optional[in
         return out
     try:
         cur = conn.cursor()
-        cur.execute('SELECT id, content FROM files')
+        content_cur = conn.cursor()
+        row_count = 0
+        ids_only = False
+        if seen:
+            try:
+                row_count = int(conn.execute('SELECT COUNT(*) FROM files').fetchone()[0] or 0)
+                ids_only = row_count > 0 and len(seen) >= int(row_count * 0.82)
+            except Exception:
+                ids_only = False
+        cur.arraysize = 512
+        cur.execute('SELECT id FROM files' if ids_only else 'SELECT id, content FROM files')
         cnt = 0
+        scan_time = now_hms()
         for row in cur:
             cnt += 1
             if max_rows and cnt > max_rows:
                 break
-            id_b, content = row
+            id_b = row[0]
+            content = None if ids_only else row[1]
             h = id_bytes_to_hex(id_b)
             if h in seen:
                 continue
+            if ids_only:
+                try:
+                    content_cur.execute('SELECT content FROM files WHERE id = ?', (id_b,))
+                    content_row = content_cur.fetchone()
+                    content = content_row[0] if content_row else None
+                except sqlite3.Error:
+                    content = None
             blob = content if content is not None else read_shard_bytes(shard_root, h)
             if not blob:
                 continue
@@ -3889,9 +4775,17 @@ def scan_db_once(db_path: str, shard_root: str, seen: set, max_rows: Optional[in
             cat, lbl, is_ticket = sniff_kind(body, url, headers, full_payload)
             size = len(body)
             name = _asset_name(body, url)
-            item = ScanItem(time=now_hms(), hash=h, size=size, kind=f"{cat}{(' (' + lbl + ')' if lbl else '')}", src='inline' if content is not None else 'shard', url=url or '-', wrapped=bool(meta.get('wrapped', False)), header_text=meta.get('header_text'), content_type=_content_type(headers), is_ticket=is_ticket, name=name, id_bytes=id_b)
+            kind = f"{cat}{(' (' + lbl + ')' if lbl else '')}"
+            if cnt & 255 == 0:
+                scan_time = now_hms()
+            size_text = human_size(size)
+            search_text = ' '.join((scan_time, name, h, size_text, kind, 'inline' if content is not None else 'shard')).lower()
+            item = ScanItem(time=scan_time, hash=h, size=size, kind=kind, src='inline' if content is not None else 'shard', url=url or '-', wrapped=bool(meta.get('wrapped', False)), header_text=meta.get('header_text'), content_type=_content_type(headers), is_ticket=is_ticket, name=name, id_bytes=id_b, size_text=size_text, search_text=search_text)
             out.append(item)
             seen.add(h)
+            if on_batch is not None and len(out) >= max(1, int(batch_size)):
+                on_batch(out)
+                out = []
     except sqlite3.OperationalError:
         pass
     except Exception:
@@ -4032,8 +4926,8 @@ def parse_animation(data: bytes) -> List[Keyframe]:
             pass
     return parse_xml_animation(stripped)
 def parse_curve_animation(anim_data: bytes) -> List[Keyframe]:
-    import base64 as _b64
-    import struct as _struct
+    _b64 = base64
+    _struct = struct
     TICKS = 14400.0
     bone_curves: Dict[str, dict] = {}
     def _empty_bc():
@@ -4284,7 +5178,7 @@ def _normalize_roblox_document(data: bytes) -> bytes:
     raw = raw.lstrip(b'\xef\xbb\xbf \t\r\n')
     if raw.startswith(RBXM_MAGIC):
         if _RbxmDeserializer is None:
-            raise RuntimeError('RBXM deserializer is unavailable.')
+            raise RuntimeError(UI_TEXT['o32'])
         return write_rbxmx(_RbxmDeserializer().deserialize(raw))
     return raw
 R6_TO_R15_POSE_MAP = {'Torso': 'UpperTorso', 'Left Arm': 'LeftUpperArm', 'Right Arm': 'RightUpperArm', 'Left Leg': 'LeftUpperLeg', 'Right Leg': 'RightUpperLeg', 'LeftArm': 'LeftUpperArm', 'RightArm': 'RightUpperArm', 'LeftLeg': 'LeftUpperLeg', 'RightLeg': 'RightUpperLeg', 'RootJoint': 'Root', 'Root': 'Root', 'HumanoidRootPart': 'HumanoidRootPart', 'Head': 'Head'}
@@ -4295,7 +5189,7 @@ def convert_r6_animation_to_r15(data: bytes) -> bytes:
     root = ET.fromstring(text)
     keyframes = [x for x in root.iter('Item') if x.get('class') == 'Keyframe']
     if not keyframes:
-        raise ValueError('No Keyframe data found in the selected animation.')
+        raise ValueError(UI_TEXT['s29'])
     for m in list(root):
         if m.tag == 'Meta' and m.get('name') == 'RoutilsR6ToR15':
             root.remove(m)
@@ -4472,10 +5366,10 @@ def parse_model_parts(data: bytes) -> Tuple[List[Dict], str]:
                     name = ne.text or ''
                 parts.append({'name': name or item.attrib.get('class'), 'pos': pos, 'size': size, 'color': '#58b6d6'})
     if not parts:
-        return ([], 'Model present, but no parts found to render')
-    return (parts, f'Model: {len(parts)} parts')
+        return ([], UI_TEXT['q29'])
+    return (parts, f"{UI_TEXT['s32']}{len(parts)} parts")
 class Viewport3DPanel(ttk.Frame):
-    def __init__(self, master, title='3D Viewport'):
+    def __init__(self, master, title=UI_TEXT['j28']):
         super().__init__(master)
         self.angle_x = 0.3
         self.angle_y = 0.5
@@ -4502,10 +5396,10 @@ class Viewport3DPanel(ttk.Frame):
         self.zoom = 1.0
         self.header = ttk.Frame(self)
         self.header.pack(fill='x', padx=4, pady=(3, 1))
-        ttk.Label(self.header, text='Preview', font=('Segoe UI Semibold', 9)).pack(side='left')
-        self.btn_close = ttk.Button(self.header, text='✕', width=3, command=self.hide)
+        ttk.Label(self.header, text=UI_TEXT['j1'], font=('Segoe UI Semibold', 9)).pack(side='left')
+        self.btn_close = ttk.Button(self.header, text=UI_TEXT['k1'], width=3, command=self.hide)
         self.btn_close.pack(side='right', padx=(4, 0))
-        self.btn_play = ttk.Button(self.header, text='▶ Play', width=7, command=self.toggle_play, style='Preview.Play.TButton')
+        self.btn_play = ttk.Button(self.header, text=UI_TEXT['l1'], width=7, command=self.toggle_play, style='Preview.Play.TButton')
         try:
             ttk.Style(self).configure('Preview.Play.TButton', padding=(5, 2), font=('Segoe UI', 8))
         except Exception:
@@ -4518,12 +5412,12 @@ class Viewport3DPanel(ttk.Frame):
         self.controls.columnconfigure(2, weight=1)
         self.canvas = tk.Canvas(self, bg='#18181a', highlightthickness=0, height=150)
         self.canvas.pack(fill='both', expand=True, padx=4, pady=2)
-        self.lbl_mode = ttk.Label(self.controls, text='')
+        self.lbl_mode = ttk.Label(self.controls, text=UI_TEXT['m1'])
         self._model_controls_visible = False
         self.lbl_mode.grid(row=0, column=0, sticky='w', padx=3, pady=1)
-        self.chk_wireframe = ttk.Checkbutton(self.controls, text='Wireframe lines', variable=self.show_wireframe, command=self.draw_frame)
+        self.chk_wireframe = ttk.Checkbutton(self.controls, text=UI_TEXT['n1'], variable=self.show_wireframe, command=self.draw_frame)
         self.chk_wireframe.grid(row=0, column=1, sticky='w', padx=3, pady=1)
-        self.chk_optimize = ttk.Checkbutton(self.controls, text='Optimize >500 vertices', variable=self.reduce_polys, command=self.draw_frame)
+        self.chk_optimize = ttk.Checkbutton(self.controls, text=UI_TEXT['o1'], variable=self.reduce_polys, command=self.draw_frame)
         self.chk_optimize.grid(row=0, column=2, sticky='w', padx=3, pady=1)
         self.controls.bind('<Configure>', self._layout_controls, add='+')
         self.canvas.bind('<Configure>', self._on_canvas_configure, add='+')
@@ -4665,7 +5559,7 @@ class Viewport3DPanel(ttk.Frame):
         else:
             self.mesh_info = 'Audio present, but no playable stream was found'
             return
-        import tempfile as _tf
+        _tf = tempfile
         self.audio_path = os.path.join(_tf.gettempdir(), f'routils_preview_{hashlib.sha256(payload).hexdigest()[:16]}.{ext}')
         try:
             with open(self.audio_path, 'wb') as f:
@@ -4675,18 +5569,17 @@ class Viewport3DPanel(ttk.Frame):
             self.mesh_info = f'Audio present, but could not write temp file ({e})'
             return
         try:
-            from datetime import datetime
             stamp = datetime.now().strftime('%H:%M:%S')
         except Exception:
             stamp = ''
-        self.mesh_info = f'Audio: {fmt} · {len(payload):,} bytes · {stamp} (▶ plays via system)'
+        self.mesh_info = f'Audio: {fmt} · {len(payload):,} bytes · {stamp} (▶ plays with system audio player)'
     def _toggle_audio_play(self):
         if not self.audio_path or not os.path.isfile(self.audio_path):
             return
         try:
             os.startfile(self.audio_path)
         except Exception as e:
-            messagebox.showerror('Audio', f'Could not open audio:\n{e}')
+            messagebox.showerror(UI_TEXT['p1'], UI_TEXT['q1'].format(p0=e))
     def _load_model(self, data: bytes) -> None:
         self.model_parts, self.mesh_info = parse_model_parts(data)
         if not self.model_parts:
@@ -4707,7 +5600,7 @@ class Viewport3DPanel(ttk.Frame):
             if 0 < idx <= 512:
                 obj = _convert(data[idx:])
         if not obj:
-            self.mesh_info = "Mesh present, but this variant isn't supported by the converter"
+            self.mesh_info = UI_TEXT['r29']
             return
         verts: List[Tuple[float, float, float]] = []
         faces: List[List[int]] = []
@@ -4754,7 +5647,7 @@ class Viewport3DPanel(ttk.Frame):
         self.canvas.focus_set()
         self.is_playing = False
         playable = bool(self.keyframes) or bool(self.audio_path and os.path.isfile(self.audio_path))
-        self.btn_play.config(text='▶ Play', state='normal' if playable else 'disabled', width=8)
+        self.btn_play.config(text=UI_TEXT['l1'], state='normal' if playable else 'disabled', width=8)
         self.draw_frame()
     def hide(self):
         self.is_playing = False
@@ -4768,10 +5661,10 @@ class Viewport3DPanel(ttk.Frame):
             return
         if not self.keyframes:
             self.is_playing = False
-            self.btn_play.config(text='▶ Play', state='disabled', width=8)
+            self.btn_play.config(text=UI_TEXT['l1'], state='disabled', width=8)
             return
         self.is_playing = not self.is_playing
-        self.btn_play.config(text='⏸ Pause' if self.is_playing else '▶ Play')
+        self.btn_play.config(text=UI_TEXT['r1'] if self.is_playing else UI_TEXT['l1'])
         if self.is_playing and not self.anim_job:
             self._animate_loop()
     def _on_mouse_down(self, event):
@@ -4789,7 +5682,7 @@ class Viewport3DPanel(ttk.Frame):
             if not self.keyframes:
                 self.is_playing = False
                 try:
-                    self.btn_play.config(text='▶ Play', state='disabled', width=8)
+                    self.btn_play.config(text=UI_TEXT['l1'], state='disabled', width=8)
                 except Exception:
                     pass
             return
@@ -4825,9 +5718,9 @@ class Viewport3DPanel(ttk.Frame):
             self._draw_skeleton(w, h)
         elif self.audio_path and self.mesh_info:
             self.canvas.create_text(w / 2, h / 2, text=self.mesh_info, fill='#8ad0ff', font=('Segoe UI', 10))
-            self.canvas.create_text(w / 2, h / 2 + 26, text='Press ▶ to play Audio', fill='#c8c8c8', font=('Segoe UI', 9))
+            self.canvas.create_text(w / 2, h / 2 + 26, text=UI_TEXT['s1'], fill='#c8c8c8', font=('Segoe UI', 9))
         else:
-            self.canvas.create_text(w / 2, h / 2, text='Animation: no keyframes to draw a skeleton (0 keyframe)', fill='#007acc', font=('Segoe UI', 10))
+            self.canvas.create_text(w / 2, h / 2, text=UI_TEXT['t1'], fill='#007acc', font=('Segoe UI', 10))
     BONES = [('Head', 'UpperTorso'), ('Head', 'Torso'), ('UpperTorso', 'LowerTorso'), ('Torso', 'LowerTorso'), ('LowerTorso', 'UpperTorso'), ('UpperTorso', 'UpperArm'), ('UpperArm', 'LowerArm'), ('LowerArm', 'Hand'), ('UpperTorso', 'LeftUpperArm'), ('LeftUpperArm', 'LeftLowerArm'), ('LeftLowerArm', 'LeftHand'), ('UpperTorso', 'RightUpperArm'), ('RightUpperArm', 'RightLowerArm'), ('RightLowerArm', 'RightHand'), ('UpperArm', 'LeftUpperArm'), ('UpperArm', 'RightUpperArm'), ('LowerTorso', 'UpperLeg'), ('UpperLeg', 'LowerLeg'), ('LowerLeg', 'Foot'), ('LowerTorso', 'LeftUpperLeg'), ('LeftUpperLeg', 'LeftLowerLeg'), ('LeftLowerLeg', 'LeftFoot'), ('LowerTorso', 'RightUpperLeg'), ('RightUpperLeg', 'RightLowerLeg'), ('RightLowerLeg', 'RightFoot'), ('UpperLeg', 'LeftUpperLeg'), ('UpperLeg', 'RightUpperLeg')]
     def _project_point(self, pos, cx, cy, scale, mirror_y=True):
         x, y, z = pos
@@ -4941,7 +5834,7 @@ class Viewport3DPanel(ttk.Frame):
         info = f'Animation: {n} keyframes @ t={t:.2f}s | joints: {len(points)}'
         self.canvas.create_text(w / 2, 8, text=info, anchor='n', justify='center', width=max(80, w - 24), fill='#8ad0ff', font=('Consolas', 8))
         if not has_geo:
-            self.canvas.create_text(w / 2, h / 2, text='No pose position data in skeleton (keyframe count shown above)', fill='#78909c', font=('Segoe UI', 9))
+            self.canvas.create_text(w / 2, h / 2, text=UI_TEXT['u1'], fill='#78909c', font=('Segoe UI', 9))
     def _draw_mesh(self, w, h):
         verts = self.mesh_vertices
         if not verts:
@@ -5058,21 +5951,21 @@ class ReplacerPane(ttk.Frame):
         self.action_bar.pack(side='left', padx=(4, 8))
         self.source_row = ttk.Frame(self.container)
         self.source_row.pack(fill='x', pady=(0, 6))
-        ttk.Label(self.source_row, text='Source:').pack(side='left')
+        ttk.Label(self.source_row, text=UI_TEXT['v1']).pack(side='left')
         self.source_var = tk.StringVar(value='Caches')
         for val in ('Caches', 'HashSaves', 'FileSaves'):
             ttk.Radiobutton(self.source_row, text=val, variable=self.source_var, value=val, command=self.refresh_view).pack(side='left', padx=5)
         self.search_row = ttk.Frame(self.container)
         self.search_row.pack(fill='x', pady=(0, 4))
-        ttk.Label(self.search_row, text='Filter:').pack(side='left')
+        ttk.Label(self.search_row, text=UI_TEXT['w1']).pack(side='left')
         self.search_var = tk.StringVar()
         self.search_entry = ttk.Entry(self.search_row, textvariable=self.search_var)
         self.search_entry.pack(side='left', fill='x', expand=True, padx=(4, 0))
         self.search_entry.bind('<KeyRelease>', lambda e: self.refresh_view(True))
-        self.btn_create = ttk.Button(self.action_bar, text='Create Cache', command=self.create_cache, width=13)
-        self.btn_applycache = ttk.Button(self.action_bar, text='Apply', command=self.apply_caches, width=13)
-        self.btn_savehash = ttk.Button(self.action_bar, text='Save Hash', command=self.save_hash, width=13)
-        self.btn_savefile = ttk.Button(self.action_bar, text='Save File', command=self.save_file, width=13)
+        self.btn_create = ttk.Button(self.action_bar, text=UI_TEXT['x1'], command=self.create_cache, width=13)
+        self.btn_applycache = ttk.Button(self.action_bar, text=UI_TEXT['y1'], command=self.apply_caches, width=13)
+        self.btn_savehash = ttk.Button(self.action_bar, text=UI_TEXT['z1'], command=self.save_hash, width=13)
+        self.btn_savefile = ttk.Button(self.action_bar, text=UI_TEXT['a2'], command=self.save_file, width=13)
         self.list_frame = ttk.Frame(self.container, borderwidth=1, relief='solid')
         self.list_frame.pack(fill='both', expand=True)
         self.item_list = tk.Listbox(self.list_frame, selectbackground='#007acc', selectforeground='#ffffff', selectmode=tk.EXTENDED, exportselection=False, activestyle='none', bg='#252526', fg='#d4d4d4')
@@ -5334,15 +6227,15 @@ class ReplacerPane(ttk.Frame):
         delete_state = 'normal'
         if not selected_objs or (clicked_obj and clicked_obj.get('kind') == 'group'):
             delete_state = 'disabled'
-        self.ctx_menu.add_command(label='Delete', command=self.delete_selected, state=delete_state)
+        self.ctx_menu.add_command(label=UI_TEXT['b2'], command=self.delete_selected, state=delete_state)
         rename_state = 'normal' if len(selected_objs) == 1 and selected_objs[0]['kind'] in ('item', 'hash', 'group_item', 'group') else 'disabled'
-        self.ctx_menu.add_command(label='Rename', command=self.rename_selected, state=rename_state)
+        self.ctx_menu.add_command(label=UI_TEXT['c2'], command=self.rename_selected, state=rename_state)
         self.ctx_menu.add_separator()
-        self.ctx_menu.add_command(label='Create group', command=self.create_group_from_selection)
+        self.ctx_menu.add_command(label=UI_TEXT['d2'], command=self.create_group_from_selection)
         if clicked_obj and clicked_obj.get('kind') == 'group':
             self.ctx_menu.add_separator()
-            self.ctx_menu.add_command(label='Delete group', command=self.delete_selected_groups)
-            self.ctx_menu.add_command(label='Ungroup', command=self.ungroup_selected_groups)
+            self.ctx_menu.add_command(label=UI_TEXT['e2'], command=self.delete_selected_groups)
+            self.ctx_menu.add_command(label=UI_TEXT['f2'], command=self.ungroup_selected_groups)
         try:
             self.ctx_menu.tk_popup(event.x_root, event.y_root)
         finally:
@@ -5515,7 +6408,7 @@ class ReplacerPane(ttk.Frame):
         body = ttk.Frame(dialog, padding=0)
         body.pack(fill='both', expand=True)
         body.columnconfigure(1, weight=1)
-        ttk.Label(body, text='Hash saves:').grid(row=0, column=0, sticky='w', padx=10, pady=(12, 4))
+        ttk.Label(body, text=UI_TEXT['g2']).grid(row=0, column=0, sticky='w', padx=10, pady=(12, 4))
         hash_status = tk.StringVar(value='Loading…')
         hash_combo = ttk.Combobox(body, textvariable=hash_status, values=(), state='readonly', width=38)
         hash_combo.grid(row=0, column=1, sticky='we', padx=10, pady=(12, 4))
@@ -5523,14 +6416,14 @@ class ReplacerPane(ttk.Frame):
         hash_names = []
         chosen_hash = {'hex': None}
         def ask_custom_hash():
-            ch = simpledialog.askstring('Custom Hash', 'Enter custom hash value (hex):', parent=dialog)
+            ch = simpledialog.askstring(UI_TEXT['h2'], UI_TEXT['i2'], parent=dialog)
             if ch and ch.strip():
                 chosen_hash['hex'] = re.sub('[^0-9A-Fa-f]', '', ch.strip())
-                messagebox.showinfo('Info', f"Using custom hash: {chosen_hash['hex']}", parent=dialog)
+                messagebox.showinfo(UI_TEXT['j2'], UI_TEXT['k2'].format(p0=chosen_hash['hex']), parent=dialog)
             elif ch is not None:
                 chosen_hash['hex'] = None
-        ttk.Button(body, text='Input Custom Hash', command=ask_custom_hash).grid(row=0, column=2, padx=10, pady=(12, 4))
-        ttk.Label(body, text='File saves:').grid(row=1, column=0, sticky='w', padx=10, pady=4)
+        ttk.Button(body, text=UI_TEXT['l2'], command=ask_custom_hash).grid(row=0, column=2, padx=10, pady=(12, 4))
+        ttk.Label(body, text=UI_TEXT['m2']).grid(row=1, column=0, sticky='w', padx=10, pady=4)
         file_status = tk.StringVar(value='Loading…')
         file_combo = ttk.Combobox(body, textvariable=file_status, values=(), state='readonly', width=38)
         file_combo.grid(row=1, column=1, sticky='we', padx=10, pady=4)
@@ -5538,12 +6431,12 @@ class ReplacerPane(ttk.Frame):
         file_names = []
         chosen_file = {'path': None}
         def pick_custom_file():
-            p = filedialog.askopenfilename(title='Choose source file')
+            p = filedialog.askopenfilename(title=UI_TEXT['n2'])
             if p:
                 chosen_file['path'] = p
-                messagebox.showinfo('Info', f'Selected file:\n{p}', parent=dialog)
-        ttk.Button(body, text='Input Custom File', command=pick_custom_file).grid(row=1, column=2, padx=10, pady=4)
-        ttk.Label(body, text='Enter display name:').grid(row=2, column=0, sticky='w', padx=10, pady=(8, 4))
+                messagebox.showinfo(UI_TEXT['j2'], UI_TEXT['o2'].format(p0=p), parent=dialog)
+        ttk.Button(body, text=UI_TEXT['p2'], command=pick_custom_file).grid(row=1, column=2, padx=10, pady=4)
+        ttk.Label(body, text=UI_TEXT['q2']).grid(row=2, column=0, sticky='w', padx=10, pady=(8, 4))
         entry_name = ttk.Entry(body, width=40)
         entry_name.grid(row=2, column=1, columnspan=2, sticky='we', padx=10, pady=(8, 4))
         btnf = ttk.Frame(body)
@@ -5558,11 +6451,11 @@ class ReplacerPane(ttk.Frame):
                             final_hash = h
                             break
             if not final_hash:
-                messagebox.showerror('Create Cache', 'Please choose a hash (or input a custom one).', parent=dialog)
+                messagebox.showerror(UI_TEXT['x1'], UI_TEXT['r2'], parent=dialog)
                 return
             final_hash = re.sub('[^0-9A-Fa-f]', '', final_hash)
             if len(final_hash) == 0:
-                messagebox.showerror('Create Cache', 'Invalid hash.', parent=dialog)
+                messagebox.showerror(UI_TEXT['x1'], UI_TEXT['s2'], parent=dialog)
                 return
             src_path = chosen_file['path']
             if not src_path:
@@ -5573,14 +6466,14 @@ class ReplacerPane(ttk.Frame):
                             src_path = p
                             break
             if not src_path:
-                messagebox.showerror('Create Cache', 'Please choose a file (or input a custom one).', parent=dialog)
+                messagebox.showerror(UI_TEXT['x1'], UI_TEXT['t2'], parent=dialog)
                 return
             if not os.path.isfile(src_path):
-                messagebox.showerror('Create Cache', 'Selected file is missing.', parent=dialog)
+                messagebox.showerror(UI_TEXT['x1'], UI_TEXT['u2'], parent=dialog)
                 return
             disp = entry_name.get().strip()
             if not disp:
-                messagebox.showerror('Create Cache', 'Display name is required.', parent=dialog)
+                messagebox.showerror(UI_TEXT['x1'], UI_TEXT['v2'], parent=dialog)
                 return
             safe_disp = self._sanitize_filename(disp)
             source_ext = os.path.splitext(src_path)[1].lower()
@@ -5614,22 +6507,22 @@ class ReplacerPane(ttk.Frame):
                 else:
                     shutil.copy2(src_path, dest_path)
             except Exception as e:
-                messagebox.showerror('Create Cache', f'Failed to create cache:\n{e}', parent=dialog)
+                messagebox.showerror(UI_TEXT['x1'], UI_TEXT['w2'].format(p0=e), parent=dialog)
                 return
             dialog.destroy()
             self.refresh_view()
-            messagebox.showinfo('Success', f'Created cache:\n{os.path.basename(dest_path)}', parent=self)
-            self._console_log(f'Created cache: {os.path.basename(dest_path)}')
-        ttk.Button(btnf, text='OK', command=on_ok).pack(side='left', padx=6)
-        ttk.Button(btnf, text='Cancel', command=dialog.destroy).pack(side='left', padx=6)
+            messagebox.showinfo(UI_TEXT['x2'], UI_TEXT['y2'].format(p0=os.path.basename(dest_path)), parent=self)
+            self._console_log(UI_TEXT['z2'].format(p0=os.path.basename(dest_path)))
+        ttk.Button(btnf, text=UI_TEXT['a3'], command=on_ok).pack(side='left', padx=6)
+        ttk.Button(btnf, text=UI_TEXT['b3'], command=dialog.destroy).pack(side='left', padx=6)
         body.columnconfigure(1, weight=1)
         entry_name.focus_set()
         def load_sources():
             nonlocal hs, fs, hash_names, file_names
             if not dialog.winfo_exists():
                 return
-            hash_status.set('Loading…')
-            file_status.set('Loading…')
+            hash_status.set(UI_TEXT['c3'])
+            file_status.set(UI_TEXT['c3'])
             dialog.update_idletasks()
             def scan():
                 try:
@@ -5645,8 +6538,8 @@ class ReplacerPane(ttk.Frame):
                 file_names = [name for name, _p in fs]
                 hash_combo.configure(values=hash_names)
                 file_combo.configure(values=file_names)
-                hash_status.set(hash_names[0] if hash_names else 'No saved hashes found')
-                file_status.set(file_names[0] if file_names else 'No saved files found')
+                hash_status.set(hash_names[0] if hash_names else UI_TEXT['d3'])
+                file_status.set(file_names[0] if file_names else UI_TEXT['e3'])
                 if hash_names:
                     hash_combo.current(0)
                 if file_names:
@@ -5669,10 +6562,10 @@ class ReplacerPane(ttk.Frame):
         dialog.transient(self)
         dialog.grab_set()
         theme_toplevel(dialog)
-        ttk.Label(dialog, text='Hash:').grid(row=0, column=0, padx=10, pady=(12, 4), sticky='w')
+        ttk.Label(dialog, text=UI_TEXT['f3']).grid(row=0, column=0, padx=10, pady=(12, 4), sticky='w')
         entry_hash = ttk.Entry(dialog, width=40)
         entry_hash.grid(row=0, column=1, padx=10, pady=(12, 4), sticky='we')
-        ttk.Label(dialog, text='Name:').grid(row=1, column=0, padx=10, pady=4, sticky='w')
+        ttk.Label(dialog, text=UI_TEXT['g3']).grid(row=1, column=0, padx=10, pady=4, sticky='w')
         entry_name = ttk.Entry(dialog, width=40)
         entry_name.grid(row=1, column=1, padx=10, pady=4, sticky='we')
         btn_frame = ttk.Frame(dialog)
@@ -5682,12 +6575,12 @@ class ReplacerPane(ttk.Frame):
             hv = entry_hash.get().strip()
             nv = entry_name.get().strip()
             if not hv or not nv:
-                messagebox.showerror('Error', 'Both Hash and Name are required.', parent=dialog)
+                messagebox.showerror(UI_TEXT['h3'], UI_TEXT['i3'], parent=dialog)
                 return
             filename = ' - '.join([re.sub('[^0-9A-Fa-f]', '', hv), nv])
             safe_filename = self._sanitize_filename(filename)
             if not safe_filename:
-                messagebox.showerror('Error', 'Resulting file name is empty after sanitization.', parent=dialog)
+                messagebox.showerror(UI_TEXT['h3'], UI_TEXT['j3'], parent=dialog)
                 return
             base_dir = self.hash_saves_dir
             dest = os.path.join(base_dir, safe_filename)
@@ -5708,14 +6601,14 @@ class ReplacerPane(ttk.Frame):
                 with open(dest, 'wb'):
                     pass
             except Exception as e:
-                messagebox.showerror('Error', f'Failed to save: {e}', parent=dialog)
+                messagebox.showerror(UI_TEXT['h3'], UI_TEXT['k3'].format(p0=e), parent=dialog)
                 return
             dialog.destroy()
             self.refresh_view()
-            messagebox.showinfo('Success', f"Saved '{os.path.basename(dest)}'.")
-            self._console_log(f'Saved hash file: {os.path.basename(dest)}')
-        ttk.Button(btn_frame, text='OK', command=on_ok).pack(side='left', padx=6)
-        ttk.Button(btn_frame, text='Cancel', command=dialog.destroy).pack(side='left', padx=6)
+            messagebox.showinfo(UI_TEXT['x2'], UI_TEXT['l3'].format(p0=os.path.basename(dest)))
+            self._console_log(UI_TEXT['m3'].format(p0=os.path.basename(dest)))
+        ttk.Button(btn_frame, text=UI_TEXT['a3'], command=on_ok).pack(side='left', padx=6)
+        ttk.Button(btn_frame, text=UI_TEXT['b3'], command=dialog.destroy).pack(side='left', padx=6)
         entry_hash.focus_set()
         dialog.wait_window()
     def save_file(self):
@@ -5726,16 +6619,16 @@ class ReplacerPane(ttk.Frame):
         theme_toplevel(dialog)
         chosen = {'path': None}
         def pick_file():
-            p = filedialog.askopenfilename(title='Choose file to save')
+            p = filedialog.askopenfilename(title=UI_TEXT['n3'])
             if p:
                 chosen['path'] = p
                 lbl_file.config(text=p)
-        ttk.Label(dialog, text='File:').grid(row=0, column=0, padx=10, pady=(12, 4), sticky='w')
-        btn_pick = ttk.Button(dialog, text='Browse…', command=pick_file)
+        ttk.Label(dialog, text=UI_TEXT['o3']).grid(row=0, column=0, padx=10, pady=(12, 4), sticky='w')
+        btn_pick = ttk.Button(dialog, text=UI_TEXT['p3'], command=pick_file)
         btn_pick.grid(row=0, column=1, padx=10, pady=(12, 4), sticky='w')
-        lbl_file = ttk.Label(dialog, text='No file selected')
+        lbl_file = ttk.Label(dialog, text=UI_TEXT['q3'])
         lbl_file.grid(row=1, column=0, columnspan=2, padx=10, pady=(0, 8), sticky='w')
-        ttk.Label(dialog, text='Name:').grid(row=2, column=0, padx=10, pady=4, sticky='w')
+        ttk.Label(dialog, text=UI_TEXT['g3']).grid(row=2, column=0, padx=10, pady=4, sticky='w')
         entry_name = ttk.Entry(dialog, width=40)
         entry_name.grid(row=2, column=1, padx=10, pady=4, sticky='we')
         btn_frame = ttk.Frame(dialog)
@@ -5745,14 +6638,14 @@ class ReplacerPane(ttk.Frame):
             src = chosen['path']
             name = entry_name.get().strip()
             if not src:
-                messagebox.showerror('Error', 'Please choose a file.', parent=dialog)
+                messagebox.showerror(UI_TEXT['h3'], UI_TEXT['r3'], parent=dialog)
                 return
             if not name:
-                messagebox.showerror('Error', 'Please enter a Name.', parent=dialog)
+                messagebox.showerror(UI_TEXT['h3'], UI_TEXT['s3'], parent=dialog)
                 return
             safe_name = self._sanitize_filename(name)
             if not safe_name:
-                messagebox.showerror('Error', 'Resulting file name is empty after sanitization.', parent=dialog)
+                messagebox.showerror(UI_TEXT['h3'], UI_TEXT['j3'], parent=dialog)
                 return
             is_roblox_model = os.path.splitext(src)[1].lower() in ('.rbxm', '.rbxmx')
             if is_roblox_model:
@@ -5783,15 +6676,15 @@ class ReplacerPane(ttk.Frame):
                 else:
                     shutil.copy2(src, dest)
             except Exception as e:
-                messagebox.showerror('Error', f'Failed to save file: {e}', parent=dialog)
+                messagebox.showerror(UI_TEXT['h3'], UI_TEXT['t3'].format(p0=e), parent=dialog)
                 return
             dialog.destroy()
             self.refresh_view()
-            msg = 'RBXM/RBXMX converted to RBXH blob and saved' if is_roblox_model else 'Saved'
-            messagebox.showinfo('Success', f"{msg}: '{os.path.basename(dest)}'.")
-            self._console_log(f'{msg}: {os.path.basename(dest)}')
-        ttk.Button(btn_frame, text='OK', command=on_ok).pack(side='left', padx=6)
-        ttk.Button(btn_frame, text='Cancel', command=dialog.destroy).pack(side='left', padx=6)
+            msg = UI_TEXT['z32'] if is_roblox_model else 'Saved'
+            messagebox.showinfo(UI_TEXT['x2'], UI_TEXT['u3'].format(p0=msg, p1=os.path.basename(dest)))
+            self._console_log(UI_TEXT['v3'].format(p0=msg, p1=os.path.basename(dest)))
+        ttk.Button(btn_frame, text=UI_TEXT['a3'], command=on_ok).pack(side='left', padx=6)
+        ttk.Button(btn_frame, text=UI_TEXT['b3'], command=dialog.destroy).pack(side='left', padx=6)
         entry_name.focus_set()
         dialog.wait_window()
     def _clean_hex(self, s: str) -> str:
@@ -5834,11 +6727,11 @@ class ReplacerPane(ttk.Frame):
         db_path = getattr(root, 'db_path', None)
         shard_root = getattr(root, 'shard_root', None)
         if not db_path:
-            messagebox.showerror('Apply', 'No database path is set in the viewer.')
+            messagebox.showerror(UI_TEXT['y1'], UI_TEXT['w3'])
             return
         objs = self._get_selected_objs()
         if not objs:
-            messagebox.showinfo('Apply', 'Select one or more cache items.')
+            messagebox.showinfo(UI_TEXT['y1'], UI_TEXT['x3'])
             return
         targets: List[Tuple[bytes, str, str, str]] = []
         for o in objs:
@@ -5846,7 +6739,7 @@ class ReplacerPane(ttk.Frame):
             if not info and o.get('kind') == 'hash':
                 full = o.get('path')
                 if full and os.path.isfile(full):
-                    entered = simpledialog.askstring('Apply File', 'Enter the target Roblox cache hash/asset ID:', parent=self)
+                    entered = simpledialog.askstring(UI_TEXT['y3'], UI_TEXT['z3'], parent=self)
                     if entered:
                         info = (self._clean_hex(entered), full, o.get('display') or os.path.basename(full))
             if not info:
@@ -5859,7 +6752,7 @@ class ReplacerPane(ttk.Frame):
                 continue
             targets.append((id_b, full, display, h_hex))
         if not targets:
-            messagebox.showerror('Apply', 'No valid cache items found to import.')
+            messagebox.showerror(UI_TEXT['y1'], UI_TEXT['a4'])
             return
         ok = 0
         try:
@@ -5903,7 +6796,7 @@ class ReplacerPane(ttk.Frame):
             except Exception:
                 pass
         except Exception as e:
-            messagebox.showerror('Apply', f'DB error:\n{e}')
+            messagebox.showerror(UI_TEXT['y1'], UI_TEXT['b4'].format(p0=e))
             return
         if ok:
             root = self.winfo_toplevel()
@@ -5913,8 +6806,8 @@ class ReplacerPane(ttk.Frame):
                 for id_b, _full, display, h_hex in targets:
                     applied.append({'name': display, 'hash': h_hex})
                 recorder(applied)
-        messagebox.showinfo('Apply', f'Imported {ok} of {len(targets)} blob(s).')
-        self._console_log(f'Applied {ok}/{len(targets)} selected cache blob(s)')
+        messagebox.showinfo(UI_TEXT['y1'], UI_TEXT['c4'].format(p0=ok, p1=len(targets)))
+        self._console_log(UI_TEXT['d4'].format(p0=ok, p1=len(targets)))
     def rename_selected(self):
         objs = self._get_selected_objs()
         if len(objs) != 1:
@@ -5922,7 +6815,7 @@ class ReplacerPane(ttk.Frame):
         o = objs[0]
         kind = o.get('kind')
         current = o.get('display') or o.get('name')
-        new_name = simpledialog.askstring('Rename', 'Enter new name:', initialvalue=current)
+        new_name = simpledialog.askstring(UI_TEXT['c2'], UI_TEXT['e4'], initialvalue=current)
         if not new_name:
             return
         new_name = self._sanitize_filename(new_name)
@@ -5960,16 +6853,16 @@ class ReplacerPane(ttk.Frame):
                 dest = os.path.join(os.path.dirname(src), f'{h} - {new_name}')
                 os.rename(src, dest)
         except Exception as e:
-            messagebox.showerror('Error', f'Rename failed: {e}')
+            messagebox.showerror(UI_TEXT['h3'], UI_TEXT['f4'].format(p0=e))
             return
         self.refresh_view()
     def delete_selected(self):
         objs = self._get_selected_objs()
         if not objs:
-            messagebox.showerror('Error', 'No item selected.')
+            messagebox.showerror(UI_TEXT['h3'], UI_TEXT['g4'])
             return
-        prompt = f"Are you sure you want to delete '{objs[0].get('name') or objs[0].get('display')}'?" if len(objs) == 1 else f'Are you sure you want to delete {len(objs)} items?'
-        if not messagebox.askyesno('Confirm', prompt):
+        prompt = UI_TEXT['h4'].format(p0=objs[0].get('name') or objs[0].get('display')) if len(objs) == 1 else UI_TEXT['i4'].format(p0=len(objs))
+        if not messagebox.askyesno(UI_TEXT['j4'], prompt):
             return
         deleted_units = 0
         for o in objs:
@@ -5979,14 +6872,14 @@ class ReplacerPane(ttk.Frame):
                     deleted_units += 1
                     self.group_states.pop(o['path'], None)
                 except Exception as e:
-                    messagebox.showerror('Error', f'Failed to delete group: {e}')
+                    messagebox.showerror(UI_TEXT['h3'], UI_TEXT['k4'].format(p0=e))
                     return
             elif o['kind'] == 'group_item':
                 try:
                     os.remove(os.path.join(o['group_path'], o['filename']))
                     deleted_units += 1
                 except Exception as e:
-                    messagebox.showerror('Error', f'Failed to delete file: {e}')
+                    messagebox.showerror(UI_TEXT['h3'], UI_TEXT['l4'].format(p0=e))
                     return
             elif o['kind'] in ('item',):
                 for folder in (self.preinstalled_dir, self.own_dir):
@@ -5998,25 +6891,25 @@ class ReplacerPane(ttk.Frame):
                                 os.remove(os.path.join(folder, fname))
                                 deleted_units += 1
                             except Exception as e:
-                                messagebox.showerror('Error', f'Failed to delete file: {e}')
+                                messagebox.showerror(UI_TEXT['h3'], UI_TEXT['l4'].format(p0=e))
                                 return
             elif o['kind'] == 'hash':
                 try:
                     os.remove(o['path'])
                     deleted_units += 1
                 except Exception as e:
-                    messagebox.showerror('Error', f'Failed to delete file: {e}')
+                    messagebox.showerror(UI_TEXT['h3'], UI_TEXT['l4'].format(p0=e))
                     return
         self.refresh_view()
-        messagebox.showinfo('Success', f'Deleted {deleted_units} item(s).')
-        self._console_log(f'Deleted {deleted_units} cache item(s)')
+        messagebox.showinfo(UI_TEXT['x2'], UI_TEXT['m4'].format(p0=deleted_units))
+        self._console_log(UI_TEXT['n4'].format(p0=deleted_units))
     def delete_selected_groups(self):
         objs = self._get_selected_objs()
         groups = [o for o in objs if o.get('kind') == 'group']
         if not groups:
             return
-        prompt = f"Are you sure you want to delete group '{groups[0]['name']}'?" if len(groups) == 1 else f'Are you sure you want to delete {len(groups)} groups?'
-        if not messagebox.askyesno('Confirm', prompt):
+        prompt = UI_TEXT['o4'].format(p0=groups[0]['name']) if len(groups) == 1 else UI_TEXT['p4'].format(p0=len(groups))
+        if not messagebox.askyesno(UI_TEXT['j4'], prompt):
             return
         deleted = 0
         for g in groups:
@@ -6025,18 +6918,18 @@ class ReplacerPane(ttk.Frame):
                 deleted += 1
                 self.group_states.pop(g['path'], None)
             except Exception as e:
-                messagebox.showerror('Error', f'Failed to delete group: {e}')
+                messagebox.showerror(UI_TEXT['h3'], UI_TEXT['k4'].format(p0=e))
                 return
         self.refresh_view()
-        messagebox.showinfo('Success', f'Deleted {deleted} group(s).')
-        self._console_log(f'Deleted {deleted} cache group(s)')
+        messagebox.showinfo(UI_TEXT['x2'], UI_TEXT['q4'].format(p0=deleted))
+        self._console_log(UI_TEXT['r4'].format(p0=deleted))
     def ungroup_selected_groups(self):
         objs = self._get_selected_objs()
         groups = [o for o in objs if o.get('kind') == 'group']
         if not groups:
             return
-        prompt = f"Remove group '{groups[0]['name']}' and move its files back?" if len(groups) == 1 else f'Remove {len(groups)} groups and move their files back?'
-        if not messagebox.askyesno('Confirm', prompt):
+        prompt = UI_TEXT['s4'].format(p0=groups[0]['name']) if len(groups) == 1 else UI_TEXT['t4'].format(p0=len(groups))
+        if not messagebox.askyesno(UI_TEXT['j4'], prompt):
             return
         moved_files = 0
         removed_groups = 0
@@ -6072,11 +6965,11 @@ class ReplacerPane(ttk.Frame):
                 removed_groups += 1
                 self.group_states.pop(g['path'], None)
             except Exception as e:
-                messagebox.showerror('Error', f'Failed to ungroup: {e}')
+                messagebox.showerror(UI_TEXT['h3'], UI_TEXT['u4'].format(p0=e))
                 return
         self.refresh_view()
-        messagebox.showinfo('Success', f'Ungrouped {removed_groups} group(s), restored {moved_files} file(s).')
-        self._console_log(f'Ungrouped {removed_groups} group(s), restored {moved_files} cache file(s)')
+        messagebox.showinfo(UI_TEXT['x2'], UI_TEXT['v4'].format(p0=removed_groups, p1=moved_files))
+        self._console_log(UI_TEXT['w4'].format(p0=removed_groups, p1=moved_files))
     def create_group_from_selection(self):
         objs = self._get_selected_objs()
         view = self.source_var.get()
@@ -6098,19 +6991,19 @@ class ReplacerPane(ttk.Frame):
         if objs:
             base = parent_dir(objs[0])
             if not base or any((parent_dir(o) != base for o in objs)):
-                messagebox.showerror('Error', 'Items must share the same parent folder.')
+                messagebox.showerror(UI_TEXT['h3'], UI_TEXT['x4'])
                 return
-        name = simpledialog.askstring('Create group', 'Group name:')
+        name = simpledialog.askstring(UI_TEXT['d2'], UI_TEXT['y4'])
         if not name:
             return
         group_path = os.path.join(base, name)
         if os.path.exists(group_path):
-            messagebox.showerror('Error', 'A group with that name already exists.')
+            messagebox.showerror(UI_TEXT['h3'], UI_TEXT['z4'])
             return
         try:
             os.makedirs(group_path, exist_ok=False)
         except Exception as e:
-            messagebox.showerror('Error', f'Failed to create group folder: {e}')
+            messagebox.showerror(UI_TEXT['h3'], UI_TEXT['a5'].format(p0=e))
             return
         moved_count = 0
         for o in objs:
@@ -6148,11 +7041,12 @@ class ReplacerPane(ttk.Frame):
         self.group_states[group_path] = True
         self.refresh_view()
         if objs:
-            messagebox.showinfo('Success', f"Created group '{name}' with {moved_count} item(s).")
+            messagebox.showinfo(UI_TEXT['x2'], UI_TEXT['b5'].format(p0=name, p1=moved_count))
         else:
-            messagebox.showinfo('Success', f"Created empty group '{name}'.")
-        self._console_log(f"Created cache group '{name}' with {moved_count} item(s)")
+            messagebox.showinfo(UI_TEXT['x2'], UI_TEXT['c5'].format(p0=name))
+        self._console_log(UI_TEXT['d5'].format(p0=name, p1=moved_count))
 TYPE_FILTERS = [('All', lambda c: True), ('Mesh', lambda c: c == 'Mesh'), ('Audio', lambda c: c == 'Sound'), ('Animation', lambda c: c == 'Animation'), ('Image', lambda c: c in ('Image', 'Decal')), ('Video', lambda c: c == 'Video'), ('KTX Texture', lambda c: c == 'KTX Texture'), ('Model/RBXM', lambda c: c in ('Model', 'RBXM', 'rbxl (place)')), ('Font', lambda c: c == 'Font'), ('Text', lambda c: c in ('Text', 'Translations', 'Compressed', 'Ticket')), ('Unknown', lambda c: c == 'Unknown')]
+TYPE_FILTER_MATCHERS = {label: matcher for label, matcher in TYPE_FILTERS}
 FFLAG_PREFIXES = ['DFDouble', 'DFFloat', 'DFInt', 'DFString', 'DFFlag', 'DFLog', 'FDouble', 'FFloat', 'FInt', 'FString', 'FFlag', 'FLog', 'SFDouble', 'SFFloat', 'SFFlag', 'SFInt', 'SFString', 'SFLog']
 SKYBOX_TEXTURES = ('sky512_bk.tex', 'sky512_dn.tex', 'sky512_ft.tex', 'sky512_lf.tex', 'sky512_rt.tex', 'sky512_up.tex')
 SOUND_FILES = ('action_falling.ogg', 'action_footsteps_plastic.mp3', 'action_get_up.mp3', 'action_jump.mp3', 'action_jump_land.mp3', 'action_swim.mp3', 'impact_explosion_03.mp3', 'impact_water.mp3', 'oof.ogg', 'ouch.ogg', 'volume_slider.ogg')
@@ -6629,7 +7523,7 @@ def _routils_popup_chrome(win):
         bar.pack_propagate(False)
         title_label = tk.Label(bar, text=title, bg=bar_bg, fg=fg, font=('Segoe UI Semibold', 9), anchor='w')
         title_label.pack(side='left', fill='both', expand=True, padx=(11, 4))
-        close = tk.Label(bar, text='×', bg=bar_bg, fg='#ff777d', font=('Segoe UI', 13), width=2, cursor='hand2')
+        close = tk.Label(bar, text=UI_TEXT['e5'], bg=bar_bg, fg='#ff777d', font=('Segoe UI', 13), width=2, cursor='hand2')
         close.pack(side='right', fill='y')
         close.bind('<Button-1>', lambda _e, w=win: _routils_close_popup(w))
         close.bind('<Enter>', lambda _e, w=close: w.configure(bg='#542a31'))
@@ -6812,7 +7706,7 @@ class _MacNotification:
             header.pack(fill='x')
             header.pack_propagate(False)
             tk.Label(header, text=str(title), bg=panel, fg=fg, font=('Segoe UI Semibold', 8), anchor='w').pack(side='left', fill='both', expand=True, padx=(7, 2))
-            close = tk.Label(header, text='×', bg=panel, fg='#ff8a90', font=('Segoe UI', 13), width=2, cursor='hand2')
+            close = tk.Label(header, text=UI_TEXT['e5'], bg=panel, fg='#ff8a90', font=('Segoe UI', 13), width=2, cursor='hand2')
             close.pack(side='right', fill='y')
             body = tk.Label(card, text=str(message), bg=panel, fg=fg, justify='left', anchor='w', wraplength=238, font=('Segoe UI', 8))
             body.pack(fill='both', expand=True, padx=9, pady=(1, 7))
@@ -7427,11 +8321,14 @@ class App(_TkAppBase):
         self._tab_nav.pack(fill='x', side='top', padx=8, pady=(6, 4))
         self._tab_nav_inner = ttk.Frame(self._tab_nav)
         self._tab_nav_inner.pack(anchor='center')
+        self._tab_nav_refresh_job = None
+        self._tab_nav_layout_signature = None
+        self._tab_nav.bind('<Configure>', self._schedule_tab_nav_refresh, add='+')
         self._setup_tab_nav_styles()
         self.nb = ttk.Notebook(self, style='RoUtils.Hidden.TNotebook')
         self.nb.pack(fill='both', expand=True, padx=8, pady=(0, 8))
         self.tab_viewer = ttk.Frame(self.nb)
-        self.nb.add(self.tab_viewer, text='Cache')
+        self.nb.add(self.tab_viewer, text=UI_TEXT['f5'])
         self.hpaned = ttk.PanedWindow(self.tab_viewer, orient='horizontal')
         self.hpaned.pack(fill='both', expand=True)
         self.viewer_root = ttk.Frame(self.hpaned)
@@ -7445,7 +8342,7 @@ class App(_TkAppBase):
         self.viewer_collapsed = False
         self._restore_geom: Optional[Tuple[int, int, int, int]] = None
         self._saved_sash: Optional[int] = None
-        self.collapse_btn = ttk.Button(self.replacer.top, text='◀', width=2, command=self._toggle_viewer_pane)
+        self.collapse_btn = ttk.Button(self.replacer.top, text=UI_TEXT['g5'], width=2, command=self._toggle_viewer_pane)
         self.collapse_btn.pack(side='left', padx=(0, 4), before=self.replacer.action_bar)
         default_db, default_shards = default_paths()
         self.db_path = str(self.settings.get('db_path') or default_db)
@@ -7556,26 +8453,26 @@ class App(_TkAppBase):
         self._lazy_tab_ids = {}
         self.nb.bind('<<NotebookTabChanged>>', self._lazy_tab_changed, add='+')
         self._build_home_tab()
-        lazy_builders = {'Cache': self._lazy_build_cache, 'FFlags': self._build_fflag_tab, 'Emote Manager': self._build_emote_manager_tab, 'AI': self._build_ai_tab, 'Modifications': self._build_utils_tab, 'Configs': self._build_cconfigs_tab, 'Subplace Joiner': self._build_subplace_joiner_tab, 'Server Viewer': self._build_server_viewer_tab, 'History': self._build_history_tab, 'Client': self._build_client_tab, 'Customize': self._build_themes_tab, 'Settings': self._build_settings_tab, 'Plugins': self._build_plugins_tab, 'Console': self._build_console_tab}
-        for tab_name in ('Cache', 'FFlags', 'Emote Manager', 'AI', 'Configs', 'Modifications', 'Subplace Joiner', 'Server Viewer', 'History', 'Client', 'Customize', 'Settings', 'Plugins', 'Console'):
-            if tab_name == 'Cache':
+        lazy_builders = {UI_TEXT['f5']: self._lazy_build_cache, UI_TEXT['h5']: self._build_fflag_tab, UI_TEXT['i5']: self._build_emote_manager_tab, UI_TEXT['j5']: self._build_ai_tab, UI_TEXT['k5']: self._build_utils_tab, UI_TEXT['l5']: self._build_cconfigs_tab, UI_TEXT['m5']: self._build_subplace_joiner_tab, UI_TEXT['n5']: self._build_server_viewer_tab, UI_TEXT['o5']: self._build_history_tab, UI_TEXT['p5']: self._build_client_tab, UI_TEXT['q5']: self._build_themes_tab, UI_TEXT['r5']: self._build_settings_tab, UI_TEXT['s5']: self._build_plugins_tab, UI_TEXT['t5']: self._build_release_notes_tab, UI_TEXT['u5']: self._build_console_tab}
+        for tab_name in (UI_TEXT['f5'], UI_TEXT['h5'], UI_TEXT['i5'], UI_TEXT['j5'], UI_TEXT['l5'], UI_TEXT['k5'], UI_TEXT['m5'], UI_TEXT['n5'], UI_TEXT['o5'], UI_TEXT['p5'], UI_TEXT['q5'], UI_TEXT['r5'], UI_TEXT['s5'], UI_TEXT['t5'], UI_TEXT['u5']):
+            if tab_name == UI_TEXT['f5']:
                 tab = self.tab_viewer
             else:
                 tab = ttk.Frame(self.nb)
                 self.nb.add(tab, text=tab_name)
             self._lazy_tab_ids[tab_name] = str(tab)
             self._lazy_tabs[str(tab)] = (tab_name, lazy_builders[tab_name], tab)
-            if tab_name != 'Cache':
-                ttk.Label(tab, text='Loading...', foreground='#9aa0a6').pack(expand=True)
+            if tab_name != UI_TEXT['f5']:
+                ttk.Label(tab, text=UI_TEXT['v5'], foreground='#9aa0a6').pack(expand=True)
         self._reorder_tabs()
         self._refresh_tab_nav()
         if self.nb.tabs():
-            preferred = str(self.settings.get('selected_tab', 'Home'))
+            preferred = str(self.settings.get('selected_tab', UI_TEXT['w5']))
             if preferred == 'Themes':
-                preferred = 'Customize'
+                preferred = UI_TEXT['q5']
             selected_id = next((tid for tid in self.nb.tabs() if self.nb.tab(tid, 'text') == preferred), None)
             if selected_id is None:
-                selected_id = next((tid for tid in self.nb.tabs() if self.nb.tab(tid, 'text') == 'Home'), self.nb.tabs()[0])
+                selected_id = next((tid for tid in self.nb.tabs() if self.nb.tab(tid, 'text') == UI_TEXT['w5']), self.nb.tabs()[0])
             self.nb.select(selected_id)
         self.after_idle(self._lazy_tab_changed)
         self.after_idle(self._install_global_scroll_support)
@@ -7627,11 +8524,11 @@ class App(_TkAppBase):
                 pass
             canvas = tk.Canvas(splash, width=width - 4, height=height - 4, bg=bg, highlightthickness=0, bd=0)
             canvas.place(x=2, y=2, width=width - 4, height=height - 4)
-            canvas.create_text((width - 4) // 2 + 1, 65, text='RoUtils', fill='#111111', font=('Segoe UI Semibold', 25))
-            canvas.create_text((width - 4) // 2, 64, text='RoUtils', fill='#ffffff', font=('Segoe UI Semibold', 25))
+            canvas.create_text((width - 4) // 2 + 1, 65, text=UI_TEXT['x5'], fill='#111111', font=('Segoe UI Semibold', 25))
+            canvas.create_text((width - 4) // 2, 64, text=UI_TEXT['x5'], fill='#ffffff', font=('Segoe UI Semibold', 25))
             for glow_dx, glow_dy in ((-2, 0), (2, 0), (0, -2), (0, 2), (-1, -1), (1, -1), (-1, 1), (1, 1)):
-                canvas.create_text((width - 4) // 2 + glow_dx, 108 + glow_dy, text='Loading...', fill=accent, font=('Segoe UI Semibold', 11), tags=('loading_glow',))
-            canvas.create_text((width - 4) // 2, 108, text='Loading...', fill='#ffffff', font=('Segoe UI Semibold', 11), tags=('loading_text',))
+                canvas.create_text((width - 4) // 2 + glow_dx, 108 + glow_dy, text=UI_TEXT['v5'], fill=accent, font=('Segoe UI Semibold', 11), tags=('loading_glow',))
+            canvas.create_text((width - 4) // 2, 108, text=UI_TEXT['v5'], fill='#ffffff', font=('Segoe UI Semibold', 11), tags=('loading_text',))
             canvas.create_rectangle(110, 137, 330, 141, fill='#333338', outline='')
             canvas.create_rectangle(110, 137, 110, 141, fill=accent, outline='', tags=('loading_bar',))
             self._routils_splash = splash
@@ -7825,7 +8722,11 @@ class App(_TkAppBase):
         target_name = tab_name
         try:
             self.nb.unbind('<<NotebookTabChanged>>')
-            if tab_name != 'Cache':
+            if tab_name in (UI_TEXT['s5'], UI_TEXT['t5']):
+                builder(placeholder)
+                self._reorder_tabs()
+                self._refresh_tab_nav()
+            elif tab_name != UI_TEXT['f5']:
                 self.nb.forget(placeholder)
                 placeholder.destroy()
                 builder()
@@ -7833,10 +8734,18 @@ class App(_TkAppBase):
                 self._refresh_tab_nav()
             else:
                 builder()
-        except Exception:
+        except Exception as exc:
             try:
-                if tab_name != 'Cache' and placeholder.winfo_exists():
+                if tab_name in (UI_TEXT['s5'], UI_TEXT['t5']) and placeholder.winfo_exists():
+                    for child in placeholder.winfo_children():
+                        child.destroy()
+                    ttk.Label(placeholder, text=UI_TEXT['y5'].format(p0=tab_name, p1=exc), foreground='#ff8a80').pack(expand=True, padx=16, pady=16)
+                elif tab_name != UI_TEXT['f5'] and placeholder.winfo_exists():
                     placeholder.destroy()
+            except Exception:
+                pass
+            try:
+                self._console_log(UI_TEXT['y5'].format(p0=tab_name, p1=exc))
             except Exception:
                 pass
         finally:
@@ -7845,7 +8754,8 @@ class App(_TkAppBase):
             except Exception:
                 pass
         self._lazy_tabs.pop(str(tab_id), None)
-        self._client_tab_active = target_name == 'Client'
+        self._lazy_tab_ids.pop(tab_name, None)
+        self._client_tab_active = target_name == UI_TEXT['p5']
         try:
             for current_id in self.nb.tabs():
                 if self.nb.tab(current_id, 'text') == target_name:
@@ -8030,7 +8940,7 @@ class App(_TkAppBase):
             self._sync_fps_flag_to_manager()
             self._apply_fps_flag(silent=True)
             if hasattr(self, 'fps_value_label'):
-                self.fps_value_label.config(text='FPS: Uncap' if fps == 0 else f'FPS: {fps}')
+                self.fps_value_label.config(text=UI_TEXT['z5'] if fps == 0 else UI_TEXT['a6'].format(p0=fps))
             if hasattr(self, '_fps_text_var'):
                 self._fps_text_var.set(str(fps))
         except Exception:
@@ -8039,21 +8949,21 @@ class App(_TkAppBase):
         self.fps_hotkeys = {str(item.get('fps')): str(item.get('key', '')).upper() for item in getattr(self, 'fps_hotkey_slots', []) if int(item.get('fps', 0) or 0) > 0 and item.get('key')}
     def _fps_slot_editor(self, index):
         dlg = tk.Toplevel(self)
-        dlg.title(f'FPS Hotkey {index + 1}')
+        dlg.title(f"{UI_TEXT['p32']}{index + 1}")
         dlg.geometry('430x250')
         dlg.transient(self)
         theme_toplevel(dlg)
         outer = ttk.Frame(dlg, padding=14)
         outer.pack(fill='both', expand=True)
-        ttk.Label(outer, text='FPS value (1-240):').pack(anchor='w')
+        ttk.Label(outer, text=UI_TEXT['b6']).pack(anchor='w')
         item = self.fps_hotkey_slots[index]
         fps_var = tk.StringVar(value=str(item.get('fps', '') or ''))
         key_var = tk.StringVar(value=str(item.get('key', '') or ''))
         ttk.Entry(outer, textvariable=fps_var).pack(fill='x', pady=(4, 10))
-        ttk.Label(outer, text='Press any keyboard or mouse button:').pack(anchor='w')
+        ttk.Label(outer, text=UI_TEXT['c6']).pack(anchor='w')
         key_entry = ttk.Entry(outer, textvariable=key_var)
         key_entry.pack(fill='x', pady=(4, 6))
-        ttk.Label(outer, text='Examples: F7, Insert, Mouse1, Mouse4, A, ;', foreground='#9aa0a6').pack(anchor='w')
+        ttk.Label(outer, text=UI_TEXT['d6'], foreground='#9aa0a6').pack(anchor='w')
         def capture(event):
             if getattr(event, 'num', None) is not None:
                 key_var.set({1: 'MOUSE1', 2: 'MOUSE2', 3: 'MOUSE3', 4: 'MOUSE4', 5: 'MOUSE5'}.get(event.num, f'MOUSE{event.num}'))
@@ -8068,15 +8978,15 @@ class App(_TkAppBase):
             try:
                 fps = int(fps_var.get().strip())
             except Exception:
-                messagebox.showerror('FPS Hotkey', 'FPS must be a whole number from 1 to 240.', parent=dlg)
+                messagebox.showerror(UI_TEXT['e6'], UI_TEXT['f6'], parent=dlg)
                 return
             key = key_var.get().strip().upper()
             if not 1 <= fps <= 240 or not key or (not fflag_key_to_vk(key)):
-                messagebox.showerror('FPS Hotkey', 'Enter FPS 1-240 and a supported key.', parent=dlg)
+                messagebox.showerror(UI_TEXT['e6'], UI_TEXT['g6'], parent=dlg)
                 return
             for i, other in enumerate(self.fps_hotkey_slots):
                 if i != index and other.get('key', '').upper() == key:
-                    messagebox.showerror('FPS Hotkey', 'That key is already assigned.', parent=dlg)
+                    messagebox.showerror(UI_TEXT['e6'], UI_TEXT['h6'], parent=dlg)
                     return
             self.fps_hotkey_slots[index] = {'fps': fps, 'key': key}
             self._sync_fps_hotkey_slots()
@@ -8085,9 +8995,9 @@ class App(_TkAppBase):
             dlg.destroy()
         btns = ttk.Frame(outer)
         btns.pack(fill='x', pady=(14, 0))
-        ttk.Button(btns, text='Save', command=save).pack(side='left')
-        ttk.Button(btns, text='Clear', command=lambda: (self.fps_hotkey_slots.__setitem__(index, {'fps': 0, 'key': ''}), self._sync_fps_hotkey_slots(), self._save_settings(), self._refresh_fps_hotkey_buttons(), dlg.destroy())).pack(side='left', padx=6)
-        ttk.Button(btns, text='Cancel', command=dlg.destroy).pack(side='right')
+        ttk.Button(btns, text=UI_TEXT['i6'], command=save).pack(side='left')
+        ttk.Button(btns, text=UI_TEXT['j6'], command=lambda: (self.fps_hotkey_slots.__setitem__(index, {'fps': 0, 'key': ''}), self._sync_fps_hotkey_slots(), self._save_settings(), self._refresh_fps_hotkey_buttons(), dlg.destroy())).pack(side='left', padx=6)
+        ttk.Button(btns, text=UI_TEXT['b3'], command=dlg.destroy).pack(side='right')
         key_entry.focus_set()
     def _refresh_fps_hotkey_buttons(self):
         if not hasattr(self, '_fps_hotkey_buttons'):
@@ -8102,7 +9012,7 @@ class App(_TkAppBase):
                 continue
             item = self.fps_hotkey_slots[index]
             fps, key = (item.get('fps', 0), str(item.get('key', '') or '').upper())
-            button.config(text=f'{fps} FPS [{key}]' if fps and key else 'Empty')
+            button.config(text=UI_TEXT['k6'].format(p0=fps, p1=key) if fps and key else UI_TEXT['l6'])
     def _add_fps_hotkey_slot(self):
         if len(self.fps_hotkey_slots) >= 15:
             return
@@ -8118,13 +9028,13 @@ class App(_TkAppBase):
             child.destroy()
         self._fps_hotkey_buttons = {}
         for index in range(len(self.fps_hotkey_slots)):
-            button = ttk.Button(frame, text='Empty', width=9, command=lambda slot=index: self._fps_slot_editor(slot), padding=(3, 1))
+            button = ttk.Button(frame, text=UI_TEXT['l6'], width=9, command=lambda slot=index: self._fps_slot_editor(slot), padding=(3, 1))
             button.grid(row=index // 5, column=index % 5, padx=2, pady=2, sticky='ew')
             self._fps_hotkey_buttons[index] = button
         plus_col = len(self.fps_hotkey_slots) % 5
         plus_row = len(self.fps_hotkey_slots) // 5
         if len(self.fps_hotkey_slots) < 15:
-            plus = ttk.Button(frame, text='+', width=3, command=self._add_fps_hotkey_slot, padding=(2, 1))
+            plus = ttk.Button(frame, text=UI_TEXT['m6'], width=3, command=self._add_fps_hotkey_slot, padding=(2, 1))
             plus.grid(row=plus_row, column=plus_col, padx=2, pady=2, sticky='ew')
         for col in range(5):
             frame.columnconfigure(col, weight=1)
@@ -8170,8 +9080,7 @@ class App(_TkAppBase):
             engine = self.fflag_engine
             def apply_hotkey_value():
                 try:
-                    singleton = engine.get_singleton()
-                    success = bool(singleton and engine.set_flag_with_prefixes(flag_name, new_value))
+                    success = bool(self._fflag_write_offset(fflag_strip_prefix(flag_name), new_value, fflag_infer_type(new_value)))
                     if not success:
                         self.after(0, lambda: self._fflag_apply(silent=True))
                     else:
@@ -8192,7 +9101,7 @@ class App(_TkAppBase):
         outer.pack(fill='both', expand=True)
         outer.columnconfigure(0, weight=1)
         outer.rowconfigure(1, weight=1)
-        ttk.Label(outer, text='Global FFlag Hotkeys', font=('Segoe UI Semibold', 13)).grid(row=0, column=0, sticky='w', pady=(0, 8))
+        ttk.Label(outer, text=UI_TEXT['n6'], font=('Segoe UI Semibold', 13)).grid(row=0, column=0, sticky='w', pady=(0, 8))
         cols = ('key', 'flag', 'mode', 'value1', 'value2')
         tree = ttk.Treeview(outer, columns=cols, show='headings', selectmode='browse')
         headers = {'key': 'KEY', 'flag': 'FFLAG', 'mode': 'MODE', 'value1': 'TOGGLE 1', 'value2': 'TOGGLE 2'}
@@ -8213,10 +9122,10 @@ class App(_TkAppBase):
             self._fflag_hotkey_editor(idx, dlg, refresh)
         btns = ttk.Frame(outer)
         btns.grid(row=2, column=0, sticky='ew', pady=(8, 0))
-        ttk.Button(btns, text='+ Add Hotkey', command=lambda: self._fflag_hotkey_editor(None, dlg, refresh)).pack(side='left')
-        ttk.Button(btns, text='Edit', command=edit).pack(side='left', padx=5)
-        ttk.Button(btns, text='Remove', command=lambda: self._remove_fflag_hotkey(tree, refresh)).pack(side='left')
-        ttk.Button(btns, text='Close', command=dlg.destroy).pack(side='right')
+        ttk.Button(btns, text=UI_TEXT['o6'], command=lambda: self._fflag_hotkey_editor(None, dlg, refresh)).pack(side='left')
+        ttk.Button(btns, text=UI_TEXT['p6'], command=edit).pack(side='left', padx=5)
+        ttk.Button(btns, text=UI_TEXT['q6'], command=lambda: self._remove_fflag_hotkey(tree, refresh)).pack(side='left')
+        ttk.Button(btns, text=UI_TEXT['r6'], command=dlg.destroy).pack(side='right')
         refresh()
     def _remove_fflag_hotkey(self, tree, refresh):
         sel = tree.selection()
@@ -8227,7 +9136,7 @@ class App(_TkAppBase):
         refresh()
     def _fflag_hotkey_editor(self, index, parent, refresh):
         dlg = tk.Toplevel(parent)
-        dlg.title('FFlag Hotkey')
+        dlg.title(UI_TEXT['q27'])
         dlg.transient(parent)
         dlg.grab_set()
         theme_toplevel(dlg)
@@ -8237,20 +9146,20 @@ class App(_TkAppBase):
         mode_var = tk.StringVar(value=str(existing.get('mode', 'Toggle')))
         v1_var = tk.StringVar(value=str(existing.get('value1', 'true')))
         v2_var = tk.StringVar(value=str(existing.get('value2', 'false')))
-        ttk.Label(dlg, text='Key:').grid(row=0, column=0, padx=10, pady=(12, 4), sticky='w')
+        ttk.Label(dlg, text=UI_TEXT['s6']).grid(row=0, column=0, padx=10, pady=(12, 4), sticky='w')
         key_entry = ttk.Entry(dlg, textvariable=key_var, width=20)
         key_entry.grid(row=1, column=0, padx=10, sticky='ew')
-        ttk.Label(dlg, text='FFlag:').grid(row=2, column=0, padx=10, pady=(8, 4), sticky='w')
+        ttk.Label(dlg, text=UI_TEXT['t6']).grid(row=2, column=0, padx=10, pady=(8, 4), sticky='w')
         flag_combo = ttk.Combobox(dlg, textvariable=flag_var, values=[x.get('name', '') for x in self.fflag_flags], width=48)
         flag_combo.grid(row=3, column=0, padx=10, sticky='ew')
-        ttk.Label(dlg, text='Action:').grid(row=4, column=0, padx=10, pady=(8, 4), sticky='w')
+        ttk.Label(dlg, text=UI_TEXT['u6']).grid(row=4, column=0, padx=10, pady=(8, 4), sticky='w')
         mode_combo = ttk.Combobox(dlg, textvariable=mode_var, values=['Toggle'], state='readonly', width=20)
         mode_combo.grid(row=5, column=0, padx=10, sticky='w')
-        ttk.Label(dlg, text='Toggle 1 value:').grid(row=6, column=0, padx=10, pady=(8, 4), sticky='w')
+        ttk.Label(dlg, text=UI_TEXT['v6']).grid(row=6, column=0, padx=10, pady=(8, 4), sticky='w')
         ttk.Entry(dlg, textvariable=v1_var, width=30).grid(row=7, column=0, padx=10, sticky='ew')
-        ttk.Label(dlg, text='Toggle 2 value:').grid(row=8, column=0, padx=10, pady=(8, 4), sticky='w')
+        ttk.Label(dlg, text=UI_TEXT['w6']).grid(row=8, column=0, padx=10, pady=(8, 4), sticky='w')
         ttk.Entry(dlg, textvariable=v2_var, width=30).grid(row=9, column=0, padx=10, sticky='ew')
-        ttk.Label(dlg, text='Example: K + DebugDrawBroadPhaseAABBs + true/false toggles the value globally.', foreground='#9aa0a6').grid(row=10, column=0, padx=10, pady=(8, 4), sticky='w')
+        ttk.Label(dlg, text=UI_TEXT['x6'], foreground='#9aa0a6').grid(row=10, column=0, padx=10, pady=(8, 4), sticky='w')
         def capture_key(event):
             if event.keysym in ('Shift_L', 'Shift_R', 'Control_L', 'Control_R', 'Alt_L', 'Alt_R'):
                 return 'break'
@@ -8264,10 +9173,10 @@ class App(_TkAppBase):
             key = key_var.get().strip().upper()
             flag = fflag_strip_prefix(flag_var.get().strip())
             if not key or not fflag_key_to_vk(key):
-                messagebox.showerror('FFlag Hotkeys', 'Enter a supported keyboard key.', parent=dlg)
+                messagebox.showerror(UI_TEXT['y6'], UI_TEXT['z6'], parent=dlg)
                 return
             if not flag:
-                messagebox.showerror('FFlag Hotkeys', 'Enter an FFlag name.', parent=dlg)
+                messagebox.showerror(UI_TEXT['y6'], UI_TEXT['a7'], parent=dlg)
                 return
             item = {'key': key, 'flag': flag, 'mode': 'Toggle', 'value1': v1_var.get(), 'value2': v2_var.get(), 'state': bool(existing.get('state', False))}
             if index is None:
@@ -8279,8 +9188,8 @@ class App(_TkAppBase):
             dlg.destroy()
         btns = ttk.Frame(dlg)
         btns.grid(row=11, column=0, pady=12)
-        ttk.Button(btns, text='Save', command=save).pack(side='left', padx=4)
-        ttk.Button(btns, text='Cancel', command=dlg.destroy).pack(side='left', padx=4)
+        ttk.Button(btns, text=UI_TEXT['i6'], command=save).pack(side='left', padx=4)
+        ttk.Button(btns, text=UI_TEXT['b3'], command=dlg.destroy).pack(side='left', padx=4)
         dlg.columnconfigure(0, weight=1)
         for button_number in range(1, 6):
             key_entry.bind(f'<Button-{button_number}>', lambda event, n=button_number: (key_var.set(f'MOUSE{n}'), 'break')[1])
@@ -8373,15 +9282,15 @@ class App(_TkAppBase):
         self._titlebar.pack_propagate(False)
         self._titlebar_canvas = tk.Canvas(self._titlebar, bg=_CURRENT_PALETTE.get('bg_dark', '#1b1b1c'), bd=0, highlightthickness=0, height=38)
         self._titlebar_canvas.pack(fill='both', expand=True)
-        self._titlebar_canvas.create_text(0, 19, text='RoUtils', anchor='center', fill='#f2f2f2', font=('Segoe UI Semibold', 10), tags=('title',))
-        self._titlebar_canvas.create_text(0, 19, text='⌕ Search - (Ctrl + K)', anchor='w', fill='#b7c5df', font=('Segoe UI', 9), tags=('spotlight',))
+        self._titlebar_canvas.create_text(0, 19, text=UI_TEXT['x5'], anchor='center', fill='#f2f2f2', font=('Segoe UI Semibold', 10), tags=('title',))
+        self._titlebar_canvas.create_text(0, 19, text=UI_TEXT['b7'], anchor='w', fill='#b7c5df', font=('Segoe UI', 9), tags=('spotlight',))
         self._titlebar_canvas.tag_bind('spotlight', '<Button-1>', lambda _e: self._open_spotlight(), add='+')
         self.bind_all('<Control-k>', lambda _e: (self._open_spotlight(), 'break')[1], add='+')
         self.bind_all('<Control-K>', lambda _e: (self._open_spotlight(), 'break')[1], add='+')
         self._titlebar_canvas.tag_bind('spotlight', '<Enter>', lambda _e: self._titlebar_canvas.configure(cursor='hand2'), add='+')
         self._titlebar_canvas.tag_bind('spotlight', '<Leave>', lambda _e: self._titlebar_canvas.configure(cursor=''), add='+')
         self._titlebar_buttons = {}
-        self._notification_button = self._titlebar_canvas.create_text(0, 19, text='🔔', fill='#d7dce5', font=('Segoe UI Emoji', 11), tags=('notification_button',))
+        self._notification_button = self._titlebar_canvas.create_text(0, 19, text=UI_TEXT['c7'], fill='#d7dce5', font=('Segoe UI Emoji', 11), tags=('notification_button',))
         self._titlebar_canvas.tag_bind('notification_button', '<Button-1>', lambda _e: self._open_notification_center(), add='+')
         self._titlebar_canvas.tag_bind('notification_button', '<Enter>', lambda _e: self._titlebar_canvas.configure(cursor='hand2'), add='+')
         self._titlebar_canvas.tag_bind('notification_button', '<Leave>', lambda _e: self._titlebar_canvas.configure(cursor=''), add='+')
@@ -8434,9 +9343,9 @@ class App(_TkAppBase):
         panel.place(relx=1.0, x=-12, y=42, anchor='ne', width=390, height=430)
         header = tk.Frame(panel, bg=bg)
         header.pack(fill='x', padx=10, pady=(8, 6))
-        tk.Label(header, text='Notifications', bg=bg, fg=fg, font=('Segoe UI Semibold', 11)).pack(side='left')
-        ttk.Button(header, text='Clear', command=self._clear_notification_history).pack(side='right', padx=(4, 0))
-        close = tk.Label(header, text='×', bg=bg, fg=fg, font=('Segoe UI', 16), cursor='hand2')
+        tk.Label(header, text=UI_TEXT['d7'], bg=bg, fg=fg, font=('Segoe UI Semibold', 11)).pack(side='left')
+        ttk.Button(header, text=UI_TEXT['j6'], command=self._clear_notification_history).pack(side='right', padx=(4, 0))
+        close = tk.Label(header, text=UI_TEXT['e5'], bg=bg, fg=fg, font=('Segoe UI', 16), cursor='hand2')
         close.pack(side='right', padx=(6, 4))
         close.bind('<Button-1>', lambda _e: panel.place_forget())
         listing = tk.Frame(panel, bg=surface)
@@ -8477,7 +9386,7 @@ class App(_TkAppBase):
             else:
                 details.configure(state='normal')
                 details.delete('1.0', 'end')
-                details.insert('1.0', 'No notifications yet. RoUtils will keep recent updates here.')
+                details.insert('1.0', UI_TEXT['t27'])
                 details.configure(state='disabled')
         except tk.TclError:
             pass
@@ -8518,7 +9427,7 @@ class App(_TkAppBase):
         win = tk.Toplevel(self)
         win._skip_custom_chrome = True
         win._skip_popup_centering = True
-        win.title('Search RoUtils')
+        win.title(UI_TEXT['r27'])
         win.overrideredirect(True)
         win.configure(bg=_CURRENT_PALETTE.get('accent', '#8ab4f8'))
         width, height = 500, 330
@@ -8536,7 +9445,7 @@ class App(_TkAppBase):
         var = tk.StringVar()
         entry = ttk.Entry(top, textvariable=var, font=('Segoe UI', 11))
         entry.pack(side='left', fill='x', expand=True, padx=(0, 6), ipady=4)
-        ttk.Button(top, text='×', width=3, command=win.destroy).pack(side='right')
+        ttk.Button(top, text=UI_TEXT['e5'], width=3, command=win.destroy).pack(side='right')
         results = tk.Listbox(card, bg=_CURRENT_PALETTE.get('bg_medium', '#1a1d24'), fg=_CURRENT_PALETTE.get('fg', '#e6e9ef'), selectbackground=_CURRENT_PALETTE.get('accent', '#8ab4f8'), selectforeground='#ffffff', bd=0, highlightthickness=0, activestyle='none', font=('Segoe UI', 10))
         results.pack(fill='both', expand=True, padx=10, pady=(0, 10))
         matches = []
@@ -8564,19 +9473,19 @@ class App(_TkAppBase):
         def collect():
             found = []
             tab_aliases = {
-                'Cache': ('Cache Viewer', 'Cache Editor', 'Browse Roblox cache', 'Find cached assets', 'Replace cache assets', 'Delete cache entries', 'Watch cache changes', 'Export caches'),
-                'FFlags': ('FastFlags', 'Fast Flag Manager', 'FFlag values', 'FFlag offsets', 'Edit Roblox flags'),
-                'Configs': ('Roblox configs', 'CConfig manager', 'Save config', 'Load config', 'Import config', 'Export config'),
-                'Modifications': ('Mesh tools', 'Convert mesh', 'Replace Roblox meshes', 'Asset modifications'),
-                'Subplace Joiner': ('Join Roblox game', 'Join subplace', 'Place ID', 'Server deeplink'),
-                'Server Viewer': ('View Roblox server', 'Server deeplink', 'Job ID'),
-                'History': ('Recent games', 'Recent servers', 'Join history', 'Copy deeplink'),
-                'Client': ('Roblox client info', 'CPU usage', 'RAM usage', 'Refresh client info'),
-                'Customize': ('Appearance', 'Change theme', 'Customize colors', 'Topbar button colors'),
-                'AI': ('Ask AI', 'Gemini chat', 'RoUtils help'),
-                'Plugins': ('Manage plugins', 'Enable plugins', 'Disable plugins'),
-                'Console': ('Commands', 'Command console', 'Cache commands', 'FFlag commands'),
-                'Settings': ('Preferences', 'Performance settings', 'Startup settings', 'Hotkeys', 'Update settings')
+                UI_TEXT['f5']: ('Cache Viewer', 'Cache Editor', 'Browse Roblox cache', 'Find cached assets', 'Replace cache assets', 'Delete cache entries', 'Watch cache changes', 'Export caches'),
+                UI_TEXT['h5']: ('FastFlags', 'Fast Flag Manager', 'FFlag values', 'FFlag offsets', 'Edit Roblox flags'),
+                UI_TEXT['l5']: ('Roblox configs', 'CConfig manager', 'Save config', 'Load config', 'Import config', 'Export config'),
+                UI_TEXT['k5']: ('Mesh tools', 'Convert mesh', 'Replace Roblox meshes', 'Asset modifications'),
+                UI_TEXT['m5']: ('Join Roblox game', 'Join subplace', 'Place ID', 'Server deeplink'),
+                UI_TEXT['n5']: ('View Roblox server', 'Server deeplink', 'Job ID'),
+                UI_TEXT['o5']: ('Recent games', 'Recent servers', 'Join history', 'Copy deeplink'),
+                UI_TEXT['p5']: ('Roblox client info', 'CPU usage', 'RAM usage', 'Refresh client info'),
+                UI_TEXT['q5']: ('Appearance', 'Change theme', 'Customize colors', 'Topbar button colors'),
+                UI_TEXT['j5']: ('Ask AI', 'Gemini chat', 'RoUtils help'),
+                UI_TEXT['s5']: ('Manage plugins', 'Enable plugins', 'Disable plugins'),
+                UI_TEXT['u5']: ('Commands', 'Command console', 'Cache commands', 'FFlag commands'),
+                UI_TEXT['r5']: ('Preferences', 'Performance settings', 'Startup settings', 'Hotkeys', 'Update settings')
             }
             for tab_id in self.nb.tabs():
                 tab_name = str(self.nb.tab(tab_id, 'text')).strip()
@@ -8615,10 +9524,10 @@ class App(_TkAppBase):
             terms = [part for part in query.split() if part]
             matches.clear()
             results.delete(0, 'end')
-            ai_tab_id = next((tid for tid in self.nb.tabs() if self.nb.tab(tid, 'text') == 'AI'), None)
+            ai_tab_id = next((tid for tid in self.nb.tabs() if self.nb.tab(tid, 'text') == UI_TEXT['j5']), None)
             if ai_tab_id is not None:
-                matches.append(('Ask to AI', 'AI', ai_tab_id, '__ask_ai__'))
-                results.insert('end', '✦ Ask to AI')
+                matches.append(('Ask to AI', UI_TEXT['j5'], ai_tab_id, '__ask_ai__'))
+                results.insert('end', UI_TEXT['u27'])
             for item in all_items:
                 text, tab_name = item[0], item[1]
                 haystack = f'{text} {tab_name}'.lower()
@@ -8671,7 +9580,7 @@ class App(_TkAppBase):
                         pass
                 win.destroy()
             except Exception as exc:
-                self._console_log(f'Search failed: {exc}')
+                self._console_log(UI_TEXT['e7'].format(p0=exc))
         var.trace_add('write', render)
         results.bind('<Double-1>', activate)
         results.bind('<Return>', activate)
@@ -8690,7 +9599,7 @@ class App(_TkAppBase):
         try:
             if enabled and (not getattr(self, '_kill_ro_utils_items', None)):
                 dot = self._titlebar_canvas.create_oval(0, 0, 14, 14, fill='#ff3b30', outline='', tags=('kill_ro_utils',))
-                label = self._titlebar_canvas.create_text(0, 19, text='Kill RoUtils', anchor='w', fill='#f2f2f2', font=('Segoe UI Semibold', 9), tags=('kill_ro_utils',))
+                label = self._titlebar_canvas.create_text(0, 19, text=UI_TEXT['f7'], anchor='w', fill='#f2f2f2', font=('Segoe UI Semibold', 9), tags=('kill_ro_utils',))
                 self._kill_ro_utils_items = (dot, label)
                 self._titlebar_canvas.tag_bind(dot, '<Button-1>', lambda e: self._kill_ro_utils(), add='+')
                 self._titlebar_canvas.tag_bind(dot, '<ButtonRelease-1>', lambda e: self._kill_ro_utils(), add='+')
@@ -8862,6 +9771,22 @@ class App(_TkAppBase):
                 self._custom_maximized = True
         except Exception:
             pass
+    def _schedule_tab_nav_refresh(self, _event=None):
+        try:
+            if self._tab_nav_refresh_job is not None:
+                self.after_cancel(self._tab_nav_refresh_job)
+            self._tab_nav_refresh_job = self.after(220, self._run_tab_nav_refresh)
+        except Exception:
+            self._tab_nav_refresh_job = None
+    def _run_tab_nav_refresh(self):
+        self._tab_nav_refresh_job = None
+        if getattr(self, '_resize_active', False):
+            try:
+                self._tab_nav_refresh_job = self.after(260, self._run_tab_nav_refresh)
+            except Exception:
+                self._tab_nav_refresh_job = None
+            return
+        self._refresh_tab_nav()
     def _refresh_tab_nav(self):
         if not hasattr(self, '_tab_nav_inner') or not hasattr(self, 'nb'):
             return
@@ -8884,23 +9809,25 @@ class App(_TkAppBase):
             except Exception:
                 nav_width = 1200
             if nav_width < 760:
-                compact_names = {'Modifications': 'Mods', 'Subplace Joiner': 'Subpl.', 'Server Viewer': 'Server', 'Settings': 'Set.'}
+                compact_names = {UI_TEXT['k5']: 'Mods', UI_TEXT['m5']: 'Subpl.', UI_TEXT['n5']: 'Server', UI_TEXT['r5']: 'Set.'}
             elif nav_width < 1080:
-                compact_names = {'Modifications': 'Mods', 'Subplace Joiner': 'Subplace', 'Server Viewer': 'Server', 'Settings': 'Settings'}
+                compact_names = {UI_TEXT['k5']: 'Mods', UI_TEXT['m5']: 'Subplace', UI_TEXT['n5']: 'Server', UI_TEXT['r5']: UI_TEXT['r5']}
             else:
                 compact_names = {}
+            display_rows = []
             for tab_id in current_tabs:
                 name = str(self.nb.tab(tab_id, 'text'))
                 display_name = compact_names.get(name, name)
+                display_rows.append((tab_id, display_name))
                 button = buttons.get(tab_id)
                 if button is None or not button.winfo_exists():
                     button = ttk.Button(self._tab_nav_inner, text=display_name, takefocus=False, style='RoUtils.Nav.TButton', command=lambda tid=tab_id: self.nb.select(tid))
                     buttons[tab_id] = button
-                else:
+                elif str(button.cget('text')) != display_name:
                     button.configure(text=display_name)
                 grip = grips.get(tab_id)
                 if grip is None or not grip.winfo_exists():
-                    grip = tk.Label(self._tab_nav_inner, text='⠿', bg=_CURRENT_PALETTE.get('bg_dark', '#111318'), fg='#8490a6', font=('Segoe UI Symbol', 10), cursor='hand2', padx=1)
+                    grip = tk.Label(self._tab_nav_inner, text=UI_TEXT['g7'], bg=_CURRENT_PALETTE.get('bg_dark', '#111318'), fg='#8490a6', font=('Segoe UI Symbol', 10), cursor='hand2', padx=1)
                     grip.bind('<ButtonPress-1>', lambda event, tid=tab_id: self._tab_drag_start(event, tid))
                     grip.bind('<B1-Motion>', self._tab_drag_motion)
                     grip.bind('<ButtonRelease-1>', self._tab_drag_release)
@@ -8909,16 +9836,21 @@ class App(_TkAppBase):
                     grip.configure(bg=_CURRENT_PALETTE.get('bg_dark', '#111318'))
             self._tab_nav_buttons = buttons
             self._tab_grips = grips
+            signature = tuple(display_rows)
+            if signature != getattr(self, '_tab_nav_layout_signature', None):
+                for tab_id, _display_name in display_rows:
+                    grip = grips[tab_id]
+                    button = buttons[tab_id]
+                    grip.pack_forget()
+                    button.pack_forget()
+                    grip.pack(side='left', padx=(3, 0), pady=0)
+                    button.pack(side='left', padx=(0, 2), pady=0)
+                self._tab_nav_layout_signature = signature
             for tab_id in current_tabs:
-                grip = grips[tab_id]
                 button = buttons[tab_id]
-                grip.pack_forget()
-                button.pack_forget()
-                grip.pack(side='left', padx=(3, 0), pady=0)
-                button.pack(side='left', padx=(0, 2), pady=0)
-            for tab_id, button in buttons.items():
-                selected = tab_id == active_id
-                button.configure(style='RoUtils.ActiveNav.TButton' if selected else 'RoUtils.Nav.TButton')
+                selected_style = 'RoUtils.ActiveNav.TButton' if tab_id == active_id else 'RoUtils.Nav.TButton'
+                if str(button.cget('style')) != selected_style:
+                    button.configure(style=selected_style)
         except Exception:
             pass
     def _tab_drag_start(self, event, tab_id):
@@ -8971,12 +9903,17 @@ class App(_TkAppBase):
                 if event.x_root > target_center:
                     index += 1
                 order.insert(index, tab_id)
+                release_id = next((item for item in order if self.nb.tab(item, 'text') == UI_TEXT['t5']), None)
+                plugins_id = next((item for item in order if self.nb.tab(item, 'text') == UI_TEXT['s5']), None)
+                if release_id is not None and plugins_id is not None:
+                    order.remove(release_id)
+                    order.insert(order.index(plugins_id) + 1, release_id)
                 for position, item in enumerate(order):
                     self.nb.insert(position, item)
                 self._refresh_tab_nav()
                 self._save_settings()
         except Exception as exc:
-            self._console_log(f'Tab move failed: {exc}')
+            self._console_log(UI_TEXT['h7'].format(p0=exc))
         return 'break'
     def _setup_tab_nav_styles(self):
         style = ttk.Style(self)
@@ -9151,14 +10088,14 @@ class App(_TkAppBase):
         self.settings.pop('background_image', None)
         self.settings.pop('background_opacity', None)
         tab = ttk.Frame(self.nb, padding=12)
-        self.nb.add(tab, text='Customize')
-        ttk.Label(tab, text='Customize App', font=('Segoe UI Semibold', 16)).pack(anchor='w')
-        ttk.Label(tab, text='Choose a theme and personalize the app colors.', foreground='#9aa0a6').pack(anchor='w', pady=(0, 10))
+        self.nb.add(tab, text=UI_TEXT['q5'])
+        ttk.Label(tab, text=UI_TEXT['i7'], font=('Segoe UI Semibold', 16)).pack(anchor='w')
+        ttk.Label(tab, text=UI_TEXT['j7'], foreground='#9aa0a6').pack(anchor='w', pady=(0, 10))
         outer = ttk.Frame(tab)
         outer.pack(fill='both', expand=True)
         left = ttk.Frame(outer)
         left.pack(side='left', fill='both', expand=True)
-        right = ttk.LabelFrame(outer, text='Appearance', padding=12)
+        right = ttk.LabelFrame(outer, text=UI_TEXT['k7'], padding=12)
         right.pack(side='right', fill='y', padx=(14, 0))
         self.theme_var = tk.StringVar(value=self.settings.get('theme', DEFAULT_THEME))
         lb = tk.Listbox(left, bg=_CURRENT_PALETTE['bg_medium'], fg=_CURRENT_PALETTE['fg'], selectbackground=_CURRENT_PALETTE['accent'], relief='flat', bd=0, font=('Segoe UI', 10), exportselection=False)
@@ -9178,7 +10115,7 @@ class App(_TkAppBase):
             custom = {}
         self.custom_theme_vars = {}
         self._custom_theme_swatches = {}
-        ttk.Label(right, text='Appearance colors', font=('Segoe UI Semibold', 10)).pack(anchor='w', pady=(0, 4))
+        ttk.Label(right, text=UI_TEXT['l7'], font=('Segoe UI Semibold', 10)).pack(anchor='w', pady=(0, 4))
         palette_defaults = THEMES[DEFAULT_THEME]
         palette_labels = (
             ('bg_dark', 'Main background'),
@@ -9198,15 +10135,15 @@ class App(_TkAppBase):
             row = ttk.Frame(right)
             row.pack(fill='x', pady=2)
             ttk.Label(row, text=label_text, width=15).pack(side='left')
-            swatch = tk.Button(row, text='    ', bg=chosen, activebackground=chosen, relief='flat', bd=0, cursor='hand2', command=lambda k=key: self._choose_custom_theme_color(k))
+            swatch = tk.Button(row, text=UI_TEXT['m7'], bg=chosen, activebackground=chosen, relief='flat', bd=0, cursor='hand2', command=lambda k=key: self._choose_custom_theme_color(k))
             swatch.pack(side='left', padx=(0, 6))
             self._custom_theme_swatches[key] = swatch
-            ttk.Button(row, text='Choose…', command=lambda k=key: self._choose_custom_theme_color(k)).pack(side='left', fill='x', expand=True)
-            ttk.Button(row, text='Reset color', command=lambda k=key: self._reset_custom_theme_color(k)).pack(side='left', padx=(4, 0))
-        ttk.Button(right, text='Apply Appearance Colors', command=self._apply_custom_theme).pack(fill='x', pady=(7, 3))
-        ttk.Button(right, text='Save Custom Theme', command=self._save_custom_theme).pack(fill='x', pady=(0, 7))
+            ttk.Button(row, text=UI_TEXT['n7'], command=lambda k=key: self._choose_custom_theme_color(k)).pack(side='left', fill='x', expand=True)
+            ttk.Button(row, text=UI_TEXT['o7'], command=lambda k=key: self._reset_custom_theme_color(k)).pack(side='left', padx=(4, 0))
+        ttk.Button(right, text=UI_TEXT['p7'], command=self._apply_custom_theme).pack(fill='x', pady=(7, 3))
+        ttk.Button(right, text=UI_TEXT['q7'], command=self._save_custom_theme).pack(fill='x', pady=(0, 7))
         ttk.Separator(right).pack(fill='x', pady=6)
-        ttk.Label(right, text='Topbar button colors', font=('Segoe UI Semibold', 10)).pack(anchor='w', pady=(0, 4))
+        ttk.Label(right, text=UI_TEXT['r7'], font=('Segoe UI Semibold', 10)).pack(anchor='w', pady=(0, 4))
         saved_button_colors = self.settings.get('topbar_button_colors', {})
         if not isinstance(saved_button_colors, dict):
             saved_button_colors = {}
@@ -9224,11 +10161,11 @@ class App(_TkAppBase):
             color_row = ttk.Frame(right)
             color_row.pack(fill='x', pady=2)
             ttk.Label(color_row, text=label_text, width=15).pack(side='left')
-            swatch = tk.Button(color_row, text='    ', bg=chosen, activebackground=chosen, relief='flat', bd=0, cursor='hand2', command=lambda n=button_name: self._choose_topbar_button_color(n))
+            swatch = tk.Button(color_row, text=UI_TEXT['m7'], bg=chosen, activebackground=chosen, relief='flat', bd=0, cursor='hand2', command=lambda n=button_name: self._choose_topbar_button_color(n))
             swatch.pack(side='left', padx=(0, 5))
             self._topbar_button_color_swatches[button_name] = swatch
-            ttk.Button(color_row, text='Choose…', command=lambda n=button_name: self._choose_topbar_button_color(n)).pack(side='left', fill='x', expand=True)
-            ttk.Button(color_row, text='Reset color', command=lambda n=button_name: self._reset_topbar_button_color(n)).pack(side='left', padx=(4, 0))
+            ttk.Button(color_row, text=UI_TEXT['n7'], command=lambda n=button_name: self._choose_topbar_button_color(n)).pack(side='left', fill='x', expand=True)
+            ttk.Button(color_row, text=UI_TEXT['o7'], command=lambda n=button_name: self._reset_topbar_button_color(n)).pack(side='left', padx=(4, 0))
         self.settings.pop('background_image', None)
         self.settings.pop('background_opacity', None)
     def _choose_custom_theme_color(self, key):
@@ -9239,7 +10176,7 @@ class App(_TkAppBase):
         current = variable.get().strip()
         if not re.fullmatch(r'#[0-9a-fA-F]{6}', current):
             current = THEMES[DEFAULT_THEME].get(key, '#7f8cff')
-        selected = colorchooser.askcolor(color=current, title=f'Choose {key.replace("_", " ")} color', parent=self)
+        selected = colorchooser.askcolor(color=current, title=UI_TEXT['s7'].format(p0=key.replace("_", " ")), parent=self)
         color = selected[1] if selected and selected[1] else None
         if not color or not re.fullmatch(r'#[0-9a-fA-F]{6}', color):
             return
@@ -9287,7 +10224,7 @@ class App(_TkAppBase):
         self._apply_theme()
     def _save_custom_theme(self):
         self._apply_custom_theme()
-        messagebox.showinfo('Customize App', 'Your custom appearance has been saved.', parent=self)
+        messagebox.showinfo(UI_TEXT['i7'], UI_TEXT['t7'], parent=self)
     def _choose_topbar_button_color(self, button_name):
         if button_name not in {'close', 'max', 'min'}:
             return
@@ -9297,7 +10234,7 @@ class App(_TkAppBase):
         if not isinstance(saved_colors, dict):
             saved_colors = {}
         current_color = current.get() if current is not None else saved_colors.get(button_name, '#7f8cff')
-        selected = colorchooser.askcolor(color=current_color, title=f'Choose {button_name.title()} button color', parent=self)
+        selected = colorchooser.askcolor(color=current_color, title=UI_TEXT['u7'].format(p0=button_name.title()), parent=self)
         color = selected[1] if selected and selected[1] else None
         if not color or not re.fullmatch(r'#[0-9a-fA-F]{6}', color):
             return
@@ -9391,7 +10328,7 @@ class App(_TkAppBase):
             apply_visual_polish(self, theme=UI_THEME, palette=palette)
         except Exception as exc:
             try:
-                self._console_log(f'Theme update failed: {exc}')
+                self._console_log(UI_TEXT['v7'].format(p0=exc))
             except Exception:
                 pass
         self._apply_titlebar_theme()
@@ -9479,13 +10416,13 @@ class App(_TkAppBase):
             with open(self._fflag_path(), 'w', encoding='utf-8') as f:
                 json.dump(self.fflag_flags, f, ensure_ascii=False, indent=2)
         except Exception as e:
-            messagebox.showerror('FFlags', f'Failed to save flags:\n{e}', parent=self)
+            messagebox.showerror(UI_TEXT['h5'], UI_TEXT['w7'].format(p0=e), parent=self)
     def _wrap_rbxm_as_blob(self, data: bytes, content_type: str='application/octet-stream') -> bytes:
         if data[:4] == RBXH_MAGIC:
             return _wrap_rbxm_bytes(_extract_rbxh_document(data), content_type)
         return _wrap_rbxm_bytes(data, content_type)
     def _utils_r6_to_r15(self):
-        src = filedialog.askopenfilename(parent=self, title='R6 Animation → R15', filetypes=[('Roblox Animation', '*.rbxm *.rbxmx'), ('All files', '*.*')])
+        src = filedialog.askopenfilename(parent=self, title=UI_TEXT['x7'], filetypes=[(UI_TEXT['y7'], '*.rbxm *.rbxmx'), (UI_TEXT['z7'], '*.*')])
         if not src:
             return
         try:
@@ -9493,15 +10430,15 @@ class App(_TkAppBase):
                 data = f.read()
             out = convert_r6_animation_to_r15(data)
             base = os.path.splitext(os.path.basename(src))[0] + '_R15.rbxmx'
-            dest = filedialog.asksaveasfilename(parent=self, title='Save R15 Animation', initialfile=base, defaultextension='.rbxmx', filetypes=[('RBXMX Animation', '*.rbxmx'), ('All files', '*.*')])
+            dest = filedialog.asksaveasfilename(parent=self, title=UI_TEXT['a8'], initialfile=base, defaultextension='.rbxmx', filetypes=[(UI_TEXT['b8'], '*.rbxmx'), (UI_TEXT['z7'], '*.*')])
             if not dest:
                 return
             with open(dest, 'wb') as f:
                 f.write(out)
-            messagebox.showinfo('R6 → R15', f'R6 animation retargeted to R15.\n\n{dest}', parent=self)
-            self._console_log(f'Converted R6 animation to R15: {dest}')
+            messagebox.showinfo(UI_TEXT['c8'], UI_TEXT['d8'].format(p0=dest), parent=self)
+            self._console_log(UI_TEXT['e8'].format(p0=dest))
         except Exception as e:
-            messagebox.showerror('R6 → R15', f'Could not convert animation:\n{e}', parent=self)
+            messagebox.showerror(UI_TEXT['c8'], UI_TEXT['f8'].format(p0=e), parent=self)
     def _cc_state_path(self):
         return os.path.join(DATA_DIR, 'routils_cconfigs_state.json')
     def _cc_load_applied_state(self):
@@ -9537,7 +10474,7 @@ class App(_TkAppBase):
         self.cc_applied_caches = list(by_hash.values())
         self._cc_save_applied_state()
         if hasattr(self, 'cc_cache_count_label'):
-            self.cc_cache_count_label.config(text=f'Current applied caches: {len(self.cc_applied_caches)}')
+            self.cc_cache_count_label.config(text=UI_TEXT['g8'].format(p0=len(self.cc_applied_caches)))
     def _cc_safe_name(self, name):
         name = re.sub('[<>:"/\\\\\\\\|?*]', '_', str(name)).strip().rstrip('.')
         return name or 'Config'
@@ -9570,7 +10507,7 @@ class App(_TkAppBase):
     def _cc_make_package(self, destination, name):
         src_db = getattr(self, 'db_path', None)
         if not src_db or not os.path.isfile(src_db):
-            raise FileNotFoundError('The current rbx-storage.db does not exist.')
+            raise FileNotFoundError(UI_TEXT['t29'])
         with tempfile.TemporaryDirectory(prefix='routils_cc_') as td:
             snap = os.path.join(td, 'rbx-storage.db')
             self._cc_snapshot_database(src_db, snap)
@@ -9647,7 +10584,7 @@ class App(_TkAppBase):
         self.cc_details.configure(state='normal')
         self.cc_details.delete('1.0', tk.END)
         if not info:
-            self.cc_details.insert(tk.END, 'Select a saved DB to view its details.')
+            self.cc_details.insert(tk.END, UI_TEXT['s27'])
         else:
             caches = info.get('applied_caches') or []
             lines = [f"Config: {info.get('name', '')}", f"Created: {info.get('created_at', '')}", f"File: {info.get('_file', '')}", '', f'Applied caches: {len(caches)}', '']
@@ -9665,24 +10602,24 @@ class App(_TkAppBase):
             self.cc_details.insert(tk.END, '\n'.join(lines))
         self.cc_details.configure(state='disabled')
     def _cc_save_db(self):
-        name = simpledialog.askstring('Save DB', 'Enter a name for this CConfigs DB:', parent=self)
+        name = simpledialog.askstring(UI_TEXT['h8'], UI_TEXT['i8'], parent=self)
         if not name:
             return
         self._cc_save_named_config(name)
     def _cc_save_named_config(self, name):
         name = self._cc_safe_name(name)
         if not name:
-            raise ValueError('Config name cannot be empty.')
+            raise ValueError(UI_TEXT['v29'])
         path = self._cc_unique_path(self.cconfigs_dir, name + '.ccdb')
         try:
             self._cc_make_package(path, name)
         except Exception as e:
-            messagebox.showerror('CConfigs', f'Failed to save DB:\n{e}', parent=self)
+            messagebox.showerror(UI_TEXT['j8'], UI_TEXT['k8'].format(p0=e), parent=self)
             return
         self._cc_refresh_list(select_path=path)
-        messagebox.showinfo('CConfigs', f"DB saved as '{os.path.basename(path)}'.\n\nRecorded applied caches: {len(self.cc_applied_caches)}", parent=self)
+        messagebox.showinfo(UI_TEXT['j8'], UI_TEXT['l8'].format(p0=os.path.basename(path), p1=len(self.cc_applied_caches)), parent=self)
     def _cc_upload_db(self):
-        path = filedialog.askopenfilename(parent=self, title='Upload DB', filetypes=[('Database files', '*.db *.ccdb'), ('SQLite DB', '*.db'), ('CConfigs DB', '*.ccdb'), ('All files', '*.*')])
+        path = filedialog.askopenfilename(parent=self, title=UI_TEXT['m8'], filetypes=[(UI_TEXT['n8'], '*.db *.ccdb'), (UI_TEXT['o8'], '*.db'), (UI_TEXT['p8'], '*.ccdb'), (UI_TEXT['z7'], '*.*')])
         if not path:
             return
         try:
@@ -9695,16 +10632,16 @@ class App(_TkAppBase):
                 dest = self._cc_unique_path(self.cconfigs_dir, name + '.ccdb')
             shutil.copy2(path, dest)
         except Exception as e:
-            messagebox.showerror('CConfigs', f'Failed to upload DB:\n{e}', parent=self)
+            messagebox.showerror(UI_TEXT['j8'], UI_TEXT['q8'].format(p0=e), parent=self)
             return
         self._cc_refresh_list(select_path=dest)
-        messagebox.showinfo('CConfigs', f"Uploaded '{os.path.basename(dest)}'.", parent=self)
+        messagebox.showinfo(UI_TEXT['j8'], UI_TEXT['r8'].format(p0=os.path.basename(dest)), parent=self)
     def _cc_apply_db(self):
         info = self._cc_selected_info()
         if not info:
-            messagebox.showinfo('CConfigs', 'Select a saved DB first.', parent=self)
+            messagebox.showinfo(UI_TEXT['j8'], UI_TEXT['s8'], parent=self)
             return
-        if not messagebox.askyesno('Apply DB', f"Apply '{info.get('name', '')}' to Roblox?\n\nThis will delete rbx-storage.db, rbx-storage.db-shm, rbx-storage.db-wal and rbx-storage.id, then install only rbx-storage.db.", parent=self):
+        if not messagebox.askyesno(UI_TEXT['t8'], UI_TEXT['u8'].format(p0=info.get('name', '')), parent=self):
             return
         was_watching = self.watching
         if was_watching:
@@ -9730,7 +10667,7 @@ class App(_TkAppBase):
             if was_watching:
                 self._start_watching()
         except Exception as e:
-            messagebox.showerror('CConfigs', f'Failed to apply DB.\n\n{e}\n\nClose Roblox and try again. No force-delete was used.', parent=self)
+            messagebox.showerror(UI_TEXT['j8'], UI_TEXT['v8'].format(p0=e), parent=self)
             if was_watching:
                 self._start_watching()
             return
@@ -9741,15 +10678,15 @@ class App(_TkAppBase):
                 except Exception:
                     pass
         if hasattr(self, 'cc_cache_count_label'):
-            self.cc_cache_count_label.config(text=f'Current applied caches: {len(self.cc_applied_caches)}')
-        messagebox.showinfo('CConfigs', f"Applied '{info.get('name', '')}'.\nRecorded caches: {len(self.cc_applied_caches)}\n\nInstalled only rbx-storage.db.", parent=self)
+            self.cc_cache_count_label.config(text=UI_TEXT['g8'].format(p0=len(self.cc_applied_caches)))
+        messagebox.showinfo(UI_TEXT['j8'], UI_TEXT['w8'].format(p0=info.get('name', ''), p1=len(self.cc_applied_caches)), parent=self)
     def _cc_export_db(self):
         info = self._cc_selected_info()
         if not info:
-            messagebox.showinfo('CConfigs', 'Select a saved DB first.', parent=self)
+            messagebox.showinfo(UI_TEXT['j8'], UI_TEXT['s8'], parent=self)
             return
         base = self._cc_safe_name(info.get('name') or 'config') + '.db'
-        path = filedialog.asksaveasfilename(parent=self, title='Export DB as normal .db', initialfile=base, defaultextension='.db', filetypes=[('SQLite DB', '*.db'), ('All files', '*.*')])
+        path = filedialog.asksaveasfilename(parent=self, title=UI_TEXT['x8'], initialfile=base, defaultextension='.db', filetypes=[(UI_TEXT['o8'], '*.db'), (UI_TEXT['z7'], '*.*')])
         if not path:
             return
         temp_source = None
@@ -9767,7 +10704,7 @@ class App(_TkAppBase):
             conn.close()
             shutil.copy2(temp_source, path)
         except Exception as e:
-            messagebox.showerror('CConfigs', f'Failed to export DB:\n{e}', parent=self)
+            messagebox.showerror(UI_TEXT['j8'], UI_TEXT['y8'].format(p0=e), parent=self)
             return
         finally:
             if temp_source:
@@ -9775,32 +10712,32 @@ class App(_TkAppBase):
                     os.remove(temp_source)
                 except Exception:
                     pass
-        messagebox.showinfo('CConfigs', f'Normal .db exported:\n{path}', parent=self)
+        messagebox.showinfo(UI_TEXT['j8'], UI_TEXT['z8'].format(p0=path), parent=self)
     def _cc_delete_db(self):
         info = self._cc_selected_info()
         if not info:
             return
-        if not messagebox.askyesno('Delete DB', f"Delete saved DB '{info.get('name', '')}'?", parent=self):
+        if not messagebox.askyesno(UI_TEXT['a9'], UI_TEXT['b9'].format(p0=info.get('name', '')), parent=self):
             return
         try:
             os.remove(info['_path'])
         except Exception as e:
-            messagebox.showerror('CConfigs', f'Failed to delete DB:\n{e}', parent=self)
+            messagebox.showerror(UI_TEXT['j8'], UI_TEXT['c9'].format(p0=e), parent=self)
             return
         self._cc_refresh_list()
     def _build_cconfigs_tab(self):
         tab = ttk.Frame(self.nb, padding=0)
-        self.nb.add(tab, text='Configs')
+        self.nb.add(tab, text=UI_TEXT['l5'])
         tab.columnconfigure(0, weight=1)
         tab.rowconfigure(2, weight=1)
         head = ttk.Frame(tab)
         head.grid(row=0, column=0, sticky='ew', pady=(0, 8))
-        ttk.Label(head, text='Configs', font=('Segoe UI Semibold', 15)).pack(side='left')
-        self.cc_cache_count_label = ttk.Label(head, text=f'Current applied caches: {len(self.cc_applied_caches)}', foreground='#9aa0a6')
+        ttk.Label(head, text=UI_TEXT['l5'], font=('Segoe UI Semibold', 15)).pack(side='left')
+        self.cc_cache_count_label = ttk.Label(head, text=UI_TEXT['g8'].format(p0=len(self.cc_applied_caches)), foreground='#9aa0a6')
         self.cc_cache_count_label.pack(side='right')
         bar = ttk.Frame(tab)
         bar.grid(row=1, column=0, sticky='ew', pady=(0, 8))
-        for label, command in (('Save Current DB', self._cc_save_db), ('Upload DB', self._cc_upload_db), ('Apply DB', self._cc_apply_db), ('Export DB', self._cc_export_db), ('Delete DB', self._cc_delete_db), ('Refresh', lambda: self._cc_refresh_list())):
+        for label, command in ((UI_TEXT['w29'], self._cc_save_db), (UI_TEXT['m8'], self._cc_upload_db), (UI_TEXT['t8'], self._cc_apply_db), (UI_TEXT['x29'], self._cc_export_db), ('Delete DB', self._cc_delete_db), ('Refresh', lambda: self._cc_refresh_list())):
             ttk.Button(bar, text=label, command=command).pack(side='left', padx=(0, 6))
         paned = ttk.PanedWindow(tab, orient='vertical')
         paned.grid(row=2, column=0, sticky='nsew')
@@ -9810,10 +10747,10 @@ class App(_TkAppBase):
         paned.add(bottom, weight=2)
         columns = ('name', 'created', 'caches', 'file')
         self.cc_tree = ttk.Treeview(top, columns=columns, show='headings', selectmode='browse')
-        self.cc_tree.heading('name', text='CONFIG')
-        self.cc_tree.heading('created', text='CREATED')
-        self.cc_tree.heading('caches', text='APPLIED')
-        self.cc_tree.heading('file', text='FILE')
+        self.cc_tree.heading('name', text=UI_TEXT['d9'])
+        self.cc_tree.heading('created', text=UI_TEXT['e9'])
+        self.cc_tree.heading('caches', text=UI_TEXT['f9'])
+        self.cc_tree.heading('file', text=UI_TEXT['g9'])
         self.cc_tree.column('name', width=240, anchor='w')
         self.cc_tree.column('created', width=160, anchor='w')
         self.cc_tree.column('caches', width=80, anchor='center')
@@ -9824,7 +10761,7 @@ class App(_TkAppBase):
         self.cc_tree.configure(yscrollcommand=cc_scroll.set)
         self.cc_tree.bind('<<TreeviewSelect>>', self._cc_show_selected)
         self.cc_tree.bind('<Double-1>', lambda _e: self._cc_apply_db())
-        ttk.Label(bottom, text='Saved DB details', font=('Segoe UI Semibold', 10)).pack(anchor='w', pady=(4, 4))
+        ttk.Label(bottom, text=UI_TEXT['h9'], font=('Segoe UI Semibold', 10)).pack(anchor='w', pady=(4, 4))
         self.cc_details = tk.Text(bottom, wrap='word', height=8, font=('Consolas', 9), bg='#252526', fg='#d4d4d4', insertbackground='#ffffff', selectbackground='#007acc', selectforeground='#ffffff', relief='flat', bd=0)
         self.cc_details.pack(fill='both', expand=True)
         self.cc_details.configure(state='disabled')
@@ -9842,92 +10779,92 @@ class App(_TkAppBase):
                 path = candidate
         if not path or os.path.basename(path).lower() != 'robloxplayerbeta.exe' or (not os.path.isfile(path)):
             try:
-                messagebox.showwarning('RoUtils', 'Please select a valid RobloxPlayerBeta.exe first.')
+                messagebox.showwarning(UI_TEXT['x5'], UI_TEXT['i9'])
             except Exception:
                 pass
             return
         try:
             subprocess.Popen([path], shell=False)
-            self._console_log(f'Opened Roblox: {path}')
+            self._console_log(UI_TEXT['j9'].format(p0=path))
         except Exception as e:
             try:
-                messagebox.showerror('RoUtils', f'Could not open Roblox:\n{e}')
+                messagebox.showerror(UI_TEXT['x5'], UI_TEXT['k9'].format(p0=e))
             except Exception:
                 pass
     def _build_utils_tab(self):
         tab_outer = _ScrollableTab(self.nb, padding=0)
         tab = tab_outer.inner
-        self.nb.insert(2, tab_outer, text='Modifications')
+        self.nb.insert(2, tab_outer, text=UI_TEXT['k5'])
         tab.columnconfigure(0, weight=1)
-        ttk.Label(tab, text='Modifications', font=('Segoe UI Semibold', 15)).grid(row=0, column=0, sticky='w')
-        ttk.Label(tab, text='Roblox Modifications', foreground='#9aa0a6').grid(row=1, column=0, sticky='w', pady=(0, 14))
-        converters = ttk.LabelFrame(tab, text='Converters', padding=14)
+        ttk.Label(tab, text=UI_TEXT['k5'], font=('Segoe UI Semibold', 15)).grid(row=0, column=0, sticky='w')
+        ttk.Label(tab, text=UI_TEXT['l9'], foreground='#9aa0a6').grid(row=1, column=0, sticky='w', pady=(0, 14))
+        converters = ttk.LabelFrame(tab, text=UI_TEXT['m9'], padding=14)
         converters.grid(row=2, column=0, sticky='ew', pady=(0, 10))
-        ttk.Button(converters, text='R6 Animation → R15', command=self._utils_r6_to_r15).pack(anchor='w', pady=(0, 6))
-        ttk.Button(converters, text='Roblox File Converter (.rbxm / .rbxh / .rbxmx)', command=self._utils_roblox_file_convert).pack(anchor='w', pady=(0, 6))
-        ttk.Button(converters, text='Mesh to OBJ', command=self._utils_mesh_to_obj).pack(anchor='w')
-        mesh = ttk.LabelFrame(tab, text='Default Mesh Changer', padding=14)
+        ttk.Button(converters, text=UI_TEXT['x7'], command=self._utils_r6_to_r15).pack(anchor='w', pady=(0, 6))
+        ttk.Button(converters, text=UI_TEXT['n9'], command=self._utils_roblox_file_convert).pack(anchor='w', pady=(0, 6))
+        ttk.Button(converters, text=UI_TEXT['o9'], command=self._utils_mesh_to_obj).pack(anchor='w')
+        mesh = ttk.LabelFrame(tab, text=UI_TEXT['p9'], padding=14)
         mesh.grid(row=3, column=0, sticky='ew', pady=(0, 10))
-        ttk.Label(mesh, text='It allows you to change the default R6 Meshes.').grid(row=0, column=0, columnspan=3, sticky='w', pady=(0, 8))
+        ttk.Label(mesh, text=UI_TEXT['q9']).grid(row=0, column=0, columnspan=3, sticky='w', pady=(0, 8))
         pathrow = ttk.Frame(mesh)
         pathrow.grid(row=1, column=0, columnspan=3, sticky='ew', pady=(0, 10))
         pathrow.columnconfigure(0, weight=1)
         self.roblox_path_var = tk.StringVar(value=self.settings.get('roblox_path', ''))
         ttk.Entry(pathrow, textvariable=self.roblox_path_var, state='readonly').grid(row=0, column=0, sticky='ew')
-        ttk.Button(pathrow, text='Choose', command=self._choose_roblox_path).grid(row=0, column=1, padx=(6, 0))
-        ttk.Button(pathrow, text='Open Selected Roblox', command=self._open_selected_roblox).grid(row=0, column=2, padx=(6, 0))
+        ttk.Button(pathrow, text=UI_TEXT['r9'], command=self._choose_roblox_path).grid(row=0, column=1, padx=(6, 0))
+        ttk.Button(pathrow, text=UI_TEXT['s9'], command=self._open_selected_roblox).grid(row=0, column=2, padx=(6, 0))
         self.mesh_rows = {}
         for i, name in enumerate(('Head.mesh', 'leftarm.mesh', 'leftleg.mesh', 'rightarm.mesh', 'rightleg.mesh', 'torso.mesh'), start=2):
             ttk.Label(mesh, text=name).grid(row=i, column=0, sticky='w', pady=3)
-            ttk.Button(mesh, text='Delete', command=lambda n=name: self._delete_default_mesh(n)).grid(row=i, column=1, padx=5)
-            ttk.Button(mesh, text='Choose', command=lambda n=name: self._choose_default_mesh(n)).grid(row=i, column=2)
+            ttk.Button(mesh, text=UI_TEXT['b2'], command=lambda n=name: self._delete_default_mesh(n)).grid(row=i, column=1, padx=5)
+            ttk.Button(mesh, text=UI_TEXT['r9'], command=lambda n=name: self._choose_default_mesh(n)).grid(row=i, column=2)
         mesh.columnconfigure(0, weight=1)
-        sky = ttk.LabelFrame(tab, text='Skybox Changer', padding=14)
+        sky = ttk.LabelFrame(tab, text=UI_TEXT['t9'], padding=14)
         sky.grid(row=4, column=0, sticky='ew', pady=(0, 10))
-        ttk.Label(sky, text='Replace Roblox skybox texture files from PlatformContent\\pc\\textures\\sky.').grid(row=0, column=0, columnspan=3, sticky='w', pady=(0, 8))
+        ttk.Label(sky, text=UI_TEXT['u9']).grid(row=0, column=0, columnspan=3, sticky='w', pady=(0, 8))
         sky_pathrow = ttk.Frame(sky)
         sky_pathrow.grid(row=1, column=0, columnspan=3, sticky='ew', pady=(0, 10))
         sky_pathrow.columnconfigure(0, weight=1)
         ttk.Entry(sky_pathrow, textvariable=self.roblox_path_var, state='readonly').grid(row=0, column=0, sticky='ew')
-        ttk.Button(sky_pathrow, text='Choose', command=self._choose_roblox_path).grid(row=0, column=1, padx=(6, 0))
-        ttk.Button(sky_pathrow, text='Open Selected Roblox', command=self._open_selected_roblox).grid(row=0, column=2, padx=(6, 0))
+        ttk.Button(sky_pathrow, text=UI_TEXT['r9'], command=self._choose_roblox_path).grid(row=0, column=1, padx=(6, 0))
+        ttk.Button(sky_pathrow, text=UI_TEXT['s9'], command=self._open_selected_roblox).grid(row=0, column=2, padx=(6, 0))
         for i, name in enumerate(SKYBOX_TEXTURES, start=2):
             ttk.Label(sky, text=name).grid(row=i, column=0, sticky='w', pady=3)
-            ttk.Button(sky, text='Delete', command=lambda n=name: self._delete_skybox_texture(n)).grid(row=i, column=1, padx=5)
-            ttk.Button(sky, text='Choose', command=lambda n=name: self._choose_skybox_texture(n)).grid(row=i, column=2)
+            ttk.Button(sky, text=UI_TEXT['b2'], command=lambda n=name: self._delete_skybox_texture(n)).grid(row=i, column=1, padx=5)
+            ttk.Button(sky, text=UI_TEXT['r9'], command=lambda n=name: self._choose_skybox_texture(n)).grid(row=i, column=2)
         sky.columnconfigure(0, weight=1)
-        sounds = ttk.LabelFrame(tab, text='Sounds', padding=14)
+        sounds = ttk.LabelFrame(tab, text=UI_TEXT['v9'], padding=14)
         sounds.grid(row=5, column=0, sticky='ew', pady=(0, 10))
-        ttk.Label(sounds, text='Replace Roblox sound files from content\\sounds.').grid(row=0, column=0, columnspan=3, sticky='w', pady=(0, 8))
+        ttk.Label(sounds, text=UI_TEXT['w9']).grid(row=0, column=0, columnspan=3, sticky='w', pady=(0, 8))
         sound_pathrow = ttk.Frame(sounds)
         sound_pathrow.grid(row=1, column=0, columnspan=3, sticky='ew', pady=(0, 10))
         sound_pathrow.columnconfigure(0, weight=1)
         ttk.Entry(sound_pathrow, textvariable=self.roblox_path_var, state='readonly').grid(row=0, column=0, sticky='ew')
-        ttk.Button(sound_pathrow, text='Choose', command=self._choose_roblox_path).grid(row=0, column=1, padx=(6, 0))
-        ttk.Button(sound_pathrow, text='Open Selected Roblox', command=self._open_selected_roblox).grid(row=0, column=2, padx=(6, 0))
+        ttk.Button(sound_pathrow, text=UI_TEXT['r9'], command=self._choose_roblox_path).grid(row=0, column=1, padx=(6, 0))
+        ttk.Button(sound_pathrow, text=UI_TEXT['s9'], command=self._open_selected_roblox).grid(row=0, column=2, padx=(6, 0))
         for i, name in enumerate(SOUND_FILES, start=2):
             ttk.Label(sounds, text=name).grid(row=i, column=0, sticky='w', pady=3)
-            ttk.Button(sounds, text='Delete', command=lambda n=name: self._delete_roblox_sound(n)).grid(row=i, column=1, padx=5)
-            ttk.Button(sounds, text='Choose', command=lambda n=name: self._choose_roblox_sound(n)).grid(row=i, column=2)
+            ttk.Button(sounds, text=UI_TEXT['b2'], command=lambda n=name: self._delete_roblox_sound(n)).grid(row=i, column=1, padx=5)
+            ttk.Button(sounds, text=UI_TEXT['r9'], command=lambda n=name: self._choose_roblox_sound(n)).grid(row=i, column=2)
         sounds.columnconfigure(0, weight=1)
-        others = ttk.LabelFrame(tab, text='Others', padding=14)
+        others = ttk.LabelFrame(tab, text=UI_TEXT['x9'], padding=14)
         others.grid(row=6, column=0, sticky='ew', pady=(0, 10))
-        ttk.Label(others, text='Replace additional Roblox texture and font files.').grid(row=0, column=0, columnspan=3, sticky='w', pady=(0, 8))
+        ttk.Label(others, text=UI_TEXT['y9']).grid(row=0, column=0, columnspan=3, sticky='w', pady=(0, 8))
         other_pathrow = ttk.Frame(others)
         other_pathrow.grid(row=1, column=0, columnspan=3, sticky='ew', pady=(0, 10))
         other_pathrow.columnconfigure(0, weight=1)
         ttk.Entry(other_pathrow, textvariable=self.roblox_path_var, state='readonly').grid(row=0, column=0, sticky='ew')
-        ttk.Button(other_pathrow, text='Choose', command=self._choose_roblox_path).grid(row=0, column=1, padx=(6, 0))
-        ttk.Button(other_pathrow, text='Open Selected Roblox', command=self._open_selected_roblox).grid(row=0, column=2, padx=(6, 0))
-        ttk.Label(others, text='Studs (replaces plastic\nnormal.dds)').grid(row=2, column=0, sticky='w', pady=3)
-        ttk.Button(others, text='Delete', command=lambda: self._delete_other_file('studs')).grid(row=2, column=1, padx=5)
-        ttk.Button(others, text='Choose', command=lambda: self._choose_other_file('studs')).grid(row=2, column=2)
-        ttk.Label(others, text='Diffuse (diffuse.dds)').grid(row=3, column=0, sticky='w', pady=3)
-        ttk.Button(others, text='Delete', command=lambda: self._delete_other_file('diffuse')).grid(row=3, column=1, padx=5)
-        ttk.Button(others, text='Choose', command=lambda: self._choose_other_file('diffuse')).grid(row=3, column=2)
-        ttk.Label(others, text='Font (CustomFont.ttf)').grid(row=4, column=0, sticky='w', pady=3)
-        ttk.Button(others, text='Delete', command=lambda: self._delete_other_file('font')).grid(row=4, column=1, padx=5)
-        ttk.Button(others, text='Choose', command=lambda: self._choose_other_file('font')).grid(row=4, column=2)
+        ttk.Button(other_pathrow, text=UI_TEXT['r9'], command=self._choose_roblox_path).grid(row=0, column=1, padx=(6, 0))
+        ttk.Button(other_pathrow, text=UI_TEXT['s9'], command=self._open_selected_roblox).grid(row=0, column=2, padx=(6, 0))
+        ttk.Label(others, text=UI_TEXT['z9']).grid(row=2, column=0, sticky='w', pady=3)
+        ttk.Button(others, text=UI_TEXT['b2'], command=lambda: self._delete_other_file('studs')).grid(row=2, column=1, padx=5)
+        ttk.Button(others, text=UI_TEXT['r9'], command=lambda: self._choose_other_file('studs')).grid(row=2, column=2)
+        ttk.Label(others, text=UI_TEXT['a10']).grid(row=3, column=0, sticky='w', pady=3)
+        ttk.Button(others, text=UI_TEXT['b2'], command=lambda: self._delete_other_file('diffuse')).grid(row=3, column=1, padx=5)
+        ttk.Button(others, text=UI_TEXT['r9'], command=lambda: self._choose_other_file('diffuse')).grid(row=3, column=2)
+        ttk.Label(others, text=UI_TEXT['b10']).grid(row=4, column=0, sticky='w', pady=3)
+        ttk.Button(others, text=UI_TEXT['b2'], command=lambda: self._delete_other_file('font')).grid(row=4, column=1, padx=5)
+        ttk.Button(others, text=UI_TEXT['r9'], command=lambda: self._choose_other_file('font')).grid(row=4, column=2)
         others.columnconfigure(0, weight=1)
     def _version_path(self):
         return os.path.join(DATA_DIR, 'version.txt')
@@ -9954,9 +10891,9 @@ class App(_TkAppBase):
             return APP_VERSION
     def _build_home_tab(self):
         tab = ttk.Frame(self.nb, padding=12)
-        self.nb.insert(0, tab, text='Home')
-        ttk.Label(tab, text='RoUtils', font=('Segoe UI Semibold', 20)).pack(anchor='w')
-        ttk.Label(tab, text='Welcome to RoUtils', font=('Segoe UI Semibold', 14)).pack(anchor='w', pady=(14, 14))
+        self.nb.insert(0, tab, text=UI_TEXT['w5'])
+        ttk.Label(tab, text=UI_TEXT['x5'], font=('Segoe UI Semibold', 20)).pack(anchor='w')
+        ttk.Label(tab, text=UI_TEXT['c10'], font=('Segoe UI Semibold', 14)).pack(anchor='w', pady=(14, 14))
         links = ttk.Frame(tab)
         links.pack(anchor='w', fill='x')
         def add_link(text_value, url):
@@ -9966,9 +10903,9 @@ class App(_TkAppBase):
             label.bind('<Enter>', lambda _e, w=label: w.config(font=('Segoe UI Semibold', 12, 'underline')))
             label.bind('<Leave>', lambda _e, w=label: w.config(font=('Segoe UI Semibold', 12)))
             return label
-        add_link('Official Github Link: https://github.com/offp001/routils', 'https://github.com/offp001/routils')
-        add_link('Join Discord server: https://discord.gg/849VtrYhm2', 'https://discord.com/invite/849VtrYhm2')
-        ttk.Label(links, text='Support with me: offp001 on discord', foreground='#9aa0a6', font=('Segoe UI', 10)).pack(anchor='w', pady=(0, 8))
+        add_link(UI_TEXT['o29'], 'https://github.com/offp001/routils')
+        add_link(UI_TEXT['p29'], 'https://discord.com/invite/849VtrYhm2')
+        ttk.Label(links, text=UI_TEXT['d10'], foreground='#9aa0a6', font=('Segoe UI', 10)).pack(anchor='w', pady=(0, 8))
         _q = bytes.fromhex('446973636c616d65723a20546865206f6666696369616c20646f776e6c6f6164207265706f7369746f727920666f7220526f5574696c732069732068747470733a2f2f6769746875622e636f6d2f6f6666703030312f726f7574696c732053696e636520526f5574696c73206973206f70656e2d736f757263652c206974206973206561737920666f72206d616c6963696f757320636f646520746f20626520696e73657274656420696e746f2069743b20696620796f7520646f776e6c6f616465642069742066726f6d20616e20756e6b6e6f776e20736f75726365206f7220612066696c652073656e7420746f20796f7520627920736f6d656f6e6520656c73652c20706c656173652064656c65746520746861742066696c6520616e6420646f776e6c6f61642069742066726f6d20746865206f6666696369616c20736f757263653a2068747470733a2f2f6769746875622e636f6d2f6f6666703030312f726f7574696c730a0a596f752063616e20616c736f207368617265207468652066696c6520796f752070726576696f75736c7920646f776e6c6f616465642077697468206d6520286f66667030303129206279206a6f696e696e672074686520446973636f7264207365727665722061742068747470733a2f2f646973636f72642e636f6d2f696e766974652f38343956747259686d32').decode('utf-8')
         disclaimer_frame = tk.Frame(tab, bg=_CURRENT_PALETTE.get('bg_dark', '#1e1e1e'))
         disclaimer_frame.pack(fill='x', pady=(2, 8))
@@ -9993,14 +10930,14 @@ class App(_TkAppBase):
         ttk.Separator(tab).pack(fill='x', pady=10)
         version_row = ttk.Frame(tab)
         version_row.pack(anchor='w')
-        ttk.Label(version_row, text='Version: ', font=('Segoe UI', 10, 'bold')).pack(side='left')
+        ttk.Label(version_row, text=UI_TEXT['e10'], font=('Segoe UI', 10, 'bold')).pack(side='left')
         self.home_version_value = ttk.Label(version_row, text=self._local_version(), font=('Segoe UI', 10, 'bold'))
         self.home_version_value.pack(side='left')
-        self.home_version_state = ttk.Label(version_row, text='Checking', font=('Segoe UI', 10, 'bold'))
+        self.home_version_state = ttk.Label(version_row, text=UI_TEXT['f10'], font=('Segoe UI', 10, 'bold'))
         self.home_version_state.pack(side='left', padx=(6, 0))
         self.home_version_var = tk.StringVar(value=f'Version: {self._local_version()} (Checking)')
         self.home_download_frame = ttk.Frame(tab)
-        self.home_download_label = ttk.Label(self.home_download_frame, text='Downloading update…')
+        self.home_download_label = ttk.Label(self.home_download_frame, text=UI_TEXT['g10'])
         self.home_download_label.pack(anchor='w')
         self.home_download_progress = ttk.Progressbar(self.home_download_frame, orient='horizontal', mode='determinate', length=320)
         self.home_download_progress.pack(anchor='w', fill='x', pady=(3, 0))
@@ -10010,11 +10947,11 @@ class App(_TkAppBase):
                 self.home_download_frame.pack(side='bottom', anchor='w', fill='x', padx=10, pady=10)
                 if total > 0:
                     self.home_download_progress.configure(mode='determinate', maximum=total, value=downloaded)
-                    self.home_download_label.configure(text=f'Downloading update… {downloaded / total * 100:.0f}%')
+                    self.home_download_label.configure(text=UI_TEXT['h10'].format(p0=downloaded / total * 100))
                 else:
                     self.home_download_progress.configure(mode='indeterminate')
                     self.home_download_progress.start(12)
-                    self.home_download_label.configure(text='Downloading update…')
+                    self.home_download_label.configure(text=UI_TEXT['g10'])
             else:
                 try:
                     self.home_download_progress.stop()
@@ -10096,8 +11033,8 @@ class App(_TkAppBase):
             dlg.geometry(f'{width}x{height}+{x}+{y}')
             outer = ttk.Frame(dlg, padding=24)
             outer.pack(fill='both', expand=True)
-            ttk.Label(outer, text='RoUtils is Outdated', font=('Segoe UI Semibold', 18)).pack(pady=(8, 8))
-            ttk.Label(outer, text=f'Download New Version ({latest})', font=('Segoe UI', 11)).pack(pady=(0, 20))
+            ttk.Label(outer, text=UI_TEXT['i10'], font=('Segoe UI Semibold', 18)).pack(pady=(8, 8))
+            ttk.Label(outer, text=UI_TEXT['j10'].format(p0=latest), font=('Segoe UI', 11)).pack(pady=(0, 20))
             buttons = ttk.Frame(outer)
             buttons.pack()
             def download():
@@ -10119,8 +11056,8 @@ class App(_TkAppBase):
                     dlg.destroy()
                 except Exception:
                     pass
-            ttk.Button(buttons, text='Download', command=download).pack(side='left', padx=6)
-            ttk.Button(buttons, text='Later', command=later).pack(side='left', padx=6)
+            ttk.Button(buttons, text=UI_TEXT['k10'], command=download).pack(side='left', padx=6)
+            ttk.Button(buttons, text=UI_TEXT['l10'], command=later).pack(side='left', padx=6)
             dlg._routils_close_callback = later
             dlg.protocol('WM_DELETE_WINDOW', later)
             dlg.after(100, lambda d=dlg: (_routils_popup_chrome(d), d.lift(), d.focus_force()) if d.winfo_exists() else None)
@@ -10142,9 +11079,8 @@ class App(_TkAppBase):
                 target_path = os.path.join(target_dir, f'RoUtils-{latest}.exe')
                 temp_path = os.path.join(tempfile.gettempdir(), f'RoUtils-{latest}.download')
                 self.after(0, lambda: self._set_update_progress(0, 0, True))
-                self.after(0, lambda v=latest: self._console_log(f'Update {v} download started.'))
-                req = urllib.request.Request(download_url, headers={'User-Agent': 'RoUtils-AutoUpdater'})
-                with _routils_urlopen(req, timeout=30) as response:
+                self.after(0, lambda v=latest: self._console_log(UI_TEXT['m10'].format(p0=v)))
+                with _routils_request(download_url, timeout=30, headers={'Accept': 'application/octet-stream, */*'}) as response:
                     total = int(response.headers.get('Content-Length', '0') or 0)
                     downloaded = 0
                     with open(temp_path, 'wb') as out:
@@ -10158,13 +11094,13 @@ class App(_TkAppBase):
                 if not os.path.isfile(temp_path) or os.path.getsize(temp_path) < 1024:
                     raise RuntimeError('Downloaded update is invalid.')
                 os.replace(temp_path, target_path)
-                self.after(0, lambda p=target_path: self._console_log(f'Update downloaded to {p}; launching from RoUtils folder.'))
+                self.after(0, lambda p=target_path: self._console_log(UI_TEXT['n10'].format(p0=p)))
                 subprocess.Popen([target_path], cwd=target_dir, close_fds=True, creationflags=getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0))
                 self.after(0, lambda: (self._set_update_progress(0, 0, False), self._on_close(force=True)))
             except Exception as e:
                 self._auto_update_in_progress = False
                 try:
-                    self.after(0, lambda err=str(e): self._console_log(f'Update error: {err}'))
+                    self.after(0, lambda err=str(e): self._console_log(UI_TEXT['o10'].format(p0=err)))
                 except Exception:
                     pass
                 try:
@@ -10185,7 +11121,7 @@ class App(_TkAppBase):
     def _show_update_error(self, error):
         self._auto_update_in_progress = False
         try:
-            messagebox.showwarning('RoUtils Update', f'Automatic update failed:\n{error}', parent=self)
+            messagebox.showwarning(UI_TEXT['p10'], UI_TEXT['q10'].format(p0=error), parent=self)
         except Exception:
             pass
     def _start_version_check(self):
@@ -10194,13 +11130,12 @@ class App(_TkAppBase):
             latest = current
             def set_state(state, color):
                 try:
-                    self.after(0, lambda: (self.home_version_value.config(text=current), self.home_version_state.config(text=state, foreground=color), self.home_version_var.set(f'Version: {current} ({state})')))
+                    self.after(0, lambda: (self.home_version_value.config(text=current), self.home_version_state.config(text=state, foreground=color), self.home_version_var.set(UI_TEXT['r10'].format(p0=current, p1=state))))
                 except Exception:
                     pass
             set_state('Checking', '#f2c94c')
             try:
-                req = urllib.request.Request('https://api.github.com/repos/offp001/routils/releases/latest', headers={'User-Agent': 'RoUtils'})
-                with _routils_urlopen(req, timeout=5) as r:
+                with _routils_request('https://api.github.com/repos/offp001/routils/releases/latest', timeout=5, headers={'Accept': 'application/vnd.github+json'}) as r:
                     data = json.loads(r.read().decode('utf-8', 'replace'))
                 tag = str(data.get('tag_name', '')).strip()
                 if tag:
@@ -10220,11 +11155,14 @@ class App(_TkAppBase):
                     self.after(0, lambda v=latest: self._show_outdated_dialog(v))
         threading.Thread(target=worker, daemon=True, name='RoUtils-VersionCheck').start()
     def _reorder_tabs(self):
-        defaults = ['Home', 'Cache', 'FFlags', 'Emote Manager', 'AI', 'Configs', 'Modifications', 'Subplace Joiner', 'Server Viewer', 'History', 'Client', 'Customize', 'Plugins', 'Console', 'Settings']
+        defaults = [UI_TEXT['w5'], UI_TEXT['f5'], UI_TEXT['h5'], UI_TEXT['i5'], UI_TEXT['j5'], UI_TEXT['l5'], UI_TEXT['k5'], UI_TEXT['m5'], UI_TEXT['n5'], UI_TEXT['o5'], UI_TEXT['p5'], UI_TEXT['q5'], UI_TEXT['s5'], UI_TEXT['t5'], UI_TEXT['u5'], UI_TEXT['r5']]
         current_tabs = list(self.nb.tabs())
         current_names = {str(self.nb.tab(tab_id, 'text')): tab_id for tab_id in current_tabs}
         order = [name for name in defaults if name in current_names]
         order.extend(str(self.nb.tab(tab_id, 'text')) for tab_id in current_tabs if str(self.nb.tab(tab_id, 'text')) not in defaults)
+        if UI_TEXT['s5'] in order and UI_TEXT['t5'] in order:
+            order.remove(UI_TEXT['t5'])
+            order.insert(order.index(UI_TEXT['s5']) + 1, UI_TEXT['t5'])
         for index, name in enumerate(order):
             tab_id = current_names.get(name)
             if tab_id is not None:
@@ -10238,13 +11176,13 @@ class App(_TkAppBase):
         theme_toplevel(dlg)
         txt = tk.Text(dlg, wrap='none', font=('Consolas', 10), bg=_CURRENT_PALETTE['bg_medium'], fg=_CURRENT_PALETTE['fg'], insertbackground='#fff')
         txt.pack(fill='both', expand=True, padx=10, pady=10)
-        ttk.Button(dlg, text='Add', command=lambda: self._add_json_editor_value(txt, dlg)).pack(pady=(0, 10))
+        ttk.Button(dlg, text=UI_TEXT['s10'], command=lambda: self._add_json_editor_value(txt, dlg)).pack(pady=(0, 10))
     def _add_json_editor_value(self, txt, dlg):
         try:
             data = json.loads(txt.get('1.0', 'end'))
             assert isinstance(data, (dict, list))
         except Exception as e:
-            messagebox.showerror('JSON Editor', f'Invalid JSON:\n{e}', parent=dlg)
+            messagebox.showerror(UI_TEXT['t10'], UI_TEXT['u10'].format(p0=e), parent=dlg)
             return
         if isinstance(data, dict):
             for n, v in data.items():
@@ -10283,11 +11221,11 @@ class App(_TkAppBase):
             self.fflag_flags = flags
             self._save_fflag_flags()
             self._refresh_fflag_list()
-            messagebox.showinfo('FFlags', f'Applied {len(flags)} flags from {os.path.basename(path)}.', parent=self)
+            messagebox.showinfo(UI_TEXT['h5'], UI_TEXT['v10'].format(p0=len(flags), p1=os.path.basename(path)), parent=self)
         except Exception as e:
-            messagebox.showerror('FFlags', f'Failed to apply JSON:\n{e}', parent=self)
+            messagebox.showerror(UI_TEXT['h5'], UI_TEXT['w10'].format(p0=e), parent=self)
     def _choose_roblox_path(self):
-        path = filedialog.askopenfilename(parent=self, title='Select RobloxPlayerBeta.exe', filetypes=[('Roblox Player', 'RobloxPlayerBeta.exe'), ('Executable', '*.exe')])
+        path = filedialog.askopenfilename(parent=self, title=UI_TEXT['x10'], filetypes=[(UI_TEXT['y10'], 'RobloxPlayerBeta.exe'), (UI_TEXT['z10'], '*.exe')])
         if path and os.path.basename(path).lower() == 'robloxplayerbeta.exe':
             self.roblox_path_var.set(path)
             self.settings['roblox_path'] = path
@@ -10302,9 +11240,9 @@ class App(_TkAppBase):
     def _choose_default_mesh(self, name):
         target = self._default_mesh_path(name)
         if not target:
-            messagebox.showwarning('Default Mesh Changer', 'Choose RobloxPlayerBeta.exe first.', parent=self)
+            messagebox.showwarning(UI_TEXT['p9'], UI_TEXT['a11'], parent=self)
             return
-        src = filedialog.askopenfilename(parent=self, title=f'Choose replacement for {name}', filetypes=[('Mesh files', '*.mesh'), ('All files', '*.*')])
+        src = filedialog.askopenfilename(parent=self, title=UI_TEXT['b11'].format(p0=name), filetypes=[(UI_TEXT['c11'], '*.mesh'), (UI_TEXT['z7'], '*.*')])
         if not src:
             return
         try:
@@ -10315,7 +11253,7 @@ class App(_TkAppBase):
                 os.remove(target)
             shutil.copy2(src, target)
         except Exception as e:
-            messagebox.showerror('Default Mesh Changer', f'Failed:\n{e}', parent=self)
+            messagebox.showerror(UI_TEXT['p9'], UI_TEXT['d11'].format(p0=e), parent=self)
     def _delete_default_mesh(self, name):
         target = self._default_mesh_path(name)
         if not target:
@@ -10324,7 +11262,7 @@ class App(_TkAppBase):
             if os.path.exists(target):
                 os.remove(target)
         except Exception as e:
-            messagebox.showerror('Default Mesh Changer', f'Failed:\n{e}', parent=self)
+            messagebox.showerror(UI_TEXT['p9'], UI_TEXT['d11'].format(p0=e), parent=self)
     def _skybox_path(self, name):
         root = self.roblox_path_var.get().strip()
         if not root or os.path.basename(root).lower() != 'robloxplayerbeta.exe':
@@ -10333,9 +11271,9 @@ class App(_TkAppBase):
     def _choose_skybox_texture(self, name):
         target = self._skybox_path(name)
         if not target:
-            messagebox.showwarning('Skybox Changer', 'Choose RobloxPlayerBeta.exe first.', parent=self)
+            messagebox.showwarning(UI_TEXT['t9'], UI_TEXT['a11'], parent=self)
             return
-        source = filedialog.askopenfilename(parent=self, title=f'Choose replacement for {name}', filetypes=[('Texture files', '*.tex'), ('All files', '*.*')])
+        source = filedialog.askopenfilename(parent=self, title=UI_TEXT['b11'].format(p0=name), filetypes=[(UI_TEXT['e11'], '*.tex'), (UI_TEXT['z7'], '*.*')])
         if not source:
             return
         try:
@@ -10344,9 +11282,9 @@ class App(_TkAppBase):
                 if os.path.exists(target):
                     os.remove(target)
                 shutil.copy2(source, target)
-            self._console_log(f'Skybox texture replaced: {name}')
+            self._console_log(UI_TEXT['f11'].format(p0=name))
         except Exception as e:
-            messagebox.showerror('Skybox Changer', f'Failed:\n{e}', parent=self)
+            messagebox.showerror(UI_TEXT['t9'], UI_TEXT['d11'].format(p0=e), parent=self)
     def _delete_skybox_texture(self, name):
         target = self._skybox_path(name)
         if not target:
@@ -10354,9 +11292,9 @@ class App(_TkAppBase):
         try:
             if os.path.exists(target):
                 os.remove(target)
-                self._console_log(f'Skybox texture deleted: {name}')
+                self._console_log(UI_TEXT['g11'].format(p0=name))
         except Exception as e:
-            messagebox.showerror('Skybox Changer', f'Failed:\n{e}', parent=self)
+            messagebox.showerror(UI_TEXT['t9'], UI_TEXT['d11'].format(p0=e), parent=self)
     def _roblox_content_path(self, *parts):
         root = self.roblox_path_var.get().strip()
         if not root or os.path.basename(root).lower() != 'robloxplayerbeta.exe':
@@ -10367,9 +11305,9 @@ class App(_TkAppBase):
     def _choose_roblox_sound(self, name):
         target = self._sound_path(name)
         if not target:
-            messagebox.showwarning('Sounds', 'Choose RobloxPlayerBeta.exe first.', parent=self)
+            messagebox.showwarning(UI_TEXT['v9'], UI_TEXT['a11'], parent=self)
             return
-        source = filedialog.askopenfilename(parent=self, title=f'Choose replacement for {name}', filetypes=[('Audio files', '*.ogg *.mp3 *.wav'), ('All files', '*.*')])
+        source = filedialog.askopenfilename(parent=self, title=UI_TEXT['b11'].format(p0=name), filetypes=[(UI_TEXT['h11'], '*.ogg *.mp3 *.wav'), (UI_TEXT['z7'], '*.*')])
         if not source:
             return
         try:
@@ -10378,20 +11316,20 @@ class App(_TkAppBase):
                 if os.path.exists(target):
                     os.remove(target)
                 shutil.copy2(source, target)
-            self._console_log(f'Sound replaced: {name}')
+            self._console_log(UI_TEXT['i11'].format(p0=name))
         except Exception as e:
-            messagebox.showerror('Sounds', f'Failed:\n{e}', parent=self)
+            messagebox.showerror(UI_TEXT['v9'], UI_TEXT['d11'].format(p0=e), parent=self)
     def _delete_roblox_sound(self, name):
         target = self._sound_path(name)
         if not target:
-            messagebox.showwarning('Sounds', 'Choose RobloxPlayerBeta.exe first.', parent=self)
+            messagebox.showwarning(UI_TEXT['v9'], UI_TEXT['a11'], parent=self)
             return
         try:
             if os.path.exists(target):
                 os.remove(target)
-                self._console_log(f'Sound deleted: {name}')
+                self._console_log(UI_TEXT['j11'].format(p0=name))
         except Exception as e:
-            messagebox.showerror('Sounds', f'Failed:\n{e}', parent=self)
+            messagebox.showerror(UI_TEXT['v9'], UI_TEXT['d11'].format(p0=e), parent=self)
     def _other_path(self, kind):
         if kind == 'studs':
             return self._roblox_content_path('PlatformContent', 'pc', 'textures', 'plastic', 'normal.dds')
@@ -10403,16 +11341,16 @@ class App(_TkAppBase):
     def _choose_other_file(self, kind):
         target = self._other_path(kind)
         if not target:
-            messagebox.showwarning('Others', 'Choose RobloxPlayerBeta.exe first.', parent=self)
+            messagebox.showwarning(UI_TEXT['x9'], UI_TEXT['a11'], parent=self)
             return
         if kind == 'studs':
-            title = 'Choose replacement for studs.dds (target: plastic\normal.dds)'
+            title = UI_TEXT['k28']
             filetypes = [('DDS texture', '*.dds'), ('All files', '*.*')]
         elif kind == 'diffuse':
-            title = 'Choose replacement for diffuse.dds'
+            title = UI_TEXT['l28']
             filetypes = [('DDS texture', '*.dds'), ('All files', '*.*')]
         else:
-            title = 'Choose replacement for CustomFont.ttf'
+            title = UI_TEXT['m28']
             filetypes = [('TrueType Font', '*.ttf'), ('All files', '*.*')]
         source = filedialog.askopenfilename(parent=self, title=title, filetypes=filetypes)
         if not source:
@@ -10423,22 +11361,22 @@ class App(_TkAppBase):
                 if os.path.exists(target):
                     os.remove(target)
                 shutil.copy2(source, target)
-            self._console_log(f'Other file replaced: {os.path.basename(target)}')
+            self._console_log(UI_TEXT['k11'].format(p0=os.path.basename(target)))
         except Exception as e:
-            messagebox.showerror('Others', f'Failed:\n{e}', parent=self)
+            messagebox.showerror(UI_TEXT['x9'], UI_TEXT['d11'].format(p0=e), parent=self)
     def _delete_other_file(self, kind):
         target = self._other_path(kind)
         if not target:
-            messagebox.showwarning('Others', 'Choose RobloxPlayerBeta.exe first.', parent=self)
+            messagebox.showwarning(UI_TEXT['x9'], UI_TEXT['a11'], parent=self)
             return
         try:
             if os.path.exists(target):
                 os.remove(target)
-                self._console_log(f'Other file deleted: {os.path.basename(target)}')
+                self._console_log(UI_TEXT['l11'].format(p0=os.path.basename(target)))
         except Exception as e:
-            messagebox.showerror('Others', f'Failed:\n{e}', parent=self)
+            messagebox.showerror(UI_TEXT['x9'], UI_TEXT['d11'].format(p0=e), parent=self)
     def _utils_mesh_to_obj(self):
-        src = filedialog.askopenfilename(parent=self, title='Select Roblox Mesh', filetypes=[('Roblox Mesh', '*.mesh'), ('All files', '*.*')])
+        src = filedialog.askopenfilename(parent=self, title=UI_TEXT['m11'], filetypes=[(UI_TEXT['n11'], '*.mesh'), (UI_TEXT['z7'], '*.*')])
         if not src:
             return
         out = os.path.splitext(src)[0] + '.obj'
@@ -10446,14 +11384,14 @@ class App(_TkAppBase):
             with open(src, 'rb') as f:
                 data = f.read()
             ver = _mesh_header(data).replace('version ', '') or 'unknown'
-            print(f'Selected Mesh Version "{ver}"')
-            print('Converting')
+            print(UI_TEXT['o11'].format(p0=ver))
+            print(UI_TEXT['p11'])
             convert(data, out)
-            print(f'Converted: {out}')
+            print(UI_TEXT['q11'].format(p0=out))
         except Exception as e:
-            messagebox.showerror('Mesh to OBJ', f'Conversion failed:\n{e}', parent=self)
+            messagebox.showerror(UI_TEXT['o9'], UI_TEXT['r11'].format(p0=e), parent=self)
     def _utils_roblox_file_convert(self):
-        src = filedialog.askopenfilename(parent=self, title='Select Roblox File', filetypes=[('Roblox Files', '*.rbxm *.rbxh *.rbxmx'), ('RBXM', '*.rbxm'), ('RBXH', '*.rbxh'), ('RBXMX', '*.rbxmx'), ('All files', '*.*')])
+        src = filedialog.askopenfilename(parent=self, title=UI_TEXT['s11'], filetypes=[(UI_TEXT['t11'], '*.rbxm *.rbxh *.rbxmx'), (UI_TEXT['u11'], '*.rbxm'), (UI_TEXT['v11'], '*.rbxh'), (UI_TEXT['w11'], '*.rbxmx'), (UI_TEXT['z7'], '*.*')])
         if not src:
             return
         try:
@@ -10462,7 +11400,7 @@ class App(_TkAppBase):
             filename, ext = os.path.splitext(os.path.basename(src))
             ext = ext.lower()
             if ext not in ('.rbxm', '.rbxh', '.rbxmx'):
-                messagebox.showwarning('Roblox File Converter', 'Please select an .rbxm, .rbxh or .rbxmx file.', parent=self)
+                messagebox.showwarning(UI_TEXT['x11'], UI_TEXT['y11'], parent=self)
                 return
             if ext in ('.rbxm', '.rbxmx'):
                 new_ext = '.rbxh'
@@ -10478,10 +11416,10 @@ class App(_TkAppBase):
             output_path = os.path.join(os.path.dirname(src), f'{filename}_converted{new_ext}')
             with open(output_path, 'wb') as f:
                 f.write(output_data)
-            messagebox.showinfo('Roblox File Converter', f'Converted successfully.\n\n{os.path.basename(output_path)}\nSize: {human_size(len(output_data))}', parent=self)
-            self._console_log(f'Converted Roblox file: {output_path}')
+            messagebox.showinfo(UI_TEXT['x11'], UI_TEXT['z11'].format(p0=os.path.basename(output_path), p1=human_size(len(output_data))), parent=self)
+            self._console_log(UI_TEXT['a12'].format(p0=output_path))
         except Exception as e:
-            messagebox.showerror('Roblox File Converter', f'Conversion failed:\n{e}', parent=self)
+            messagebox.showerror(UI_TEXT['x11'], UI_TEXT['r11'].format(p0=e), parent=self)
     def _history_load(self):
         try:
             if not os.path.exists(HISTORY_PATH):
@@ -10505,8 +11443,7 @@ class App(_TkAppBase):
             return None
         for url in (f'https://games.roblox.com/v1/games/multiget-place-details?placeIds={place_id}', f'https://develop.roblox.com/v1/places/{place_id}'):
             try:
-                req = urllib.request.Request(url, headers={'User-Agent': 'RoUtils/3.3'})
-                with _routils_urlopen(req, timeout=8) as r:
+                with _routils_request(url, timeout=8) as r:
                     data = json.load(r)
                 if isinstance(data, list):
                     data = data[0] if data else {}
@@ -10516,12 +11453,10 @@ class App(_TkAppBase):
             except Exception:
                 pass
         try:
-            req = urllib.request.Request(f'https://apis.roblox.com/universes/v1/places/{place_id}/universe', headers={'User-Agent': 'RoUtils/3.3'})
-            with _routils_urlopen(req, timeout=8) as r:
+            with _routils_request(f'https://apis.roblox.com/universes/v1/places/{place_id}/universe', timeout=8) as r:
                 universe_id = json.load(r).get('universeId')
             if universe_id:
-                req = urllib.request.Request(f'https://games.roblox.com/v1/games?universeIds={universe_id}', headers={'User-Agent': 'RoUtils/3.3'})
-                with _routils_urlopen(req, timeout=8) as r:
+                with _routils_request(f'https://games.roblox.com/v1/games?universeIds={universe_id}', timeout=8) as r:
                     data = json.load(r)
                 rows = data.get('data', []) if isinstance(data, dict) else []
                 if rows:
@@ -10603,15 +11538,15 @@ class App(_TkAppBase):
         threading.Thread(target=worker, daemon=True).start()
     def _build_history_tab(self):
         tab = ttk.Frame(self.nb, padding=12)
-        self.nb.add(tab, text='History')
+        self.nb.add(tab, text=UI_TEXT['o5'])
         tab.columnconfigure(0, weight=1)
         tab.rowconfigure(2, weight=1)
         head = ttk.Frame(tab)
         head.grid(row=0, column=0, sticky='ew', pady=(0, 8))
-        ttk.Label(head, text='Game History', font=('Segoe UI Semibold', 15)).pack(side='left')
-        ttk.Button(head, text='Refresh', command=self._history_refresh).pack(side='right', padx=(6, 0))
-        ttk.Button(head, text='Clear History', command=self._history_clear).pack(side='right')
-        ttk.Label(tab, text='Game History.', foreground='#9aa0a6').grid(row=1, column=0, sticky='w', pady=(0, 8))
+        ttk.Label(head, text=UI_TEXT['b12'], font=('Segoe UI Semibold', 15)).pack(side='left')
+        ttk.Button(head, text=UI_TEXT['c12'], command=self._history_refresh).pack(side='right', padx=(6, 0))
+        ttk.Button(head, text=UI_TEXT['d12'], command=self._history_clear).pack(side='right')
+        ttk.Label(tab, text=UI_TEXT['e12'], foreground='#9aa0a6').grid(row=1, column=0, sticky='w', pady=(0, 8))
         outer = ttk.Frame(tab)
         outer.grid(row=2, column=0, sticky='nsew')
         outer.columnconfigure(0, weight=1)
@@ -10640,13 +11575,13 @@ class App(_TkAppBase):
         for child in self.history_inner.winfo_children():
             child.destroy()
         if not history:
-            ttk.Label(self.history_inner, text='No games recorded yet.', foreground='#9aa0a6').pack(anchor='w', padx=12, pady=18)
+            ttk.Label(self.history_inner, text=UI_TEXT['f12'], foreground='#9aa0a6').pack(anchor='w', padx=12, pady=18)
             return
         header = ttk.Frame(self.history_inner)
         header.pack(fill='x', padx=6, pady=(0, 4))
         for col, weight in enumerate((3, 2, 3, 2, 0, 0)):
             header.columnconfigure(col, weight=weight)
-        for col, label in enumerate(('GAME', 'ID', 'JOB ID', 'DATE / TIME', '', '')):
+        for col, label in enumerate((UI_TEXT['w20'], 'ID', UI_TEXT['j31'], UI_TEXT['k31'], '', '')):
             ttk.Label(header, text=label, foreground='#9aa0a6').grid(row=0, column=col, sticky='w', padx=6)
         for entry in history:
             row = ttk.Frame(self.history_inner)
@@ -10662,22 +11597,22 @@ class App(_TkAppBase):
             ttk.Label(row, text=pid).grid(row=0, column=1, sticky='w', padx=6)
             ttk.Label(row, text=jid).grid(row=0, column=2, sticky='w', padx=6)
             ttk.Label(row, text=dt).grid(row=0, column=3, sticky='w', padx=6)
-            ttk.Button(row, text='Copy Deeplink', command=lambda l=link: self._history_copy(l)).grid(row=0, column=4, padx=4)
-            ttk.Button(row, text='Join', command=lambda l=link: self._history_join(l)).grid(row=0, column=5, padx=(2, 6))
+            ttk.Button(row, text=UI_TEXT['g12'], command=lambda l=link: self._history_copy(l)).grid(row=0, column=4, padx=4)
+            ttk.Button(row, text=UI_TEXT['h12'], command=lambda l=link: self._history_join(l)).grid(row=0, column=5, padx=(2, 6))
     def _history_copy(self, link):
         try:
             self.clipboard_clear()
             self.clipboard_append(link)
         except Exception as e:
-            messagebox.showerror('History', f'Could not copy deeplink:{e}', parent=self)
+            messagebox.showerror(UI_TEXT['o5'], UI_TEXT['i12'].format(p0=e), parent=self)
     def _history_join(self, link):
         try:
             os.startfile(link)
-            self._console_log(f'Joined from history: {link}')
+            self._console_log(UI_TEXT['j12'].format(p0=link))
         except Exception as e:
-            messagebox.showerror('History', f'Could not launch Roblox:{e}', parent=self)
+            messagebox.showerror(UI_TEXT['o5'], UI_TEXT['k12'].format(p0=e), parent=self)
     def _history_clear(self):
-        if not messagebox.askyesno('History', 'Clear all saved game history?', parent=self):
+        if not messagebox.askyesno(UI_TEXT['o5'], UI_TEXT['l12'], parent=self):
             return
         self._history_save([])
         self._history_last_game = None
@@ -10686,42 +11621,42 @@ class App(_TkAppBase):
         self._client_tab_active = True
         tab_outer = _ScrollableTab(self.nb, padding=0)
         tab = tab_outer.inner
-        self.nb.add(tab_outer, text='Client')
+        self.nb.add(tab_outer, text=UI_TEXT['p5'])
         tab.columnconfigure(0, weight=1)
-        ttk.Label(tab, text='Roblox Client', font=('Segoe UI Semibold', 15)).grid(row=0, column=0, sticky='w')
-        ttk.Label(tab, text='Live Roblox client information and current game details.', foreground='#9aa0a6').grid(row=1, column=0, sticky='w', pady=(0, 14))
-        info = ttk.LabelFrame(tab, text='Client Information', padding=14)
+        ttk.Label(tab, text=UI_TEXT['m12'], font=('Segoe UI Semibold', 15)).grid(row=0, column=0, sticky='w')
+        ttk.Label(tab, text=UI_TEXT['n12'], foreground='#9aa0a6').grid(row=1, column=0, sticky='w', pady=(0, 14))
+        info = ttk.LabelFrame(tab, text=UI_TEXT['o12'], padding=14)
         info.grid(row=2, column=0, sticky='ew', pady=(0, 10))
         info.columnconfigure(1, weight=1)
-        self.client_status_var = tk.StringVar(value='Checking...')
+        self.client_status_var = tk.StringVar(value=UI_TEXT['d30'])
         self.client_pid_var = tk.StringVar(value='—')
         self.client_path_var = tk.StringVar(value='—')
         self.client_version_var = tk.StringVar(value='—')
-        self.client_game_var = tk.StringVar(value='Detecting...')
+        self.client_game_var = tk.StringVar(value=UI_TEXT['e30'])
         self.client_place_var = tk.StringVar(value='—')
         self.client_job_var = tk.StringVar(value='—')
         self.client_cpu_var = tk.StringVar(value='—')
         self.client_ram_var = tk.StringVar(value='—')
-        rows = (('Status', self.client_status_var), ('PID', self.client_pid_var), ('Path', self.client_path_var), ('File Version', self.client_version_var), ('Game', self.client_game_var), ('Place ID', self.client_place_var), ('Job ID', self.client_job_var), ('CPU Usage', self.client_cpu_var), ('RAM Usage', self.client_ram_var))
+        rows = ((UI_TEXT['f31'], self.client_status_var), (UI_TEXT['g31'], self.client_pid_var), (UI_TEXT['h31'], self.client_path_var), (UI_TEXT['q28'], self.client_version_var), (UI_TEXT['i31'], self.client_game_var), (UI_TEXT['o28'], self.client_place_var), ('Job ID', self.client_job_var), (UI_TEXT['r28'], self.client_cpu_var), (UI_TEXT['s28'], self.client_ram_var))
         for i, (label, var) in enumerate(rows):
             ttk.Label(info, text=label).grid(row=i, column=0, sticky='w', padx=(0, 14), pady=5)
             ttk.Label(info, textvariable=var).grid(row=i, column=1, sticky='w', pady=5)
         actions = ttk.Frame(tab)
         actions.grid(row=3, column=0, sticky='w', pady=(4, 0))
-        ttk.Button(actions, text='Refresh', command=self._client_refresh).pack(side='left', padx=(0, 6))
-        ttk.Button(actions, text='Open Roblox', command=self._open_selected_roblox).pack(side='left')
-        fps_box = ttk.LabelFrame(tab, text='FPS', padding=(10, 8))
+        ttk.Button(actions, text=UI_TEXT['c12'], command=self._client_refresh).pack(side='left', padx=(0, 6))
+        ttk.Button(actions, text=UI_TEXT['p12'], command=self._open_selected_roblox).pack(side='left')
+        fps_box = ttk.LabelFrame(tab, text=UI_TEXT['q12'], padding=(10, 8))
         fps_box.grid(row=4, column=0, sticky='ew', pady=(12, 0))
         self.fps_value_label = ttk.Label(fps_box, font=('Segoe UI Semibold', 10))
         self.fps_value_label.pack(anchor='w')
-        self.fps_pid_label = ttk.Label(fps_box, text='PID: Waiting for Roblox...', foreground='#9aa0a6')
+        self.fps_pid_label = ttk.Label(fps_box, text=UI_TEXT['r12'], foreground='#9aa0a6')
         self.fps_pid_label.pack(anchor='w', pady=(0, 4))
         def _fps_ui(value=None):
             fps = int(round(float(self.fps_limit.get() if value is None else value)))
             fps = max(0, min(240, fps))
             if self.fps_limit.get() != fps:
                 self.fps_limit.set(fps)
-            self.fps_value_label.config(text='FPS: Uncap' if fps == 0 else f'FPS: {fps}')
+            self.fps_value_label.config(text=UI_TEXT['z5'] if fps == 0 else UI_TEXT['a6'].format(p0=fps))
             if hasattr(self, '_fps_text_var') and self._fps_text_var.get() != str(fps):
                 self._fps_text_var.set(str(fps))
         def _fps_slider_released(_event=None):
@@ -10755,8 +11690,8 @@ class App(_TkAppBase):
         self._build_fps_hotkey_buttons()
         fps_hotkey_actions = ttk.Frame(fps_box)
         fps_hotkey_actions.pack(fill='x', pady=(6, 0))
-        ttk.Button(fps_hotkey_actions, text='Reset Hotkeys', command=self._reset_fps_hotkeys).pack(side='left')
-        ttk.Label(fps_box, text='FPS Changer', font=('Segoe UI', 8), foreground='#9aa0a6').pack(anchor='w')
+        ttk.Button(fps_hotkey_actions, text=UI_TEXT['s12'], command=self._reset_fps_hotkeys).pack(side='left')
+        ttk.Label(fps_box, text=UI_TEXT['t12'], font=('Segoe UI', 8), foreground='#9aa0a6').pack(anchor='w')
         self._refresh_fps_hotkey_buttons()
         _fps_ui()
         self._client_cpu_prev = None
@@ -10767,7 +11702,6 @@ class App(_TkAppBase):
         if os.name != 'nt':
             return []
         try:
-            import ctypes
             class PROCESSENTRY32W(ctypes.Structure):
                 _fields_ = [('dwSize', ctypes.wintypes.DWORD), ('cntUsage', ctypes.wintypes.DWORD), ('th32ProcessID', ctypes.wintypes.DWORD), ('th32DefaultHeapID', ctypes.POINTER(ctypes.c_ulong)), ('th32ModuleID', ctypes.wintypes.DWORD), ('cntThreads', ctypes.wintypes.DWORD), ('th32ParentProcessID', ctypes.wintypes.DWORD), ('pcPriClassBase', ctypes.c_long), ('dwFlags', ctypes.wintypes.DWORD), ('szExeFile', ctypes.wintypes.WCHAR * 260)]
             snap = ctypes.windll.kernel32.CreateToolhelp32Snapshot(2, 0)
@@ -10802,7 +11736,7 @@ class App(_TkAppBase):
         if not pids:
             return (None, None)
         try:
-            import ctypes, ctypes.wintypes as wt
+            wt = ctypes.wintypes
             PROCESS_QUERY_LIMITED_INFORMATION = 4096
             PROCESS_VM_READ = 16
             class PMC(ctypes.Structure):
@@ -10851,9 +11785,9 @@ class App(_TkAppBase):
         self.client_place_var.set(place_id or '—')
         self.client_job_var.set(str(job_id or '—'))
         if not place_id:
-            self.client_game_var.set('Not in a game')
+            self.client_game_var.set(UI_TEXT['y29'])
             return
-        self.client_game_var.set('Resolving game name...')
+        self.client_game_var.set(UI_TEXT['n28'])
         def worker():
             name = None
             try:
@@ -10880,7 +11814,7 @@ class App(_TkAppBase):
         try:
             active = False
             if hasattr(self, 'nb'):
-                active = str(self.nb.tab(self.nb.select(), 'text')) == 'Client'
+                active = str(self.nb.tab(self.nb.select(), 'text')) == UI_TEXT['p5']
             if not active and (not getattr(self, '_client_tab_active', False)):
                 self.after(UI_CLIENT_INTERVAL_MS, self._client_live_update)
                 return
@@ -10928,8 +11862,8 @@ class App(_TkAppBase):
             if saved and os.path.isfile(saved):
                 path = saved
         self.client_pid_var.set(', '.join((str(x) for x in sorted(pids))) if pids else 'Not running' if not pid else str(pid))
-        self.client_status_var.set('Running' if pids or pid else 'Not running')
-        self.client_path_var.set(path or 'Roblox Game Client not found')
+        self.client_status_var.set(UI_TEXT['u12'] if pids or pid else UI_TEXT['v12'])
+        self.client_path_var.set(path or UI_TEXT['t28'])
         version = '—'
         if path and os.path.isfile(path):
             try:
@@ -10947,44 +11881,42 @@ class App(_TkAppBase):
         self._client_system_prev = None
     def _build_subplace_joiner_tab(self):
         tab = ttk.Frame(self.nb, padding=0)
-        self.nb.add(tab, text='Subplace Joiner')
+        self.nb.add(tab, text=UI_TEXT['m5'])
         tab.columnconfigure(0, weight=1)
         tab.rowconfigure(2, weight=1)
-        ttk.Label(tab, text='Subplace Joiner', font=('Segoe UI Semibold', 15)).grid(row=0, column=0, sticky='w')
+        ttk.Label(tab, text=UI_TEXT['m5'], font=('Segoe UI Semibold', 15)).grid(row=0, column=0, sticky='w')
         row = ttk.Frame(tab)
         row.grid(row=1, column=0, sticky='ew', pady=8)
         row.columnconfigure(0, weight=1)
         self.subplace_id = tk.StringVar()
         ttk.Entry(row, textvariable=self.subplace_id).grid(row=0, column=0, sticky='ew')
-        ttk.Button(row, text='Search', command=self._subplace_search).grid(row=0, column=1, padx=6)
+        ttk.Button(row, text=UI_TEXT['w12'], command=self._subplace_search).grid(row=0, column=1, padx=6)
         self.subplace_tree = ttk.Treeview(tab, columns=('id', 'name'), show='headings')
-        self.subplace_tree.heading('id', text='PLACE ID')
-        self.subplace_tree.heading('name', text='NAME')
+        self.subplace_tree.heading('id', text=UI_TEXT['x12'])
+        self.subplace_tree.heading('name', text=UI_TEXT['y12'])
         self.subplace_tree.column('id', width=160)
         self.subplace_tree.column('name', width=400)
         self.subplace_tree.grid(row=2, column=0, sticky='nsew')
         buttons = ttk.Frame(tab)
         buttons.grid(row=3, column=0, sticky='e', pady=8)
-        ttk.Button(buttons, text='Join Selected', command=self._subplace_join).pack(side='left', padx=(0, 6))
-        ttk.Button(buttons, text='Copy Deeplink', command=self._subplace_copy_deeplink).pack(side='left')
+        ttk.Button(buttons, text=UI_TEXT['z12'], command=self._subplace_join).pack(side='left', padx=(0, 6))
+        ttk.Button(buttons, text=UI_TEXT['g12'], command=self._subplace_copy_deeplink).pack(side='left')
     def _subplace_search(self):
         pid = self.subplace_id.get().strip()
         if not pid.isdigit():
             return
         try:
-            req = urllib.request.Request(f'https://apis.roblox.com/universes/v1/places/{pid}/universe')
-            with _routils_urlopen(req, timeout=10) as r:
+            with _routils_request(f'https://apis.roblox.com/universes/v1/places/{pid}/universe', timeout=10) as r:
                 universe_id = json.load(r).get('universeId')
             if not universe_id:
                 raise ValueError('Universe not found for this Place ID.')
-            req = urllib.request.Request(f'https://develop.roblox.com/v1/universes/{universe_id}/places?limit=100&sortOrder=Asc')
-            with _routils_urlopen(req, timeout=10) as r:
+            with _routils_request(f'https://develop.roblox.com/v1/universes/{universe_id}/places?limit=100&sortOrder=Asc', timeout=10) as r:
                 data = json.load(r)
             self.subplace_tree.delete(*self.subplace_tree.get_children())
             for x in data.get('data', []):
                 self.subplace_tree.insert('', 'end', values=(x.get('id', ''), x.get('name', x.get('id', ''))))
         except Exception as e:
-            messagebox.showerror('Subplace Joiner', f'Search failed:\n{e}', parent=self)
+            messagebox.showerror(UI_TEXT['m5'], UI_TEXT['a13'].format(p0=e), parent=self)
     def _subplace_copy_deeplink(self):
         place_id = None
         game_instance_id = None
@@ -11022,10 +11954,10 @@ class App(_TkAppBase):
                     if place_id and game_instance_id:
                         break
         except Exception as e:
-            messagebox.showerror('Subplace Joiner', f'Could not read Roblox logs:\n{e}', parent=self)
+            messagebox.showerror(UI_TEXT['m5'], UI_TEXT['b13'].format(p0=e), parent=self)
             return
         if not place_id or not game_instance_id:
-            messagebox.showwarning('Subplace Joiner', 'Could not detect the current Roblox server. Make sure you are inside a game, then try again.', parent=self)
+            messagebox.showwarning(UI_TEXT['m5'], UI_TEXT['c13'], parent=self)
             return
         link = f'roblox://experiences/start?placeId={place_id}&gameInstanceId={game_instance_id}'
         self._history_add(place_id, game_instance_id)
@@ -11033,9 +11965,9 @@ class App(_TkAppBase):
             self.clipboard_clear()
             self.clipboard_append(link)
             self.update_idletasks()
-            messagebox.showinfo('Subplace Joiner', "Current game's deeplink copied to clipboard.", parent=self)
+            messagebox.showinfo(UI_TEXT['m5'], UI_TEXT['d13'], parent=self)
         except Exception as e:
-            messagebox.showerror('Subplace Joiner', f'Could not copy deeplink:\n{e}', parent=self)
+            messagebox.showerror(UI_TEXT['m5'], UI_TEXT['e13'].format(p0=e), parent=self)
     def _subplace_join(self):
         sel = self.subplace_tree.selection()
         if not sel:
@@ -11043,26 +11975,26 @@ class App(_TkAppBase):
         pid = self.subplace_tree.item(sel[0], 'values')[0]
         try:
             os.startfile(f'roblox://placeId={pid}')
-            self._console_log(f'Joined subplace {pid}')
+            self._console_log(UI_TEXT['f13'].format(p0=pid))
         except Exception as e:
-            messagebox.showerror('Subplace Joiner', f'Could not launch Roblox:\n{e}', parent=self)
+            messagebox.showerror(UI_TEXT['m5'], UI_TEXT['g13'].format(p0=e), parent=self)
     def _build_server_viewer_tab(self):
         tab = ttk.Frame(self.nb, padding=12)
-        self.nb.add(tab, text='Server Viewer')
+        self.nb.add(tab, text=UI_TEXT['n5'])
         tab.columnconfigure(0, weight=1)
         tab.rowconfigure(2, weight=1)
         head = ttk.Frame(tab)
         head.grid(row=0, column=0, sticky='ew', pady=(0, 8))
-        ttk.Label(head, text='Server Viewer', font=('Segoe UI Semibold', 15)).pack(side='left')
-        self.server_viewer_status = ttk.Label(head, text='Paste a Roblox server deeplink', foreground='#9aa0a6')
+        ttk.Label(head, text=UI_TEXT['n5'], font=('Segoe UI Semibold', 15)).pack(side='left')
+        self.server_viewer_status = ttk.Label(head, text=UI_TEXT['h13'], foreground='#9aa0a6')
         self.server_viewer_status.pack(side='right')
         row = ttk.Frame(tab)
         row.grid(row=1, column=0, sticky='ew', pady=(0, 10))
         row.columnconfigure(0, weight=1)
         self.server_viewer_link = tk.StringVar()
         ttk.Entry(row, textvariable=self.server_viewer_link).grid(row=0, column=0, sticky='ew')
-        ttk.Button(row, text='View Server', command=self._server_viewer_load).grid(row=0, column=1, padx=(6, 0))
-        ttk.Button(row, text='Clear', command=self._server_viewer_clear).grid(row=0, column=2, padx=(6, 0))
+        ttk.Button(row, text=UI_TEXT['i13'], command=self._server_viewer_load).grid(row=0, column=1, padx=(6, 0))
+        ttk.Button(row, text=UI_TEXT['j6'], command=self._server_viewer_clear).grid(row=0, column=2, padx=(6, 0))
         body = ttk.PanedWindow(tab, orient='horizontal')
         body.grid(row=2, column=0, sticky='nsew')
         left = ttk.Frame(body)
@@ -11074,21 +12006,21 @@ class App(_TkAppBase):
         left.rowconfigure(1, weight=1)
         right.columnconfigure(0, weight=1)
         right.rowconfigure(1, weight=1)
-        info = ttk.LabelFrame(left, text='Server Information')
+        info = ttk.LabelFrame(left, text=UI_TEXT['j13'])
         info.grid(row=0, column=0, sticky='ew', pady=(0, 8))
         for i in range(2):
             info.columnconfigure(i, weight=1)
         self.server_viewer_vars = {}
-        fields = [('Place ID', 'place_id'), ('Job ID', 'job_id'), ('Players', 'players'), ('Max Capacity', 'max_players'), ('Ping', 'ping'), ('Server FPS', 'fps'), ('Location', 'location')]
+        fields = [(UI_TEXT['o28'], 'place_id'), (UI_TEXT['p28'], 'job_id'), (UI_TEXT['d31'], 'players'), (UI_TEXT['a30'], 'max_players'), (UI_TEXT['e31'], 'ping'), (UI_TEXT['b30'], 'fps'), ('Location', 'location')]
         for i, (label, key) in enumerate(fields):
             r, c = divmod(i, 2)
             ttk.Label(info, text=label, foreground='#9aa0a6').grid(row=r * 2, column=c, sticky='w', padx=8, pady=(6, 0))
             var = tk.StringVar(value='—')
             self.server_viewer_vars[key] = var
             ttk.Label(info, textvariable=var).grid(row=r * 2 + 1, column=c, sticky='w', padx=8, pady=(0, 6))
-        note = ttk.Label(left, text='\n', foreground='#9aa0a6', justify='left')
+        note = ttk.Label(left, text=UI_TEXT['k13'], foreground='#9aa0a6', justify='left')
         note.grid(row=1, column=0, sticky='nw', pady=(4, 0))
-        ttk.Label(right, text='', font=('Segoe UI Semibold', 10)).grid(row=0, column=0, sticky='w', pady=(0, 6))
+        ttk.Label(right, text=UI_TEXT['m1'], font=('Segoe UI Semibold', 10)).grid(row=0, column=0, sticky='w', pady=(0, 6))
         self.server_viewer_players = tk.Listbox(right, bg=_CURRENT_PALETTE['bg_medium'], fg=_CURRENT_PALETTE['fg'], relief='flat', bd=0, highlightthickness=0, selectbackground=_CURRENT_PALETTE['bg_light'])
         self.server_viewer_players.grid(row=1, column=0, sticky='nsew')
         _set_pane_minsize(body, left, 280)
@@ -11106,7 +12038,7 @@ class App(_TkAppBase):
     def _server_viewer_parse_deeplink(value):
         value = str(value or '').strip()
         if not value:
-            raise ValueError('Paste a Roblox deeplink first.')
+            raise ValueError(UI_TEXT['u28'])
         parsed = urlparse(value)
         query = parse_qs(parsed.query)
         place_id = None
@@ -11128,22 +12060,22 @@ class App(_TkAppBase):
             if m:
                 job_id = m.group(1)
         if not place_id or not job_id:
-            raise ValueError('The deeplink must contain both placeId and gameInstanceId/jobId.')
+            raise ValueError(UI_TEXT['v28'])
         return (str(place_id), str(job_id))
     def _server_viewer_clear(self):
         self.server_viewer_link.set('')
         for var in self.server_viewer_vars.values():
             var.set('—')
         self.server_viewer_players.delete(0, tk.END)
-        self.server_viewer_status.config(text='Paste a Roblox server deeplink', foreground='#9aa0a6')
+        self.server_viewer_status.config(text=UI_TEXT['h13'], foreground='#9aa0a6')
     def _server_viewer_load(self):
         try:
             place_id, job_id = self._server_viewer_parse_deeplink(self.server_viewer_link.get())
         except Exception as e:
-            messagebox.showerror('Server Viewer', str(e), parent=self)
+            messagebox.showerror(UI_TEXT['n5'], str(e), parent=self)
             return
-        self.server_viewer_status.config(text='Loading server...', foreground='#f2c94c')
-        self._console_log(f'Loading server deeplink: {self.server_viewer_link.get()}')
+        self.server_viewer_status.config(text=UI_TEXT['l13'], foreground='#f2c94c')
+        self._console_log(UI_TEXT['m13'].format(p0=self.server_viewer_link.get()))
         self.server_viewer_players.delete(0, tk.END)
         for var in self.server_viewer_vars.values():
             var.set('—')
@@ -11157,11 +12089,9 @@ class App(_TkAppBase):
                 pages += 1
                 params = 'sortOrder=Asc&excludeFullGames=false&limit=100'
                 if cursor:
-                    from urllib.parse import quote
                     params += '&cursor=' + quote(cursor, safe='')
                 url = f'https://games.roblox.com/v1/games/{place_id}/servers/Public?{params}'
-                req = urllib.request.Request(url, headers={'User-Agent': 'RoUtils/3.4'})
-                with _routils_urlopen(req, timeout=15) as r:
+                with _routils_request(url, timeout=15) as r:
                     data = json.loads(r.read().decode('utf-8', 'replace'))
                 for server in data.get('data', []):
                     if str(server.get('id', '')) == job_id:
@@ -11202,27 +12132,27 @@ class App(_TkAppBase):
                 self.server_viewer_players.insert(tk.END, f'Player {i}')
         else:
             self.server_viewer_players.insert(tk.END, '')
-        self.server_viewer_status.config(text='Server loaded', foreground='#65d98b')
+        self.server_viewer_status.config(text=UI_TEXT['n13'], foreground='#65d98b')
     def _server_viewer_error(self, message):
-        self.server_viewer_status.config(text='Failed to load server', foreground='#ff6b6b')
-        messagebox.showerror('Server Viewer', f'Could not load server:\n{message}', parent=self)
+        self.server_viewer_status.config(text=UI_TEXT['o13'], foreground='#ff6b6b')
+        messagebox.showerror(UI_TEXT['n5'], UI_TEXT['p13'].format(p0=message), parent=self)
     def _build_emote_manager_tab(self):
         tab = ttk.Frame(self.nb, padding=12)
-        self.nb.add(tab, text='Emote Manager')
+        self.nb.add(tab, text=UI_TEXT['i5'])
         tab.columnconfigure(0, weight=1)
         tab.rowconfigure(2, weight=1)
         head = ttk.Frame(tab)
         head.grid(row=0, column=0, sticky='ew', pady=(0, 8))
-        ttk.Label(head, text='Emote Manager', font=('Segoe UI Semibold', 15)).pack(side='left')
-        self.emote_status = ttk.Label(head, text='Waiting for Roblox...', foreground='#9aa0a6')
+        ttk.Label(head, text=UI_TEXT['i5'], font=('Segoe UI Semibold', 15)).pack(side='left')
+        self.emote_status = ttk.Label(head, text=UI_TEXT['q13'], foreground='#9aa0a6')
         self.emote_status.pack(side='right', padx=(8, 0))
         bar = ttk.Frame(tab)
         bar.grid(row=1, column=0, sticky='ew', pady=(0, 8))
-        ttk.Button(bar, text='Remove Bind', command=self._emote_remove_bind).pack(side='left', padx=(0, 6))
-        ttk.Button(bar, text='Add Bind', command=self._emote_add_bind).pack(side='left')
+        ttk.Button(bar, text=UI_TEXT['r13'], command=self._emote_remove_bind).pack(side='left', padx=(0, 6))
+        ttk.Button(bar, text=UI_TEXT['s13'], command=self._emote_add_bind).pack(side='left')
         self.emote_tree = ttk.Treeview(tab, columns=('hotkey', 'dance'), show='headings', selectmode='browse')
-        self.emote_tree.heading('hotkey', text='Hotkey')
-        self.emote_tree.heading('dance', text='Dance')
+        self.emote_tree.heading('hotkey', text=UI_TEXT['t13'])
+        self.emote_tree.heading('dance', text=UI_TEXT['u13'])
         self.emote_tree.column('hotkey', width=150, anchor='center', stretch=True)
         self.emote_tree.column('dance', width=300, anchor='w', stretch=True)
         self.emote_tree.grid(row=2, column=0, sticky='nsew')
@@ -11231,13 +12161,13 @@ class App(_TkAppBase):
         self.emote_tree.configure(yscrollcommand=scroll.set)
         bottom = ttk.Frame(tab)
         bottom.grid(row=3, column=0, sticky='ew', pady=(8, 0))
-        self.emote_action_status = ttk.Label(bottom, text='Last hotkey: none', foreground='#9aa0a6')
+        self.emote_action_status = ttk.Label(bottom, text=UI_TEXT['v13'], foreground='#9aa0a6')
         self.emote_action_status.pack(side='left', fill='x', expand=True)
-        self._emote_hotkeys_button = ttk.Button(bottom, text='Hotkeys: ON', command=self._toggle_emote_hotkeys)
+        self._emote_hotkeys_button = ttk.Button(bottom, text=UI_TEXT['w13'], command=self._toggle_emote_hotkeys)
         self._emote_hotkeys_button.pack(side='left', padx=(4, 4))
-        self._emote_controls_button = ttk.Button(bottom, text='Emote Controls', command=self._toggle_emote_controls)
+        self._emote_controls_button = ttk.Button(bottom, text=UI_TEXT['x13'], command=self._toggle_emote_controls)
         self._emote_controls_button.pack(side='left', padx=(4, 4))
-        ttk.Button(bottom, text='Save', command=self._emote_save_binds).pack(side='right')
+        ttk.Button(bottom, text=UI_TEXT['i6'], command=self._emote_save_binds).pack(side='right')
         self._emote_refresh_list()
         self._emote_update_control_button_states()
         self.after(100, self._emote_status_tick)
@@ -11257,7 +12187,7 @@ class App(_TkAppBase):
             return None
         selected = self.emote_tree.selection()
         if not selected:
-            messagebox.showinfo('Emote Manager', 'Select a dance from the list first.', parent=self)
+            messagebox.showinfo(UI_TEXT['i5'], UI_TEXT['y13'], parent=self)
             return None
         return self.emote_tree.item(selected[0], 'values')[1]
     def _emote_add_bind(self):
@@ -11276,8 +12206,8 @@ class App(_TkAppBase):
         dlg.transient(self)
         dlg.resizable(False, False)
         theme_toplevel(dlg)
-        ttk.Label(dlg, text=f'Press any key for {dance}', font=('Segoe UI Semibold', 11)).pack(padx=20, pady=(18, 8))
-        key_var = tk.StringVar(value='Waiting for key...')
+        ttk.Label(dlg, text=UI_TEXT['z13'].format(p0=dance), font=('Segoe UI Semibold', 11)).pack(padx=20, pady=(18, 8))
+        key_var = tk.StringVar(value=UI_TEXT['w28'])
         ttk.Label(dlg, textvariable=key_var).pack(padx=20, pady=(0, 18))
         captured = {'key': ''}
         def capture(event):
@@ -11306,11 +12236,11 @@ class App(_TkAppBase):
     def _emote_save_binds(self):
         used = {}
         all_bindings = [(dance, key) for dance, key in self.emote_binds.items()]
-        all_bindings.extend(({'previous': 'Previous emote', 'next': 'Next emote', 'play': 'Play current emote'}.get(action, action), key) for action, key in self._emote_nav_binds.items())
+        all_bindings.extend(({'previous': UI_TEXT['r30'], 'next': UI_TEXT['s30'], 'play': UI_TEXT['t30']}.get(action, action), key) for action, key in self._emote_nav_binds.items())
         for label, key in all_bindings:
             key = str(key or '').upper()
             if key and key in used:
-                messagebox.showerror('Emote Manager', f'{key} is already assigned to {used[key]}. Choose a different key.', parent=self)
+                messagebox.showerror(UI_TEXT['i5'], UI_TEXT['a14'].format(p0=key, p1=used[key]), parent=self)
                 return
             if key:
                 used[key] = label
@@ -11318,16 +12248,16 @@ class App(_TkAppBase):
         self.settings['emote_nav_binds'] = dict(self._emote_nav_binds)
         self._save_settings()
         if hasattr(self, 'emote_status'):
-            self.emote_status.config(text='Binds saved', foreground='#65d98b')
+            self.emote_status.config(text=UI_TEXT['b14'], foreground='#65d98b')
         self._emote_refresh_list()
     def _emote_update_control_button_states(self):
         try:
             enabled = bool(getattr(self, '_emote_hotkeys_enabled', True))
             if hasattr(self, '_emote_hotkeys_button') and self._emote_hotkeys_button.winfo_exists():
-                self._emote_hotkeys_button.configure(text=f'Hotkeys: {"ON" if enabled else "OFF"}')
+                self._emote_hotkeys_button.configure(text=UI_TEXT['c14'].format(p0="ON" if enabled else "OFF"))
             panel = getattr(self, '_emote_controls_window', None)
             if hasattr(self, '_emote_controls_button') and self._emote_controls_button.winfo_exists():
-                self._emote_controls_button.configure(text='Close Controls' if panel is not None and panel.winfo_exists() else 'Emote Controls')
+                self._emote_controls_button.configure(text=UI_TEXT['d14'] if panel is not None and panel.winfo_exists() else UI_TEXT['x13'])
         except Exception:
             pass
     def _set_emote_hotkeys_enabled(self, enabled, persist=True):
@@ -11339,7 +12269,7 @@ class App(_TkAppBase):
     def _toggle_emote_hotkeys(self):
         self._set_emote_hotkeys_enabled(not bool(getattr(self, '_emote_hotkeys_enabled', True)))
         enabled = bool(getattr(self, '_emote_hotkeys_enabled', True))
-        self._emote_set_action_status('Emote hotkeys are on.' if enabled else 'Emote hotkeys are off.', '#65d98b' if enabled else '#f2c94c')
+        self._emote_set_action_status(UI_TEXT['x28'] if enabled else UI_TEXT['y28'], '#65d98b' if enabled else '#f2c94c')
     def _emote_current_dance(self):
         names = list(getattr(self, 'emote_names', ['/e dance1']))
         if not names:
@@ -11357,13 +12287,13 @@ class App(_TkAppBase):
                 if not label.winfo_exists():
                     continue
                 if capture_action == action:
-                    label.configure(text='Choose a key...', fg='#88c7ff')
+                    label.configure(text=UI_TEXT['e14'], fg='#88c7ff')
                 elif action == 'previous':
-                    label.configure(text=f"<\n{self._emote_key_label(action)}", fg='#ffffff')
+                    label.configure(text=UI_TEXT['f14'].format(p0=self._emote_key_label(action)), fg='#ffffff')
                 elif action == 'next':
-                    label.configure(text=f">\n{self._emote_key_label(action)}", fg='#ffffff')
+                    label.configure(text=UI_TEXT['g14'].format(p0=self._emote_key_label(action)), fg='#ffffff')
                 elif action == 'play':
-                    label.configure(text=f"{dance}\n{self._emote_key_label(action)}", fg='#ffffff')
+                    label.configure(text=UI_TEXT['h14'].format(p0=dance, p1=self._emote_key_label(action)), fg='#ffffff')
             except Exception:
                 pass
         self._emote_update_control_button_states()
@@ -11461,18 +12391,18 @@ class App(_TkAppBase):
         topbar = tk.Frame(shell, bg=topbar_bg, height=17, bd=0, highlightthickness=0, relief='flat')
         topbar.pack(fill='x', side='top')
         topbar.pack_propagate(False)
-        title = tk.Label(topbar, text='Emote Manager - Hide: Ctrl + F3', bg=topbar_bg, fg=fg, font=('Segoe UI Semibold', 8), anchor='w', bd=0, highlightthickness=0)
+        title = tk.Label(topbar, text=UI_TEXT['i14'], bg=topbar_bg, fg=fg, font=('Segoe UI Semibold', 8), anchor='w', bd=0, highlightthickness=0)
         title.pack(side='left', fill='both', expand=True, padx=(7, 2))
-        close = tk.Label(topbar, text='×', bg=topbar_bg, fg='#ff7a82', font=('Segoe UI', 10), width=2, cursor='hand2', bd=0, highlightthickness=0)
+        close = tk.Label(topbar, text=UI_TEXT['e5'], bg=topbar_bg, fg='#ff7a82', font=('Segoe UI', 10), width=2, cursor='hand2', bd=0, highlightthickness=0)
         close.pack(side='right', fill='y')
         close.bind('<Button-1>', lambda _e: self._toggle_emote_controls())
         close.bind('<Enter>', lambda _e: close.configure(bg='#542a31'))
         close.bind('<Leave>', lambda _e: close.configure(bg=topbar_bg))
         row = tk.Frame(shell, bg=surface, bd=0, highlightthickness=0, relief='flat')
         row.pack(fill='both', expand=True, padx=2, pady=(2, 1))
-        previous = tk.Label(row, text='', bg=surface, fg=fg, font=('Segoe UI Semibold', 8), cursor='hand2', relief='flat', bd=0, highlightthickness=1, highlightbackground=border, highlightcolor=border, justify='center', wraplength=36, anchor='center')
-        current = tk.Label(row, text='', bg=surface, fg=fg, font=('Segoe UI Semibold', 8), cursor='hand2', relief='flat', bd=0, highlightthickness=1, highlightbackground=border, highlightcolor=border, justify='center', wraplength=78, anchor='center')
-        next_label = tk.Label(row, text='', bg=surface, fg=fg, font=('Segoe UI Semibold', 8), cursor='hand2', relief='flat', bd=0, highlightthickness=1, highlightbackground=border, highlightcolor=border, justify='center', wraplength=36, anchor='center')
+        previous = tk.Label(row, text=UI_TEXT['m1'], bg=surface, fg=fg, font=('Segoe UI Semibold', 8), cursor='hand2', relief='flat', bd=0, highlightthickness=1, highlightbackground=border, highlightcolor=border, justify='center', wraplength=36, anchor='center')
+        current = tk.Label(row, text=UI_TEXT['m1'], bg=surface, fg=fg, font=('Segoe UI Semibold', 8), cursor='hand2', relief='flat', bd=0, highlightthickness=1, highlightbackground=border, highlightcolor=border, justify='center', wraplength=78, anchor='center')
+        next_label = tk.Label(row, text=UI_TEXT['m1'], bg=surface, fg=fg, font=('Segoe UI Semibold', 8), cursor='hand2', relief='flat', bd=0, highlightthickness=1, highlightbackground=border, highlightcolor=border, justify='center', wraplength=36, anchor='center')
         previous.place(x=1, y=1, width=40, height=57)
         current.place(x=45, y=1, width=84, height=57)
         next_label.place(x=133, y=1, width=40, height=57)
@@ -11749,8 +12679,8 @@ class App(_TkAppBase):
         self.settings['emote_nav_binds'] = dict(self._emote_nav_binds)
         self._save_settings()
         self._emote_refresh_controls()
-        action_text = {'previous': 'Previous emote', 'next': 'Next emote', 'play': 'Play current emote'}.get(action, action)
-        self._emote_set_action_status(f'{action_text} key set to {key}.', '#65d98b')
+        action_text = {'previous': UI_TEXT['r30'], 'next': UI_TEXT['s30'], 'play': UI_TEXT['t30']}.get(action, action)
+        self._emote_set_action_status(f"{action_text}{UI_TEXT['c33']}{key}.", '#65d98b')
         return 'break'
     def _handle_emote_nav_hotkey(self, binding):
         action = str(binding.get('action', '')).lower()
@@ -11758,11 +12688,11 @@ class App(_TkAppBase):
         if action == 'previous':
             self._emote_current_index = (self._emote_current_index - 1) % len(self.emote_names)
             self._emote_refresh_controls()
-            self._emote_set_action_status(f"Current emote: {self._emote_current_dance()}", '#65d98b')
+            self._emote_set_action_status(f"{UI_TEXT['u30']}{self._emote_current_dance()}", '#65d98b')
         elif action == 'next':
             self._emote_current_index = (self._emote_current_index + 1) % len(self.emote_names)
             self._emote_refresh_controls()
-            self._emote_set_action_status(f"Current emote: {self._emote_current_dance()}", '#65d98b')
+            self._emote_set_action_status(f"{UI_TEXT['u30']}{self._emote_current_dance()}", '#65d98b')
         elif action == 'play':
             self._handle_emote_hotkey({'key': key, 'dance': self._emote_current_dance()})
     def _emote_status_tick(self):
@@ -11771,9 +12701,9 @@ class App(_TkAppBase):
         if hasattr(self, 'emote_status') and self.emote_status.winfo_exists():
             pid = self.fflag_pid if getattr(self, 'fflag_pid', 0) else _fflag_find_pid()
             if pid:
-                self.emote_status.config(text=f'Roblox attached  PID {pid}', foreground='#65d98b')
+                self.emote_status.config(text=UI_TEXT['j14'].format(p0=pid), foreground='#65d98b')
             else:
-                self.emote_status.config(text='Waiting for Roblox...', foreground='#9aa0a6')
+                self.emote_status.config(text=UI_TEXT['q13'], foreground='#9aa0a6')
         self.after(1000, self._emote_status_tick)
     def _emote_set_action_status(self, message, color='#9aa0a6'):
         try:
@@ -11790,14 +12720,14 @@ class App(_TkAppBase):
             if self._emote_typing_active:
                 return
             self._emote_typing_active = True
-        self._emote_set_action_status(f'Hotkey {key} → {dance}: starting...', '#f2c94c')
+        self._emote_set_action_status(f"{UI_TEXT['a33']}{key} → {dance}{UI_TEXT['b33']}", '#f2c94c')
         worker = threading.Thread(target=self._emote_type_command, args=(dance, key), daemon=True, name='RoUtilsEmote')
         try:
             worker.start()
         except Exception as e:
             with self._emote_typing_lock:
                 self._emote_typing_active = False
-            self._emote_set_action_status(f'Emote error: {e}', '#ff6b6b')
+            self._emote_set_action_status(f"{UI_TEXT['v30']}{e}", '#ff6b6b')
     def _emote_type_command(self, dance, key=''):
         user32 = None
         foreground = None
@@ -11813,7 +12743,7 @@ class App(_TkAppBase):
                 pass
         try:
             if sys.platform != 'win32':
-                status('Emote hotkeys require Windows.', '#ff6b6b')
+                status(UI_TEXT['v27'], '#ff6b6b')
                 return
             roblox_pid = self.fflag_pid or _fflag_find_pid()
             if not roblox_pid:
@@ -11955,7 +12885,7 @@ class App(_TkAppBase):
                 if modifiers & 0x06:
                     raise OSError(f'Unsupported keyboard modifier for character: {character!r}')
                 tap_vk(vk, bool(modifiers & 0x01))
-            status(f'{key} → {dance}: switching to English...', '#f2c94c')
+            status(f'{key} → {dance}: switching to English keyboard...', '#f2c94c')
             switch_layout(english_layout)
             layout_switched = True
             command_name = str(dance).strip()
@@ -11979,7 +12909,7 @@ class App(_TkAppBase):
             time.sleep(0.30)
             status(f'{key} → {dance}: command sent; restoring keyboard...', '#65d98b')
         except Exception as e:
-            status(f'Emote error: {e}', '#ff6b6b')
+            status(f"{UI_TEXT['v30']}{e}", '#ff6b6b')
         finally:
             if user32 is not None:
                 for vk in tuple(pressed_keys):
@@ -12016,17 +12946,17 @@ class App(_TkAppBase):
                 self._emote_typing_active = False
     def _build_fflag_tab(self):
         tab = ttk.Frame(self.nb, padding=12)
-        self.nb.insert(1, tab, text='FFlags')
+        self.nb.insert(1, tab, text=UI_TEXT['h5'])
         tab.columnconfigure(0, weight=1)
         tab.rowconfigure(2, weight=1)
         head = ttk.Frame(tab)
         head.grid(row=0, column=0, sticky='ew', pady=(0, 8))
-        ttk.Label(head, text='FFlags', font=('Segoe UI Semibold', 15)).pack(side='left')
-        self.fflag_status = ttk.Label(head, text='Waiting for Roblox...', foreground='#9aa0a6')
+        ttk.Label(head, text=UI_TEXT['h5'], font=('Segoe UI Semibold', 15)).pack(side='left')
+        self.fflag_status = ttk.Label(head, text=UI_TEXT['q13'], foreground='#9aa0a6')
         self.fflag_status.pack(side='right', padx=(8, 0))
         bar = ttk.Frame(tab)
         bar.grid(row=1, column=0, sticky='ew', pady=(0, 8))
-        buttons = [('+ Add', self._fflag_add_dialog), ('Remove', self._fflag_remove), ('Remove All', self._fflag_remove_all), ('Presets', self._fflag_presets_dialog), ('Import', self._fflag_import), ('Export', self._fflag_export), ('Hotkeys', self._fflag_hotkeys_dialog), ('JSON Editor', self._fflag_json_editor)]
+        buttons = [(UI_TEXT['q32'], self._fflag_add_dialog), (UI_TEXT['q6'], self._fflag_remove), (UI_TEXT['r32'], self._fflag_remove_all), ('Presets', self._fflag_presets_dialog), ('Import', self._fflag_import), ('Export', self._fflag_export), ('Hotkeys', self._fflag_hotkeys_dialog), ('JSON Editor', self._fflag_json_editor)]
         try:
             ttk.Style(self).configure('RoUtils.FFlag.Small.TButton', font=('Segoe UI', 8), padding=(4, 1))
         except Exception:
@@ -12052,17 +12982,17 @@ class App(_TkAppBase):
         frame.add(right, weight=1)
         search_row = ttk.Frame(left)
         search_row.grid(row=0, column=0, sticky='ew', pady=(0, 6))
-        ttk.Label(search_row, text='Search:').pack(side='left')
+        ttk.Label(search_row, text=UI_TEXT['k14']).pack(side='left')
         self.fflag_search = tk.StringVar()
         ent = ttk.Entry(search_row, textvariable=self.fflag_search)
         ent.pack(side='left', fill='x', expand=True, padx=6)
         self.fflag_search.trace_add('write', lambda *_: self._refresh_fflag_list())
         cols = ('name', 'type', 'value', 'remove')
         self.fflag_tree = ttk.Treeview(left, columns=cols, show='headings', selectmode='browse')
-        self.fflag_tree.heading('name', text='NAME')
-        self.fflag_tree.heading('type', text='TYPE')
-        self.fflag_tree.heading('value', text='VALUE')
-        self.fflag_tree.heading('remove', text='')
+        self.fflag_tree.heading('name', text=UI_TEXT['y12'])
+        self.fflag_tree.heading('type', text=UI_TEXT['l14'])
+        self.fflag_tree.heading('value', text=UI_TEXT['m14'])
+        self.fflag_tree.heading('remove', text=UI_TEXT['m1'])
         self.fflag_tree.column('name', width=280, anchor='w', stretch=True)
         self.fflag_tree.column('type', width=65, anchor='center', stretch=False)
         self.fflag_tree.column('value', width=130, anchor='w', stretch=True)
@@ -12077,21 +13007,21 @@ class App(_TkAppBase):
         self.fflag_side_notebook.grid(row=0, column=0, sticky='nsew')
         reference_tab = ttk.Frame(self.fflag_side_notebook, padding=8)
         saved_tab = ttk.Frame(self.fflag_side_notebook, padding=8)
-        self.fflag_side_notebook.add(reference_tab, text='Latest FFlags')
-        self.fflag_side_notebook.add(saved_tab, text='Saved JSONs')
+        self.fflag_side_notebook.add(reference_tab, text=UI_TEXT['n14'])
+        self.fflag_side_notebook.add(saved_tab, text=UI_TEXT['o14'])
         reference_tab.rowconfigure(1, weight=1)
         reference_tab.columnconfigure(0, weight=1)
         reference_head = ttk.Frame(reference_tab)
         reference_head.grid(row=0, column=0, sticky='ew', pady=(0, 6))
-        self.fflag_reference_status = ttk.Label(reference_head, text='Loading offsets…', foreground='#9aa0a6')
+        self.fflag_reference_status = ttk.Label(reference_head, text=UI_TEXT['p14'], foreground='#9aa0a6')
         self.fflag_reference_status.pack(side='right')
         self.fflag_reference_search = tk.StringVar()
         reference_search = ttk.Entry(reference_head, textvariable=self.fflag_reference_search)
         reference_search.pack(side='left', fill='x', expand=True, padx=(0, 8))
         self.fflag_reference_tree = ttk.Treeview(reference_tab, columns=('name', 'offset', 'value'), show='headings', selectmode='browse')
-        self.fflag_reference_tree.heading('name', text='FFLAG')
-        self.fflag_reference_tree.heading('offset', text='OFFSET')
-        self.fflag_reference_tree.heading('value', text='DEFAULT VALUE')
+        self.fflag_reference_tree.heading('name', text=UI_TEXT['q14'])
+        self.fflag_reference_tree.heading('offset', text=UI_TEXT['r14'])
+        self.fflag_reference_tree.heading('value', text=UI_TEXT['s14'])
         self.fflag_reference_tree.column('name', width=260, anchor='w', stretch=True)
         self.fflag_reference_tree.column('offset', width=105, anchor='w', stretch=False)
         self.fflag_reference_tree.column('value', width=100, anchor='w', stretch=True)
@@ -12109,7 +13039,7 @@ class App(_TkAppBase):
         self._fflag_reference_load_started = False
         saved_tab.rowconfigure(1, weight=1)
         saved_tab.columnconfigure(0, weight=1)
-        ttk.Label(saved_tab, text='Saved JSONs', font=('Segoe UI Semibold', 10)).grid(row=0, column=0, sticky='w', pady=(0, 6))
+        ttk.Label(saved_tab, text=UI_TEXT['o14'], font=('Segoe UI Semibold', 10)).grid(row=0, column=0, sticky='w', pady=(0, 6))
         self.json_tree = tk.Listbox(saved_tab, bg=_CURRENT_PALETTE['bg_medium'], fg=_CURRENT_PALETTE['fg'], relief='flat', bd=0, highlightthickness=0, selectbackground=_CURRENT_PALETTE['accent'], selectforeground='#ffffff')
         json_ybar = ttk.Scrollbar(saved_tab, orient='vertical', command=self.json_tree.yview)
         self.json_tree.configure(yscrollcommand=json_ybar.set)
@@ -12118,28 +13048,30 @@ class App(_TkAppBase):
         self.json_tree.bind('<Double-1>', lambda _e: self._apply_selected_json())
         json_buttons = ttk.Frame(saved_tab)
         json_buttons.grid(row=2, column=0, columnspan=2, sticky='ew', pady=(8, 0))
-        ttk.Button(json_buttons, text='Apply Selected', command=self._apply_selected_json).pack(side='left', fill='x', expand=True, padx=(0, 4))
-        ttk.Button(json_buttons, text='Refresh', command=self._refresh_json_list).pack(side='right')
+        ttk.Button(json_buttons, text=UI_TEXT['t14'], command=self._apply_selected_json).pack(side='left', fill='x', expand=True, padx=(0, 4))
+        ttk.Button(json_buttons, text=UI_TEXT['c12'], command=self._refresh_json_list).pack(side='right')
         self._refresh_json_list()
         bottom = ttk.Frame(tab)
         bottom.grid(row=3, column=0, sticky='ew', pady=(8, 0))
-        self.fflag_auto_apply_button = ttk.Button(bottom, text='Auto Apply: ON' if self.fflag_auto_apply.get() else 'Auto Apply: OFF', command=self._toggle_fflag_auto_apply)
+        self.fflag_auto_apply_button = ttk.Button(bottom, text=UI_TEXT['u14'] if self.fflag_auto_apply.get() else UI_TEXT['v14'], command=self._toggle_fflag_auto_apply)
         self.fflag_auto_apply_button.pack(side='right', padx=(5, 0))
-        ttk.Button(bottom, text='Apply to Roblox', command=self._fflag_apply).pack(side='right', padx=(5, 0))
-        ttk.Button(bottom, text='Save Flags', command=self._save_fflag_flags).pack(side='right')
-        ttk.Button(bottom, text='Refresh', command=self._fflag_refresh_process).pack(side='left')
+        ttk.Button(bottom, text=UI_TEXT['w14'], command=self._fflag_apply).pack(side='right', padx=(5, 0))
+        ttk.Button(bottom, text=UI_TEXT['x14'], command=self._save_fflag_flags).pack(side='right')
+        ttk.Button(bottom, text=UI_TEXT['c12'], command=self._fflag_refresh_process).pack(side='left')
         self._refresh_fflag_list()
         self.after(350, self._fflag_refresh_process)
         self._load_fflag_reference_panel()
     def _load_fflag_reference_panel(self, force=False):
-        if not hasattr(self, 'fflag_reference_tree'):
-            return
         if getattr(self, '_fflag_reference_load_started', False) and not force:
             return
         self._fflag_reference_load_started = True
         if force:
             self._fflag_reference_cache = None
-        self.fflag_reference_status.configure(text='Loading offsets…')
+        if hasattr(self, 'fflag_reference_status'):
+            try:
+                self.fflag_reference_status.configure(text=UI_TEXT['p14'])
+            except Exception:
+                pass
         def worker():
             try:
                 result = self._fetch_fflag_reference_data()
@@ -12151,10 +13083,10 @@ class App(_TkAppBase):
                 pass
         threading.Thread(target=worker, daemon=True, name='RoUtils-FFlagReference').start()
     def _fflag_reference_loaded(self, result):
-        if not hasattr(self, 'fflag_reference_tree'):
-            return
         if isinstance(result, dict) and result.get('offsets'):
             self._fflag_reference_cache = result
+        if not hasattr(self, 'fflag_reference_tree'):
+            return
         rows = result.get('rows', [])
         self._fflag_reference_rows = list(rows)
         if rows:
@@ -12167,9 +13099,9 @@ class App(_TkAppBase):
             self._refresh_fflag_reference_panel()
         else:
             errors = '; '.join(value for value in (result.get('offsets_error'), result.get('defaults_error')) if value)
-            self.fflag_reference_status.configure(text='Could not load flags')
+            self.fflag_reference_status.configure(text=UI_TEXT['y14'])
             if errors:
-                self._console_log(f'FFlag reference load failed: {errors}')
+                self._console_log(UI_TEXT['z14'].format(p0=errors))
     def _refresh_fflag_reference_panel(self):
         tree = getattr(self, 'fflag_reference_tree', None)
         if tree is None:
@@ -12193,7 +13125,7 @@ class App(_TkAppBase):
             pass
         needle = self.fflag_reference_search.get().strip().casefold()
         rows = [row for row in getattr(self, '_fflag_reference_rows', []) if not needle or any(needle in str(value).casefold() for value in row)]
-        self.fflag_reference_status.configure(text=f'{len(rows):,} flags')
+        self.fflag_reference_status.configure(text=UI_TEXT['a15'].format(p0=len(rows)))
         def insert_batch(start=0):
             if token != getattr(self, '_fflag_reference_render_token', None):
                 return
@@ -12277,21 +13209,21 @@ class App(_TkAppBase):
                     self.fflag_flags.pop(idx)
                     self._save_fflag_flags()
                     self._refresh_fflag_list()
-                    self._console_log('Removed FFlag')
+                    self._console_log(UI_TEXT['b15'])
                 return 'break'
         except Exception:
             pass
         return None
     def _fflag_add_dialog(self):
         dlg = tk.Toplevel(self)
-        dlg.title('Add FFlag')
+        dlg.title(UI_TEXT['y31'])
         dlg.transient(self)
         dlg.grab_set()
         theme_toplevel(dlg)
-        ttk.Label(dlg, text='FFlag name').grid(row=0, column=0, padx=10, pady=(10, 4), sticky='w')
+        ttk.Label(dlg, text=UI_TEXT['c15']).grid(row=0, column=0, padx=10, pady=(10, 4), sticky='w')
         name = ttk.Entry(dlg, width=48)
         name.grid(row=1, column=0, padx=10, sticky='ew')
-        ttk.Label(dlg, text='Value:').grid(row=2, column=0, padx=10, pady=(8, 4), sticky='w')
+        ttk.Label(dlg, text=UI_TEXT['d15']).grid(row=2, column=0, padx=10, pady=(8, 4), sticky='w')
         value = ttk.Entry(dlg, width=48)
         value.grid(row=3, column=0, padx=10, sticky='ew')
         def add():
@@ -12304,11 +13236,11 @@ class App(_TkAppBase):
             self._refresh_fflag_list()
             self._fflag_apply(silent=True)
             dlg.destroy()
-            self._console_log(f'Added FFlag {bare} = {v}')
+            self._console_log(UI_TEXT['e15'].format(p0=bare, p1=v))
         btns = ttk.Frame(dlg)
         btns.grid(row=4, column=0, pady=10)
-        ttk.Button(btns, text='Add Flag', command=add).pack(side='left', padx=4)
-        ttk.Button(btns, text='Cancel', command=dlg.destroy).pack(side='left', padx=4)
+        ttk.Button(btns, text=UI_TEXT['f15'], command=add).pack(side='left', padx=4)
+        ttk.Button(btns, text=UI_TEXT['b3'], command=dlg.destroy).pack(side='left', padx=4)
         dlg.columnconfigure(0, weight=1)
         name.focus_set()
     def _fflag_inline_edit(self, event):
@@ -12348,22 +13280,22 @@ class App(_TkAppBase):
         del self.fflag_flags[int(sel[0])]
         self._save_fflag_flags()
         self._refresh_fflag_list()
-        self._console_log(f'Removed FFlag {removed}')
+        self._console_log(UI_TEXT['g15'].format(p0=removed))
     def _fflag_remove_all(self):
-        if not self.fflag_flags or not messagebox.askyesno('FFlags', 'Remove all flags?', parent=self):
+        if not self.fflag_flags or not messagebox.askyesno(UI_TEXT['h5'], UI_TEXT['h15'], parent=self):
             return
         self.fflag_flags.clear()
         self._save_fflag_flags()
         self._refresh_fflag_list()
-        self._console_log('Removed all FFlags')
+        self._console_log(UI_TEXT['i15'])
     def _fflag_presets_dialog(self):
         dlg = tk.Toplevel(self)
         dlg.title('FFlag Presets')
         dlg.geometry('620x520')
         dlg.transient(self)
         theme_toplevel(dlg)
-        ttk.Label(dlg, text='FFlag Presets', font=('Segoe UI Semibold', 12)).pack(anchor='w', padx=12, pady=(10, 6))
-        ttk.Label(dlg, text='Select a preset, then choose whether to replace or add its FFlags to the current list.', foreground='#9aa0a6').pack(anchor='w', padx=12, pady=(0, 8))
+        ttk.Label(dlg, text=UI_TEXT['j15'], font=('Segoe UI Semibold', 12)).pack(anchor='w', padx=12, pady=(10, 6))
+        ttk.Label(dlg, text=UI_TEXT['k15'], foreground='#9aa0a6').pack(anchor='w', padx=12, pady=(0, 8))
         search = tk.StringVar()
         ttk.Entry(dlg, textvariable=search).pack(fill='x', padx=12, pady=(0, 8))
         body = ttk.Frame(dlg)
@@ -12380,8 +13312,7 @@ class App(_TkAppBase):
         state = {'files': []}
         def load_preset(url, filename, add_to_current=False):
             try:
-                req = urllib.request.Request(url, headers={'User-Agent': 'RoUtils'})
-                with _routils_urlopen(req, timeout=15) as r:
+                with _routils_request(url, timeout=15) as r:
                     data = json.loads(r.read().decode('utf-8'))
                 flags = _normalize_fflag_json(data)
                 if not flags:
@@ -12403,19 +13334,19 @@ class App(_TkAppBase):
                     self._refresh_fflag_list()
                     if self.fflag_pid and self.fflag_engine.handle and self.fflag_auto_apply.get():
                         self._fflag_apply(silent=True)
-                    messagebox.showinfo('FFlag Preset', f'Added {added} FFlags and updated {updated} existing FFlags from {filename}.', parent=dlg)
-                    self._console_log(f'Preset {filename}: added {added}, updated {updated} FFlags')
+                    messagebox.showinfo(UI_TEXT['l15'], UI_TEXT['m15'].format(p0=added, p1=updated, p2=filename), parent=dlg)
+                    self._console_log(UI_TEXT['n15'].format(p0=filename, p1=added, p2=updated))
                 else:
                     self.fflag_flags = flags
                     self._save_fflag_flags()
                     self._refresh_fflag_list()
                     if self.fflag_pid and self.fflag_engine.handle and self.fflag_auto_apply.get():
                         self._fflag_apply(silent=True)
-                    messagebox.showinfo('FFlag Preset', f'Applied {len(flags)} FFlags from {filename}.', parent=dlg)
-                    self._console_log(f'Applied FFlag preset {filename}: {len(flags)} flags')
+                    messagebox.showinfo(UI_TEXT['l15'], UI_TEXT['o15'].format(p0=len(flags), p1=filename), parent=dlg)
+                    self._console_log(UI_TEXT['p15'].format(p0=filename, p1=len(flags)))
                 dlg.destroy()
             except Exception as e:
-                messagebox.showerror('FFlag Preset', f'Failed to load {filename}:\n{e}', parent=dlg)
+                messagebox.showerror(UI_TEXT['l15'], UI_TEXT['q15'].format(p0=filename, p1=e), parent=dlg)
         def render(*_):
             for w in inner.winfo_children():
                 w.destroy()
@@ -12428,11 +13359,10 @@ class App(_TkAppBase):
                 row = ttk.Frame(inner)
                 row.pack(fill='x', pady=3)
                 ttk.Button(row, text=label, command=lambda u=item['download_url'], n=label: load_preset(u, n, False)).pack(side='left', fill='x', expand=True, padx=(0, 4))
-                ttk.Button(row, text='Add to Current FFlags', command=lambda u=item['download_url'], n=label: load_preset(u, n, True)).pack(side='right')
+                ttk.Button(row, text=UI_TEXT['r15'], command=lambda u=item['download_url'], n=label: load_preset(u, n, True)).pack(side='right')
         def worker():
             try:
-                req = urllib.request.Request(GITHUB_PRESETS_API, headers={'User-Agent': 'RoUtils'})
-                with _routils_urlopen(req, timeout=15) as r:
+                with _routils_request(GITHUB_PRESETS_API, timeout=15, headers={'Accept': 'application/vnd.github+json'}) as r:
                     items = json.loads(r.read().decode('utf-8'))
                 files = [x for x in items if x.get('type') == 'file' and str(x.get('name', '')).lower().endswith('.json')]
                 files.sort(key=lambda x: str(x.get('name', '')).lower())
@@ -12440,24 +13370,24 @@ class App(_TkAppBase):
                     state['files'] = files
                     render()
                     if not files:
-                        ttk.Label(inner, text='No JSON presets found.', foreground='#9aa0a6').pack(pady=20)
+                        ttk.Label(inner, text=UI_TEXT['s15'], foreground='#9aa0a6').pack(pady=20)
                 self.after(0, done)
             except Exception as e:
-                self.after(0, lambda: ttk.Label(inner, text=f'Could not load presets: {e}', foreground='#ff6b6b').pack(pady=20))
+                self.after(0, lambda: ttk.Label(inner, text=UI_TEXT['t15'].format(p0=e), foreground='#ff6b6b').pack(pady=20))
         search.trace_add('write', render)
-        ttk.Label(inner, text='Loading presets...', foreground='#9aa0a6').pack(pady=20)
+        ttk.Label(inner, text=UI_TEXT['u15'], foreground='#9aa0a6').pack(pady=20)
         threading.Thread(target=worker, daemon=True).start()
     def _show_fflag_reference_panel(self):
         if not hasattr(self, 'nb'):
             return
         for tab_id in self.nb.tabs():
             try:
-                if self.nb.tab(tab_id, 'text') == 'FFlags':
+                if self.nb.tab(tab_id, 'text') == UI_TEXT['h5']:
                     self.nb.select(tab_id)
                     self._lazy_tab_changed()
                     def select_reference():
                         try:
-                            fflag_tab = next((item for item in self.nb.tabs() if self.nb.tab(item, 'text') == 'FFlags'), None)
+                            fflag_tab = next((item for item in self.nb.tabs() if self.nb.tab(item, 'text') == UI_TEXT['h5']), None)
                             if fflag_tab is not None:
                                 self.nb.select(fflag_tab)
                             if hasattr(self, 'fflag_side_notebook') and self.fflag_side_notebook.winfo_exists():
@@ -12476,10 +13406,8 @@ class App(_TkAppBase):
         cached = getattr(self, '_fflag_reference_cache', None)
         if cached and time.time() - cached.get('time', 0) < 900 and len(cached.get('offsets', {})) >= 500:
             return cached
-        headers = {'User-Agent': f'RoUtils/{APP_VERSION}', 'Accept': 'application/json,text/plain,*/*'}
         def fetch(url):
-            request = urllib.request.Request(url, headers=headers)
-            with _routils_urlopen(request, timeout=20) as response:
+            with _routils_request(url, timeout=20, headers={'Accept': 'application/json,text/plain,*/*'}) as response:
                 return response.read().decode('utf-8', 'replace')
         def extract_block(text, namespace_name):
             match = re.search(r'\bnamespace\s+' + re.escape(namespace_name) + r'\s*\{', text)
@@ -12500,7 +13428,7 @@ class App(_TkAppBase):
             text = html.unescape(str(text or ''))
             text = re.sub(r'/\*.*?\*/', '', text, flags=re.S)
             text = re.sub(r'//[^\n]*', '', text)
-            block = extract_block(text, 'FFlags')
+            block = extract_block(text, UI_TEXT['h5'])
             if block is None:
                 block = extract_block(text, 'FFlagOffsets')
                 if block is not None:
@@ -12567,7 +13495,7 @@ class App(_TkAppBase):
             except Exception as exc:
                 source_errors.append(f'{url}: {exc}')
         if len(offsets) < 500:
-            offsets_error = '; '.join(source_errors) or 'No usable offset list was found.'
+            offsets_error = '; '.join(source_errors) or UI_TEXT['c30']
         rows = []
         for bare_name, offset in offsets.items():
             key = str(bare_name).casefold()
@@ -12596,11 +13524,11 @@ class App(_TkAppBase):
             self.clipboard_clear()
             self.clipboard_append(text)
             self.update_idletasks()
-            messagebox.showinfo('FFlags', 'Copied to clipboard.', parent=self)
+            messagebox.showinfo(UI_TEXT['h5'], UI_TEXT['v15'], parent=self)
         except Exception as exc:
-            self._console_log(f'FFlag copy failed: {exc}')
+            self._console_log(UI_TEXT['w15'].format(p0=exc))
     def _fflag_import(self):
-        path = filedialog.askopenfilename(parent=self, title='Import FFlags', filetypes=[('JSON files', '*.json'), ('All files', '*.*')])
+        path = filedialog.askopenfilename(parent=self, title=UI_TEXT['x15'], filetypes=[(UI_TEXT['y15'], '*.json'), (UI_TEXT['z7'], '*.*')])
         if not path:
             return
         try:
@@ -12625,22 +13553,22 @@ class App(_TkAppBase):
                         count += 1
             self._save_fflag_flags()
             self._refresh_fflag_list()
-            messagebox.showinfo('FFlags', f'Imported {count} flag(s).', parent=self)
-            self._console_log(f'Imported {count} FFlag(s) from {os.path.basename(path)}')
+            messagebox.showinfo(UI_TEXT['h5'], UI_TEXT['z15'].format(p0=count), parent=self)
+            self._console_log(UI_TEXT['a16'].format(p0=count, p1=os.path.basename(path)))
         except Exception as e:
-            messagebox.showerror('FFlags', f'Import failed:\n{e}', parent=self)
+            messagebox.showerror(UI_TEXT['h5'], UI_TEXT['b16'].format(p0=e), parent=self)
     def _fflag_export(self):
         if not self.fflag_flags:
             return
         data = {x['name']: x['value'] for x in self.fflag_flags}
         dialog = tk.Toplevel(self)
-        dialog.title('Export FFlags')
+        dialog.title(UI_TEXT['z31'])
         dialog.geometry('470x170')
         dialog.minsize(430, 150)
         dialog.transient(self)
         dialog.grab_set()
         theme_toplevel(dialog)
-        ttk.Label(dialog, text='Export name', font=('Segoe UI Semibold', 10)).pack(anchor='w', padx=14, pady=(14, 4))
+        ttk.Label(dialog, text=UI_TEXT['c16'], font=('Segoe UI Semibold', 10)).pack(anchor='w', padx=14, pady=(14, 4))
         name_var = tk.StringVar(value=f"fflags_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
         ttk.Entry(dialog, textvariable=name_var).pack(fill='x', padx=14, pady=(0, 12))
         buttons = ttk.Frame(dialog)
@@ -12664,16 +13592,16 @@ class App(_TkAppBase):
                 if in_file_saves:
                     self.replacer.source_var.set('FileSaves')
                     self.replacer.refresh_view(preserve_selection=True)
-                self._console_log(f'Exported {len(data)} FFlag(s) to {target_label}: {path}')
+                self._console_log(UI_TEXT['d16'].format(p0=len(data), p1=target_label, p2=path))
                 dialog.destroy()
             except Exception as e:
-                messagebox.showerror('FFlags', f'Export failed:\n{e}', parent=dialog)
-        ttk.Button(buttons, text='JSONs (FFlags Saves)', command=lambda: save_json(None, 'JSONs')).pack(side='left', expand=True, fill='x', padx=(0, 6))
+                messagebox.showerror(UI_TEXT['h5'], UI_TEXT['e16'].format(p0=e), parent=dialog)
+        ttk.Button(buttons, text=UI_TEXT['f16'], command=lambda: save_json(None, 'JSONs')).pack(side='left', expand=True, fill='x', padx=(0, 6))
         def choose_path():
-            path = filedialog.asksaveasfilename(parent=dialog, title='Choose FFlag export location', initialfile=name_var.get().strip() + '.json', defaultextension='.json', filetypes=[('JSON files', '*.json'), ('All files', '*.*')])
+            path = filedialog.asksaveasfilename(parent=dialog, title=UI_TEXT['g16'], initialfile=name_var.get().strip() + '.json', defaultextension='.json', filetypes=[(UI_TEXT['y15'], '*.json'), (UI_TEXT['z7'], '*.*')])
             if path:
                 save_json(path, 'chosen location')
-        ttk.Button(buttons, text='Choose...', command=choose_path).pack(side='left', expand=True, fill='x')
+        ttk.Button(buttons, text=UI_TEXT['h16'], command=choose_path).pack(side='left', expand=True, fill='x')
     def _fflag_refresh_process(self):
         pid = _fflag_find_pid()
         if pid and pid != self.fflag_pid:
@@ -12686,26 +13614,26 @@ class App(_TkAppBase):
                 if hasattr(self, 'roblox_path_var'):
                     self.roblox_path_var.set(exe_path)
             if self.fflag_engine.attach(pid):
-                self.fflag_status.config(text=f'Roblox attached  PID {pid}', foreground='#65d98b')
-                self._console_log(f'Roblox Detected: PID {pid}')
+                self.fflag_status.config(text=UI_TEXT['j14'].format(p0=pid), foreground='#65d98b')
+                self._console_log(UI_TEXT['i16'].format(p0=pid))
                 if hasattr(self, 'fps_pid_label'):
-                    self.fps_pid_label.config(text=f'PID: {pid} selected', foreground='#65d98b')
+                    self.fps_pid_label.config(text=UI_TEXT['j16'].format(p0=pid), foreground='#65d98b')
                 if self.fflag_auto_apply.get():
                     self.after(0, lambda: self._fflag_apply(silent=True))
             else:
-                self.fflag_status.config(text='Roblox found, attach failed', foreground='#ff6b6b')
-                self._console_log(f'Roblox Detected but attach failed: PID {pid}')
+                self.fflag_status.config(text=UI_TEXT['k16'], foreground='#ff6b6b')
+                self._console_log(UI_TEXT['l16'].format(p0=pid))
         elif not pid:
             had_pid = self.fflag_pid
             if had_pid:
                 self.fflag_engine.close()
             self.fflag_original_values.clear()
             self.fflag_pid = 0
-            self.fflag_status.config(text='Waiting for Roblox...', foreground='#9aa0a6')
+            self.fflag_status.config(text=UI_TEXT['q13'], foreground='#9aa0a6')
             if had_pid:
-                self._console_log('Roblox process closed; FFlag attachment removed')
+                self._console_log(UI_TEXT['m16'])
             if hasattr(self, 'fps_pid_label'):
-                self.fps_pid_label.config(text='PID: Waiting for Roblox...', foreground='#9aa0a6')
+                self.fps_pid_label.config(text=UI_TEXT['r12'], foreground='#9aa0a6')
         self.after(1000, self._fflag_refresh_process)
     def _fps_flag_value(self):
         fps = max(0, min(240, int(self.fps_limit.get())))
@@ -12738,10 +13666,8 @@ class App(_TkAppBase):
         self._sync_fps_flag_to_manager()
         if not self.fflag_pid or not self.fflag_engine.handle:
             return False
-        if not self.fflag_engine.get_singleton():
-            return False
         value = self._fps_flag_value()
-        return bool(self.fflag_engine.set_flag_with_prefixes('DFIntTaskSchedulerTargetFps', value))
+        return bool(self._fflag_write_offset('DFIntTaskSchedulerTargetFps', value, 'int'))
     def _apply_fps_after_slider(self):
         self._fps_release_job = None
         try:
@@ -12757,10 +13683,22 @@ class App(_TkAppBase):
         if not cache or not isinstance(cache.get('offsets'), dict):
             return False
         offsets = cache['offsets']
-        offset_value = offsets.get(name)
-        if offset_value is None:
-            target = name.casefold()
-            offset_value = next((v for k, v in offsets.items() if str(k).casefold() == target), None)
+        candidates = [str(name).strip()]
+        bare_name = fflag_strip_prefix(str(name).strip())
+        if bare_name and bare_name not in candidates:
+            candidates.append(bare_name)
+        for prefix in FFLAG_PREFIXES:
+            candidate = prefix + bare_name
+            if candidate not in candidates:
+                candidates.append(candidate)
+        offset_value = None
+        for candidate in candidates:
+            offset_value = offsets.get(candidate)
+            if offset_value is None:
+                target = candidate.casefold()
+                offset_value = next((v for k, v in offsets.items() if str(k).casefold() == target), None)
+            if offset_value is not None:
+                break
         if offset_value is None:
             return False
         try:
@@ -12796,26 +13734,22 @@ class App(_TkAppBase):
                 if key not in seen:
                     seen.add(key)
                     unique_names.append(name)
-            self._console_log('FFlag conflict: duplicate names detected: ' + ', '.join(unique_names))
+            self._console_log(UI_TEXT['n16'] + ', '.join(unique_names))
             if not silent:
-                messagebox.showerror('FFlags', 'FFlags conflict.', parent=self)
+                messagebox.showerror(UI_TEXT['h5'], UI_TEXT['o16'], parent=self)
             return
         if not self.fflag_pid or not self.fflag_engine.handle:
-            self._console_log('FFlag injection skipped: Roblox is not attached')
+            self._console_log(UI_TEXT['p16'])
             if not silent:
-                messagebox.showwarning('FFlags', 'Roblox is not attached.', parent=self)
+                messagebox.showwarning(UI_TEXT['h5'], UI_TEXT['q16'], parent=self)
             return
-        singleton = self.fflag_engine.get_singleton()
-        offset_mode = not bool(singleton)
-        offsets = {}
-        if offset_mode:
-            cache = getattr(self, '_fflag_reference_cache', None)
-            if not cache or not isinstance(cache.get('offsets'), dict) or len(cache.get('offsets', {})) < 1:
-                self._fflag_status_text('Loading offsets…', '#e6b450')
-                self._load_fflag_reference_panel(force=True)
-                self._console_log('Singleton was not found; offset data is being refreshed. Apply again after it loads.')
-                return
-            offsets = cache.get('offsets', {})
+        offset_mode = True
+        cache = getattr(self, '_fflag_reference_cache', None)
+        if not cache or not isinstance(cache.get('offsets'), dict) or len(cache.get('offsets', {})) < 1:
+            self._fflag_status_text('Loading offsets…', '#e6b450')
+            self._load_fflag_reference_panel(force=True)
+            self._console_log(UI_TEXT['r16'])
+            return
         ok = 0
         failed = 0
         for flag in self.fflag_flags:
@@ -12824,28 +13758,18 @@ class App(_TkAppBase):
                 continue
             value = str(flag.get('value', ''))
             value_type = str(flag.get('type') or fflag_infer_type(value))
-            success = False
-            if not offset_mode:
-                address = self.fflag_engine.get_flag_address_with_prefixes(name)
-                if address and address not in self.fflag_original_values:
-                    original = self.fflag_engine._read(address, 4)
-                    if original is not None:
-                        self.fflag_original_values[address] = original
-                success = self.fflag_engine.set_flag_with_prefixes(name, value)
-            else:
-                success = self._fflag_write_offset(name, value, value_type)
+            success = self._fflag_write_offset(name, value, value_type)
             if success:
                 ok += 1
             else:
                 failed += 1
-        if not offset_mode:
-            self._apply_fps_flag(silent=True)
-        method = 'Offsets' if offset_mode else 'Singleton'
+        self._apply_fps_flag(silent=True)
+        method = 'Offsets'
         color = '#65d98b' if ok else '#ff6b6b'
-        self.fflag_status.config(text=f'Applied {ok}/{len(self.fflag_flags)} via {method}', foreground=color)
-        self._console_log(f'FFlag {method} apply complete: {ok}/{len(self.fflag_flags)} flags applied, {failed} failed for PID {self.fflag_pid}')
+        self.fflag_status.config(text=UI_TEXT['s16'].format(p0=ok, p1=len(self.fflag_flags)), foreground=color)
+        self._console_log(UI_TEXT['t16'].format(p0=method, p1=ok, p2=len(self.fflag_flags), p3=failed, p4=self.fflag_pid))
         if not silent and not ok:
-            messagebox.showwarning('FFlags', f'No flags were applied using {method}. Check the current offsets and Roblox version.', parent=self)
+            messagebox.showwarning(UI_TEXT['h5'], UI_TEXT['u16'].format(p0=method), parent=self)
     def _fflag_status_text(self, text, color='#9aa0a6'):
         try:
             self.fflag_status.config(text=text, foreground=color)
@@ -12855,7 +13779,7 @@ class App(_TkAppBase):
         self.fflag_auto_apply.set(False)
         if not self.fflag_pid or not self.fflag_engine.handle:
             self.fflag_original_values.clear()
-            messagebox.showwarning('FFlags', 'Roblox is not attached.', parent=self)
+            messagebox.showwarning(UI_TEXT['h5'], UI_TEXT['q16'], parent=self)
             return
         restored = 0
         failed = 0
@@ -12871,16 +13795,16 @@ class App(_TkAppBase):
             except Exception:
                 failed += 1
         self.fflag_original_values.clear()
-        self.fflag_status.config(text=f'Unapplied {restored} flag(s)' + (f', {failed} failed' if failed else ''), foreground='#65d98b' if not failed else '#ff6b6b')
-        self._console_log(f'FFlag restore complete: {restored} restored, {failed} failed')
+        self.fflag_status.config(text=UI_TEXT['v16'].format(p0=restored) + (UI_TEXT['w16'].format(p0=failed) if failed else UI_TEXT['m1']), foreground='#65d98b' if not failed else '#ff6b6b')
+        self._console_log(UI_TEXT['x16'].format(p0=restored, p1=failed))
     def _toggle_fflag_auto_apply(self):
         enabled = not bool(self.fflag_auto_apply.get())
         self.fflag_auto_apply.set(enabled)
         self.settings['fflag_auto_apply'] = enabled
         self._save_settings()
         if hasattr(self, 'fflag_auto_apply_button'):
-            self.fflag_auto_apply_button.config(text='Auto Apply: ON' if enabled else 'Auto Apply: OFF')
-        self._fflag_status_text('Auto Apply enabled (every 60 seconds)' if enabled else 'Auto Apply disabled', '#65d98b' if enabled else '#9aa0a6')
+            self.fflag_auto_apply_button.config(text=UI_TEXT['u14'] if enabled else UI_TEXT['v14'])
+        self._fflag_status_text(UI_TEXT['z28'] if enabled else UI_TEXT['a29'], '#65d98b' if enabled else '#9aa0a6')
         if enabled and self.fflag_pid and self.fflag_engine.handle:
             threading.Thread(target=lambda: self.after(0, lambda: self._fflag_apply(silent=True)), name='RoUtilsFFlagAutoApply', daemon=True).start()
     def _fflag_auto_apply_tick(self):
@@ -12902,11 +13826,11 @@ class App(_TkAppBase):
         module_name = 'routils_plugin_' + re.sub('[^a-zA-Z0-9_]', '_', os.path.splitext(os.path.basename(path))[0]) + '_' + uuid.uuid4().hex[:8]
         spec = importlib.util.spec_from_file_location(module_name, path)
         if spec is None or spec.loader is None:
-            raise ValueError('Could not create a Python plugin loader.')
+            raise ValueError(UI_TEXT['b29'])
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         if not callable(getattr(module, 'register', None)):
-            raise ValueError('Python plugin must define register(app).')
+            raise ValueError(UI_TEXT['c29'])
         return module
     def _plugin_forget_tabs(self, name):
         tabs = list(self._plugin_tabs.pop(name, []) or [])
@@ -12978,7 +13902,7 @@ class App(_TkAppBase):
             self._plugin_cleanup.pop(name, None)
             self._plugin_enabled[name] = False
             self._save_settings()
-            messagebox.showerror('Plugin', f'Could not enable {name}:\n{exc}', parent=self)
+            messagebox.showerror(UI_TEXT['y16'], UI_TEXT['z16'].format(p0=name, p1=exc), parent=self)
     def _restore_enabled_plugins(self):
         if getattr(self, '_restoring_enabled_plugins', False):
             return
@@ -13006,40 +13930,46 @@ class App(_TkAppBase):
             txt.insert('1.0', text)
             txt.configure(state='disabled')
         except Exception as exc:
-            messagebox.showerror('Plugin', f'Could not open guide:\n{exc}', parent=self)
-    def _build_plugins_tab(self):
-        tab = ttk.Frame(self.nb, padding=14)
-        self.nb.add(tab, text='Plugins')
+            messagebox.showerror(UI_TEXT['y16'], UI_TEXT['a17'].format(p0=exc), parent=self)
+    def _build_plugins_tab(self, tab=None):
+        if tab is None:
+            tab = ttk.Frame(self.nb, padding=14)
+            self.nb.add(tab, text=UI_TEXT['s5'])
+        else:
+            for child in tab.winfo_children():
+                child.destroy()
+            tab.configure(padding=14)
+            self.nb.tab(tab, text=UI_TEXT['s5'])
         header = ttk.Frame(tab)
         header.pack(fill='x', pady=(0, 10))
-        ttk.Label(header, text='Plugins', font=('Segoe UI Semibold', 16)).pack(side='left')
-        ttk.Button(header, text='Import Python', command=self._import_plugin_file).pack(side='right')
-        ttk.Label(tab, text='(Only use trusted plugins cause Plugins has adminastor permissions.)', foreground='#9aa0a6', wraplength=950).pack(anchor='w', pady=(0, 10))
+        ttk.Label(header, text=UI_TEXT['s5'], font=('Segoe UI Semibold', 16)).pack(side='left')
+        ttk.Button(header, text=UI_TEXT['b17'], command=self._import_plugin_file).pack(side='right')
+        ttk.Label(tab, text=UI_TEXT['c17'], foreground='#9aa0a6', wraplength=950).pack(anchor='w', pady=(0, 10))
         body = ttk.Frame(tab)
         body.pack(fill='both', expand=True)
         files = self._plugin_files()
         if not files:
-            ttk.Label(body, text='No plugins installed yet.\nImport a .py plugin.', foreground='#9aa0a6', justify='center').pack(expand=True)
+            ttk.Label(body, text=UI_TEXT['d17'], foreground='#9aa0a6', justify='center').pack(expand=True)
             return
         for path in files:
             name = os.path.basename(path)
             card = ttk.LabelFrame(body, text=os.path.splitext(name)[0])
             card.pack(fill='x', pady=5)
             if path.lower().endswith('.txt'):
-                ttk.Label(card, text='Documentation / development guide', foreground='#9aa0a6').pack(anchor='w', padx=10, pady=7)
-                ttk.Button(card, text='Open Guide', command=lambda p=path: self._plugin_open_guide(p)).pack(anchor='w', padx=8, pady=(0, 8))
+                ttk.Label(card, text=UI_TEXT['e17'], foreground='#9aa0a6').pack(anchor='w', padx=10, pady=7)
+                ttk.Button(card, text=UI_TEXT['f17'], command=lambda p=path: self._plugin_open_guide(p)).pack(anchor='w', padx=8, pady=(0, 8))
             else:
                 module = self._plugin_modules.get(name)
-                desc = str(getattr(module, 'PLUGIN_DESCRIPTION', 'Python plugin') if module else 'Python plugin')
+                desc = str(getattr(module, 'PLUGIN_DESCRIPTION', UI_TEXT['i17']) if module else UI_TEXT['i17'])
                 ttk.Label(card, text=desc, foreground='#9aa0a6', wraplength=950).pack(anchor='w', padx=10, pady=7)
                 row = ttk.Frame(card)
                 row.pack(fill='x', padx=8, pady=(0, 8))
                 enabled = tk.BooleanVar(value=bool(self._plugin_enabled.get(name, False)))
-                ttk.Checkbutton(row, text='Enable', variable=enabled, command=lambda p=path, v=enabled: self._plugin_enable(p, v.get())).pack(side='left')
+                ttk.Checkbutton(row, text=UI_TEXT['g17'], variable=enabled, command=lambda p=path, v=enabled: self._plugin_enable(p, v.get())).pack(side='left')
                 if self._plugin_enabled.get(name, False) and name not in self._plugin_modules:
                     self._plugin_enable(path, True)
     def _import_plugin_file(self):
-        path = filedialog.askopenfilename(parent=self, title='Import RoUtils Python Plugin', filetypes=[('Python plugin', '*.py')])
+        path = filedialog.askopenfilename(parent=self, title=UI_TEXT['h17'], filetypes=[(UI_TEXT['i17'], '*.py')])
         if not path:
             return
         try:
@@ -13048,10 +13978,10 @@ class App(_TkAppBase):
                     compile(f.read(), path, 'exec')
             target = os.path.join(self.plugins_dir, os.path.basename(path))
             shutil.copy2(path, target)
-            self._reload_lazy_tab('Plugins')
-            messagebox.showinfo('Plugin', f'Imported {os.path.basename(path)}.\nEnable it from the Plugins tab to load Python code.', parent=self)
+            self._reload_lazy_tab(UI_TEXT['s5'])
+            messagebox.showinfo(UI_TEXT['y16'], UI_TEXT['j17'].format(p0=os.path.basename(path)), parent=self)
         except Exception as exc:
-            messagebox.showerror('Plugin', f'Could not import plugin:\n{exc}', parent=self)
+            messagebox.showerror(UI_TEXT['y16'], UI_TEXT['k17'].format(p0=exc), parent=self)
     def _reload_lazy_tab(self, tab_name):
         for tab_id in list(self.nb.tabs()):
             if str(self.nb.tab(tab_id, 'text')) == tab_name:
@@ -13064,7 +13994,7 @@ class App(_TkAppBase):
         self._lazy_tab_ids.pop(tab_name, None)
         self._recreate_special_tab(tab_name)
     def _recreate_special_tab(self, tab_name):
-        builder = {'Plugins': self._build_plugins_tab}.get(tab_name)
+        builder = {UI_TEXT['s5']: self._build_plugins_tab, UI_TEXT['t5']: self._build_release_notes_tab}.get(tab_name)
         if builder:
             builder()
             self._reorder_tabs()
@@ -13085,7 +14015,7 @@ class App(_TkAppBase):
         except Exception:
             pass
         tab_root = ttk.Frame(self.nb, padding=0, style='RoUtils.Settings.TFrame')
-        self.nb.add(tab_root, text='Settings')
+        self.nb.add(tab_root, text=UI_TEXT['r5'])
         shell = ttk.Frame(tab_root, style='RoUtils.Settings.TFrame')
         shell.pack(fill='both', expand=True)
         canvas = tk.Canvas(shell, bg=_CURRENT_PALETTE['bg_dark'], highlightthickness=0, bd=0)
@@ -13146,9 +14076,9 @@ class App(_TkAppBase):
             widget.bind('<B2-Motion>', middle_drag, add='+')
             widget.bind('<ButtonRelease-2>', middle_release, add='+')
         tab = inner
-        ttk.Label(tab, style='RoUtils.Settings.TLabel', text='Settings & Options', font=('Segoe UI Semibold', 12)).pack(anchor='w')
-        ttk.Label(tab, style='RoUtils.Settings.TLabel', text='General options.', foreground='#9aa0a6').pack(anchor='w', pady=(0, 10))
-        dpi_box = ttk.LabelFrame(tab, style='RoUtils.Settings.TLabelframe', text='Interface Scale')
+        ttk.Label(tab, style='RoUtils.Settings.TLabel', text=UI_TEXT['l17'], font=('Segoe UI Semibold', 12)).pack(anchor='w')
+        ttk.Label(tab, style='RoUtils.Settings.TLabel', text=UI_TEXT['m17'], foreground='#9aa0a6').pack(anchor='w', pady=(0, 10))
+        dpi_box = ttk.LabelFrame(tab, style='RoUtils.Settings.TLabelframe', text=UI_TEXT['n17'])
         dpi_box.pack(fill='x', pady=6)
         try:
             _saved_dpi = int(self.settings.get('dpi_percent', 100) or 100)
@@ -13158,68 +14088,68 @@ class App(_TkAppBase):
         self.dpi_percent = tk.IntVar(value=_saved_dpi)
         dpi_row = ttk.Frame(dpi_box)
         dpi_row.pack(fill='x', padx=8, pady=8)
-        ttk.Label(dpi_row, style='RoUtils.Settings.TLabel', text='DPI Scale').pack(side='left')
+        ttk.Label(dpi_row, style='RoUtils.Settings.TLabel', text=UI_TEXT['o17']).pack(side='left')
         dpi_combo = ttk.Combobox(dpi_row, textvariable=self.dpi_percent, state='readonly', width=8, values=(50, 60, 70, 75, 80, 90, 100, 110, 125, 150, 175, 200))
         dpi_combo.pack(side='left', padx=(12, 8))
-        ttk.Label(dpi_row, style='RoUtils.Settings.TLabel', text='Window size stays the same; only the interface scales.', foreground='#9aa0a6').pack(side='left')
-        ttk.Label(dpi_box, style='RoUtils.Settings.TLabel', text='You Should Restart it to Apply DPI Scale', foreground='#ffb84d').pack(anchor='w', padx=8, pady=(0, 8))
+        ttk.Label(dpi_row, style='RoUtils.Settings.TLabel', text=UI_TEXT['p17'], foreground='#9aa0a6').pack(side='left')
+        ttk.Label(dpi_box, style='RoUtils.Settings.TLabel', text=UI_TEXT['q17'], foreground='#ffb84d').pack(anchor='w', padx=8, pady=(0, 8))
         dpi_combo.bind('<<ComboboxSelected>>', lambda _e: self._save_dpi_setting_only())
-        box = ttk.LabelFrame(tab, style='RoUtils.Settings.TLabelframe', text='Cache Viewer')
+        box = ttk.LabelFrame(tab, style='RoUtils.Settings.TLabelframe', text=UI_TEXT['r17'])
         box.pack(fill='x', pady=6)
-        ttk.Checkbutton(box, style='RoUtils.Settings.TCheckbutton', text='Start watching for new assets on launch', variable=self.autostart_watch, command=self._save_settings).pack(anchor='w', padx=8, pady=2)
-        ttk.Checkbutton(box, style='RoUtils.Settings.TCheckbutton', text='Auto-scroll to newest row', variable=self.autoscroll, command=self._save_settings).pack(anchor='w', padx=8, pady=2)
-        ttk.Checkbutton(box, style='RoUtils.Settings.TCheckbutton', text='Hide ticket assets', variable=self.hide_tickets, command=self._apply_filter).pack(anchor='w', padx=8, pady=2)
-        ttk.Label(box, text='Show lines (wireframe) for the Preview', foreground='#c8c8c8').pack(anchor='w', padx=8, pady=(6, 0))
-        ttk.Checkbutton(box, style='RoUtils.Settings.TCheckbutton', text='Wireframe lines on', variable=self.show_lines, command=self._apply_show_lines).pack(anchor='w', padx=8, pady=2)
+        ttk.Checkbutton(box, style='RoUtils.Settings.TCheckbutton', text=UI_TEXT['s17'], variable=self.autostart_watch, command=self._save_settings).pack(anchor='w', padx=8, pady=2)
+        ttk.Checkbutton(box, style='RoUtils.Settings.TCheckbutton', text=UI_TEXT['t17'], variable=self.autoscroll, command=self._save_settings).pack(anchor='w', padx=8, pady=2)
+        ttk.Checkbutton(box, style='RoUtils.Settings.TCheckbutton', text=UI_TEXT['u17'], variable=self.hide_tickets, command=self._apply_filter).pack(anchor='w', padx=8, pady=2)
+        ttk.Label(box, text=UI_TEXT['v17'], foreground='#c8c8c8').pack(anchor='w', padx=8, pady=(6, 0))
+        ttk.Checkbutton(box, style='RoUtils.Settings.TCheckbutton', text=UI_TEXT['w17'], variable=self.show_lines, command=self._apply_show_lines).pack(anchor='w', padx=8, pady=2)
         self.mesh_preview_vertices = tk.BooleanVar(value=bool(self.settings.get('preview_optimize_vertices', True)))
-        ttk.Checkbutton(box, style='RoUtils.Settings.TCheckbutton', text='Optimize Mesh Preview Vertices (>500)', variable=self.mesh_preview_vertices, command=self._apply_mesh_preview_vertices_setting).pack(anchor='w', padx=8, pady=2)
-        startup = ttk.LabelFrame(tab, style='RoUtils.Settings.TLabelframe', text='Startup')
+        ttk.Checkbutton(box, style='RoUtils.Settings.TCheckbutton', text=UI_TEXT['x17'], variable=self.mesh_preview_vertices, command=self._apply_mesh_preview_vertices_setting).pack(anchor='w', padx=8, pady=2)
+        startup = ttk.LabelFrame(tab, style='RoUtils.Settings.TLabelframe', text=UI_TEXT['y17'])
         startup.pack(fill='x', pady=6)
-        ttk.Checkbutton(startup, style='RoUtils.Settings.TCheckbutton', text='Launch on Tray', variable=self.launch_on_tray, command=self._startup_setting_changed).pack(anchor='w', padx=8, pady=2)
-        ttk.Checkbutton(startup, style='RoUtils.Settings.TCheckbutton', text='Launch on Boot', variable=self.launch_on_startup, command=self._startup_setting_changed).pack(anchor='w', padx=8, pady=2)
-        ttk.Checkbutton(startup, style='RoUtils.Settings.TCheckbutton', text='Hide to Tray when Close (F7 to Hide/Show)', variable=self.hide_to_tray_on_close, command=self._startup_setting_changed).pack(anchor='w', padx=8, pady=2)
-        streamer = ttk.LabelFrame(tab, style='RoUtils.Settings.TLabelframe', text='Streamer Mode')
+        ttk.Checkbutton(startup, style='RoUtils.Settings.TCheckbutton', text=UI_TEXT['z17'], variable=self.launch_on_tray, command=self._startup_setting_changed).pack(anchor='w', padx=8, pady=2)
+        ttk.Checkbutton(startup, style='RoUtils.Settings.TCheckbutton', text=UI_TEXT['a18'], variable=self.launch_on_startup, command=self._startup_setting_changed).pack(anchor='w', padx=8, pady=2)
+        ttk.Checkbutton(startup, style='RoUtils.Settings.TCheckbutton', text=UI_TEXT['b18'], variable=self.hide_to_tray_on_close, command=self._startup_setting_changed).pack(anchor='w', padx=8, pady=2)
+        streamer = ttk.LabelFrame(tab, style='RoUtils.Settings.TLabelframe', text=UI_TEXT['c18'])
         streamer.pack(fill='x', pady=6)
-        ttk.Checkbutton(streamer, style='RoUtils.Settings.TCheckbutton', text='Hide RoUtils from screen sharing and recording', variable=self.streamer_mode, command=self._apply_streamer_mode).pack(anchor='w', padx=8, pady=4)
-        ttk.Label(streamer, text='RoUtils does not appear in screen shares. (Only you can see it.)', foreground='#9aa0a6').pack(anchor='w', padx=8, pady=(0, 6))
-        updates = ttk.LabelFrame(tab, style='RoUtils.Settings.TLabelframe', text='Updates')
+        ttk.Checkbutton(streamer, style='RoUtils.Settings.TCheckbutton', text=UI_TEXT['d18'], variable=self.streamer_mode, command=self._apply_streamer_mode).pack(anchor='w', padx=8, pady=4)
+        ttk.Label(streamer, text=UI_TEXT['e18'], foreground='#9aa0a6').pack(anchor='w', padx=8, pady=(0, 6))
+        updates = ttk.LabelFrame(tab, style='RoUtils.Settings.TLabelframe', text=UI_TEXT['f18'])
         updates.pack(fill='x', pady=6)
-        ttk.Checkbutton(updates, style='RoUtils.Settings.TCheckbutton', text='Auto Update', variable=self.auto_update, command=self._save_settings).pack(anchor='w', padx=8, pady=(6, 1))
-        ttk.Label(updates, text='Updates RoUtils on Background', foreground='#9aa0a6').pack(anchor='w', padx=8, pady=(0, 7))
-        gemini = ttk.LabelFrame(tab, style='RoUtils.Settings.TLabelframe', text='Gemini AI')
+        ttk.Checkbutton(updates, style='RoUtils.Settings.TCheckbutton', text=UI_TEXT['g18'], variable=self.auto_update, command=self._save_settings).pack(anchor='w', padx=8, pady=(6, 1))
+        ttk.Label(updates, text=UI_TEXT['h18'], foreground='#9aa0a6').pack(anchor='w', padx=8, pady=(0, 7))
+        gemini = ttk.LabelFrame(tab, style='RoUtils.Settings.TLabelframe', text=UI_TEXT['i18'])
         gemini.pack(fill='x', pady=6)
-        ttk.Label(gemini, text='Gemini API Key').grid(row=0, column=0, sticky='w', padx=8, pady=(8, 4))
+        ttk.Label(gemini, text=UI_TEXT['j18']).grid(row=0, column=0, sticky='w', padx=8, pady=(8, 4))
         key_entry = ttk.Entry(gemini, textvariable=self.gemini_api_key, show='•')
         key_entry.grid(row=1, column=0, columnspan=2, sticky='ew', padx=8, pady=(0, 8))
         gemini.columnconfigure(0, weight=1)
-        ttk.Button(gemini, text='Tutorial', command=lambda: _open_webview2_process('https://raw.githubusercontent.com/offp001/routils/refs/heads/main/src/API%20Key%20Tutorial.txt', 'Gemini API Key Tutorial')).grid(row=2, column=0, sticky='w', padx=8, pady=(0, 8))
-        ttk.Button(gemini, text='Add Key', command=self._save_gemini_api_key).grid(row=2, column=1, sticky='e', padx=8, pady=(0, 8))
-        db = ttk.LabelFrame(tab, style='RoUtils.Settings.TLabelframe', text='Database')
+        ttk.Button(gemini, text=UI_TEXT['k18'], command=lambda: _open_webview2_process('https://raw.githubusercontent.com/offp001/routils/refs/heads/main/src/API%20Key%20Tutorial.txt', 'Gemini API Key Tutorial')).grid(row=2, column=0, sticky='w', padx=8, pady=(0, 8))
+        ttk.Button(gemini, text=UI_TEXT['l18'], command=self._save_gemini_api_key).grid(row=2, column=1, sticky='e', padx=8, pady=(0, 8))
+        db = ttk.LabelFrame(tab, style='RoUtils.Settings.TLabelframe', text=UI_TEXT['m18'])
         db.pack(fill='x', pady=6)
-        ttk.Button(db, text='Choose DB File…', command=self._choose_db).pack(anchor='w', padx=8, pady=4)
-        ttk.Button(db, text='Choose Shard Root…', command=self._choose_shard_root).pack(anchor='w', padx=8, pady=4)
-        settings_box = ttk.LabelFrame(tab, style='RoUtils.Settings.TLabelframe', text='Config Backup')
+        ttk.Button(db, text=UI_TEXT['n18'], command=self._choose_db).pack(anchor='w', padx=8, pady=4)
+        ttk.Button(db, text=UI_TEXT['o18'], command=self._choose_shard_root).pack(anchor='w', padx=8, pady=4)
+        settings_box = ttk.LabelFrame(tab, style='RoUtils.Settings.TLabelframe', text=UI_TEXT['p18'])
         settings_box.pack(fill='x', pady=6)
         self.include_cconfigs = tk.BooleanVar(value=bool(self.settings.get('include_cconfigs', False)))
         self.include_cache_dumps = tk.BooleanVar(value=bool(self.settings.get('include_cache_dumps', False)))
         self.include_cconfigs.trace_add('write', lambda *_: self._save_settings())
         self.include_cache_dumps.trace_add('write', lambda *_: self._save_settings())
-        ttk.Checkbutton(settings_box, style='RoUtils.Settings.TCheckbutton', text='Include CConfigs', variable=self.include_cconfigs).pack(anchor='w', padx=8, pady=(7, 2))
-        ttk.Checkbutton(settings_box, style='RoUtils.Settings.TCheckbutton', text='Include Cache Dumps', variable=self.include_cache_dumps).pack(anchor='w', padx=8, pady=2)
+        ttk.Checkbutton(settings_box, style='RoUtils.Settings.TCheckbutton', text=UI_TEXT['q18'], variable=self.include_cconfigs).pack(anchor='w', padx=8, pady=(7, 2))
+        ttk.Checkbutton(settings_box, style='RoUtils.Settings.TCheckbutton', text=UI_TEXT['r18'], variable=self.include_cache_dumps).pack(anchor='w', padx=8, pady=2)
         backup_buttons = ttk.Frame(settings_box)
         backup_buttons.pack(fill='x', padx=8, pady=8)
-        ttk.Button(backup_buttons, text='Export Config…', command=self._export_settings).pack(side='left')
-        ttk.Button(backup_buttons, text='Import Config…', command=self._import_settings).pack(side='left', padx=(7, 0))
+        ttk.Button(backup_buttons, text=UI_TEXT['s18'], command=self._export_settings).pack(side='left')
+        ttk.Button(backup_buttons, text=UI_TEXT['t18'], command=self._import_settings).pack(side='left', padx=(7, 0))
     def _save_dpi_setting_only(self):
         try:
             percent = max(50, min(200, int(self.dpi_percent.get())))
             self.settings['dpi_percent'] = percent
             self._save_settings()
         except Exception as exc:
-            self._console_log(f'DPI setting error: {exc}')
+            self._console_log(UI_TEXT['u18'].format(p0=exc))
     def _export_settings(self):
         self._save_settings()
-        path = filedialog.asksaveasfilename(parent=self, title='Export RoUtils Config', defaultextension='.rconfig', filetypes=[('RoUtils Config', '*.rconfig'), ('ZIP archive', '*.zip'), ('JSON settings', '*.json')])
+        path = filedialog.asksaveasfilename(parent=self, title=UI_TEXT['v18'], defaultextension='.rconfig', filetypes=[(UI_TEXT['w18'], '*.rconfig'), (UI_TEXT['x18'], '*.zip'), (UI_TEXT['y18'], '*.json')])
         if not path:
             return
         try:
@@ -13244,12 +14174,12 @@ class App(_TkAppBase):
                             if (relative == 'Dump' or relative.startswith('Dump/')) and not include_dumps:
                                 continue
                             archive.write(full, relative)
-            self._console_log(f'Exported RoUtils config to {path}')
-            messagebox.showinfo('Config Backup', 'Config exported successfully.', parent=self)
+            self._console_log(UI_TEXT['z18'].format(p0=path))
+            messagebox.showinfo(UI_TEXT['p18'], UI_TEXT['a19'], parent=self)
         except Exception as exc:
-            messagebox.showerror('Config Backup', f'Could not export config:\n{exc}', parent=self)
+            messagebox.showerror(UI_TEXT['p18'], UI_TEXT['b19'].format(p0=exc), parent=self)
     def _import_settings(self):
-        path = filedialog.askopenfilename(parent=self, title='Import RoUtils Config', filetypes=[('RoUtils Config', '*.rconfig *.zip'), ('ZIP archive', '*.zip'), ('JSON settings', '*.json'), ('All files', '*.*')])
+        path = filedialog.askopenfilename(parent=self, title=UI_TEXT['c19'], filetypes=[(UI_TEXT['w18'], '*.rconfig *.zip'), (UI_TEXT['x18'], '*.zip'), (UI_TEXT['y18'], '*.json'), (UI_TEXT['z7'], '*.*')])
         if not path:
             return
         try:
@@ -13261,7 +14191,7 @@ class App(_TkAppBase):
                         raise ValueError('This archive does not contain RoUtils settings.')
                     data = json.loads(archive.read(settings_name).decode('utf-8'))
                     if not isinstance(data, dict):
-                        raise ValueError('Settings file must contain a JSON object.')
+                        raise ValueError(UI_TEXT['h32'])
                     self.settings.update(data)
                     for name in ('fflags.json', 'cconfigs/routils_fflags.json'):
                         if name in names:
@@ -13284,7 +14214,7 @@ class App(_TkAppBase):
                 with open(path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                 if not isinstance(data, dict):
-                    raise ValueError('Settings file must contain a JSON object.')
+                    raise ValueError(UI_TEXT['h32'])
                 self.settings.update(data)
             for name in ('autoscroll', 'hide_tickets', 'stay_on_top', 'show_lines', 'streamer_mode', 'autostart_watch', 'auto_update', 'launch_on_tray', 'launch_on_startup', 'hide_to_tray_on_close'):
                 var = getattr(self, name, None)
@@ -13302,10 +14232,10 @@ class App(_TkAppBase):
             if hasattr(self, 'fflag_tree'):
                 self._refresh_fflag_list()
             self._save_settings()
-            self._console_log(f'Imported RoUtils config from {path}')
-            messagebox.showinfo('Config Backup', 'Config imported successfully. Restart RoUtils to apply every saved setting.', parent=self)
+            self._console_log(UI_TEXT['d19'].format(p0=path))
+            messagebox.showinfo(UI_TEXT['p18'], UI_TEXT['e19'], parent=self)
         except Exception as exc:
-            messagebox.showerror('Config Backup', f'Could not import config:\n{exc}', parent=self)
+            messagebox.showerror(UI_TEXT['p18'], UI_TEXT['f19'].format(p0=exc), parent=self)
     def _console_log(self, message):
         if threading.get_ident() != getattr(self, '_ui_thread_id', threading.get_ident()):
             try:
@@ -13365,14 +14295,14 @@ class App(_TkAppBase):
             pass
     def _console_undo(self):
         if not self._console_undo_stack:
-            self._console_log('Nothing to undo.')
+            self._console_log(UI_TEXT['g19'])
             return
         kind, payload = self._console_undo_stack.pop()
         if kind == 'fflags':
             self.fflag_flags = payload
             self._save_fflag_flags()
             self._refresh_fflag_list()
-            self._console_log('Undid the last FFlag change.')
+            self._console_log(UI_TEXT['h19'])
         elif kind == 'cache':
             clean, blob = payload
             conn = connect_rw(self.db_path)
@@ -13381,13 +14311,13 @@ class App(_TkAppBase):
                 conn.commit()
             finally:
                 conn.close()
-            self._console_log(f'Restored cache {clean}.')
+            self._console_log(UI_TEXT['i19'].format(p0=clean))
         elif kind == 'config':
             path, data = payload
             with open(path, 'wb') as f:
                 f.write(data)
             self._cc_refresh_list()
-            self._console_log(f'Restored config {os.path.basename(path)}.')
+            self._console_log(UI_TEXT['j19'].format(p0=os.path.basename(path)))
     def _console_select_tab(self, name):
         for tab_id in self.nb.tabs():
             if self.nb.tab(tab_id, 'text') == name:
@@ -13401,7 +14331,7 @@ class App(_TkAppBase):
             text = f'{it.name} {it.hash} {it.kind} {it.src}'.lower()
             if not query or query in text:
                 rows.append(f'{it.name} | {it.hash} | {it.kind}')
-        self._console_log('Cache search:\n' + ('\n'.join(rows) if rows else '(no matches)'))
+        self._console_log(UI_TEXT['k19'] + ('\n'.join(rows) if rows else UI_TEXT['l19']))
     def _console_create_backup(self, name='backup'):
         safe = _sanitize_filename_for_windows(str(name).strip()) or 'backup'
         backup_dir = os.path.join(DATA_DIR, 'backups')
@@ -13419,11 +14349,11 @@ class App(_TkAppBase):
                         for filename in files:
                             source = os.path.join(current, filename)
                             archive.write(source, os.path.relpath(source, DATA_DIR))
-        self._console_log(f'Created backup: {path}')
+        self._console_log(UI_TEXT['m19'].format(p0=path))
     def _console_restore_backup(self, path):
         path = os.path.abspath(os.path.expandvars(os.path.expanduser(str(path))))
         if not os.path.isfile(path) or not path.lower().endswith('.zip'):
-            raise ValueError('Backup ZIP file was not found.')
+            raise ValueError(UI_TEXT['d29'])
         root = os.path.abspath(DATA_DIR)
         with zipfile.ZipFile(path, 'r') as archive:
             for member in archive.infolist():
@@ -13433,19 +14363,31 @@ class App(_TkAppBase):
             archive.extractall(root)
         if hasattr(self, 'replacer'):
             self.replacer.refresh_view(preserve_selection=True)
-        self._console_log(f'Restored backup: {path}')
+        self._console_log(UI_TEXT['n19'].format(p0=path))
     def _console_command(self, raw):
         raw = str(raw or '').strip()
         if not raw:
             return
-        self._console_log('$> ' + raw)
+        self._console_log(UI_TEXT['o19'] + raw)
+        if getattr(self, '_dump_caches_prompt_pending', False):
+            answer = raw.strip().lower()
+            if answer in ('y', 'yes'):
+                self._dump_caches_prompt_pending = False
+                self._start_dump_all_caches(True)
+            elif answer in ('n', 'no'):
+                self._dump_caches_prompt_pending = False
+                self._start_dump_all_caches(False)
+            else:
+                self._console_log(UI_TEXT['p19'])
+                self._console_log(UI_TEXT['q19'])
+            return
         try:
             args = shlex.split(raw, posix=False)
             args = [x[1:-1] if len(x) >= 2 and x[0] == x[-1] and (x[0] in '"\'') else x for x in args]
             command = args[0].lower()
             values = args[1:]
             if command == 'help':
-                self._console_log('Commands:\n  cache "blob file path" "hash"  Apply a blob file to Roblox.\n  cache delete "hash"  Delete one cache by hash.\n  cache list [filter]  List visible caches.\n  cache search [text]  Search loaded caches by name, hash or type.\n  fflag "name" "value"  Add and apply one FastFlag.\n  fflag delete "name"  Remove one FastFlag.\n  fflag clear  Remove all saved FastFlags.\n  fflag list  List saved FastFlags.\n  fflag apply  Inject all saved FastFlags into Roblox.\n  fflag unapply  Restore the original FastFlag values.\n  fflag defaults  Open Default FFlag Values.\n  fflag latest  Open Latest FFlag List.\n  undo  Undo the last reversible console change.\n  history  Show saved console history from console_history.json.\n  config "name/prefix"  Apply a saved CConfig.\n  config save "name"  Save the current Roblox database as a CConfig.\n  config list  List saved CConfigs.\n  config delete "name/prefix"  Delete one saved CConfig.\n  modif meshtoobj "mesh file path"  Convert that mesh file to OBJ.\n  modif "head" "replacement mesh path" ["RobloxPlayerBeta.exe path"]  Replace R6 body mesh (head, torso, left arm, right arm, left leg, right leg).\n  join "place id"  Open a Roblox subplace.\n  viewserver "deeplink"  Load a server deeplink.\n  information  Open the live Client information.\n  theme "theme name"  Apply a saved theme.\n  theme list  List available themes.\n  watch start|stop  Start or stop cache watching.\n  fps "number"  Set and apply the FPS limit.\n  export all  Dump all caches; progress is shown in Console.\n  dump-folder  Open the folder where dumped caches are saved.\n  backup create "name"  Back up settings and File/Hash Saves.\n  backup restore "zip path"  Restore a RoUtils backup ZIP.\n  ai  Open RoUtils AI.\n  open "tab name"  Open a RoUtils tab.\n  status  Show Roblox PID, watcher and database status.\n  clear  Clear the Console.')
+                self._console_log(UI_TEXT['r19'])
             elif command == 'cache' and len(values) >= 2 and (values[0].lower() not in ('delete', 'list', 'clear', 'search')):
                 self._console_apply_cache(values[0], values[1])
             elif command == 'cache' and values and (values[0].lower() == 'delete') and (len(values) >= 2):
@@ -13462,7 +14404,7 @@ class App(_TkAppBase):
                 self._save_fflag_flags()
                 self._refresh_fflag_list()
                 self._fflag_apply(silent=True)
-                self._console_log(f'Applied FFlag {name} = {value}')
+                self._console_log(UI_TEXT['s19'].format(p0=name, p1=value))
             elif command == 'fflag' and values and (values[0].lower() == 'delete') and (len(values) >= 2):
                 self._console_undo_stack.append(('fflags', json.loads(json.dumps(self.fflag_flags))))
                 self._console_delete_fflag(values[1])
@@ -13472,27 +14414,27 @@ class App(_TkAppBase):
                 self._save_fflag_flags()
                 self._refresh_fflag_list()
                 self._fflag_apply(silent=True)
-                self._console_log('Cleared all saved FFlags')
+                self._console_log(UI_TEXT['t19'])
             elif command == 'fflag' and values and (values[0].lower() == 'list'):
                 self._console_list_fflags()
             elif command == 'fflag' and values and (values[0].lower() == 'apply'):
                 self._fflag_apply(silent=True)
-                self._console_log('FFlag injection requested')
+                self._console_log(UI_TEXT['u19'])
             elif command == 'fflag' and values and (values[0].lower() == 'unapply'):
                 self._fflag_unapply()
-                self._console_log('FFlag values restored')
+                self._console_log(UI_TEXT['v19'])
             elif command == 'fflag' and values and (values[0].lower() in ('defaults', 'default')):
                 self._open_default_fflag_values()
-                self._console_log('Opened Default FFlag Values')
+                self._console_log(UI_TEXT['w19'])
             elif command == 'fflag' and values and (values[0].lower() in ('latest', 'latestlist')):
                 self._open_latest_fflag_list()
-                self._console_log('Opened Latest FFlag List')
+                self._console_log(UI_TEXT['x19'])
             elif command == 'config' and values:
                 if values[0].lower() == 'list':
                     self._console_list_configs()
                 elif values[0].lower() == 'save' and len(values) >= 2:
                     self._cc_save_named_config(' '.join(values[1:]))
-                    self._console_log(f"Saved current DB as config '{' '.join(values[1:])}'.")
+                    self._console_log(UI_TEXT['y19'].format(p0=' '.join(values[1:])))
                 elif values[0].lower() == 'delete' and len(values) >= 2:
                     self._console_delete_config(values[1])
                 else:
@@ -13503,35 +14445,35 @@ class App(_TkAppBase):
                 self._console_replace_mesh(values[0], values[1], values[2] if len(values) >= 3 else '')
             elif command == 'join' and values and str(values[0]).isdigit():
                 os.startfile(f'roblox://placeId={values[0]}')
-                self._console_log(f'Opened subplace {values[0]}')
+                self._console_log(UI_TEXT['z19'].format(p0=values[0]))
             elif command == 'viewserver' and values:
-                self._console_select_tab('Server Viewer')
+                self._console_select_tab(UI_TEXT['n5'])
                 self.after(100, lambda link=' '.join(values): (self.server_viewer_link.set(link), self._server_viewer_load()))
             elif command == 'information':
-                self._console_select_tab('Client')
+                self._console_select_tab(UI_TEXT['p5'])
                 self.after(150, self._client_refresh)
-                self._console_log('Opened Client information')
+                self._console_log(UI_TEXT['a20'])
             elif command == 'theme' and values:
                 if values[0].lower() == 'list':
-                    self._console_log('Themes: ' + ', '.join(THEME_NAMES))
+                    self._console_log(UI_TEXT['b20'] + ', '.join(THEME_NAMES))
                 else:
                     self._console_apply_theme(' '.join(values))
             elif command == 'watch' and values and (values[0].lower() in ('start', 'stop')):
                 if values[0].lower() == 'start':
                     if self._start_watching():
-                        self._console_log('Cache watching started')
+                        self._console_log(UI_TEXT['c20'])
                     else:
-                        self._console_log('Cache watching could not start: database file was not found.')
+                        self._console_log(UI_TEXT['d20'])
                 else:
                     self._stop_watching()
-                    self._console_log('Cache watching stopped')
+                    self._console_log(UI_TEXT['e20'])
             elif command == 'fps' and values:
                 fps = max(0, min(240, int(values[0])))
                 self.fps_limit.set(fps)
                 self._save_settings()
                 self._sync_fps_flag_to_manager()
                 self._apply_fps_flag(silent=True)
-                self._console_log(f"FPS limit set to {(fps if fps else 'uncapped')}")
+                self._console_log(UI_TEXT['f20'].format(p0=fps if fps else 'uncapped'))
             elif command == 'dump-folder':
                 dump_root = getattr(self, '_last_dump_folder', os.path.join(DATA_DIR, 'Dump'))
                 os.makedirs(dump_root, exist_ok=True)
@@ -13539,14 +14481,13 @@ class App(_TkAppBase):
                     if hasattr(os, 'startfile'):
                         os.startfile(dump_root)
                     else:
-                        import webbrowser
                         webbrowser.open('file://' + os.path.abspath(dump_root))
-                    self._console_log(f'Opened dump folder: {os.path.abspath(dump_root)}')
+                    self._console_log(UI_TEXT['g20'].format(p0=os.path.abspath(dump_root)))
                 except Exception as e:
                     raise RuntimeError(f'Could not open dump folder: {e}')
             elif command == 'export' and values and (values[0].lower() == 'all'):
                 self._dump_all_caches()
-                self._console_log('Started full cache dump; progress is shown in Console.')
+                self._console_log(UI_TEXT['h20'])
             elif command == 'backup' and values and (values[0].lower() == 'create'):
                 self._console_create_backup(' '.join(values[1:]) if len(values) > 1 else 'backup')
             elif command == 'backup' and values and (values[0].lower() == 'restore') and (len(values) >= 2):
@@ -13557,9 +14498,9 @@ class App(_TkAppBase):
                 tab_name = ' '.join(values)
                 if not self._console_select_tab(tab_name):
                     raise ValueError(f'Tab not found: {tab_name}')
-                self._console_log(f'Opened tab {tab_name}')
+                self._console_log(UI_TEXT['i20'].format(p0=tab_name))
             elif command == 'status':
-                self._console_log(f"Roblox PID: {self.fflag_pid or 'not attached'}\nCache watcher: {('running' if self.watching else 'stopped')}\nDatabase: {self.db_path}")
+                self._console_log(UI_TEXT['j20'].format(p0=self.fflag_pid or 'not attached', p1='running' if self.watching else 'stopped', p2=self.db_path))
             elif command == 'clear':
                 self._console_history = []
                 self._save_console_history()
@@ -13568,18 +14509,18 @@ class App(_TkAppBase):
                     self.console_text.delete('1.0', 'end')
                     self.console_text.configure(state='disabled')
             elif command == 'history':
-                self._console_log('Saved history:\n' + ('\n'.join(self._console_history) if self._console_history else '(empty)'))
+                self._console_log(UI_TEXT['k20'] + ('\n'.join(self._console_history) if self._console_history else UI_TEXT['l20']))
             elif command == 'undo':
                 self._console_undo()
             else:
-                self._console_log('Invalid command or arguments. Type help for English command descriptions.')
+                self._console_log(UI_TEXT['m20'])
         except Exception as e:
-            self._console_log('Error: ' + str(e))
+            self._console_log(UI_TEXT['n20'] + str(e))
     def _console_apply_cache(self, path, hash_value):
         path = os.path.abspath(os.path.expandvars(os.path.expanduser(path)))
         clean = re.sub('[^0-9A-Fa-f]', '', str(hash_value))
         if not os.path.isfile(path) or not clean or len(clean) % 2:
-            raise ValueError('Cache file or hash is invalid.')
+            raise ValueError(UI_TEXT['e29'])
         with open(path, 'rb') as f:
             blob = f.read()
         id_b = bytes.fromhex(clean)
@@ -13592,11 +14533,11 @@ class App(_TkAppBase):
             conn.commit()
         finally:
             conn.close()
-        self._console_log(f'Applied cache {clean} from {path}')
+        self._console_log(UI_TEXT['o20'].format(p0=clean, p1=path))
     def _console_delete_cache(self, hash_value):
         clean = re.sub('[^0-9A-Fa-f]', '', str(hash_value)).lower()
         if not clean or len(clean) % 2:
-            raise ValueError('Cache hash is invalid.')
+            raise ValueError(UI_TEXT['f29'])
         id_b = bytes.fromhex(clean)
         old_blob = None
         conn = connect_rw(self.db_path)
@@ -13629,7 +14570,7 @@ class App(_TkAppBase):
             self._update_status()
         if deleted and old_blob is not None:
             self._console_undo_stack.append(('cache', (clean, old_blob)))
-        self._console_log(f'Deleted cache {clean}' if deleted else f'Cache not found: {clean}')
+        self._console_log(UI_TEXT['p20'].format(p0=clean) if deleted else UI_TEXT['q20'].format(p0=clean))
     def _console_list_caches(self, query=''):
         query = str(query or '').lower()
         rows = []
@@ -13637,37 +14578,37 @@ class App(_TkAppBase):
             text = f'{item.hash} {item.name} {item.kind}'.lower()
             if not query or query in text:
                 rows.append(f"{item.hash} | {item.name or '(unnamed)'} | {item.kind}")
-        self._console_log('Caches:\n' + ('\n'.join(rows) if rows else '(none loaded)'))
+        self._console_log(UI_TEXT['r20'] + ('\n'.join(rows) if rows else UI_TEXT['s20']))
     def _console_delete_fflag(self, query):
         query = fflag_strip_prefix(str(query)).lower()
         matches = [x for x in self.fflag_flags if fflag_strip_prefix(x.get('name', '')).lower() == query]
         if len(matches) != 1:
-            raise ValueError('FFlag was not found or is ambiguous.')
+            raise ValueError(UI_TEXT['g29'])
         self.fflag_flags = [x for x in self.fflag_flags if fflag_strip_prefix(x.get('name', '')).lower() != query]
         self._save_fflag_flags()
         self._refresh_fflag_list()
         self._fflag_apply(silent=True)
-        self._console_log(f'Deleted FFlag {query}')
+        self._console_log(UI_TEXT['t20'].format(p0=query))
     def _console_list_fflags(self):
         rows = [f"{x.get('name', '')} = {x.get('value', '')}" for x in self.fflag_flags]
-        self._console_log('FFlags:\n' + ('\n'.join(rows) if rows else '(none)'))
+        self._console_log(UI_TEXT['u20'] + ('\n'.join(rows) if rows else UI_TEXT['v20']))
     def _console_list_configs(self):
         configs = self._cc_scan_packages()
         rows = [f"{x.get('name', '')} | {x.get('_file', '')}" for x in configs]
-        self._console_log('Configs:\n' + ('\n'.join(rows) if rows else '(none)'))
+        self._console_log(UI_TEXT['w20'] + ('\n'.join(rows) if rows else UI_TEXT['v20']))
     def _console_delete_config(self, query):
         q = str(query).lower()
         matches = [x for x in self._cc_scan_packages() if str(x.get('name', '')).lower().startswith(q)]
         if len(matches) != 1:
-            raise ValueError('Config was not found or the prefix is ambiguous.')
+            raise ValueError(UI_TEXT['h29'])
         path = matches[0]['_path']
         with open(path, 'rb') as f:
             self._console_undo_stack.append(('config', (path, f.read())))
         os.remove(path)
         self._cc_refresh_list()
-        self._console_log(f"Deleted config {matches[0].get('name', '')}")
+        self._console_log(UI_TEXT['x20'].format(p0=matches[0].get('name', '')))
     def _console_apply_config(self, query):
-        self._console_select_tab('Configs')
+        self._console_select_tab(UI_TEXT['l5'])
         def apply():
             candidates = self._cc_scan_packages()
             q = str(query).lower()
@@ -13679,13 +14620,13 @@ class App(_TkAppBase):
             wanted = os.path.abspath(matches[0]['_path'])
             self._cc_refresh_list(select_path=wanted)
             self._cc_apply_db()
-            self._console_log(f"Applying config {matches[0].get('name', '')}")
+            self._console_log(UI_TEXT['y20'].format(p0=matches[0].get('name', '')))
         self.after(150, lambda: self._console_safe_call(apply))
     def _console_safe_call(self, fn):
         try:
             fn()
         except Exception as e:
-            self._console_log('Error: ' + str(e))
+            self._console_log(UI_TEXT['n20'] + str(e))
     def _console_mesh_to_obj(self, path):
         path = os.path.abspath(os.path.expandvars(os.path.expanduser(path)))
         if not os.path.isfile(path):
@@ -13694,7 +14635,7 @@ class App(_TkAppBase):
         with open(path, 'rb') as f:
             data = f.read()
         convert(data, out)
-        self._console_log(f'Converted mesh to {out}')
+        self._console_log(UI_TEXT['z20'].format(p0=out))
     def _console_replace_mesh(self, mesh_name, replacement, roblox_path=''):
         mesh_aliases = {'head': 'Head.mesh', 'torso': 'Torso.mesh', 'left arm': 'Left Arm.mesh', 'right arm': 'Right Arm.mesh', 'left leg': 'Left Leg.mesh', 'right leg': 'Right Leg.mesh'}
         mesh_name = mesh_aliases.get(str(mesh_name).strip().lower(), str(mesh_name).strip())
@@ -13707,44 +14648,349 @@ class App(_TkAppBase):
             self.roblox_path_var.set(os.path.abspath(os.path.expandvars(os.path.expanduser(roblox_path))))
         target = self._default_mesh_path(mesh_name)
         if not target:
-            raise ValueError('Choose RobloxPlayerBeta.exe first or pass its path.')
+            raise ValueError(UI_TEXT['i29'])
         os.makedirs(os.path.dirname(target), exist_ok=True)
         shutil.copy2(source, target)
-        self._console_log(f'Replaced {mesh_name}')
+        self._console_log(UI_TEXT['a21'].format(p0=mesh_name))
     def _console_apply_theme(self, query):
         names = [x for x in THEME_NAMES if x.lower() == str(query).lower() or x.lower().startswith(str(query).lower())]
         if len(names) != 1:
-            raise ValueError('Theme not found or prefix is ambiguous.')
-        self._console_select_tab('Customize')
+            raise ValueError(UI_TEXT['j29'])
+        self._console_select_tab(UI_TEXT['q5'])
         def apply():
             self.theme_var.set(names[0])
             self._apply_theme()
-            self._console_log(f'Applied theme {names[0]}')
+            self._console_log(UI_TEXT['b21'].format(p0=names[0]))
         self.after(150, lambda: self._console_safe_call(apply))
+    def _build_release_notes_tab(self, tab=None):
+        if tab is None:
+            tab = ttk.Frame(self.nb, padding=0)
+            self.nb.add(tab, text=UI_TEXT['t5'])
+        else:
+            for child in tab.winfo_children():
+                child.destroy()
+            tab.configure(padding=0)
+            self.nb.tab(tab, text=UI_TEXT['t5'])
+        self.release_notes_tab = tab
+        self._release_notes_loading = False
+        self._release_notes_image_refs = []
+        palette = _CURRENT_PALETTE
+        bg = palette.get('bg_dark', '#111318')
+        card_bg = palette.get('bg_medium', '#1a1d24')
+        fg = palette.get('fg', '#e6e9ef')
+        accent = palette.get('accent', '#8ab4f8')
+        border = palette.get('border', '#3b4351')
+        hero = tk.Frame(tab, bg=card_bg, highlightthickness=1, highlightbackground=border, bd=0)
+        hero.pack(fill='x', padx=12, pady=(12, 8))
+        accent_bar = tk.Frame(hero, bg=accent, width=5)
+        accent_bar.pack(side='left', fill='y')
+        hero_content = tk.Frame(hero, bg=card_bg)
+        hero_content.pack(side='left', fill='both', expand=True, padx=18, pady=15)
+        top_line = tk.Frame(hero_content, bg=card_bg)
+        top_line.pack(fill='x')
+        title_block = tk.Frame(top_line, bg=card_bg)
+        title_block.pack(side='left', fill='x', expand=True)
+        tk.Label(title_block, text=UI_TEXT['c21'], bg=card_bg, fg=accent, font=('Segoe UI Semibold', 9), anchor='w').pack(anchor='w')
+        tk.Label(title_block, text=UI_TEXT['d21'], bg=card_bg, fg=fg, font=('Segoe UI Semibold', 21), anchor='w').pack(anchor='w', pady=(2, 0))
+        button_box = tk.Frame(top_line, bg=card_bg)
+        button_box.pack(side='right', anchor='n', padx=(12, 0))
+        self.release_notes_refresh_button = ttk.Button(button_box, text=UI_TEXT['c12'], command=lambda: self._refresh_release_notes(force=True))
+        self.release_notes_refresh_button.pack(side='left', padx=(0, 6))
+        ttk.Button(button_box, text=UI_TEXT['e21'], command=lambda: webbrowser.open(RELEASES_URL)).pack(side='left')
+        status_row = tk.Frame(tab, bg=bg)
+        status_row.pack(fill='x', padx=17, pady=(0, 5))
+        self.release_notes_status = tk.Label(status_row, text=UI_TEXT['f21'], bg=bg, fg='#9aa8bd', font=('Segoe UI', 9), anchor='w')
+        self.release_notes_status.pack(side='left', fill='x', expand=True)
+        self.release_notes_scroll = _ScrollableTab(tab, padding=12)
+        self.release_notes_scroll.pack(fill='both', expand=True, padx=8, pady=(0, 8))
+        self.release_notes_content = self.release_notes_scroll.inner
+        self.release_notes_content.columnconfigure(0, weight=1)
+        self.after_idle(lambda: self._refresh_release_notes(force=True))
+    def _refresh_release_notes(self, force=False):
+        if not hasattr(self, 'release_notes_tab') or not self.release_notes_tab.winfo_exists():
+            return
+        if getattr(self, '_release_notes_loading', False):
+            return
+        self._release_notes_loading = True
+        self.release_notes_status.configure(text=UI_TEXT['g21'], fg='#f2c94c')
+        self.release_notes_refresh_button.configure(state='disabled')
+        def worker():
+            try:
+                with _routils_request(RELEASES_API_URL, timeout=18, headers={'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28'}) as response:
+                    payload = response.read(5 * 1024 * 1024 + 1)
+                if len(payload) > 5 * 1024 * 1024:
+                    raise ValueError('GitHub release response exceeded the size limit.')
+                releases = json.loads(payload.decode('utf-8', 'replace'))
+                if not isinstance(releases, list):
+                    raise ValueError('GitHub returned an unexpected release response.')
+                self.after(0, lambda data=releases: self._render_release_notes(data))
+            except Exception as exc:
+                message = str(exc)
+                self.after(0, lambda error=message: self._release_notes_failed(error))
+        threading.Thread(target=worker, daemon=True, name='RoUtils-ReleaseNotes').start()
+    def _release_notes_failed(self, error):
+        self._release_notes_loading = False
+        try:
+            self.release_notes_refresh_button.configure(state='normal')
+            self.release_notes_status.configure(text=UI_TEXT['h21'], fg='#ff8a80')
+            if not self.release_notes_content.winfo_children():
+                panel = tk.Frame(self.release_notes_content, bg=_CURRENT_PALETTE.get('bg_medium', '#1a1d24'), highlightthickness=1, highlightbackground=_CURRENT_PALETTE.get('border', '#3b4351'))
+                panel.grid(row=0, column=0, sticky='ew', pady=5)
+                tk.Label(panel, text=UI_TEXT['i21'], bg=_CURRENT_PALETTE.get('bg_medium', '#1a1d24'), fg=_CURRENT_PALETTE.get('fg', '#e6e9ef'), font=('Segoe UI Semibold', 12)).pack(anchor='w', padx=16, pady=(14, 4))
+                tk.Label(panel, text=error, bg=_CURRENT_PALETTE.get('bg_medium', '#1a1d24'), fg='#ff8a80', justify='left', wraplength=900).pack(anchor='w', padx=16, pady=(0, 12))
+                ttk.Button(panel, text=UI_TEXT['j21'], command=lambda: webbrowser.open(RELEASES_URL)).pack(anchor='w', padx=16, pady=(0, 14))
+        except Exception:
+            pass
+    def _release_notes_extract_images(self, body):
+        image_urls = []
+        markdown_image = re.compile(r'!\[([^\]]*)\]\((https?://[^\s)]+)(?:\s+[^)]*)?\)', re.IGNORECASE)
+        html_image = re.compile(r'<img\b[^>]*?\bsrc\s*=\s*["\']([^"\']+)["\'][^>]*>', re.IGNORECASE)
+        def keep_markdown(match):
+            image_urls.append((html.unescape(match.group(2)), match.group(1).strip()))
+            return ''
+        body = markdown_image.sub(keep_markdown, body or '')
+        def keep_html(match):
+            image_urls.append((html.unescape(match.group(1).strip()), UI_TEXT['f32']))
+            return ''
+        body = html_image.sub(keep_html, body)
+        unique = []
+        seen = set()
+        for url, alt in image_urls:
+            if url.startswith(('https://', 'http://')) and url not in seen:
+                seen.add(url)
+                unique.append((url, alt or UI_TEXT['f32']))
+        body = re.sub(r'<br\s*/?>', '\n', body, flags=re.IGNORECASE)
+        body = re.sub(r'</(?:p|div|li|h[1-6]|summary|details)\s*>', '\n', body, flags=re.IGNORECASE)
+        body = re.sub(r'<(?:p|div|li|h[1-6]|summary|details)\b[^>]*>', '', body, flags=re.IGNORECASE)
+        body = re.sub(r'<[^>]+>', '', body)
+        body = html.unescape(body).replace('\r\n', '\n').replace('\r', '\n')
+        body = re.sub(r'\n{3,}', '\n\n', body).strip()
+        body = re.sub(r'(?<!\!)\[([^\]]+)\]\((https?://[^)]+)\)', r'\1 (\2)', body)
+        return body, unique
+    def _release_notes_insert_inline(self, widget, text, accent, fg, code_bg, link_index):
+        pattern = re.compile(r'(\*\*.+?\*\*|`[^`]+`|\*[^*]+\*|\[[^\]]+\]\(https?://[^)]+\)|https?://[^\s<>]+)')
+        cursor = 0
+        for match in pattern.finditer(text):
+            if match.start() > cursor:
+                widget.insert('end', text[cursor:match.start()])
+            token = match.group(0)
+            if token.startswith('**') and token.endswith('**'):
+                widget.insert('end', token[2:-2], 'bold')
+            elif token.startswith('`') and token.endswith('`'):
+                widget.insert('end', token[1:-1], 'code')
+            elif token.startswith('*') and token.endswith('*'):
+                widget.insert('end', token[1:-1], 'italic')
+            elif token.startswith('[') and '](' in token:
+                label, url = re.match(r'\[([^\]]+)\]\((https?://[^)]+)\)', token).groups()
+                tag = f'release_link_{link_index[0]}'
+                link_index[0] += 1
+                widget.insert('end', label, (tag, 'link'))
+                widget.tag_bind(tag, '<Button-1>', lambda _event, target=url: webbrowser.open(target))
+                widget.tag_bind(tag, '<Enter>', lambda _event: widget.configure(cursor='hand2'))
+                widget.tag_bind(tag, '<Leave>', lambda _event: widget.configure(cursor=''))
+            else:
+                url = token.rstrip('.,;:)')
+                suffix = token[len(url):]
+                tag = f'release_link_{link_index[0]}'
+                link_index[0] += 1
+                widget.insert('end', url, (tag, 'link'))
+                widget.insert('end', suffix)
+                widget.tag_bind(tag, '<Button-1>', lambda _event, target=url: webbrowser.open(target))
+                widget.tag_bind(tag, '<Enter>', lambda _event: widget.configure(cursor='hand2'))
+                widget.tag_bind(tag, '<Leave>', lambda _event: widget.configure(cursor=''))
+            cursor = match.end()
+        if cursor < len(text):
+            widget.insert('end', text[cursor:])
+    def _release_notes_render_markdown(self, parent, body):
+        palette = _CURRENT_PALETTE
+        card_bg = palette.get('bg_medium', '#1a1d24')
+        fg = palette.get('fg', '#e6e9ef')
+        accent = palette.get('accent', '#8ab4f8')
+        if not body:
+            body = UI_TEXT['m29']
+        lines = body.splitlines()
+        estimated_lines = sum(max(1, math.ceil(len(line) / 100)) for line in lines) + len(lines) // 2 + 1
+        widget = tk.Text(parent, wrap='word', height=max(4, min(34, estimated_lines)), bg=card_bg, fg=fg, insertbackground=fg, relief='flat', bd=0, padx=0, pady=5, font=('Segoe UI', 10), spacing1=2, spacing3=3, selectbackground=accent)
+        widget.tag_configure('h1', font=('Segoe UI Semibold', 15), foreground=accent, spacing1=8, spacing3=6)
+        widget.tag_configure('h2', font=('Segoe UI Semibold', 13), foreground=accent, spacing1=7, spacing3=4)
+        widget.tag_configure('h3', font=('Segoe UI Semibold', 11), foreground=accent, spacing1=6, spacing3=3)
+        widget.tag_configure('bold', font=('Segoe UI Semibold', 10), foreground=fg)
+        widget.tag_configure('italic', font=('Segoe UI', 10, 'italic'), foreground=fg)
+        widget.tag_configure('code', font=('Cascadia Code', 9), foreground='#a6e3a1', background=palette.get('bg_dark', '#111318'))
+        widget.tag_configure('link', foreground=accent, underline=True)
+        link_index = [0]
+        for line in lines:
+            stripped = line.strip()
+            if not stripped:
+                widget.insert('end', '\n')
+                continue
+            heading = re.match(r'^(#{1,3})\s+(.*)$', stripped)
+            if heading:
+                level = len(heading.group(1))
+                self._release_notes_insert_inline(widget, heading.group(2), accent, fg, card_bg, link_index)
+                widget.insert('end', '\n', f'h{level}')
+                continue
+            bullet = re.match(r'^\s*[-*+]\s+(.*)$', line)
+            ordered = re.match(r'^\s*\d+[.)]\s+(.*)$', line)
+            if bullet:
+                widget.insert('end', '  •  ')
+                self._release_notes_insert_inline(widget, bullet.group(1), accent, fg, card_bg, link_index)
+            elif ordered:
+                widget.insert('end', '  ')
+                self._release_notes_insert_inline(widget, ordered.group(1), accent, fg, card_bg, link_index)
+            else:
+                self._release_notes_insert_inline(widget, line, accent, fg, card_bg, link_index)
+            widget.insert('end', '\n')
+        widget.configure(state='disabled')
+        widget.pack(fill='x', expand=True, pady=(4, 0))
+        return widget
+    def _release_notes_load_image(self, url, label, alt):
+        def worker():
+            try:
+                with _routils_request(url, timeout=12, headers={'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8'}) as response:
+                    content = response.read(8 * 1024 * 1024 + 1)
+                if not content or len(content) > 8 * 1024 * 1024:
+                    raise ValueError('Image exceeded the allowed size.')
+                with Image.open(io.BytesIO(content)) as opened:
+                    image_data = opened.convert('RGBA')
+                resampling = Image.Resampling.LANCZOS if hasattr(Image, 'Resampling') else Image.LANCZOS
+                image_data.thumbnail((720, 320), resampling)
+                self.after(0, lambda img=image_data: self._release_notes_apply_image(label, img, alt))
+            except Exception:
+                self.after(0, lambda: self._release_notes_image_failed(label, alt))
+        threading.Thread(target=worker, daemon=True, name='RoUtils-ReleaseImage').start()
+    def _release_notes_apply_image(self, label, image_data, alt):
+        try:
+            if not label.winfo_exists():
+                return
+            photo = ImageTk.PhotoImage(image_data, master=self)
+            label.configure(image=photo, text=UI_TEXT['m1'], compound='top', width=0, height=0, padx=4, pady=4)
+            label.image = photo
+            self._release_notes_image_refs.append(photo)
+        except Exception:
+            self._release_notes_image_failed(label, alt)
+    def _release_notes_image_failed(self, label, alt):
+        try:
+            if label.winfo_exists():
+                label.configure(text=UI_TEXT['k21'].format(p0=alt), fg='#9aa8bd', padx=10, pady=8)
+        except Exception:
+            pass
+    def _render_release_notes(self, releases):
+        self._release_notes_loading = False
+        self.release_notes_refresh_button.configure(state='normal')
+        for child in self.release_notes_content.winfo_children():
+            child.destroy()
+        self._release_notes_image_refs = []
+        if not releases:
+            self.release_notes_status.configure(text=UI_TEXT['l21'], fg='#9aa8bd')
+            return
+        visible_count = 0
+        image_count = 0
+        palette = _CURRENT_PALETTE
+        bg = palette.get('bg_dark', '#111318')
+        card_bg = palette.get('bg_medium', '#1a1d24')
+        fg = palette.get('fg', '#e6e9ef')
+        accent = palette.get('accent', '#8ab4f8')
+        border = palette.get('border', '#3b4351')
+        releases = [item for item in releases if isinstance(item, dict) and not item.get('draft')]
+        if not releases:
+            self.release_notes_status.configure(text=UI_TEXT['l21'], fg='#9aa8bd')
+            return
+        stable = next((item for item in releases if not item.get('prerelease')), releases[0])
+        self.release_notes_status.configure(text=UI_TEXT['m21'].format(p0=len(releases)), fg='#65d98b')
+        for index, release in enumerate(releases):
+            visible_count += 1
+            tag = str(release.get('tag_name') or '').strip()
+            name = str(release.get('name') or tag or 'Untitled release').strip()
+            published = str(release.get('published_at') or release.get('created_at') or '').strip()
+            date_text = published[:10] if len(published) >= 10 else UI_TEXT['k29']
+            is_latest = release is stable
+            is_prerelease = bool(release.get('prerelease'))
+            raw_body = str(release.get('body') or '')
+            body, images = self._release_notes_extract_images(raw_body)
+            card = tk.Frame(self.release_notes_content, bg=card_bg, highlightthickness=1, highlightbackground=border, bd=0)
+            card.grid(row=visible_count - 1, column=0, sticky='ew', pady=(0, 12))
+            card.columnconfigure(1, weight=1)
+            strip = tk.Frame(card, bg=accent if is_latest else border, width=4)
+            strip.grid(row=0, column=0, rowspan=6, sticky='ns')
+            content = tk.Frame(card, bg=card_bg)
+            content.grid(row=0, column=1, sticky='ew', padx=16, pady=13)
+            content.columnconfigure(0, weight=1)
+            title_row = tk.Frame(content, bg=card_bg)
+            title_row.grid(row=0, column=0, sticky='ew')
+            title_label = tk.Label(title_row, text=name, bg=card_bg, fg=fg, font=('Segoe UI Semibold', 14), anchor='w', justify='left', wraplength=890)
+            title_label.pack(side='left', fill='x', expand=True)
+            if tag:
+                tk.Label(title_row, text=UI_TEXT['n21'].format(p0=tag), bg=palette.get('bg_dark', '#111318'), fg=accent, font=('Cascadia Code', 9), padx=5, pady=3).pack(side='right', padx=(8, 0))
+            meta = tk.Frame(content, bg=card_bg)
+            meta.grid(row=1, column=0, sticky='ew', pady=(5, 1))
+            tk.Label(meta, text=date_text, bg=card_bg, fg='#9aa8bd', font=('Segoe UI', 9)).pack(side='left')
+            badge_text = UI_TEXT['l29'] if is_latest else ('PRE-RELEASE' if is_prerelease else 'RELEASE')
+            badge_bg = '#214d3b' if is_latest else (palette.get('bg_dark', '#111318'))
+            badge_fg = '#8de0ad' if is_latest else ('#ffcf86' if is_prerelease else '#9aa8bd')
+            tk.Label(meta, text=UI_TEXT['n21'].format(p0=badge_text), bg=badge_bg, fg=badge_fg, font=('Segoe UI Semibold', 8), padx=5, pady=2).pack(side='left', padx=(9, 0))
+            body_wrap = tk.Frame(content, bg=card_bg)
+            body_wrap.grid(row=2, column=0, sticky='ew', pady=(4, 0))
+            self._release_notes_render_markdown(body_wrap, body)
+            if images:
+                gallery = tk.Frame(content, bg=card_bg)
+                gallery.grid(row=3, column=0, sticky='ew', pady=(8, 2))
+                for image_url, image_alt in images[:4]:
+                    if image_count >= 18:
+                        break
+                    image_count += 1
+                    holder = tk.Frame(gallery, bg=bg, highlightthickness=1, highlightbackground=border)
+                    holder.pack(side='left', anchor='nw', padx=(0, 8), pady=3)
+                    preview = tk.Label(holder, text=UI_TEXT['o21'].format(p0=image_alt), bg=bg, fg='#9aa8bd', font=('Segoe UI', 8), width=28, height=5, wraplength=190, justify='center')
+                    preview.pack(padx=2, pady=2)
+                    ttk.Button(holder, text=UI_TEXT['p21'], command=lambda url=image_url: webbrowser.open(url)).pack(fill='x', padx=4, pady=(0, 4))
+                    self._release_notes_load_image(image_url, preview, image_alt)
+            footer = tk.Frame(content, bg=card_bg)
+            footer.grid(row=4, column=0, sticky='ew', pady=(8, 0))
+            ttk.Button(footer, text=UI_TEXT['q21'], command=lambda url=release.get('html_url') or RELEASES_URL: webbrowser.open(url)).pack(side='left')
+            assets = release.get('assets') if isinstance(release.get('assets'), list) else []
+            tk.Label(footer, text=UI_TEXT['r21'].format(p0=len(assets)) + (UI_TEXT['m1'] if len(assets) == 1 else UI_TEXT['s21']), bg=card_bg, fg='#9aa8bd', font=('Segoe UI', 9)).pack(side='left', padx=(10, 0))
+            if assets:
+                asset_row = tk.Frame(content, bg=card_bg)
+                asset_row.grid(row=5, column=0, sticky='ew', pady=(6, 0))
+                for asset in assets[:5]:
+                    if not isinstance(asset, dict):
+                        continue
+                    asset_name = str(asset.get('name') or 'Download')
+                    if len(asset_name) > 30:
+                        asset_name = asset_name[:27] + '…'
+                    url = str(asset.get('browser_download_url') or '')
+                    if url.startswith('https://'):
+                        ttk.Button(asset_row, text=asset_name, command=lambda target=url: webbrowser.open(target)).pack(side='left', padx=(0, 5), pady=2)
+                if len(assets) > 5:
+                    tk.Label(asset_row, text=UI_TEXT['t21'].format(p0=len(assets) - 5), bg=card_bg, fg='#9aa8bd', font=('Segoe UI', 9)).pack(side='left', padx=3)
+        if visible_count == 0:
+            tk.Label(self.release_notes_content, text=UI_TEXT['u21'], bg=bg, fg=fg, font=('Segoe UI', 11)).grid(row=0, column=0, sticky='w', pady=20)
+
     def _build_console_tab(self):
         tab = ttk.Frame(self.nb, padding=10)
-        self.nb.add(tab, text='Console')
+        self.nb.add(tab, text=UI_TEXT['u5'])
         tab.rowconfigure(1, weight=1)
         tab.columnconfigure(0, weight=1)
-        ttk.Label(tab, text='Console', font=('Segoe UI Semibold', 15)).grid(row=0, column=0, sticky='w', pady=(0, 8))
+        ttk.Label(tab, text=UI_TEXT['u5'], font=('Segoe UI Semibold', 15)).grid(row=0, column=0, sticky='w', pady=(0, 8))
         self.console_text = tk.Text(tab, wrap='word', state='disabled', font=('Consolas', 9), bg=_CURRENT_PALETTE['bg_medium'], fg=_CURRENT_PALETTE['fg'], insertbackground='#ffffff', relief='flat', bd=0)
         self.console_text.grid(row=1, column=0, sticky='nsew')
         row = ttk.Frame(tab)
         row.grid(row=2, column=0, sticky='ew', pady=(8, 0))
         row.columnconfigure(1, weight=1)
-        ttk.Label(row, text='$>', font=('Consolas', 10, 'bold')).grid(row=0, column=0, padx=(0, 6))
+        ttk.Label(row, text=UI_TEXT['v21'], font=('Consolas', 10, 'bold')).grid(row=0, column=0, padx=(0, 6))
         self.console_entry = ttk.Entry(row)
         self.console_entry.grid(row=0, column=1, sticky='ew')
         self.console_entry.bind('<Return>', lambda _e: (self._console_command(self.console_entry.get()), self.console_entry.delete(0, 'end'), 'break')[2])
-        self._console_log('RoUtils Console ready. Type help for commands.')
+        self._console_log(UI_TEXT['w21'])
     def _save_gemini_api_key(self):
         key = self.gemini_api_key.get().strip()
         if not key:
-            messagebox.showwarning('Gemini AI', 'Please enter a Gemini API Key.', parent=self)
+            messagebox.showwarning(UI_TEXT['i18'], UI_TEXT['x21'], parent=self)
             return
         self.settings['gemini_api_key'] = key
         self._save_settings()
-        messagebox.showinfo('Gemini AI', 'Gemini API Key added successfully.', parent=self)
+        messagebox.showinfo(UI_TEXT['i18'], UI_TEXT['y21'], parent=self)
     def _ai_canvas_resize(self, canvas, window_id, event):
         width = int(getattr(event, 'width', 0) or 0)
         key = f'_ai_canvas_width_{id(canvas)}'
@@ -13765,11 +15011,11 @@ class App(_TkAppBase):
             pass
     def _build_ai_tab(self):
         tab = ttk.Frame(self.nb, padding=0)
-        self.nb.add(tab, text='AI')
+        self.nb.add(tab, text=UI_TEXT['j5'])
         self.ai_tab = tab
         self._construct_ai_chat(tab)
     def _open_ai_chat(self, prompt=None):
-        ai_id = next((tid for tid in self.nb.tabs() if self.nb.tab(tid, 'text') == 'AI'), None)
+        ai_id = next((tid for tid in self.nb.tabs() if self.nb.tab(tid, 'text') == UI_TEXT['j5']), None)
         if ai_id is not None:
             self.nb.select(ai_id)
             self._lazy_tab_changed()
@@ -13784,7 +15030,7 @@ class App(_TkAppBase):
                 elif attempt < 20:
                     self.after(100, lambda: submit_when_ready(attempt + 1))
             self.after(150, submit_when_ready)
-        self._console_log('Opened RoUtils AI')
+        self._console_log(UI_TEXT['z21'])
     def _construct_ai_chat(self, win):
         palette = _CURRENT_PALETTE
         win.columnconfigure(0, weight=1)
@@ -13792,29 +15038,29 @@ class App(_TkAppBase):
         header = tk.Frame(win, bg=palette.get('bg_medium', '#252526'), padx=16, pady=12)
         header.grid(row=0, column=0, sticky='ew')
         header.columnconfigure(1, weight=1)
-        tk.Label(header, text='✦ RoUtils AI', bg=palette.get('bg_medium', '#252526'), fg=palette.get('fg', '#e6e6e6'), font=('Segoe UI Semibold', 16)).grid(row=0, column=0, sticky='w')
-        tk.Label(header, text='RoUtils AI · Powered by Gemini', bg=palette.get('bg_medium', '#252526'), fg='#a6abb4', font=('Segoe UI', 9)).grid(row=1, column=0, sticky='w', pady=(3, 0))
+        tk.Label(header, text=UI_TEXT['a22'], bg=palette.get('bg_medium', '#252526'), fg=palette.get('fg', '#e6e6e6'), font=('Segoe UI Semibold', 16)).grid(row=0, column=0, sticky='w')
+        tk.Label(header, text=UI_TEXT['b22'], bg=palette.get('bg_medium', '#252526'), fg='#a6abb4', font=('Segoe UI', 9)).grid(row=1, column=0, sticky='w', pady=(3, 0))
         model_names = {
-            'Gemini 3.8 Flash': 'gemini-3.8-flash',
-            'Gemini 3.7 Flash': 'gemini-3.7-flash',
-            'Gemini 3.6 Flash': 'gemini-3.6-flash',
-            'Gemini 3.5 Flash': 'gemini-3.5-flash',
-            'Gemini 3.5 Flash-Lite': 'gemini-3.5-flash-lite',
-            'Gemini 3.1 Flash-Lite': 'gemini-3.1-flash-lite',
-            'Gemini 3.1 Pro Preview': 'gemini-3.1-pro-preview',
-            'Gemini 3 Flash Preview': 'gemini-3-flash-preview',
-            'Gemini 2.5 Flash': 'gemini-2.5-flash',
-            'Gemini 2.5 Pro': 'gemini-2.5-pro',
-            'Gemini 2.5 Flash-Lite': 'gemini-2.5-flash-lite'
+            UI_TEXT['g30']: 'gemini-3.8-flash',
+            UI_TEXT['h30']: 'gemini-3.7-flash',
+            UI_TEXT['i30']: 'gemini-3.6-flash',
+            UI_TEXT['j30']: 'gemini-3.5-flash',
+            UI_TEXT['k30']: 'gemini-3.5-flash-lite',
+            UI_TEXT['l30']: 'gemini-3.1-flash-lite',
+            UI_TEXT['m30']: 'gemini-3.1-pro-preview',
+            UI_TEXT['n30']: 'gemini-3-flash-preview',
+            UI_TEXT['o30']: 'gemini-2.5-flash',
+            UI_TEXT['p30']: 'gemini-2.5-pro',
+            UI_TEXT['q30']: 'gemini-2.5-flash-lite'
         }
-        saved_model = self.settings.get('ai_model', 'Gemini 3.8 Flash')
+        saved_model = self.settings.get('ai_model', UI_TEXT['g30'])
         if saved_model not in model_names:
-            saved_model = 'Gemini 3.8 Flash'
+            saved_model = UI_TEXT['g30']
         model_var = tk.StringVar(value=saved_model)
         model_box = ttk.Combobox(header, textvariable=model_var, values=list(model_names.keys()), state='readonly', width=24)
         model_box.grid(row=0, column=2, sticky='e')
         model_box.bind('<<ComboboxSelected>>', lambda _e: (self.settings.__setitem__('ai_model', model_var.get()), self._save_settings()))
-        tk.Label(header, text='MODEL', bg=palette.get('bg_medium', '#252526'), fg='#a6abb4', font=('Segoe UI Semibold', 8)).grid(row=1, column=2, sticky='e', pady=(3, 0))
+        tk.Label(header, text=UI_TEXT['c22'], bg=palette.get('bg_medium', '#252526'), fg='#a6abb4', font=('Segoe UI Semibold', 8)).grid(row=1, column=2, sticky='e', pady=(3, 0))
         body = tk.Frame(win, bg=palette.get('bg_dark', '#1b1b1c'), padx=10, pady=10)
         body.grid(row=1, column=0, sticky='nsew')
         body.rowconfigure(0, weight=1)
@@ -13850,15 +15096,15 @@ class App(_TkAppBase):
         def save_generated_file(content, language=''):
             extensions = {'python': '.py', 'py': '.py', 'json': '.json', 'javascript': '.js', 'js': '.js', 'html': '.html', 'css': '.css', 'xml': '.xml', 'yaml': '.yaml', 'yml': '.yml', 'csv': '.csv', 'markdown': '.md', 'md': '.md', 'text': '.txt', 'txt': '.txt', 'powershell': '.ps1', 'ps1': '.ps1', 'lua': '.lua', 'sql': '.sql', 'bat': '.bat', 'bash': '.sh', 'sh': '.sh'}
             ext = extensions.get((language or '').strip().lower(), '.txt')
-            path = filedialog.asksaveasfilename(parent=self, title='Save AI generated file', defaultextension=ext, initialfile='routils_ai_output' + ext, filetypes=[('Generated file', '*' + ext), ('All files', '*.*')])
+            path = filedialog.asksaveasfilename(parent=self, title=UI_TEXT['d22'], defaultextension=ext, initialfile='routils_ai_output' + ext, filetypes=[(UI_TEXT['e22'], '*' + ext), (UI_TEXT['z7'], '*.*')])
             if not path:
                 return
             try:
                 with open(path, 'w', encoding='utf-8', newline='') as f:
                     f.write(content)
-                messagebox.showinfo('RoUtils AI', 'File saved successfully.', parent=self)
+                messagebox.showinfo(UI_TEXT['f22'], UI_TEXT['g22'], parent=self)
             except Exception as exc:
-                messagebox.showerror('RoUtils AI', f'Could not save file:\n{exc}', parent=self)
+                messagebox.showerror(UI_TEXT['f22'], UI_TEXT['h22'].format(p0=exc), parent=self)
         def add_code_block(parent, code, language=''):
             box = tk.Frame(parent, bg='#cfc8bc', highlightthickness=1, highlightbackground='#b6ad9f')
             box.pack(fill='x', pady=(6, 5))
@@ -13866,8 +15112,8 @@ class App(_TkAppBase):
             top.pack(fill='x')
             top.pack_propagate(False)
             tk.Label(top, text=language or 'code', bg='#c4bcae', fg='#38342f', font=('Segoe UI', 8)).pack(side='left', padx=8)
-            tk.Button(top, text='Download / Save as…', command=lambda c=code, lang=language: save_generated_file(c, lang), bg='#b7ad9d', fg='#292622', activebackground='#a79c8b', relief='flat', bd=0, padx=8, font=('Segoe UI Semibold', 8), cursor='hand2').pack(side='right', padx=5, pady=3)
-            tk.Button(top, text='Copy', command=lambda c=code: copy_code(c), bg='#b7ad9d', fg='#292622', activebackground='#a79c8b', relief='flat', bd=0, padx=8, font=('Segoe UI Semibold', 8), cursor='hand2').pack(side='right', padx=2, pady=3)
+            tk.Button(top, text=UI_TEXT['i22'], command=lambda c=code, lang=language: save_generated_file(c, lang), bg='#b7ad9d', fg='#292622', activebackground='#a79c8b', relief='flat', bd=0, padx=8, font=('Segoe UI Semibold', 8), cursor='hand2').pack(side='right', padx=5, pady=3)
+            tk.Button(top, text=UI_TEXT['j22'], command=lambda c=code: copy_code(c), bg='#b7ad9d', fg='#292622', activebackground='#a79c8b', relief='flat', bd=0, padx=8, font=('Segoe UI Semibold', 8), cursor='hand2').pack(side='right', padx=2, pady=3)
             txt = tk.Text(box, width=1, height=max(2, min(14, code.count('\n') + 2)), wrap='word', bg='#d9d2c6', fg='#242424', insertbackground='#242424', relief='flat', bd=0, padx=9, pady=7, font=('Consolas', 9))
             txt.insert('1.0', code)
             txt.configure(state='disabled')
@@ -14026,13 +15272,13 @@ class App(_TkAppBase):
                 return row, bubble
             header_row = tk.Frame(row, bg=palette.get('bg_dark', '#1b1b1c'))
             header_row.pack(fill='x', padx=(0, 60), pady=(0, 3))
-            title_label = tk.Label(header_row, text='RoUtils AI' + (f' · {meta}' if meta else ''), bg=palette.get('bg_dark', '#1b1b1c'), fg='#aeb4be', font=('Segoe UI Semibold', 8))
+            title_label = tk.Label(header_row, text=UI_TEXT['f22'] + (UI_TEXT['k22'].format(p0=meta) if meta else UI_TEXT['m1']), bg=palette.get('bg_dark', '#1b1b1c'), fg='#aeb4be', font=('Segoe UI Semibold', 8))
             title_label.pack(side='left')
             ai_font = tkfont.Font(family='Segoe UI', size=10)
             estimated_width = measured_bubble_width(text, ai_font, include_markdown=True)
             bubble, outer = make_rounded_bubble(row, bubble_bg, '#c5bdaf', estimated_width, 'left', padx=10, pady=7)
             if text == 'Thinking...':
-                tk.Label(bubble, text='Thinking...', bg=bubble_bg, fg='#4a463f', font=('Segoe UI', 10, 'italic')).pack(anchor='w')
+                tk.Label(bubble, text=UI_TEXT['l22'], bg=bubble_bg, fg='#4a463f', font=('Segoe UI', 10, 'italic')).pack(anchor='w')
             else:
                 add_markdown_message(bubble, text)
             return row, bubble, title_label
@@ -14045,35 +15291,34 @@ class App(_TkAppBase):
                     return
                 title = thinking.get('title')
                 if title is not None and title.winfo_exists():
-                    title.configure(text=f'RoUtils AI · Thinking... {int(elapsed)}s')
+                    title.configure(text=UI_TEXT['m22'].format(p0=int(elapsed)))
                 win.after(1000, lambda: update_thinking(time.monotonic() - thinking['started']))
             except Exception:
                 pass
         def choose_file():
-            path = filedialog.askopenfilename(parent=self, title='Attach a file', filetypes=[('Supported files', '*.txt *.md *.py *.json *.csv *.log *.yaml *.yml *.xml *.html *.css *.js *.png *.jpg *.jpeg *.webp *.gif *.bmp *.pdf'), ('All files', '*.*')])
+            path = filedialog.askopenfilename(parent=self, title=UI_TEXT['n22'], filetypes=[(UI_TEXT['o22'], '*.txt *.md *.py *.json *.csv *.log *.yaml *.yml *.xml *.html *.css *.js *.png *.jpg *.jpeg *.webp *.gif *.bmp *.pdf'), (UI_TEXT['z7'], '*.*')])
             if not path:
                 return
             attachment['path'] = path
             filename = os.path.basename(path)
             ext = os.path.splitext(filename)[1] or 'file'
-            attach_label.configure(text=f'📎  {filename}  ·  {ext}', state='normal')
+            attach_label.configure(text=UI_TEXT['p22'].format(p0=filename, p1=ext), state='normal')
             for child in attach_preview.winfo_children():
                 child.destroy()
             attachment.pop('preview_photo', None)
             if ext.lower() in {'.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp'}:
                 try:
-                    from PIL import Image, ImageTk
                     with Image.open(path) as source_image:
                         preview_image = source_image.copy()
                     preview_image.thumbnail((210, 125), Image.Resampling.LANCZOS if hasattr(Image, 'Resampling') else Image.LANCZOS)
                     photo = ImageTk.PhotoImage(preview_image, master=self)
                     attachment['preview_photo'] = photo
                     tk.Label(attach_preview, image=photo, bg=palette.get('bg_medium', '#252526'), bd=0).pack(anchor='w', pady=(4, 2))
-                    tk.Label(attach_preview, text=f'Image preview · {preview_image.width} × {preview_image.height}', bg=palette.get('bg_medium', '#252526'), fg=palette.get('fg', '#e6e6e6'), font=('Segoe UI', 8)).pack(anchor='w')
+                    tk.Label(attach_preview, text=UI_TEXT['q22'].format(p0=preview_image.width, p1=preview_image.height), bg=palette.get('bg_medium', '#252526'), fg=palette.get('fg', '#e6e6e6'), font=('Segoe UI', 8)).pack(anchor='w')
                 except Exception as exc:
-                    tk.Label(attach_preview, text=f'Preview unavailable: {exc}', bg=palette.get('bg_medium', '#252526'), fg=palette.get('fg', '#e6e6e6'), font=('Segoe UI', 8)).pack(anchor='w')
+                    tk.Label(attach_preview, text=UI_TEXT['r22'].format(p0=exc), bg=palette.get('bg_medium', '#252526'), fg=palette.get('fg', '#e6e6e6'), font=('Segoe UI', 8)).pack(anchor='w')
             elif ext.lower() == '.pdf':
-                tk.Label(attach_preview, text='PDF attached · content will be sent to Gemini', bg=palette.get('bg_medium', '#252526'), fg=palette.get('fg', '#e6e6e6'), font=('Segoe UI', 8)).pack(anchor='w', pady=(4, 2))
+                tk.Label(attach_preview, text=UI_TEXT['s22'], bg=palette.get('bg_medium', '#252526'), fg=palette.get('fg', '#e6e6e6'), font=('Segoe UI', 8)).pack(anchor='w', pady=(4, 2))
             attach_row.grid()
             input_box.configure(height=5)
             scroll_bottom()
@@ -14116,11 +15361,11 @@ class App(_TkAppBase):
                 return
             key = self.gemini_api_key.get().strip()
             if not key:
-                messagebox.showwarning('Gemini AI', "Add your Gemini API key in Settings before sending a message.", parent=self)
+                messagebox.showwarning(UI_TEXT['i18'], UI_TEXT['t22'], parent=self)
                 return
             input_box.delete('1.0', 'end')
             filename = os.path.basename(path) if path else ''
-            user_display = text if text else 'Please analyze the attached file.'
+            user_display = text if text else UI_TEXT['f28']
             if filename:
                 user_display += f'\n\n📎 {filename}'
             make_row('user', user_display)
@@ -14146,7 +15391,6 @@ class App(_TkAppBase):
                         if size > 12 * 1024 * 1024:
                             parts.append({'text': 'The selected file is larger than 12 MB; only its filename was attached.'})
                         else:
-                            import mimetypes
                             mime = mimetypes.guess_type(path)[0] or 'application/octet-stream'
                             ext_lower = os.path.splitext(path)[1].lower()
                             if ext_lower in {'.txt', '.md', '.py', '.json', '.csv', '.log', '.yaml', '.yml', '.xml', '.html', '.css', '.js'}:
@@ -14160,38 +15404,9 @@ class App(_TkAppBase):
                             else:
                                 parts.append({'text': f'Attached file: {filename} ({mime}). This file type is not embedded; ask the user to paste relevant content if needed.'})
                     history_snapshot[-1]['parts'] = parts
-                    prompt_rules = """you are routils ai a helper inside the windows app routils made by offp001
-always answer in clear natural english even when the user writes in another language
-use simple words and short helpful replies
-write like a real person and do not repeat greetings
-use normal sentence case and do not capitalize every word
-avoid full stops at the end of short messages unless using an ellipsis
-use commas only when they help
-do not show raw tracebacks or long technical errors to the user
-
-when the user only says hello hi or hey say hey need a hand with routils
-do not bring up settings or api keys unless the user asks
-when they ask about settings explain the right option in simple steps
-
-use the real features and tab names in this guide
-fflags are in the fflags tab and can be edited in the list or json editor
-use apply to roblox when available and do not promise every flag works
-cache is used to inspect cached files with search and filters
-start watching turns cache watching on or off
-back up cache data before changing or removing it
-configs can be saved imported selected applied exported or deleted
-themes are in customize
-the gemini api key is in settings under gemini ai
-console commands include help fflag list fflag apply fflag unapply config list watch start watch stop theme list status and ai
-official github https://github.com/offp001/routils
-official discord https://discord.gg/849VtrYhm2
-if asked who made routils say offp001
-never make up a feature setting result or link
-answer general questions directly and do not add unrelated offers to help with settings
-if unsure say so and tell the user where to check"""
+                    prompt_rules = UI_TEXT['u22']
                     payload = {'systemInstruction': {'parts': [{'text': prompt_rules}]}, 'contents': history_snapshot}
-                    req = urllib.request.Request('https://generativelanguage.googleapis.com/v1beta/models/' + selected_model + ':generateContent', data=json.dumps(payload).encode('utf-8'), headers={'Content-Type': 'application/json', 'x-goog-api-key': key}, method='POST')
-                    with _routils_urlopen(req, timeout=45) as response:
+                    with _routils_request('https://generativelanguage.googleapis.com/v1beta/models/' + selected_model + ':generateContent', timeout=45, headers={'Content-Type': 'application/json', 'x-goog-api-key': key}, data=json.dumps(payload).encode('utf-8'), method='POST') as response:
                         result = json.loads(response.read().decode('utf-8'))
                     parts_out = result.get('candidates', [{}])[0].get('content', {}).get('parts', [])
                     answer = ''.join(str(part.get('text', '')) for part in parts_out).strip()
@@ -14219,7 +15434,7 @@ if unsure say so and tell the user where to check"""
                     add_markdown_message(bubble, answer)
                     bubble.after_idle(bubble._routils_resize_bubble)
                 if title_label is not None and title_label.winfo_exists():
-                    title_label.configure(text=f'RoUtils AI · {elapsed}s')
+                    title_label.configure(text=UI_TEXT['v22'].format(p0=elapsed))
             except Exception:
                 row, bubble, title_label = make_row('model', answer, f'{int(time.monotonic() - thinking["started"])}s')
             busy['value'] = False
@@ -14237,17 +15452,17 @@ if unsure say so and tell the user where to check"""
         composer_card = tk.Frame(composer_outer, bg=palette.get('bg_medium', '#252526'), highlightthickness=1, highlightbackground=palette.get('border', '#444446'), padx=8, pady=7)
         composer_card.grid(row=0, column=0, sticky='ew')
         composer_card.columnconfigure(1, weight=1)
-        attach_btn = tk.Button(composer_card, text='+', command=choose_file, bg=palette.get('bg_light', '#3a3a3c'), fg=palette.get('fg', '#e6e6e6'), activebackground=palette.get('accent', '#7f8cff'), relief='flat', bd=0, width=3, font=('Segoe UI Semibold', 15), cursor='hand2')
+        attach_btn = tk.Button(composer_card, text=UI_TEXT['m6'], command=choose_file, bg=palette.get('bg_light', '#3a3a3c'), fg=palette.get('fg', '#e6e6e6'), activebackground=palette.get('accent', '#7f8cff'), relief='flat', bd=0, width=3, font=('Segoe UI Semibold', 15), cursor='hand2')
         attach_btn.grid(row=0, column=0, rowspan=2, sticky='ns', padx=(0, 8))
         input_box = tk.Text(composer_card, height=3, wrap='word', font=('Segoe UI', 10), bg=palette.get('bg_medium', '#252526'), fg=palette.get('fg', '#e6e6e6'), insertbackground=palette.get('fg', '#ffffff'), relief='flat', bd=0, padx=8, pady=7)
         input_box.grid(row=0, column=1, sticky='ew')
-        send_btn = tk.Button(composer_card, text='Send  ➤', command=send, bg=palette.get('accent', '#7f8cff'), fg='#ffffff', activebackground=_routils_darken_color(palette.get('accent', '#7f8cff'), .15), relief='flat', bd=0, padx=14, pady=8, font=('Segoe UI Semibold', 9), cursor='hand2')
+        send_btn = tk.Button(composer_card, text=UI_TEXT['w22'], command=send, bg=palette.get('accent', '#7f8cff'), fg='#ffffff', activebackground=_routils_darken_color(palette.get('accent', '#7f8cff'), .15), relief='flat', bd=0, padx=14, pady=8, font=('Segoe UI Semibold', 9), cursor='hand2')
         send_btn.grid(row=0, column=2, rowspan=2, sticky='ns', padx=(8, 0))
         attach_row = tk.Frame(composer_card, bg=palette.get('bg_medium', '#252526'))
         attach_row.grid(row=1, column=1, sticky='ew', pady=(5, 0))
-        attach_label = tk.Label(attach_row, text='', bg=palette.get('bg_medium', '#252526'), fg=palette.get('fg', '#e6e6e6'), font=('Segoe UI', 8), anchor='w')
+        attach_label = tk.Label(attach_row, text=UI_TEXT['m1'], bg=palette.get('bg_medium', '#252526'), fg=palette.get('fg', '#e6e6e6'), font=('Segoe UI', 8), anchor='w')
         attach_label.pack(side='left', fill='x', expand=True)
-        clear_btn = tk.Button(attach_row, text='×', command=clear_file, bg=palette.get('bg_light', '#3a3a3c'), fg=palette.get('fg', '#e6e6e6'), relief='flat', bd=0, padx=8)
+        clear_btn = tk.Button(attach_row, text=UI_TEXT['e5'], command=clear_file, bg=palette.get('bg_light', '#3a3a3c'), fg=palette.get('fg', '#e6e6e6'), relief='flat', bd=0, padx=8)
         clear_btn.pack(side='right')
         attach_preview = tk.Frame(composer_card, bg=palette.get('bg_medium', '#252526'))
         attach_preview.grid(row=2, column=1, sticky='ew')
@@ -14269,39 +15484,39 @@ if unsure say so and tell the user where to check"""
         self._ai_input_box = input_box
         self._ai_send_callback = send
         self._ai_model_var = model_var
-        make_row('model', 'Hey! Need a hand with RoUtils?')
+        make_row('model', UI_TEXT['e28'])
         input_box.focus_set()
     def _build_viewer_widgets(self):
         top = ttk.Frame(self.viewer_root, padding=(8, 6))
         top.pack(fill='x')
         self._cache_top = top
         self._cache_toolbar_toggles = [
-            ttk.Checkbutton(top, style='TCheckbutton', text='Auto-scroll', variable=self.autoscroll),
-            ttk.Checkbutton(top, style='TCheckbutton', text='Hide tickets', variable=self.hide_tickets, command=self._apply_filter),
-            ttk.Checkbutton(top, style='TCheckbutton', text='Stay on top', variable=self.stay_on_top, command=self._apply_stay_on_top),
-            ttk.Checkbutton(top, style='TCheckbutton', text='Show lines', variable=self.show_lines, command=self._apply_show_lines),
+            ttk.Checkbutton(top, style='TCheckbutton', text=UI_TEXT['x22'], variable=self.autoscroll),
+            ttk.Checkbutton(top, style='TCheckbutton', text=UI_TEXT['y22'], variable=self.hide_tickets, command=self._apply_filter),
+            ttk.Checkbutton(top, style='TCheckbutton', text=UI_TEXT['z22'], variable=self.stay_on_top, command=self._apply_stay_on_top),
+            ttk.Checkbutton(top, style='TCheckbutton', text=UI_TEXT['a23'], variable=self.show_lines, command=self._apply_show_lines),
         ]
         for i, widget in enumerate(self._cache_toolbar_toggles):
             widget.grid(row=0, column=i, sticky='w', padx=(0 if i == 0 else 4, 0))
-        self.btn_clear = ttk.Button(top, text='Clear rbx-storage', command=self._clear_storage_now)
+        self.btn_clear = ttk.Button(top, text=UI_TEXT['b23'], command=self._clear_storage_now)
         self.btn_clear.grid(row=0, column=5, sticky='e', padx=(0, 6))
-        self.btn_delete_type = ttk.Button(top, text='Delete Cache Type', command=self._open_delete_cache_type)
+        self.btn_delete_type = ttk.Button(top, text=UI_TEXT['c23'], command=self._open_delete_cache_type)
         self.btn_delete_type.grid(row=0, column=6, sticky='e', padx=(0, 6))
-        self.toggle_btn = ttk.Button(top, text='Start Watching', command=self._toggle_watch)
+        self.toggle_btn = ttk.Button(top, text=UI_TEXT['d23'], command=self._toggle_watch)
         self.toggle_btn.grid(row=0, column=7, sticky='e', padx=(0, 6))
-        self._watch_loading_label = ttk.Label(top, text='', foreground='#f2c94c')
+        self._watch_loading_label = ttk.Label(top, text=UI_TEXT['m1'], foreground='#f2c94c')
         self._watch_loading_label.grid(row=0, column=9, sticky='w', padx=(4, 0))
-        self.btn_dump = ttk.Button(top, text='Dump Caches', command=self._dump_all_caches)
+        self.btn_dump = ttk.Button(top, text=UI_TEXT['e23'], command=self._dump_all_caches)
         self.btn_dump.grid(row=0, column=8, sticky='e')
         self._cache_db_label = None
         self.db_label = None
-        self._cache_type_label = ttk.Label(top, text='Type:')
+        self._cache_type_label = ttk.Label(top, text=UI_TEXT['f23'])
         self._cache_type_label.grid(row=2, column=0, sticky='w', pady=(4, 0))
         type_combo = ttk.Combobox(top, textvariable=self.type_filter, values=[t[0] for t in TYPE_FILTERS], state='readonly', width=14)
         self._cache_type_combo = type_combo
         type_combo.grid(row=2, column=1, sticky='w', padx=(8, 0), pady=(4, 0))
         type_combo.bind('<<ComboboxSelected>>', lambda e: self.after_idle(self._safe_apply_filter))
-        self._cache_filter_label = ttk.Label(top, text='Filter:')
+        self._cache_filter_label = ttk.Label(top, text=UI_TEXT['w1'])
         self._cache_filter_label.grid(row=3, column=0, sticky='w', pady=(4, 0))
         f_entry = ttk.Entry(top, textvariable=self.filter_text)
         self._cache_filter_entry = f_entry
@@ -14321,12 +15536,12 @@ if unsure say so and tell the user where to check"""
         columns = ('time', 'name', 'hash', 'size', 'kind', 'src')
         self.columns = columns
         self.tree = ttk.Treeview(self.table_frame, columns=columns, show='headings', selectmode='extended')
-        self.tree.heading('time', text='TIME', command=lambda: self._sort_by('time'))
-        self.tree.heading('name', text='NAME', command=lambda: self._sort_by('name'))
-        self.tree.heading('hash', text='HASH', command=lambda: self._sort_by('hash'))
-        self.tree.heading('size', text='SIZE', command=lambda: self._sort_by('size', numeric=True))
-        self.tree.heading('kind', text='TYPE', command=lambda: self._sort_by('kind'))
-        self.tree.heading('src', text='SOURCE', command=lambda: self._sort_by('src'))
+        self.tree.heading('time', text=UI_TEXT['g23'], command=lambda: self._sort_by('time'))
+        self.tree.heading('name', text=UI_TEXT['y12'], command=lambda: self._sort_by('name'))
+        self.tree.heading('hash', text=UI_TEXT['h23'], command=lambda: self._sort_by('hash'))
+        self.tree.heading('size', text=UI_TEXT['i23'], command=lambda: self._sort_by('size', numeric=True))
+        self.tree.heading('kind', text=UI_TEXT['l14'], command=lambda: self._sort_by('kind'))
+        self.tree.heading('src', text=UI_TEXT['j23'], command=lambda: self._sort_by('src'))
         self.tree.column('time', width=70, minwidth=60, anchor='w', stretch=True)
         self.tree.column('name', width=140, minwidth=80, anchor='w', stretch=True)
         self.tree.column('hash', width=200, minwidth=200, anchor='w', stretch=True)
@@ -14346,27 +15561,27 @@ if unsure say so and tell the user where to check"""
         self.tree.bind('<Delete>', lambda e: self._action_delete_blob())
         self.tree.bind('<F2>', lambda e: self._action_change_hash())
         self._ctx = tk.Menu(self, tearoff=0)
-        self._ctx.add_command(label='Export ▸ Full Blob…', command=self._export_selected_full)
-        self._ctx.add_command(label='Export ▸ RBXM…', command=self._export_selected_rbxm)
+        self._ctx.add_command(label=UI_TEXT['k23'], command=self._export_selected_full)
+        self._ctx.add_command(label=UI_TEXT['l23'], command=self._export_selected_rbxm)
         self._ctx_rbxm_index = self._ctx.index('end')
-        self._ctx.add_command(label='Export as OBJ', command=self._export_selected_mesh_obj)
+        self._ctx.add_command(label=UI_TEXT['m23'], command=self._export_selected_mesh_obj)
         self._ctx_obj_index = self._ctx.index('end')
-        self._ctx.add_command(label='Export ▸ Image…', command=self._export_selected_image)
+        self._ctx.add_command(label=UI_TEXT['n23'], command=self._export_selected_image)
         self._ctx_img_index = self._ctx.index('end')
-        self._ctx.add_command(label='Export ▸ Video…', command=self._export_selected_video)
+        self._ctx.add_command(label=UI_TEXT['o23'], command=self._export_selected_video)
         self._ctx_video_index = self._ctx.index('end')
         self._ctx.add_separator()
-        for lbl, cmd in [('Change Hash…', self._action_change_hash), ('Delete Blob', self._action_delete_blob)]:
+        for lbl, cmd in [(UI_TEXT['w27'], self._action_change_hash), (UI_TEXT['x27'], self._action_delete_blob)]:
             self._ctx.add_command(label=lbl, command=cmd)
         self._ctx.add_separator()
-        self._ctx.add_command(label='Copy Hash', command=lambda: self._copy_selected_hash())
+        self._ctx.add_command(label=UI_TEXT['p23'], command=lambda: self._copy_selected_hash())
         self._ctx.add_separator()
-        self._ctx.add_command(label='Save Hash…', command=self._action_save_hash_to_saves)
-        self._ctx.add_command(label='Save Blob…', command=self._action_save_blob_to_saves)
+        self._ctx.add_command(label=UI_TEXT['q23'], command=self._action_save_hash_to_saves)
+        self._ctx.add_command(label=UI_TEXT['r23'], command=self._action_save_blob_to_saves)
         darken_menus((self._ctx,))
         self._col_vars = {}
         self._colmenu = tk.Menu(self, tearoff=0)
-        col_defs = {'time': ('TIME', True), 'name': ('NAME', True), 'hash': ('HASH', True), 'size': ('SIZE', True), 'kind': ('TYPE', True), 'src': ('SOURCE', False)}
+        col_defs = {'time': (UI_TEXT['y27'], True), 'name': (UI_TEXT['z27'], True), 'hash': (UI_TEXT['h23'], True), 'size': (UI_TEXT['i23'], True), 'kind': (UI_TEXT['a28'], True), 'src': (UI_TEXT['b28'], False)}
         for col in self.columns:
             label, default = col_defs[col]
             var = tk.BooleanVar(value=self.settings.get('columns', {}).get(col, default))
@@ -14391,7 +15606,7 @@ if unsure say so and tell the user where to check"""
         self.viewport_3d.reduce_polys.trace_add('write', lambda *_: self._save_settings())
         self.text_host = ttk.Frame(self.detail_pane)
         self.detail_pane.add(self.text_host, weight=1)
-        description = ttk.LabelFrame(self.text_host, text='Asset Description', padding=(6, 4))
+        description = ttk.LabelFrame(self.text_host, text=UI_TEXT['s23'], padding=(6, 4))
         description.grid(row=0, column=0, columnspan=2, sticky='nsew')
         self.details_text = tk.Text(description, wrap='word', height=6, font=('Consolas', 10), bg='#252526', fg='#d4d4d4', insertbackground='#ffffff', selectbackground='#007acc', selectforeground='#ffffff', relief='flat', bd=0)
         d_vsb = ttk.Scrollbar(description, orient='vertical', command=self.details_text.yview)
@@ -14407,7 +15622,7 @@ if unsure say so and tell the user where to check"""
         self.after(50, self._ensure_pane_order)
         status = ttk.Frame(self.viewer_root, padding=(8, 6, 8, 8))
         status.pack(fill='x')
-        self.status_label = ttk.Label(status, text='')
+        self.status_label = ttk.Label(status, text=UI_TEXT['m1'])
         self.status_label.pack(side='left')
     def _responsive_cache_toolbar(self, _event=None):
         top = getattr(self, '_cache_top', None)
@@ -14495,7 +15710,9 @@ if unsure say so and tell the user where to check"""
             min_left = max(260, int(VIEWER_MIN_WIDTH * scale))
             min_right = max(190, int(REPLACER_MIN_WIDTH * scale))
             if total > min_left + min_right:
-                self.hpaned.sashpos(0, max(min_left, min(pos, total - min_right)))
+                clamped = max(min_left, min(pos, total - min_right))
+                if clamped != pos:
+                    self.hpaned.sashpos(0, clamped)
         except Exception:
             pass
     def _toggle_viewer_pane(self):
@@ -14522,7 +15739,7 @@ if unsure say so and tell the user where to check"""
             except Exception:
                 pass
             self.viewer_collapsed = False
-            self.collapse_btn.config(text='◀')
+            self.collapse_btn.config(text=UI_TEXT['g5'])
             self._save_settings()
         else:
             try:
@@ -14544,7 +15761,7 @@ if unsure say so and tell the user where to check"""
             except Exception:
                 pass
             self.viewer_collapsed = True
-            self.collapse_btn.config(text='▶')
+            self.collapse_btn.config(text=UI_TEXT['t23'])
             self._save_settings()
     def _app_focus_changed(self, _event=None):
         try:
@@ -14678,11 +15895,17 @@ if unsure say so and tell the user where to check"""
                     self.after_cancel(job)
                 except Exception:
                     pass
-            self._responsive_scale_job = self.after(55, lambda value=ratio: self._apply_responsive_ui_scale(value))
+            self._responsive_scale_job = self.after(190, lambda value=ratio: self._apply_responsive_ui_scale(value))
         except Exception:
             pass
     def _apply_responsive_ui_scale(self, ratio):
         self._responsive_scale_job = None
+        if getattr(self, '_resize_active', False):
+            try:
+                self._responsive_scale_job = self.after(260, lambda value=ratio: self._apply_responsive_ui_scale(value))
+            except Exception:
+                self._responsive_scale_job = None
+            return
         try:
             if not self.winfo_exists():
                 return
@@ -14847,7 +16070,7 @@ if unsure say so and tell the user where to check"""
             return
         data = dict(self.settings)
         data['emote_hotkeys_enabled'] = bool(getattr(self, '_emote_hotkeys_enabled', self.settings.get('emote_hotkeys_enabled', True)))
-        data.update({'autoscroll': self.autoscroll.get(), 'hide_tickets': self.hide_tickets.get(), 'stay_on_top': self.stay_on_top.get(), 'show_lines': self.show_lines.get(), 'preview_optimize_vertices': self.viewport_3d.reduce_polys.get() if hasattr(self, 'viewport_3d') else self.settings.get('preview_optimize_vertices', True), 'streamer_mode': self.streamer_mode.get() if hasattr(self, 'streamer_mode') else self.settings.get('streamer_mode', False), 'fps_limit': self.fps_limit.get() if hasattr(self, 'fps_limit') else self.settings.get('fps_limit', 0), 'autostart_watch': self.autostart_watch.get() if hasattr(self, 'autostart_watch') else self.settings.get('autostart_watch', False), 'max_rows': self.max_rows.get() if hasattr(self, 'max_rows') else self.settings.get('max_rows', 0), 'type_filter': self.type_filter.get(), 'columns': {c: var.get() for c, var in getattr(self, '_col_vars', {}).items()}, 'viewer_collapsed': self.viewer_collapsed, 'theme': self.theme_var.get() if hasattr(self, 'theme_var') else self.settings.get('theme', DEFAULT_THEME), 'fflag_hotkeys': self.fflag_hotkeys, 'fps_hotkeys': self.fps_hotkeys, 'fps_hotkey_slots': self.fps_hotkey_slots, 'fflag_auto_apply': self.fflag_auto_apply.get() if hasattr(self, 'fflag_auto_apply') else self.settings.get('fflag_auto_apply', False), 'launch_on_tray': self.launch_on_tray.get() if hasattr(self, 'launch_on_tray') else self.settings.get('launch_on_tray', False), 'launch_on_startup': self.launch_on_startup.get() if hasattr(self, 'launch_on_startup') else self.settings.get('launch_on_startup', False), 'hide_to_tray_on_close': self.hide_to_tray_on_close.get() if hasattr(self, 'hide_to_tray_on_close') else self.settings.get('hide_to_tray_on_close', False), 'auto_update': self.auto_update.get() if hasattr(self, 'auto_update') else self.settings.get('auto_update', False), 'dpi_percent': int(self.dpi_percent.get()) if hasattr(self, 'dpi_percent') else int(getattr(self, '_dpi_scale', 1.0) * 100), 'plugin_enabled': getattr(self, '_plugin_enabled', self.settings.get('plugin_enabled', {})), 'emote_nav_binds': dict(getattr(self, '_emote_nav_binds', self.settings.get('emote_nav_binds', {}))), 'emote_hud_enabled': False, 'hpaned_sash_v2': self.hpaned.sashpos(0) if hasattr(self, 'hpaned') and self.hpaned.winfo_width() > 0 and self.hpaned.sashpos(0) > 0 else self.settings.get('hpaned_sash_v2', None), 'roblox_path': self.settings.get('roblox_path', ''), 'roblox_username': self.settings.get('roblox_username', ''), 'roblox_user_id': self.settings.get('roblox_user_id', ''), 'gemini_api_key': self.gemini_api_key.get().strip() if hasattr(self, 'gemini_api_key') else self.settings.get('gemini_api_key', ''), 'custom_theme': self.settings.get('custom_theme', {}), 'db_path': getattr(self, 'db_path', self.settings.get('db_path', '')), 'shard_root': getattr(self, 'shard_root', self.settings.get('shard_root', '')), 'window_geometry': self.geometry() if self.winfo_exists() else self.settings.get('window_geometry', STARTUP_GEOMETRY), 'include_cconfigs': self.include_cconfigs.get() if hasattr(self, 'include_cconfigs') else self.settings.get('include_cconfigs', False), 'include_cache_dumps': self.include_cache_dumps.get() if hasattr(self, 'include_cache_dumps') else self.settings.get('include_cache_dumps', False), 'tab_order': [self.nb.tab(t, 'text') for t in self.nb.tabs()] if hasattr(self, 'nb') else self.settings.get('tab_order', []), 'selected_tab': self.nb.tab(self.nb.select(), 'text') if hasattr(self, 'nb') and self.nb.select() else self.settings.get('selected_tab', 'Home'), 'hpaned_sash': self.hpaned.sashpos(0) if hasattr(self, 'hpaned') else self.settings.get('hpaned_sash', None), 'vpaned_sash': self.vpaned.sashpos(0) if hasattr(self, 'vpaned') else self.settings.get('vpaned_sash', None)})
+        data.update({'autoscroll': self.autoscroll.get(), 'hide_tickets': self.hide_tickets.get(), 'stay_on_top': self.stay_on_top.get(), 'show_lines': self.show_lines.get(), 'preview_optimize_vertices': self.viewport_3d.reduce_polys.get() if hasattr(self, 'viewport_3d') else self.settings.get('preview_optimize_vertices', True), 'streamer_mode': self.streamer_mode.get() if hasattr(self, 'streamer_mode') else self.settings.get('streamer_mode', False), 'fps_limit': self.fps_limit.get() if hasattr(self, 'fps_limit') else self.settings.get('fps_limit', 0), 'autostart_watch': self.autostart_watch.get() if hasattr(self, 'autostart_watch') else self.settings.get('autostart_watch', False), 'max_rows': self.max_rows.get() if hasattr(self, 'max_rows') else self.settings.get('max_rows', 0), 'type_filter': self.type_filter.get(), 'columns': {c: var.get() for c, var in getattr(self, '_col_vars', {}).items()}, 'viewer_collapsed': self.viewer_collapsed, 'theme': self.theme_var.get() if hasattr(self, 'theme_var') else self.settings.get('theme', DEFAULT_THEME), 'fflag_hotkeys': self.fflag_hotkeys, 'fps_hotkeys': self.fps_hotkeys, 'fps_hotkey_slots': self.fps_hotkey_slots, 'fflag_auto_apply': self.fflag_auto_apply.get() if hasattr(self, 'fflag_auto_apply') else self.settings.get('fflag_auto_apply', False), 'launch_on_tray': self.launch_on_tray.get() if hasattr(self, 'launch_on_tray') else self.settings.get('launch_on_tray', False), 'launch_on_startup': self.launch_on_startup.get() if hasattr(self, 'launch_on_startup') else self.settings.get('launch_on_startup', False), 'hide_to_tray_on_close': self.hide_to_tray_on_close.get() if hasattr(self, 'hide_to_tray_on_close') else self.settings.get('hide_to_tray_on_close', False), 'auto_update': self.auto_update.get() if hasattr(self, 'auto_update') else self.settings.get('auto_update', False), 'dpi_percent': int(self.dpi_percent.get()) if hasattr(self, 'dpi_percent') else int(getattr(self, '_dpi_scale', 1.0) * 100), 'plugin_enabled': getattr(self, '_plugin_enabled', self.settings.get('plugin_enabled', {})), 'emote_nav_binds': dict(getattr(self, '_emote_nav_binds', self.settings.get('emote_nav_binds', {}))), 'emote_hud_enabled': False, 'hpaned_sash_v2': self.hpaned.sashpos(0) if hasattr(self, 'hpaned') and self.hpaned.winfo_width() > 0 and self.hpaned.sashpos(0) > 0 else self.settings.get('hpaned_sash_v2', None), 'roblox_path': self.settings.get('roblox_path', ''), 'roblox_username': self.settings.get('roblox_username', ''), 'roblox_user_id': self.settings.get('roblox_user_id', ''), 'gemini_api_key': self.gemini_api_key.get().strip() if hasattr(self, 'gemini_api_key') else self.settings.get('gemini_api_key', ''), 'custom_theme': self.settings.get('custom_theme', {}), 'db_path': getattr(self, 'db_path', self.settings.get('db_path', '')), 'shard_root': getattr(self, 'shard_root', self.settings.get('shard_root', '')), 'window_geometry': self.geometry() if self.winfo_exists() else self.settings.get('window_geometry', STARTUP_GEOMETRY), 'include_cconfigs': self.include_cconfigs.get() if hasattr(self, 'include_cconfigs') else self.settings.get('include_cconfigs', False), 'include_cache_dumps': self.include_cache_dumps.get() if hasattr(self, 'include_cache_dumps') else self.settings.get('include_cache_dumps', False), 'tab_order': [self.nb.tab(t, 'text') for t in self.nb.tabs()] if hasattr(self, 'nb') else self.settings.get('tab_order', []), 'selected_tab': self.nb.tab(self.nb.select(), 'text') if hasattr(self, 'nb') and self.nb.select() else self.settings.get('selected_tab', UI_TEXT['w5']), 'hpaned_sash': self.hpaned.sashpos(0) if hasattr(self, 'hpaned') else self.settings.get('hpaned_sash', None), 'vpaned_sash': self.vpaned.sashpos(0) if hasattr(self, 'vpaned') else self.settings.get('vpaned_sash', None)})
         save_settings(data)
         self.settings = data
     def _apply_startup_layouts(self):
@@ -14924,7 +16147,7 @@ if unsure say so and tell the user where to check"""
         theme_toplevel(dlg)
         outer = ttk.Frame(dlg, padding=12)
         outer.pack(fill='both', expand=True)
-        ttk.Label(outer, text='Delete all caches of this type:').pack(anchor='w', pady=(0, 7))
+        ttk.Label(outer, text=UI_TEXT['u23']).pack(anchor='w', pady=(0, 7))
         type_var = tk.StringVar(value='Mesh')
         combo = ttk.Combobox(outer, textvariable=type_var, values=('Mesh', 'Model/RBXM', 'Animation', 'Image', 'Audio', 'Video', 'Font', 'Text', 'Unknown'), state='readonly', width=18)
         combo.pack(fill='x')
@@ -14934,8 +16157,8 @@ if unsure say so and tell the user where to check"""
             self._delete_cache_type(selected)
         btns = ttk.Frame(outer)
         btns.pack(fill='x', pady=(10, 0))
-        ttk.Button(btns, text='Delete', command=do_delete).pack(side='left')
-        ttk.Button(btns, text='Cancel', command=dlg.destroy).pack(side='right')
+        ttk.Button(btns, text=UI_TEXT['b2'], command=do_delete).pack(side='left')
+        ttk.Button(btns, text=UI_TEXT['b3'], command=dlg.destroy).pack(side='right')
         combo.focus_set()
     def _delete_cache_type(self, selected):
         if getattr(self, '_cache_type_busy', False):
@@ -14969,7 +16192,7 @@ if unsure say so and tell the user where to check"""
             self._finish_delete_cache_type(('none', None), was_running)
             return
         try:
-            ok = messagebox.askyesno('Delete Cache Type', f'Delete all {len(targets)} {selected} cache(s)?\n\nThis cannot be undone.', parent=self)
+            ok = messagebox.askyesno(UI_TEXT['c23'], UI_TEXT['v23'].format(p0=len(targets), p1=selected), parent=self)
         except Exception as e:
             self._finish_delete_cache_type(('error', str(e)), was_running)
             return
@@ -15009,7 +16232,7 @@ if unsure say so and tell the user where to check"""
         try:
             kind = result[0]
             if kind == 'none':
-                messagebox.showinfo('Delete Cache Type', 'No caches of the selected type were found.', parent=self)
+                messagebox.showinfo(UI_TEXT['c23'], UI_TEXT['w23'], parent=self)
             elif kind == 'cancel':
                 pass
             elif kind == 'ok':
@@ -15030,12 +16253,12 @@ if unsure say so and tell the user where to check"""
                 msg = f'Deleted {deleted} {selected} cache(s).'
                 if failed:
                     msg += f'\nFailed: {failed}'
-                messagebox.showinfo('Delete Cache Type', msg, parent=self)
+                messagebox.showinfo(UI_TEXT['c23'], msg, parent=self)
             else:
-                messagebox.showerror('Delete Cache Type', str(result[1]), parent=self)
+                messagebox.showerror(UI_TEXT['c23'], str(result[1]), parent=self)
         except Exception as e:
             try:
-                messagebox.showerror('Delete Cache Type', str(e), parent=self)
+                messagebox.showerror(UI_TEXT['c23'], str(e), parent=self)
             except Exception:
                 pass
         finally:
@@ -15087,7 +16310,40 @@ if unsure say so and tell the user where to check"""
             return (out.getvalue(), ext)
         except Exception:
             return (None, None)
-    def _dump_one_cache(self, it, dump_root):
+    def _video_payload_from_body(self, it, body, meta):
+        if not body:
+            return (None, None)
+        headers = meta.get('headers') or {}
+        content_type = next((str(value or '').lower() for key, value in headers.items() if str(key).lower() == 'content-type'), '')
+        kind = str(getattr(it, 'kind', '') or '').lower()
+        if body[:4] == b'\x1aE\xdf\xa3':
+            return (body, '.webm')
+        if len(body) >= 12 and body[4:8] == b'ftyp':
+            return (body, '.mp4')
+        is_hls = body[:256].lstrip().lower().startswith(b'#extm3u') or 'm3u' in kind or 'mpegurl' in content_type
+        if is_hls:
+            try:
+                resolved = self._download_hls_video(body, getattr(it, 'url', ''), it)
+                if resolved:
+                    if len(resolved) >= 12 and resolved[4:8] == b'ftyp':
+                        return (resolved, '.mp4')
+                    if resolved[:4] == b'\x1aE\xdf\xa3':
+                        return (resolved, '.webm')
+                    return (resolved, '.ts')
+            except Exception:
+                return (body, '.m3u8')
+        if 'webm' in kind or 'video/webm' in content_type:
+            return (body, '.webm')
+        if 'mp4' in kind or 'video/mp4' in content_type:
+            return (body, '.mp4')
+        if 'mkv' in kind or 'matroska' in content_type:
+            return (body, '.mkv')
+        if 'm4v' in kind or 'x-m4v' in content_type:
+            return (body, '.m4v')
+        if 'mov' in kind or 'quicktime' in content_type:
+            return (body, '.mov')
+        return (None, None)
+    def _dump_one_cache(self, it, dump_root, include_video=False):
         blob = self._fetch_full_blob(it)
         if not blob:
             return False
@@ -15137,7 +16393,7 @@ if unsure say so and tell the user where to check"""
             lbl = str(it.kind).lower()
             if 'ogg' in lbl or body.startswith(b'OggS'):
                 ext = '.ogg'
-            elif 'wav' in lbl or (len(body) >= 12 and body[:4] == b'RIFF' and (body[8:12] == b'WAVE')):
+            elif 'wav' in lbl or (len(body) >= 12 and body[:4] == b'RIFF' and body[8:12] == b'WAVE'):
                 ext = '.wav'
             elif body.startswith(b'ID3'):
                 ext = '.mp3'
@@ -15152,8 +16408,12 @@ if unsure say so and tell the user where to check"""
         elif cat_low == 'text':
             folder, ext = ('Text', '.txt')
         elif cat_low == 'video':
+            if not include_video:
+                return False
             folder = 'Videos'
-            ext = '.webm' if body[:4] == b'\x1aE\xdf\xa3' else '.mp4'
+            payload, ext = self._video_payload_from_body(it, body, meta)
+            if not payload or not ext:
+                return False
         elif cat_low == 'compressed':
             folder, ext = ('Compressed', '.bin')
         out_dir = os.path.join(dump_root, folder)
@@ -15166,17 +16426,28 @@ if unsure say so and tell the user where to check"""
     def _dump_all_caches(self):
         dump_root = os.path.abspath(os.path.join(DATA_DIR, 'Dump'))
         self._last_dump_folder = dump_root
-        self._console_select_tab('Console')
-        os.makedirs(dump_root, exist_ok=True)
-        self._console_log('')
-        self._console_log('=== Dump Caches ===')
-        self._console_log(f'Database: {self.db_path}')
-        self._console_log(f'Dump folder: {dump_root}')
-        self._console_log('Scanning cache...')
+        self._console_select_tab(UI_TEXT['u5'])
         if getattr(self, '_dump_caches_running', False):
-            self._console_log('A cache dump is already running.')
+            self._console_log(UI_TEXT['x23'])
             return
+        os.makedirs(dump_root, exist_ok=True)
+        self._console_log(UI_TEXT['m1'])
+        self._console_log(UI_TEXT['y23'])
+        self._console_log(UI_TEXT['z23'].format(p0=self.db_path))
+        self._console_log(UI_TEXT['a24'].format(p0=dump_root))
         self._dump_caches_running = True
+        self._dump_caches_prompt_pending = True
+        self._console_log(UI_TEXT['q19'])
+        try:
+            self.after(120, lambda: self.console_entry.focus_set() if hasattr(self, 'console_entry') and self.console_entry.winfo_exists() else None)
+        except Exception:
+            pass
+    def _start_dump_all_caches(self, include_videos=False):
+        dump_root = os.path.abspath(os.path.join(DATA_DIR, 'Dump'))
+        self._last_dump_folder = dump_root
+        os.makedirs(dump_root, exist_ok=True)
+        self._console_log(UI_TEXT['b24'] if include_videos else UI_TEXT['c24'])
+        self._console_log(UI_TEXT['d24'])
         def log(message):
             try:
                 self.after(0, lambda m=str(message): self._console_log(m))
@@ -15193,15 +16464,20 @@ if unsure say so and tell the user where to check"""
                 except Exception as e:
                     log(f'ERROR while scanning: {e}')
                     return
+                videos = [it for it in items if str(getattr(it, 'kind', '')).split(' ', 1)[0].lower() == 'video']
+                items_to_dump = items if include_videos else [it for it in items if str(getattr(it, 'kind', '')).split(' ', 1)[0].lower() != 'video']
                 helper = object.__new__(App)
                 helper.db_path = db_path
                 helper.shard_root = shard_root
+                helper._video_ticket_entries = None
                 dumped = failed = 0
-                total = len(items)
-                log(f'Found {total} cache(s).')
-                for index, it in enumerate(items, 1):
+                total = len(items_to_dump)
+                log(f"Found {len(items)} cache(s), including {len(videos)}{UI_TEXT['t32']}")
+                if not include_videos and videos:
+                    log(f"Skipping {len(videos)}{UI_TEXT['t32']}")
+                for index, it in enumerate(items_to_dump, 1):
                     try:
-                        if App._dump_one_cache(helper, it, dump_root):
+                        if App._dump_one_cache(helper, it, dump_root, include_video=include_videos):
                             dumped += 1
                         else:
                             failed += 1
@@ -15230,39 +16506,52 @@ if unsure say so and tell the user where to check"""
         os.makedirs(dump_root, exist_ok=True)
         db_path, shard_root = default_paths()
         if not os.path.isfile(db_path):
-            print('ERROR: rbx-storage.db was not found.', flush=True)
+            print(UI_TEXT['e24'], flush=True)
             return 1
-        print('RoUtils - Dump Caches', flush=True)
-        print(f'Database: {db_path}', flush=True)
-        print(f'Dump folder: {dump_root}', flush=True)
-        print('Scanning cache...', flush=True)
+        print(UI_TEXT['f24'], flush=True)
+        print(UI_TEXT['z23'].format(p0=db_path), flush=True)
+        print(UI_TEXT['a24'].format(p0=dump_root), flush=True)
+        while True:
+            try:
+                answer = input(UI_TEXT['c28']).strip().lower()
+            except (EOFError, KeyboardInterrupt):
+                answer = 'n'
+            if answer in ('y', 'yes', 'n', 'no'):
+                break
+            print(UI_TEXT['p19'], flush=True)
+        include_videos = answer in ('y', 'yes')
         helper = object.__new__(App)
         helper.db_path = db_path
         helper.shard_root = shard_root
+        helper._video_ticket_entries = None
         try:
             items = scan_db_once(db_path, shard_root, set(), None)
         except Exception as e:
-            print(f'ERROR while scanning: {e}', flush=True)
+            print(UI_TEXT['g24'].format(p0=e), flush=True)
             return 1
+        videos = [it for it in items if str(getattr(it, 'kind', '')).split(' ', 1)[0].lower() == 'video']
+        items_to_dump = items if include_videos else [it for it in items if str(getattr(it, 'kind', '')).split(' ', 1)[0].lower() != 'video']
         dumped = 0
         failed = 0
-        total = len(items)
-        print(f'Found {total} cache(s).', flush=True)
-        print()
-        for index, it in enumerate(items, 1):
+        total = len(items_to_dump)
+        print(UI_TEXT['h24'].format(p0=len(items), p1=len(videos)), flush=True)
+        if not include_videos and videos:
+            print(UI_TEXT['i24'].format(p0=len(videos)), flush=True)
+        print(UI_TEXT['d24'], flush=True)
+        for index, it in enumerate(items_to_dump, 1):
             try:
-                if App._dump_one_cache(helper, it, dump_root):
+                if App._dump_one_cache(helper, it, dump_root, include_video=include_videos):
                     dumped += 1
                 else:
                     failed += 1
             except Exception as e:
                 failed += 1
-                print(f'Failed {it.hash}: {e}', flush=True)
+                print(UI_TEXT['j24'].format(p0=getattr(it, "hash", "unknown"), p1=e), flush=True)
             if index % 10 == 0 or index == total:
-                print(f'Processed {index}/{total} | dumped={dumped} failed={failed}', flush=True)
+                print(UI_TEXT['k24'].format(p0=index, p1=total, p2=dumped, p3=failed), flush=True)
         print()
-        print(f'Finished. Dumped: {dumped} | Failed: {failed}', flush=True)
-        print(f'Output: {dump_root}', flush=True)
+        print(UI_TEXT['l24'].format(p0=dumped, p1=failed), flush=True)
+        print(UI_TEXT['m24'].format(p0=dump_root), flush=True)
         return 0
     def _clear_storage_now(self):
         was = self.watching
@@ -15296,8 +16585,8 @@ if unsure say so and tell the user where to check"""
         self.items_by_hash.clear()
         self.tree.delete(*self.tree.get_children())
         self._update_status()
-        self._console_log(f"Cleared rbx-storage: {deleted_shards} shard(s), DB={('yes' if deleted_db else 'no')}")
-        messagebox.showinfo('Clear rbx-storage', f"Deleted shards: {deleted_shards}\nDeleted DB: {('yes' if deleted_db else 'no')}")
+        self._console_log(UI_TEXT['n24'].format(p0=deleted_shards, p1='yes' if deleted_db else 'no'))
+        messagebox.showinfo(UI_TEXT['b23'], UI_TEXT['o24'].format(p0=deleted_shards, p1='yes' if deleted_db else 'no'))
         if was:
             self._start_watching()
     def _install_selected_db(self, source_db):
@@ -15364,7 +16653,7 @@ if unsure say so and tell the user where to check"""
         self._reset_seen(clear_list=True)
         return target
     def _choose_db(self):
-        path = filedialog.askopenfilename(title='Select rbx-storage.db', filetypes=[('SQLite DB', '*.db'), ('All Files', '*.*')])
+        path = filedialog.askopenfilename(title=UI_TEXT['p24'], filetypes=[(UI_TEXT['o8'], '*.db'), (UI_TEXT['q24'], '*.*')])
         if not path:
             return
         was_watching = self.watching
@@ -15373,15 +16662,15 @@ if unsure say so and tell the user where to check"""
         try:
             self._install_selected_db(path)
         except Exception as e:
-            messagebox.showerror('Choose DB File', f'Could not replace Roblox storage files.\n\n{e}\n\nClose Roblox and try again. No force-delete was used.')
+            messagebox.showerror(UI_TEXT['r24'], UI_TEXT['s24'].format(p0=e))
             if was_watching:
                 self._start_watching()
             return
         if was_watching:
             self._start_watching()
-        messagebox.showinfo('Choose DB File', 'Installed selected DB successfully.\n\nDeleted: rbx-storage.db, rbx-storage.db-shm, rbx-storage.db-wal, rbx-storage.id\nInstalled: rbx-storage.db only.')
+        messagebox.showinfo(UI_TEXT['r24'], UI_TEXT['t24'])
     def _choose_shard_root(self):
-        d = filedialog.askdirectory(title='Select shard root folder (rbx-storage)')
+        d = filedialog.askdirectory(title=UI_TEXT['u24'])
         if not d:
             return
         self.shard_root = d
@@ -15392,30 +16681,30 @@ if unsure say so and tell the user where to check"""
             self._watch_loading_active = False
             self._watch_initial_scan_done.clear()
             if hasattr(self, '_watch_loading_label'):
-                self._watch_loading_label.config(text='')
-            self._console_log('Cache watching stopped')
+                self._watch_loading_label.config(text=UI_TEXT['m1'])
+            self._console_log(UI_TEXT['e20'])
             return
         self._watch_loading_active = True
         self._watch_initial_scan_done.clear()
-        self.toggle_btn.config(state='disabled', text='Loading...')
+        self.toggle_btn.config(state='disabled', text=UI_TEXT['v5'])
         if hasattr(self, '_watch_loading_label'):
-            self._watch_loading_label.config(text='Loading...')
+            self._watch_loading_label.config(text=UI_TEXT['v5'])
         def begin():
             started = False
             try:
                 started = self._start_watching()
                 if started:
-                    self._console_log('Cache watching started')
+                    self._console_log(UI_TEXT['c20'])
                 else:
-                    self._console_log('Cache watching could not start: database file was not found.')
+                    self._console_log(UI_TEXT['d20'])
             except Exception as e:
-                self._console_log(f'Cache watching failed: {e}')
+                self._console_log(UI_TEXT['v24'].format(p0=e))
             if not started:
                 self._watch_loading_active = False
                 try:
-                    self.toggle_btn.config(state='normal', text='Start Watching')
+                    self.toggle_btn.config(state='normal', text=UI_TEXT['d23'])
                     if hasattr(self, '_watch_loading_label'):
-                        self._watch_loading_label.config(text='')
+                        self._watch_loading_label.config(text=UI_TEXT['m1'])
                 except Exception:
                     pass
         self.after(40, begin)
@@ -15426,7 +16715,7 @@ if unsure say so and tell the user where to check"""
         self.stop_event.clear()
         self.watching = True
         if hasattr(self, 'toggle_btn') and not getattr(self, '_watch_loading_active', False):
-            self.toggle_btn.config(state='normal', text='Stop Watching')
+            self.toggle_btn.config(state='normal', text=UI_TEXT['w24'])
         self._update_status()
         self._launch_scan_loop()
         return True
@@ -15434,7 +16723,7 @@ if unsure say so and tell the user where to check"""
         self.stop_event.set()
         self.watching = False
         if hasattr(self, 'toggle_btn'):
-            self.toggle_btn.config(text='Start Watching')
+            self.toggle_btn.config(text=UI_TEXT['d23'])
         self._update_status()
     def _launch_scan_loop(self):
         if self.scan_thread and self.scan_thread.is_alive():
@@ -15454,11 +16743,11 @@ if unsure say so and tell the user where to check"""
                 continue
             try:
                 max_rows = self._scan_max_rows_value
-                items = scan_db_once(self.db_path, self.shard_root, self.seen_hashes, None if max_rows <= 0 else max_rows)
+                items = scan_db_once(self.db_path, self.shard_root, self.seen_hashes, None if max_rows <= 0 else max_rows, on_batch=self.new_items_q.put, batch_size=800)
                 if items:
                     self.new_items_q.put(items)
             except Exception as e:
-                self._console_log(f'Cache scan error: {e}')
+                self._console_log(UI_TEXT['x24'].format(p0=e))
             finally:
                 if first_scan:
                     first_scan = False
@@ -15479,28 +16768,73 @@ if unsure say so and tell the user where to check"""
         if getattr(self, '_watch_loading_active', False) and self._watch_initial_scan_done.is_set() and self.new_items_q.empty() and not self._tree_insert_pending and self._tree_insert_pending_job is None and self._filter_render_phase is None:
             self._watch_loading_active = False
             try:
-                self.toggle_btn.config(state='normal', text='Stop Watching' if self.watching else 'Start Watching')
+                self.toggle_btn.config(state='normal', text=UI_TEXT['w24'] if self.watching else UI_TEXT['d23'])
                 if hasattr(self, '_watch_loading_label'):
-                    self._watch_loading_label.config(text='')
+                    self._watch_loading_label.config(text=UI_TEXT['m1'])
             except Exception:
                 pass
         self.after(UI_QUEUE_INTERVAL_MS, self._drain_queue)
-    def _should_display(self, it: ScanItem, filt: str) -> bool:
-        if self.hide_tickets.get() and it.is_ticket:
+    def _should_display(self, it: ScanItem, filt: str, hide_tickets=None, type_filter=None) -> bool:
+        if hide_tickets is None:
+            hide_tickets = self.hide_tickets.get()
+        if hide_tickets and it.is_ticket:
             return False
-        cat = it.kind.split(' ', 1)[0]
-        tf = self.type_filter.get()
-        if tf != 'All':
-            for label, matcher in TYPE_FILTERS:
-                if label == tf:
-                    if not matcher(cat):
-                        return False
-                    break
-        row = (it.time, it.name, it.hash, human_size(it.size), it.kind, it.src)
-        row_join = ' '.join(map(str, row)).lower()
-        if filt and filt not in row_join:
-            return False
+        if type_filter is None:
+            type_filter = self.type_filter.get()
+        if type_filter != 'All':
+            cat = it.kind.split(' ', 1)[0]
+            matcher = TYPE_FILTER_MATCHERS.get(type_filter)
+            if matcher is not None and not matcher(cat):
+                return False
+        if filt:
+            row_join = getattr(it, 'search_text', '')
+            if not row_join:
+                size_text = getattr(it, 'size_text', '') or human_size(it.size)
+                row_join = ' '.join((it.time, it.name, it.hash, size_text, it.kind, it.src)).lower()
+            if filt not in row_join:
+                return False
         return True
+    def _tree_insert_many(self, rows):
+        if not rows or not hasattr(self, 'tree'):
+            return
+        rows_var = f'::routils_cache_rows_{id(self)}'
+        tree_var = f'::routils_cache_widget_{id(self)}'
+        try:
+            self.tree.tk.call('set', rows_var, tuple(rows))
+            self.tree.tk.call('set', tree_var, str(self.tree))
+            script = (
+                f"set __routils_tree ${tree_var}\n"
+                f"foreach __routils_row ${rows_var} {{\n"
+                "    set __routils_id [lindex $__routils_row 0]\n"
+                "    set __routils_values [lindex $__routils_row 1]\n"
+                f"    if {{[catch {{$__routils_tree insert {{}} end -id $__routils_id -values $__routils_values}}]}} {{\n"
+                "        if {[$__routils_tree exists $__routils_id]} {$__routils_tree item $__routils_id -values $__routils_values}\n"
+                "    }\n}\n"
+                f"unset {rows_var}\n"
+                f"unset -nocomplain {tree_var}\n"
+            )
+            self.tree.tk.eval(script)
+        except Exception:
+            try:
+                self.tree.tk.call('unset', rows_var)
+            except Exception:
+                pass
+            for iid, values in rows:
+                try:
+                    self.tree.insert('', 'end', iid=iid, values=values)
+                except tk.TclError:
+                    try:
+                        if self.tree.exists(iid):
+                            self.tree.item(iid, values=values)
+                    except Exception:
+                        pass
+                except Exception:
+                    pass
+        finally:
+            try:
+                self.tree.tk.call('unset', rows_var)
+            except Exception:
+                pass
     def _insert_items(self, items: List[ScanItem]):
         if not items or getattr(self, '_ui_dispatch_closed', False):
             return
@@ -15534,41 +16868,30 @@ if unsure say so and tell the user where to check"""
         pending = self._tree_insert_pending
         index = self._tree_insert_pending_index
         filt = self.filter_text.get().lower().strip()
-        batch_count = 0
+        hide_tickets = self.hide_tickets.get()
+        type_filter = self.type_filter.get()
+        batch_rows = []
+        batch_items = []
         last_iid = None
         started = time.perf_counter()
-        while index < len(pending) and batch_count < 1200 and time.perf_counter() - started < 0.016:
+        while index < len(pending) and len(batch_rows) < 1200 and time.perf_counter() - started < 0.025:
             item = pending[index]
             index += 1
-            batch_count += 1
             self.items_by_hash[item.hash] = item
-            if not self._should_display(item, filt):
+            if not self._should_display(item, filt, hide_tickets, type_filter):
                 continue
-            values = (item.time, item.name, item.hash, human_size(item.size), item.kind, item.src)
-            inserted = False
-            try:
-                self.tree.insert('', 'end', iid=item.hash, values=values)
-                inserted = True
-            except tk.TclError:
-                try:
-                    if self.tree.exists(item.hash):
-                        self.tree.item(item.hash, values=values)
-                        inserted = True
-                except Exception:
-                    pass
-            except Exception:
-                pass
-            if inserted:
+            size_text = getattr(item, 'size_text', '') or human_size(item.size)
+            values = (item.time, item.name, item.hash, size_text, item.kind, item.src)
+            batch_rows.append((item.hash, values))
+            batch_items.append(item)
+            last_iid = item.hash
+        if batch_rows:
+            self._tree_insert_many(batch_rows)
+            for item in batch_items:
                 self.items_by_iid[item.hash] = item
-                last_iid = item.hash
-        self._tree_insert_pending_index = index
-        if batch_count:
+            self._tree_last_inserted_iid = last_iid
             self._update_status()
-            if self.autoscroll.get() and last_iid:
-                try:
-                    self.tree.see(last_iid)
-                except Exception:
-                    pass
+        self._tree_insert_pending_index = index
         if index < len(pending):
             try:
                 self._tree_insert_pending_job = self.after(1, self._insert_items_batch)
@@ -15577,6 +16900,11 @@ if unsure say so and tell the user where to check"""
         else:
             self._tree_insert_pending = []
             self._tree_insert_pending_index = 0
+            if self.autoscroll.get() and last_iid and not getattr(self, '_watch_loading_active', False) and self.new_items_q.empty():
+                try:
+                    self.tree.see(last_iid)
+                except Exception:
+                    pass
     def _safe_apply_filter(self):
         try:
             self._apply_filter()
@@ -15587,7 +16915,7 @@ if unsure say so and tell the user where to check"""
                 pass
         except Exception as exc:
             try:
-                self._console_log(f'Cache view refresh was retried: {exc}')
+                self._console_log(UI_TEXT['y24'].format(p0=exc))
             except Exception:
                 pass
     def _apply_filter(self):
@@ -15667,24 +16995,25 @@ if unsure say so and tell the user where to check"""
         index = self._filter_render_index
         processed = 0
         started = time.perf_counter()
-        while index < len(snapshot) and processed < 1500 and time.perf_counter() - started < 0.016:
+        hide_tickets = self.hide_tickets.get()
+        type_filter = self.type_filter.get()
+        batch_rows = []
+        batch_items = []
+        while index < len(snapshot) and processed < 2200 and time.perf_counter() - started < 0.022:
             item = snapshot[index]
             index += 1
             processed += 1
-            if not self._should_display(item, self._filter_render_text):
+            if not self._should_display(item, self._filter_render_text, hide_tickets, type_filter):
                 continue
-            values = (item.time, item.name, item.hash, human_size(item.size), item.kind, item.src)
-            try:
-                if self.tree.exists(item.hash):
-                    self.tree.item(item.hash, values=values)
-                else:
-                    self.tree.insert('', 'end', iid=item.hash, values=values)
+            size_text = getattr(item, 'size_text', '') or human_size(item.size)
+            values = (item.time, item.name, item.hash, size_text, item.kind, item.src)
+            batch_rows.append((item.hash, values))
+            batch_items.append(item)
+            self._filter_render_last_iid = item.hash
+        if batch_rows:
+            self._tree_insert_many(batch_rows)
+            for item in batch_items:
                 self.items_by_iid[item.hash] = item
-                self._filter_render_last_iid = item.hash
-            except tk.TclError:
-                pass
-            except Exception:
-                pass
         self._filter_render_index = index
         if index < len(snapshot):
             try:
@@ -15771,7 +17100,8 @@ if unsure say so and tell the user where to check"""
             body = meta.get('body') or b''
             cat = it.kind.split(' ', 1)[0]
             is_mesh = cat == 'Mesh'
-            is_anim = cat == 'Animation' or (cat in ('RBXM', 'Model') and any((marker in body[:262144] for marker in (b'Keyframe', b'CurveAnimation', b'KeyframeSequence', b'AnimationClip'))))
+            scan_end = min(len(body), 262144)
+            is_anim = cat == 'Animation' or (cat in ('RBXM', 'Model') and any((body.find(marker, 0, scan_end) != -1 for marker in (b'Keyframe', b'CurveAnimation', b'KeyframeSequence', b'AnimationClip'))))
             is_audio = cat == 'Sound'
             is_model = cat in ('Model', 'RBXM', 'rbxl (place)')
             if not (is_mesh or is_anim or is_audio or is_model) or is_anim:
@@ -15880,7 +17210,7 @@ if unsure say so and tell the user where to check"""
         joined = '\n'.join((it.hash for it in items))
         self.clipboard_clear()
         self.clipboard_append(joined)
-        messagebox.showinfo('Copied', f'Copied {len(items)} hash(es) to clipboard.')
+        messagebox.showinfo(UI_TEXT['z24'], UI_TEXT['a25'].format(p0=len(items)))
     def _on_tree_motion(self, event):
         try:
             row = self.tree.identify_row(event.y)
@@ -16026,12 +17356,12 @@ if unsure say so and tell the user where to check"""
     def _export_selected_full(self):
         items = self._get_selected_items()
         if not items:
-            messagebox.showinfo('Export Blob', 'Select a row first.')
+            messagebox.showinfo(UI_TEXT['b25'], UI_TEXT['c25'])
             return
         if len(items) == 1:
             self._export_one_full(items[0])
             return
-        directory = filedialog.askdirectory(title='Export Full Blobs to folder')
+        directory = filedialog.askdirectory(title=UI_TEXT['d25'])
         if not directory:
             return
         saved = 0
@@ -16047,30 +17377,30 @@ if unsure say so and tell the user where to check"""
                 saved += 1
             except Exception:
                 pass
-        messagebox.showinfo('Export Blob', f'Exported {saved} of {len(items)} blobs to:\n{directory}')
+        messagebox.showinfo(UI_TEXT['b25'], UI_TEXT['e25'].format(p0=saved, p1=len(items), p2=directory))
     def _export_one_full(self, it):
         blob = self._fetch_full_blob(it)
         if not blob:
-            messagebox.showerror('Export Blob', 'Unable to read blob (DB/shard).')
+            messagebox.showerror(UI_TEXT['b25'], UI_TEXT['f25'])
             return
         ext = '.rbxh' if blob[:4] == RBXH_MAGIC else '.bin'
         default_name = f'{it.hash}{ext}'
-        path = filedialog.asksaveasfilename(title='Export Full Blob', defaultextension=ext, initialfile=default_name, filetypes=[('RBXH blob', '*.rbxh'), ('Binary', '*.bin'), ('All files', '*.*')])
+        path = filedialog.asksaveasfilename(title=UI_TEXT['g25'], defaultextension=ext, initialfile=default_name, filetypes=[(UI_TEXT['h25'], '*.rbxh'), (UI_TEXT['i25'], '*.bin'), (UI_TEXT['z7'], '*.*')])
         if not path:
             return
         try:
             with open(path, 'wb') as f:
                 f.write(blob)
-            messagebox.showinfo('Export Blob', f'Saved full blob:\n{path}')
+            messagebox.showinfo(UI_TEXT['b25'], UI_TEXT['j25'].format(p0=path))
         except Exception as e:
-            messagebox.showerror('Export Blob', f'Failed to save file:\n{e}')
+            messagebox.showerror(UI_TEXT['b25'], UI_TEXT['k25'].format(p0=e))
     def _export_selected_rbxm(self):
         items = self._get_selected_items()
         if not items:
-            messagebox.showinfo('Export RBXM', 'Select a row first.')
+            messagebox.showinfo(UI_TEXT['l25'], UI_TEXT['c25'])
             return
         if len(items) > 1:
-            directory = filedialog.askdirectory(title='Export RBXM models to folder')
+            directory = filedialog.askdirectory(title=UI_TEXT['m25'])
             if not directory:
                 return
             saved = 0
@@ -16086,7 +17416,7 @@ if unsure say so and tell the user where to check"""
                     saved += 1
                 except Exception:
                     pass
-            messagebox.showinfo('Export RBXM', f'Exported {saved} of {len(items)} models to:\n{directory}')
+            messagebox.showinfo(UI_TEXT['l25'], UI_TEXT['n25'].format(p0=saved, p1=len(items), p2=directory))
             return
         it = items[0]
         out = self._rbxm_body(it)
@@ -16095,23 +17425,23 @@ if unsure say so and tell the user where to check"""
         body, is_binary = out
         ext = '.rbxm' if is_binary else '.rbxmx'
         default_name = f'{it.hash}{ext}'
-        path = filedialog.asksaveasfilename(title='Export RBXM', defaultextension=ext, initialfile=default_name, filetypes=[('Roblox model', f'*{ext}'), ('All files', '*.*')])
+        path = filedialog.asksaveasfilename(title=UI_TEXT['l25'], defaultextension=ext, initialfile=default_name, filetypes=[(UI_TEXT['o25'], f'*{ext}'), (UI_TEXT['z7'], '*.*')])
         if not path:
             return
         try:
             with open(path, 'wb') as f:
                 f.write(body)
-            messagebox.showinfo('Export RBXM', f'Saved model:\n{path}')
+            messagebox.showinfo(UI_TEXT['l25'], UI_TEXT['p25'].format(p0=path))
         except Exception as e:
-            messagebox.showerror('Export RBXM', f'Failed to save file:\n{e}')
+            messagebox.showerror(UI_TEXT['l25'], UI_TEXT['k25'].format(p0=e))
     def _export_selected_mesh_obj(self):
         items = [it for it in self._get_selected_items() if (it.kind or '').split(' ', 1)[0] == 'Mesh']
         if not items:
-            messagebox.showinfo('Export as OBJ', 'Select a Mesh cache first.', parent=self)
+            messagebox.showinfo(UI_TEXT['m23'], UI_TEXT['q25'], parent=self)
             return
         directory = None
         if len(items) > 1:
-            directory = filedialog.askdirectory(title='Export meshes as OBJ', parent=self)
+            directory = filedialog.askdirectory(title=UI_TEXT['r25'], parent=self)
             if not directory:
                 return
         saved = 0
@@ -16131,18 +17461,18 @@ if unsure say so and tell the user where to check"""
                 if directory:
                     path = os.path.join(directory, base + '.obj')
                 else:
-                    path = filedialog.asksaveasfilename(title='Export Mesh as OBJ', parent=self, defaultextension='.obj', initialfile=base + '.obj', filetypes=[('Wavefront OBJ', '*.obj'), ('All files', '*.*')])
+                    path = filedialog.asksaveasfilename(title=UI_TEXT['s25'], parent=self, defaultextension='.obj', initialfile=base + '.obj', filetypes=[(UI_TEXT['t25'], '*.obj'), (UI_TEXT['z7'], '*.*')])
                     if not path:
                         return
                 convert(data, path)
                 saved += 1
-                self._console_log(f'Exported Mesh as OBJ: {path}')
+                self._console_log(UI_TEXT['u25'].format(p0=path))
             except Exception as exc:
                 errors.append(f'{it.name or it.hash}: {exc}')
         if errors:
-            messagebox.showerror('Export as OBJ', 'Some meshes failed:\n' + '\n'.join(errors), parent=self)
+            messagebox.showerror(UI_TEXT['m23'], UI_TEXT['v25'] + '\n'.join(errors), parent=self)
         elif saved:
-            messagebox.showinfo('Export as OBJ', f'Exported {saved} mesh(es).', parent=self)
+            messagebox.showinfo(UI_TEXT['m23'], UI_TEXT['w25'].format(p0=saved), parent=self)
     def _video_signed_query_values(self, source_url: str) -> Dict[str, str]:
         values = {}
         try:
@@ -16172,76 +17502,73 @@ if unsure say so and tell the user where to check"""
     def _find_video_ticket_urls(self, video_it: ScanItem, manifest: bytes) -> List[str]:
         candidates = []
         manifest_text = manifest.decode('utf-8', 'ignore')
-        paths = []
+        path_tokens = set()
         for line in manifest_text.splitlines():
             line = line.strip()
             if not line or line.startswith('#'):
                 continue
             try:
-                paths.append(urlparse(line).path.lower())
+                for part in urlparse(line).path.lower().split('/'):
+                    if len(part) >= 5:
+                        path_tokens.add(part)
             except Exception:
                 pass
-        path_tokens = set()
-        for path in paths:
-            for part in path.split('/'):
-                if len(part) >= 5:
-                    path_tokens.add(part)
-        try:
-            conn = connect_ro(self.db_path)
-            cur = conn.cursor()
-            cur.execute('SELECT id, content FROM files')
-            for id_b, content in cur:
-                h = id_bytes_to_hex(id_b)
-                blob = content if content is not None else read_shard_bytes(self.shard_root, h)
-                if not blob:
-                    continue
-                meta = parse_rbxh(blob)
-                url = str(meta.get('url') or '')
-                body = meta.get('body') or b''
-                full = meta.get('full_payload') or body
-                is_ticket, _ = detect_ticket(full, url)
-                if not is_ticket:
-                    continue
-                found = []
-                if url:
-                    found.append(url)
-                found.extend(self._extract_signed_urls_from_bytes(body))
-                found.extend(self._extract_signed_urls_from_bytes(full))
-                for u in found:
-                    low = u.lower()
-                    score = 0
-                    if 'rbxcdn.com' in low:
-                        score += 10
-                    if any((k in low for k in ('__token_', 'signature', 'key-pair-id', 'policy', 'expires'))):
-                        score += 20
+        ticket_entries = getattr(self, '_video_ticket_entries', None)
+        if ticket_entries is None:
+            ticket_entries = []
+            seen_urls = set()
+            conn = None
+            try:
+                conn = connect_ro(self.db_path)
+                cur = conn.cursor()
+                cur.execute('SELECT id, content FROM files')
+                for id_b, content in cur:
+                    h = id_bytes_to_hex(id_b)
+                    blob = content if content is not None else read_shard_bytes(self.shard_root, h)
+                    if not blob:
+                        continue
                     try:
-                        upath = urlparse(u).path.lower()
-                        for token in path_tokens:
-                            if token in upath:
-                                score += 25
+                        meta = parse_rbxh(blob)
+                        url = str(meta.get('url') or '')
+                        body = meta.get('body') or b''
+                        full = meta.get('full_payload') or body
+                        is_ticket, _ = detect_ticket(full, url)
+                        if not is_ticket:
+                            continue
+                        found = ([url] if url else [])
+                        found.extend(self._extract_signed_urls_from_bytes(body))
+                        found.extend(self._extract_signed_urls_from_bytes(full))
+                        for candidate_url in found:
+                            if candidate_url.startswith(('http://', 'https://')) and candidate_url not in seen_urls:
+                                seen_urls.add(candidate_url)
+                                ticket_entries.append(candidate_url)
+                    except Exception:
+                        continue
+            except Exception:
+                pass
+            finally:
+                if conn is not None:
+                    try:
+                        conn.close()
                     except Exception:
                         pass
-                    if any((x in low for x in ('.m3u8', 'playlist', 'video'))):
-                        score += 15
-                    candidates.append((score, u))
-        except Exception:
-            pass
-        finally:
+            self._video_ticket_entries = ticket_entries
+        for candidate_url in ticket_entries:
+            low = candidate_url.lower()
+            score = 10 if 'rbxcdn.com' in low else 0
+            if any(token in low for token in ('__token_', 'signature', 'key-pair-id', 'policy', 'expires')):
+                score += 20
             try:
-                conn.close()
+                candidate_path = urlparse(candidate_url).path.lower()
+                if path_tokens:
+                    score += 25 * sum(1 for token in path_tokens if token in candidate_path)
             except Exception:
                 pass
-        candidates.sort(key=lambda x: x[0], reverse=True)
-        out = []
-        seen = set()
-        for _score, u in candidates:
-            if u in seen:
-                continue
-            seen.add(u)
-            out.append(u)
-            if len(out) >= 80:
-                break
-        return out
+            if any(token in low for token in ('.m3u8', 'playlist', 'video')):
+                score += 15
+            candidates.append((score, candidate_url))
+        candidates.sort(key=lambda item: item[0], reverse=True)
+        return list(dict.fromkeys(url for _score, url in candidates[:80]))
     def _resolve_hls_uri(self, uri: str, base_url: str, token_values: Dict[str, str]) -> str:
         uri = str(uri or '').strip().strip('"\'')
         if not uri:
@@ -16254,11 +17581,9 @@ if unsure say so and tell the user where to check"""
         uri = re.sub('\\$([A-Za-z0-9_-]+)', repl, uri)
         return urljoin(base_url, uri)
     def _download_hls_video(self, manifest: bytes, source_url: str, video_it: Optional[ScanItem]=None, timeout: int=20):
-        session = urllib.request.build_opener()
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) RoUtils/3.8', 'Accept': '*/*', 'Accept-Encoding': 'identity'}
+        headers = {'User-Agent': f'RoUtils/{APP_VERSION}', 'Accept': '*/*', 'Accept-Encoding': 'identity'}
         def fetch(url):
-            req = urllib.request.Request(url, headers=headers)
-            with session.open(req, timeout=timeout) as r:
+            with _routils_request(url, timeout=timeout, headers=headers) as r:
                 return (r.read(), r.geturl(), dict(r.headers.items()))
         ticket_urls = []
         if video_it is not None and self._video_has_placeholders(manifest.decode('utf-8', 'ignore')):
@@ -16358,86 +17683,91 @@ if unsure say so and tell the user where to check"""
                 errors.append(str(e))
         if source_url and (not self._video_has_placeholders(manifest.decode('utf-8', 'ignore'))):
             return parse_manifest(manifest, source_url, self._video_signed_query_values(source_url))
-        detail = errors[0] if errors else 'No signed ticket URL was found in the cache.'
+        detail = errors[0] if errors else UI_TEXT['n29']
         raise RuntimeError('Could not recover the Roblox video ticket from cache. ' + detail)
     def _export_selected_video(self):
+        if getattr(self, '_video_export_running', False):
+            self._console_log(UI_TEXT['x25'])
+            return
         items = self._get_selected_items()
         if not items:
-            messagebox.showinfo('Export Video', 'Select a row first.')
+            messagebox.showinfo(UI_TEXT['y25'], UI_TEXT['c25'], parent=self)
             return
-        video_items = [it for it in items if it.kind.split(' ', 1)[0].lower() == 'video']
+        video_items = [it for it in items if str(it.kind).split(' ', 1)[0].lower() == 'video']
         if not video_items:
-            messagebox.showerror('Export Video', 'The selected cache does not contain a detected video.')
+            messagebox.showerror(UI_TEXT['y25'], UI_TEXT['z25'], parent=self)
             return
-        def get_video_payload(it):
-            blob = self._fetch_full_blob(it)
-            if not blob:
-                return (None, None)
-            body, meta = self._dump_blob_body(blob)
-            if not body:
-                return (None, None)
-            ct = str(meta.get('headers', {}).get('content-type', '') or '').lower()
-            kind = str(it.kind or '').lower()
-            if body[:4] == b'\x1aE\xdf\xa3' or 'webm' in kind or 'video/webm' in ct:
-                ext = '.webm'
-            elif len(body) >= 12 and body[4:8] == b'ftyp' or 'mp4' in kind or 'video/mp4' in ct:
-                ext = '.mp4'
-            elif body.lstrip().lower().startswith(b'#extm3u') or 'm3u' in kind or 'mpegurl' in ct:
-                try:
-                    resolved = self._download_hls_video(body, it.url, it)
-                    if resolved:
-                        if len(resolved) >= 12 and resolved[4:8] == b'ftyp':
-                            return (resolved, '.mp4')
-                        if resolved[:4] == b'\x1aE\xdf\xa3':
-                            return (resolved, '.webm')
-                        return (resolved, '.ts')
-                except Exception:
-                    ext = '.m3u8'
-            elif 'mkv' in kind or 'matroska' in ct:
-                ext = '.mkv'
-            elif 'm4v' in kind or 'x-m4v' in ct:
-                ext = '.m4v'
-            elif 'mov' in kind or 'quicktime' in ct:
-                ext = '.mov'
-            else:
-                return (None, None)
-            return (body, ext)
+        self._video_ticket_entries = None
+        directory = None
+        selected_path = None
         if len(video_items) > 1:
-            directory = filedialog.askdirectory(title='Export videos to folder')
+            directory = filedialog.askdirectory(parent=self, title=UI_TEXT['a26'])
             if not directory:
                 return
+        else:
+            item = video_items[0]
+            base_name = _sanitize_filename_for_windows(item.name or item.hash) or item.hash
+            selected_path = filedialog.asksaveasfilename(parent=self, title=UI_TEXT['y25'], defaultextension='.mp4', initialfile=f'{base_name}.mp4', filetypes=[(UI_TEXT['b26'], '*.mp4 *.webm *.ts *.mkv *.m4v *.mov *.m3u8'), (UI_TEXT['z7'], '*.*')])
+            if not selected_path:
+                return
+        self._video_export_running = True
+        self._console_select_tab(UI_TEXT['u5'])
+        self._console_log(UI_TEXT['c26'].format(p0=len(video_items)))
+        def worker():
             saved = 0
             failed = 0
-            for it in video_items:
-                payload, ext = get_video_payload(it)
-                if not payload:
-                    failed += 1
-                    continue
-                name = _sanitize_filename_for_windows(it.name or it.hash) or it.hash
-                path = os.path.join(directory, f'{name}_{it.hash}{ext}')
+            paths = []
+            errors = []
+            for index, it in enumerate(video_items, 1):
                 try:
-                    with open(path, 'wb') as f:
-                        f.write(payload)
+                    blob = self._fetch_full_blob(it)
+                    if not blob:
+                        raise ValueError('cache data was not found')
+                    body, meta = self._dump_blob_body(blob)
+                    payload, ext = self._video_payload_from_body(it, body, meta)
+                    if not payload or not ext:
+                        raise ValueError('could not recover the video data')
+                    if directory:
+                        name = _sanitize_filename_for_windows(it.name or it.hash) or it.hash
+                        path = os.path.join(directory, f'{name}_{it.hash}{ext}')
+                    else:
+                        base = os.path.splitext(selected_path)[0]
+                        path = base + ext
+                    with open(path, 'wb') as stream:
+                        stream.write(payload)
                     saved += 1
-                except Exception:
+                    paths.append(path)
+                    if index == 1 or index % 5 == 0 or index == len(video_items):
+                        self.after(0, lambda i=index, total=len(video_items), name=os.path.basename(path): self._console_log(UI_TEXT['d26'].format(p0=i, p1=total, p2=name)))
+                except Exception as exc:
                     failed += 1
-            messagebox.showinfo('Export Video', f'Exported {saved} of {len(video_items)} video(s) to:\n{directory}' + (f'\nFailed: {failed}' if failed else ''))
-            return
-        it = video_items[0]
-        payload, ext = get_video_payload(it)
-        if not payload:
-            messagebox.showerror('Export Video', 'The cached blob was detected as video, but its video payload could not be extracted.')
-            return
-        default_name = f'{_sanitize_filename_for_windows(it.name or it.hash) or it.hash}{ext}'
-        path = filedialog.asksaveasfilename(title='Export Video', defaultextension=ext, initialfile=default_name, filetypes=[('Video', f'*{ext}'), ('All files', '*.*')])
-        if not path:
-            return
-        try:
-            with open(path, 'wb') as f:
-                f.write(payload)
-            messagebox.showinfo('Export Video', f'Saved video:\n{path}\n\nSize: {human_size(len(payload))}')
-        except Exception as e:
-            messagebox.showerror('Export Video', f'Failed to save video:\n{e}')
+                    if len(errors) < 5:
+                        errors.append(f'{getattr(it, "name", None) or getattr(it, "hash", "video")}: {exc}')
+                    if index == 1 or index % 5 == 0 or index == len(video_items):
+                        self.after(0, lambda i=index, total=len(video_items): self._console_log(UI_TEXT['e26'].format(p0=i, p1=total)))
+            try:
+                self.after(0, lambda: self._finish_video_export(saved, failed, len(video_items), paths, directory, selected_path, errors))
+            except Exception:
+                self._video_export_running = False
+        threading.Thread(target=worker, daemon=True, name='RoUtils-VideoExport').start()
+    def _finish_video_export(self, saved, failed, total, paths, directory, selected_path, errors):
+        self._video_export_running = False
+        self._console_log(UI_TEXT['f26'].format(p0=saved, p1=total, p2=failed))
+        if saved:
+            if directory:
+                message = UI_TEXT['g26'].format(p0=saved, p1=total, p2=directory)
+            else:
+                message = UI_TEXT['h26'].format(p0=paths[0], p1=human_size(os.path.getsize(paths[0])))
+            if failed:
+                message += f'\n\nFailed: {failed}'
+                if errors:
+                    message += '\n' + '\n'.join(errors)
+            messagebox.showinfo(UI_TEXT['y25'], message, parent=self)
+        else:
+            message = UI_TEXT['i26']
+            if errors:
+                message += '\n\n' + '\n'.join(errors)
+            messagebox.showerror(UI_TEXT['y25'], message, parent=self)
     def _rbxm_body(self, it):
         try:
             blob = self._fetch_full_blob(it)
@@ -16459,7 +17789,7 @@ if unsure say so and tell the user where to check"""
                 stripped = stripped[3:].lstrip()
             if stripped.startswith(b'<roblox!'):
                 return (body, True)
-            if b'<roblox' in body[:4096]:
+            if body.find(b'<roblox', 0, min(len(body), 4096)) != -1:
                 if _write_rbxm is not None:
                     try:
                         return (write_rbxm(_xml_to_document(body)), True)
@@ -16472,10 +17802,10 @@ if unsure say so and tell the user where to check"""
     def _export_selected_image(self):
         items = self._get_selected_items()
         if not items:
-            messagebox.showinfo('Export Image', 'Select a row first.')
+            messagebox.showinfo(UI_TEXT['j26'], UI_TEXT['c25'])
             return
         if len(items) > 1:
-            directory = filedialog.askdirectory(title='Export images to folder')
+            directory = filedialog.askdirectory(title=UI_TEXT['k26'])
             if not directory:
                 return
             saved = 0
@@ -16491,24 +17821,24 @@ if unsure say so and tell the user where to check"""
                     saved += 1
                 except Exception:
                     pass
-            messagebox.showinfo('Export Image', f'Exported {saved} of {len(items)} images to:\n{directory}')
+            messagebox.showinfo(UI_TEXT['j26'], UI_TEXT['l26'].format(p0=saved, p1=len(items), p2=directory))
             return
         it = items[0]
         img = self._image_from_item(it)
         if not img:
-            messagebox.showerror('Export Image', 'Blob does not contain a valid image.')
+            messagebox.showerror(UI_TEXT['j26'], UI_TEXT['m26'])
             return
         fmt = (img.format or 'PNG').upper()
         ext = f'.{fmt.lower()}'
         default_name = f'{it.hash}{ext}'
-        path = filedialog.asksaveasfilename(title='Export Image', defaultextension=ext, initialfile=default_name, filetypes=[(f'{fmt} image', f'*{ext}'), ('All files', '*.*')])
+        path = filedialog.asksaveasfilename(title=UI_TEXT['j26'], defaultextension=ext, initialfile=default_name, filetypes=[(UI_TEXT['n26'].format(p0=fmt), f'*{ext}'), (UI_TEXT['z7'], '*.*')])
         if not path:
             return
         try:
             img.save(path)
-            messagebox.showinfo('Export Image', f'Saved image:\n{path}')
+            messagebox.showinfo(UI_TEXT['j26'], UI_TEXT['o26'].format(p0=path))
         except Exception as e:
-            messagebox.showerror('Export Image', f'Failed to save file:\n{e}')
+            messagebox.showerror(UI_TEXT['j26'], UI_TEXT['k25'].format(p0=e))
     def _image_from_item(self, it) -> Optional[Image.Image]:
         blob = self._fetch_full_blob(it)
         if not blob:
@@ -16571,16 +17901,16 @@ if unsure say so and tell the user where to check"""
         if not it:
             return
         expected_nibbles = len(it.id_bytes) * 2
-        new_hash = simpledialog.askstring('Change Hash', f'Enter new {expected_nibbles}-hex hash for this blob:', initialvalue=it.hash)
+        new_hash = simpledialog.askstring(UI_TEXT['p26'], UI_TEXT['q26'].format(p0=expected_nibbles), initialvalue=it.hash)
         if not new_hash:
             return
         try:
             new_id_b = self._parse_new_hash(new_hash, expected_nibbles)
             new_hash_hex = new_id_b.hex()
         except Exception as e:
-            messagebox.showerror('Invalid Hash', str(e))
+            messagebox.showerror(UI_TEXT['r26'], str(e))
             return
-        if not messagebox.askyesno('Confirm Change Hash', f'Update DB id and rename shard?\n\nOld: {it.hash}\nNew: {new_hash_hex}'):
+        if not messagebox.askyesno(UI_TEXT['s26'], UI_TEXT['t26'].format(p0=it.hash, p1=new_hash_hex)):
             return
         was_running = self._pause_scanner()
         try:
@@ -16602,7 +17932,7 @@ if unsure say so and tell the user where to check"""
                         os.remove(new_path)
                     os.replace(old_path, new_path)
                 except Exception as e:
-                    messagebox.showwarning('Shard Rename', f'DB updated, but shard rename failed:\n{e}')
+                    messagebox.showwarning(UI_TEXT['u26'], UI_TEXT['v26'].format(p0=e))
             old_hash = it.hash
             self.seen_hashes.discard(old_hash)
             self.items_by_iid.pop(old_hash, None)
@@ -16617,18 +17947,18 @@ if unsure say so and tell the user where to check"""
             self.tree.insert('', 'end', iid=new_hash_hex, values=(it.time, it.name, it.hash, human_size(it.size), it.kind, it.src))
             self.tree.selection_set(new_hash_hex)
             self._update_status()
-            messagebox.showinfo('Change Hash', 'Hash updated successfully.')
+            messagebox.showinfo(UI_TEXT['p26'], UI_TEXT['w26'])
         except Exception as e:
-            messagebox.showerror('Change Hash', f'Failed to change hash:\n{e}')
+            messagebox.showerror(UI_TEXT['p26'], UI_TEXT['x26'].format(p0=e))
         finally:
             self._resume_scanner(was_running)
     def _action_delete_blob(self):
         items = self._get_selected_items()
         if not items:
-            messagebox.showinfo('Delete Blob', 'Select a row first.')
+            messagebox.showinfo(UI_TEXT['y26'], UI_TEXT['c25'])
             return
         names = ', '.join((it.hash for it in items[:12])) + ('…' if len(items) > 12 else '')
-        if not messagebox.askyesno('Confirm Delete', f'Delete {len(items)} blob(s) from DB and remove shard files?\n\n{names}'):
+        if not messagebox.askyesno(UI_TEXT['z26'], UI_TEXT['a27'].format(p0=len(items), p1=names)):
             return
         was_running = self._pause_scanner()
         deleted = 0
@@ -16658,26 +17988,26 @@ if unsure say so and tell the user where to check"""
                     pass
                 deleted += 1
             self._update_status()
-            messagebox.showinfo('Delete Blob', f'Deleted {deleted} blob(s).')
+            messagebox.showinfo(UI_TEXT['y26'], UI_TEXT['b27'].format(p0=deleted))
         except Exception as e:
-            messagebox.showerror('Delete Blob', f'Failed to delete blob:\n{e}')
+            messagebox.showerror(UI_TEXT['y26'], UI_TEXT['c27'].format(p0=e))
         finally:
             self._resume_scanner(was_running)
     def _action_save_hash_to_saves(self):
         items = self._get_selected_items()
         if not items:
-            messagebox.showinfo('Save Hash', 'Select a row first.')
+            messagebox.showinfo(UI_TEXT['z1'], UI_TEXT['c25'])
             return
-        name = simpledialog.askstring('Save Hash', 'Name to show in Hash saves:')
+        name = simpledialog.askstring(UI_TEXT['z1'], UI_TEXT['d27'])
         if not name:
             return
         safe_name = _sanitize_filename_for_windows(name.strip())
         if not safe_name:
-            messagebox.showerror('Save Hash', 'Name cannot be empty.')
+            messagebox.showerror(UI_TEXT['z1'], UI_TEXT['e27'])
             return
         base_dir = getattr(self.replacer, 'hash_saves_dir', None)
         if not base_dir:
-            messagebox.showerror('Save Hash', 'Hash saves folder not available.')
+            messagebox.showerror(UI_TEXT['z1'], UI_TEXT['f27'])
             return
         os.makedirs(base_dir, exist_ok=True)
         saved = 0
@@ -16702,7 +18032,7 @@ if unsure say so and tell the user where to check"""
                 with open(dest, 'wb'):
                     pass
             except Exception as e:
-                messagebox.showerror('Save Hash', f'Failed to save: {e}')
+                messagebox.showerror(UI_TEXT['z1'], UI_TEXT['k3'].format(p0=e))
                 return
             saved += 1
         try:
@@ -16710,22 +18040,22 @@ if unsure say so and tell the user where to check"""
                 self.replacer.refresh_view()
         except Exception:
             pass
-        messagebox.showinfo('Save Hash', f'Saved {saved} hash(es).')
+        messagebox.showinfo(UI_TEXT['z1'], UI_TEXT['g27'].format(p0=saved))
     def _action_save_blob_to_saves(self):
         items = self._get_selected_items()
         if not items:
-            messagebox.showinfo('Save Blob', 'Select a row first.')
+            messagebox.showinfo(UI_TEXT['h27'], UI_TEXT['c25'])
             return
-        name = simpledialog.askstring('Save Blob', 'File name to save in File saves:')
+        name = simpledialog.askstring(UI_TEXT['h27'], UI_TEXT['i27'])
         if not name:
             return
         safe_name = _sanitize_filename_for_windows(name.strip())
         if not safe_name:
-            messagebox.showerror('Save Blob', 'Name cannot be empty.')
+            messagebox.showerror(UI_TEXT['h27'], UI_TEXT['e27'])
             return
         base_dir = getattr(self.replacer, 'file_saves_dir', None)
         if not base_dir:
-            messagebox.showerror('Save Blob', 'File saves folder not available.')
+            messagebox.showerror(UI_TEXT['h27'], UI_TEXT['j27'])
             return
         os.makedirs(base_dir, exist_ok=True)
         saved = 0
@@ -16749,7 +18079,7 @@ if unsure say so and tell the user where to check"""
                 with open(dest, 'wb') as f:
                     f.write(blob)
             except Exception as e:
-                messagebox.showerror('Save Blob', f'Failed to save blob: {e}')
+                messagebox.showerror(UI_TEXT['h27'], UI_TEXT['k27'].format(p0=e))
                 return
             saved += 1
         try:
@@ -16757,7 +18087,7 @@ if unsure say so and tell the user where to check"""
                 self.replacer.refresh_view()
         except Exception:
             pass
-        messagebox.showinfo('Save Blob', f'Saved {saved} blob(s).')
+        messagebox.showinfo(UI_TEXT['h27'], UI_TEXT['l27'].format(p0=saved))
     def _reset_seen(self, clear_list: bool):
         self.seen_hashes.clear()
         if clear_list:
@@ -16843,7 +18173,7 @@ if unsure say so and tell the user where to check"""
         total = len(self.items_by_hash)
         vis = len(self.items_by_iid)
         stat = 'Watching' if self.watching else 'Idle'
-        self.status_label.config(text=f'Status: {stat}   Visible: {vis}   Total seen: {total}   Interval: {WATCH_INTERVAL_SEC:.1f}s')
+        self.status_label.config(text=UI_TEXT['m27'].format(p0=stat, p1=vis, p2=total, p3=WATCH_INTERVAL_SEC))
     def _startup_setting_changed(self):
         self._save_settings()
         self._install_startup_shortcut()
@@ -16874,8 +18204,8 @@ if unsure say so and tell the user where to check"""
                 winreg.SetValueEx(key, value_name, 0, winreg.REG_SZ, command)
         except Exception as exc:
             try:
-                self._console_log(f'Could not update startup setting: {exc}')
-                messagebox.showerror('Startup', f'Could not update Start with system:\n{exc}', parent=self)
+                self._console_log(UI_TEXT['n27'].format(p0=exc))
+                messagebox.showerror(UI_TEXT['y17'], UI_TEXT['o27'].format(p0=exc), parent=self)
             except Exception:
                 pass
     def _start_tray(self):
@@ -16960,8 +18290,8 @@ def _routils_visible_text(value):
     if _routils_is_network_error(value):
         return 'could not reach the server check your internet connection and try again'
     special_phrases = (
-        'Emote Manager', 'Gemini AI', 'RoUtils AI', 'Roblox File Converter',
-        'Subplace Joiner', 'Server Viewer', 'Global FFlag Hotkeys',
+        UI_TEXT['i5'], 'Gemini AI', 'RoUtils AI', 'Roblox File Converter',
+        UI_TEXT['m5'], UI_TEXT['n5'], 'Global FFlag Hotkeys',
         'R6 Animation → R15', 'Mesh to OBJ'
     )
     saved_phrases = []
@@ -17002,12 +18332,12 @@ def _routils_visible_text(value):
             return len(word) > 0 and word[0].isupper() and word[1:].islower()
         if len(words) >= 2 and all(title_like(word) for word in words):
             first_alpha = True
-            def convert(match):
+            def convert_title_case_match(match):
                 nonlocal first_alpha
                 word = match.group(0)
                 low = word.lower()
                 if low in special:
-                    mapping = {'routils':'RoUtils','roblox':'Roblox','fflag':'FFlag','fflags':'FFlags','ai':'AI','api':'API','pid':'PID','fps':'FPS','json':'JSON','xml':'XML','csv':'CSV','url':'URL','cpu':'CPU','ram':'RAM','http':'HTTP','https':'HTTPS','obj':'OBJ','rbxm':'RBXM','rbxmx':'RBXMX','rbxl':'RBXL','ctrl':'Ctrl','shift':'Shift','alt':'Alt','esc':'Esc','enter':'Enter','tab':'Tab','ui':'UI','hashsaves':'HashSaves','filesaves':'FileSaves','cconfigs':'CConfigs','id':'ID','dpi':'DPI','gpu':'GPU'}
+                    mapping = {'routils':'RoUtils','roblox':'Roblox','fflag':'FFlag','fflags':UI_TEXT['h5'],'ai':UI_TEXT['j5'],'api':'API','pid':'PID','fps':'FPS','json':'JSON','xml':'XML','csv':'CSV','url':'URL','cpu':'CPU','ram':'RAM','http':'HTTP','https':'HTTPS','obj':'OBJ','rbxm':'RBXM','rbxmx':'RBXMX','rbxl':'RBXL','ctrl':'Ctrl','shift':'Shift','alt':'Alt','esc':'Esc','enter':'Enter','tab':'Tab','ui':'UI','hashsaves':'HashSaves','filesaves':'FileSaves','cconfigs':'CConfigs','id':'ID','dpi':'DPI','gpu':'GPU'}
                     return mapping.get(low, word)
                 if word.isupper() or re.fullmatch(r'[A-Z]+\d+', word) or re.fullmatch(r'\d+', word):
                     return word
@@ -17016,7 +18346,7 @@ def _routils_visible_text(value):
                     return word[:1].upper() + word[1:].lower()
                 first_alpha = False
                 return word.lower()
-            plain = re.sub(r'[A-Za-z][A-Za-z0-9]*', convert, plain)
+            plain = re.sub(r'[A-Za-z][A-Za-z0-9]*', convert_title_case_match, plain)
             leading = line[:len(line) - len(line.lstrip())]
             trailing = line[len(line.rstrip()):]
             line = leading + plain + trailing
@@ -17128,11 +18458,11 @@ def main():
         try:
             idx = sys.argv.index('--webview2')
             url = sys.argv[idx + 1]
-            title = sys.argv[idx + 2] if len(sys.argv) > idx + 2 else 'RoUtils WebView2'
+            title = sys.argv[idx + 2] if len(sys.argv) > idx + 2 else 'RoUtils w2'
             _launch_webview2(url, title)
         except Exception as e:
             try:
-                messagebox.showerror('WebView2', str(e))
+                messagebox.showerror(UI_TEXT['f1'], str(e))
             except Exception:
                 pass
         return
@@ -17141,9 +18471,9 @@ def main():
             helper = object.__new__(App)
             code = App._run_dump_caches_cli(helper)
         except Exception as e:
-            print(f'ERROR: {e}', flush=True)
+            print(UI_TEXT['p27'].format(p0=e), flush=True)
             code = 1
-        input('\nPress Enter to close...')
+        input(UI_TEXT['d28'])
         raise SystemExit(code)
     try:
         app = App()
