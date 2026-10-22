@@ -1,6 +1,8 @@
 import base64
 import ctypes
 import ctypes.wintypes
+from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
+import difflib
 import enum
 import gzip
 import hashlib
@@ -779,7 +781,7 @@ UI_TEXT = {
     'w28': 'Waiting for key...',
     'x28': 'Emote hotkeys are on.',
     'y28': 'Emote hotkeys are off.',
-    'z28': 'Auto Apply enabled (every 60 seconds)',
+    'z28': 'Auto Apply enabled (every 15 seconds)',
     'a29': 'Auto Apply disabled',
     'b29': 'Could not create a Python plugin loader.',
     'c29': 'Python plugin must define register(app).',
@@ -896,7 +898,7 @@ def _routils_urlopen(url, *args, **kwargs):
         except Exception as error:
             if attempt or not _routils_is_network_error(error):
                 raise
-            time.sleep(0.35)
+            time.sleep(0.08)
 
 UI_THEME = 'clam'
 THEMES = {'Midnight': {'bg_dark': '#1b1b1c', 'bg_medium': '#252526', 'bg_light': '#3a3a3c', 'bg_hover': '#464648', 'fg': '#dcdcdc', 'accent': '#7f8cff', 'border': '#444446'}, 'Ocean': {'bg_dark': '#0f2436', 'bg_medium': '#153248', 'bg_light': '#1f425e', 'bg_hover': '#2a5474', 'fg': '#d7e6f0', 'accent': '#3aa0ff', 'border': '#28506e'}, 'Hacker': {'bg_dark': '#0a0f0a', 'bg_medium': '#0f180f', 'bg_light': '#1a2a1a', 'bg_hover': '#223522', 'fg': '#b8ffb0', 'accent': '#2fff2f', 'border': '#2a4a2a'}, 'Amethyst': {'bg_dark': '#1a1423', 'bg_medium': '#241b31', 'bg_light': '#35284a', 'bg_hover': '#453665', 'fg': '#e0d6f0', 'accent': '#b06bff', 'border': '#4a3a63'}, 'Onyx': {'bg_dark': '#101010', 'bg_medium': '#171717', 'bg_light': '#262626', 'bg_hover': '#303030', 'fg': '#cfcfcf', 'accent': '#c0c0c0', 'border': '#333333'}}
@@ -914,22 +916,163 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 _LOCAL_APPDATA = os.environ.get('LOCALAPPDATA') or os.path.expanduser('~')
 DATA_DIR = os.path.join(_LOCAL_APPDATA, 'RoUtils')
 os.makedirs(DATA_DIR, exist_ok=True)
+HTTP_CACHE_DIR = os.path.join(DATA_DIR, 'http_cache')
+FFLAG_REFERENCE_CACHE_PATH = os.path.join(DATA_DIR, 'fflag_reference_cache.json')
+HTTP_RESPONSE_CACHE_MAX_BYTES = 6 * 1024 * 1024
+_HTTP_RESPONSE_CACHE = {}
+_HTTP_RESPONSE_CACHE_LOCK = threading.RLock()
+def _routils_request_cache_ttl(request):
+    if request.get_method().upper() != 'GET' or getattr(request, 'data', None) is not None:
+        return 0
+    url = str(request.full_url)
+    if url == RELEASES_API_URL:
+        return 600
+    if url == 'https://api.github.com/repos/offp001/routils/releases/latest':
+        return 300
+    if url == WEBVIEW2_URL_DEFAULTS:
+        return 900
+    if url in (_get_latest_offsets_webview_url(), 'https://raw.githubusercontent.com/4anti/Roblox-Fastflag-Manager/main/data/FFlags.hpp'):
+        return 900
+    if url == GITHUB_PRESETS_API:
+        return 600
+    if 'games.roblox.com/v1/games/' in url and '/servers/Public?' in url:
+        return 5
+    if ('apis.roblox.com/universes/v1/places/' in url or 'develop.roblox.com/v1/places/' in url or 'games.roblox.com/v1/games/multiget-place-details?' in url or 'games.roblox.com/v1/games?universeIds=' in url or 'develop.roblox.com/v1/universes/' in url):
+        return 1800
+    return 0
+def _routils_http_cache_path(url):
+    return os.path.join(HTTP_CACHE_DIR, hashlib.sha256(str(url).encode('utf-8', 'replace')).hexdigest() + '.json')
+def _routils_load_http_cache(url, ttl, allow_stale=False):
+    now = time.time()
+    key = str(url)
+    with _HTTP_RESPONSE_CACHE_LOCK:
+        item = _HTTP_RESPONSE_CACHE.get(key)
+        if item and (allow_stale or now - item[0] <= ttl):
+            return item[1], item[2]
+    path = _routils_http_cache_path(key)
+    try:
+        with open(path, 'r', encoding='utf-8') as source:
+            record = json.load(source)
+        saved_at = float(record.get('saved_at', 0))
+        if record.get('url') != key or saved_at <= 0 or (not allow_stale and now - saved_at > ttl):
+            return None
+        body = base64.b64decode(record.get('body', ''), validate=True)
+        response_headers = record.get('headers') if isinstance(record.get('headers'), dict) else {}
+        if len(body) > HTTP_RESPONSE_CACHE_MAX_BYTES:
+            return None
+        with _HTTP_RESPONSE_CACHE_LOCK:
+            _HTTP_RESPONSE_CACHE[key] = (saved_at, body, response_headers)
+        return body, response_headers
+    except Exception:
+        return None
+class _RoUtilsCachedResponse(io.BytesIO):
+    def __init__(self, body, url, headers=None):
+        super().__init__(body)
+        self.url = str(url)
+        self.headers = dict(headers or {})
+        self.status = 200
+        self.code = 200
+        self.reason = 'OK'
+    def __enter__(self):
+        return self
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        self.close()
+        return False
+    def getcode(self):
+        return self.status
+    def geturl(self):
+        return self.url
+    def info(self):
+        return self.headers
+class _RoUtilsResponseCacheCapture:
+    def __init__(self, response, url, ttl):
+        self._response = response
+        self._url = str(url)
+        self._ttl = int(ttl)
+        self._body = bytearray()
+        self._saved = False
+        try:
+            self._expected = int(response.headers.get('Content-Length', 0) or 0)
+        except Exception:
+            self._expected = 0
+    def __getattr__(self, name):
+        return getattr(self._response, name)
+    def __enter__(self):
+        try:
+            enter = getattr(self._response, '__enter__', None)
+            if callable(enter):
+                enter()
+        except Exception:
+            pass
+        return self
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        exit_method = getattr(self._response, '__exit__', None)
+        if callable(exit_method):
+            return exit_method(exc_type, exc_value, exc_traceback)
+        try:
+            self._response.close()
+        except Exception:
+            pass
+        return False
+    def read(self, size=-1):
+        chunk = self._response.read(size)
+        if not chunk or self._saved:
+            return chunk
+        self._body.extend(chunk)
+        if len(self._body) > HTTP_RESPONSE_CACHE_MAX_BYTES:
+            self._body.clear()
+            self._saved = True
+            return chunk
+        try:
+            headers = dict(self._response.headers.items())
+        except Exception:
+            headers = {}
+        complete = size is None or size < 0 or (self._expected > 0 and len(self._body) >= self._expected) or (size > 0 and len(chunk) < size)
+        if complete:
+            self._saved = True
+            try:
+                body = bytes(self._body)
+                saved_at = time.time()
+                with _HTTP_RESPONSE_CACHE_LOCK:
+                    _HTTP_RESPONSE_CACHE[self._url] = (saved_at, body, headers)
+                os.makedirs(HTTP_CACHE_DIR, exist_ok=True)
+                path = _routils_http_cache_path(self._url)
+                temporary = path + '.tmp'
+                with open(temporary, 'w', encoding='utf-8') as output:
+                    json.dump({'url': self._url, 'saved_at': saved_at, 'headers': headers, 'body': base64.b64encode(body).decode('ascii')}, output, separators=(',', ':'))
+                os.replace(temporary, path)
+            except Exception:
+                pass
+        return chunk
 SPLASH_DIR = os.path.join(DATA_DIR, 'src')
 SPLASH_IMAGE_PATH = os.path.join(SPLASH_DIR, 'routils.png')
 SPLASH_IMAGE_URL = 'https://raw.githubusercontent.com/offp001/routils/refs/heads/main/src/routils.png'
-APP_VERSION = '5.2.1'
+APP_VERSION = '5.2.2'
 RELEASES_URL = 'https://github.com/offp001/routils/releases'
 RELEASES_API_URL = 'https://api.github.com/repos/offp001/routils/releases?per_page=30'
-def _routils_request(url, timeout=10, headers=None, data=None, method=None):
-    request_headers = {
-        'User-Agent': f'RoUtils/{APP_VERSION}',
-        'Accept': 'application/json, */*'
-    }
+def _routils_request(url, timeout=10, headers=None, data=None, method=None, cache_bypass=False):
+    request_headers = {'User-Agent': f'RoUtils/{APP_VERSION}', 'Accept': 'application/json, */*'}
     if headers:
         request_headers.update(headers)
     request = urllib.request.Request(url, data=data, headers=request_headers, method=method)
-    return _routils_urlopen(request, timeout=timeout)
+    try:
+        ttl = _routils_request_cache_ttl(request)
+    except Exception:
+        ttl = 0
+    if ttl and not cache_bypass:
+        try:
+            cached = _routils_load_http_cache(request.full_url, ttl)
+            if cached is not None:
+                body, cached_headers = cached
+                return _RoUtilsCachedResponse(body, request.full_url, cached_headers)
+        except Exception:
+            pass
+    response = _routils_urlopen(request, timeout=timeout)
+    if ttl:
+        return _RoUtilsResponseCacheCapture(response, request.full_url, ttl)
+    return response
 HISTORY_PATH = os.path.join(DATA_DIR, 'history.json')
+FFLAG_HISTORY_PATH = os.path.join(DATA_DIR, 'fflag_history.json')
 SETTINGS_PATH = os.path.join(DATA_DIR, 'routils_settings.json')
 ERROR_REPORT_DIR = os.path.join(DATA_DIR, 'errors')
 _ACTIVE_APP = None
@@ -7783,7 +7926,50 @@ class _DarkMessageBox:
         _MacNotification.show(title, message, parent, 'error')
     @staticmethod
     def askyesno(title, message, parent=None, **kwargs):
-        return _NATIVE_MESSAGEBOX.askyesno(title, message, parent=parent, **kwargs)
+        root = parent or tk._default_root
+        if root is None:
+            return _NATIVE_MESSAGEBOX.askyesno(title, message, parent=parent, **kwargs)
+        dialog = None
+        result = {'value': False}
+        try:
+            dialog = tk.Toplevel(root)
+            dialog.title(str(title or 'RoUtils'))
+            dialog.transient(root)
+            dialog.resizable(False, False)
+            body = ttk.Frame(dialog, padding=(16, 15, 16, 12))
+            body.pack(fill='both', expand=True)
+            prompt = ttk.Label(body, text=str(message), justify='left', wraplength=460)
+            prompt.pack(fill='x', anchor='w', pady=(3, 16))
+            buttons = ttk.Frame(body)
+            buttons.pack(fill='x')
+            def finish(answer):
+                result['value'] = bool(answer)
+                try:
+                    if dialog is not None and dialog.winfo_exists():
+                        dialog.destroy()
+                except Exception:
+                    pass
+            no_button = ttk.Button(buttons, text='No', command=lambda: finish(False))
+            no_button.pack(side='right', padx=(7, 0))
+            yes_button = ttk.Button(buttons, text='Yes', command=lambda: finish(True))
+            yes_button.pack(side='right')
+            dialog.protocol('WM_DELETE_WINDOW', lambda: finish(False))
+            dialog.bind('<Escape>', lambda _event: finish(False))
+            dialog.update_idletasks()
+            width = max(390, min(560, int(dialog.winfo_reqwidth())))
+            height = max(145, int(dialog.winfo_reqheight()))
+            dialog.geometry(f'{width}x{height}')
+            dialog.after_idle(lambda w=dialog: _routils_center_popup(w) if w.winfo_exists() else None)
+            no_button.focus_set()
+            dialog.wait_window()
+            return bool(result['value'])
+        except Exception:
+            try:
+                if dialog is not None and dialog.winfo_exists():
+                    dialog.destroy()
+            except Exception:
+                pass
+            return _NATIVE_MESSAGEBOX.askyesno(title, message, parent=parent, **kwargs)
 messagebox = _DarkMessageBox()
 class _ScrollableTab(ttk.Frame):
     def __init__(self, master, padding=0, **kwargs):
@@ -8418,6 +8604,9 @@ class App(_TkAppBase):
         saved_nav_binds = self.settings.get('emote_nav_binds', {})
         self._emote_nav_binds = {action: str(saved_nav_binds.get(action, '') or '').upper() for action in ('previous', 'next', 'play')} if isinstance(saved_nav_binds, dict) else {'previous': '', 'next': '', 'play': ''}
         self._emote_hotkeys_enabled = bool(self.settings.get('emote_hotkeys_enabled', True))
+        self._emote_hotkeys_toggle_key = str(self.settings.get('emote_hotkeys_toggle_key', '') or '').upper()
+        self._emote_toggle_hotkey_capture_active = False
+        self._emote_toggle_capture_dialog = None
         self._emote_current_index = 0
         self._emote_control_capture_action = None
         self._emote_controls_window = None
@@ -8449,6 +8638,14 @@ class App(_TkAppBase):
         self._plugin_enabled = dict(self.settings.get('plugin_enabled', {})) if isinstance(self.settings.get('plugin_enabled', {}), dict) else {}
         self._load_fflag_flags()
         self._sync_fps_flag_to_manager()
+        self._fflag_history_lock = threading.RLock()
+        self._fflag_history_items = self._fflag_history_load()
+        self._fflag_history_snapshot = self._fflag_history_snapshot_from_flags(self.fflag_flags)
+        self._fflag_history_snapshot_ready = True
+        self._fflag_apply_state_lock = threading.Lock()
+        self._fflag_apply_in_progress = False
+        self._fflag_apply_pending = False
+        self._fflag_apply_pending_silent = True
         self._lazy_tabs = {}
         self._lazy_tab_ids = {}
         self.nb.bind('<<NotebookTabChanged>>', self._lazy_tab_changed, add='+')
@@ -8466,6 +8663,7 @@ class App(_TkAppBase):
                 ttk.Label(tab, text=UI_TEXT['v5'], foreground='#9aa0a6').pack(expand=True)
         self._reorder_tabs()
         self._refresh_tab_nav()
+        self.after(80, self._initial_tab_order_post_map)
         if self.nb.tabs():
             preferred = str(self.settings.get('selected_tab', UI_TEXT['w5']))
             if preferred == 'Themes':
@@ -8491,7 +8689,7 @@ class App(_TkAppBase):
             self.after(250, self._apply_saved_viewer_state)
         self.after(UI_QUEUE_INTERVAL_MS, self._drain_queue)
         self.after(200, self._save_settings)
-        self.after(60000, self._fflag_auto_apply_tick)
+        self.after(15000, self._fflag_auto_apply_tick)
         if self._routils_splash is not None:
             self.after(420, self._finish_startup_splash)
     def _create_startup_splash(self):
@@ -8800,7 +8998,13 @@ class App(_TkAppBase):
                     if getattr(self, '_emote_control_capture_action', None):
                         time.sleep(0.025)
                         continue
+                    if getattr(self, '_emote_toggle_hotkey_capture_active', False):
+                        time.sleep(0.025)
+                        continue
                     bindings = [('quick_panel', 'F7', {})]
+                    toggle_key = str(getattr(self, '_emote_hotkeys_toggle_key', '') or '').upper()
+                    if toggle_key:
+                        bindings.append(('emote_hotkeys_toggle', toggle_key, {'key': toggle_key}))
                     if bool(getattr(self, '_emote_hotkeys_enabled', True)):
                         nav_binds = getattr(self, '_emote_nav_binds', {})
                         for action, key in nav_binds.items():
@@ -8859,6 +9063,8 @@ class App(_TkAppBase):
                     self._toggle_quick_panel()
                 elif kind == 'emote_controls_toggle':
                     self._toggle_emote_controls()
+                elif kind == 'emote_hotkeys_toggle':
+                    self._toggle_emote_hotkeys()
                 elif kind == 'fps':
                     self._handle_fps_hotkey(binding)
                 elif kind == 'emote':
@@ -9080,11 +9286,15 @@ class App(_TkAppBase):
             engine = self.fflag_engine
             def apply_hotkey_value():
                 try:
+                    started = time.perf_counter()
                     success = bool(self._fflag_write_offset(fflag_strip_prefix(flag_name), new_value, fflag_infer_type(new_value)))
+                    elapsed = time.perf_counter() - started
                     if not success:
                         self.after(0, lambda: self._fflag_apply(silent=True))
                     else:
-                        self.after(0, lambda: self._fflag_status_text(f'{flag_name} = {new_value}', '#65d98b'))
+                        elapsed_text = f"{elapsed:.9f}".replace('.', ',')
+                        status = f'{flag_name} = {new_value} (Applied in {elapsed_text} seconds)'
+                        self.after(0, lambda text=status: self._fflag_status_text(text, '#65d98b'))
                 except Exception:
                     try:
                         self.after(0, lambda: self._fflag_apply(silent=True))
@@ -9421,16 +9631,21 @@ class App(_TkAppBase):
                     existing.lift()
                     existing.focus_force()
                     existing._spotlight_entry.focus_set()
+                    existing._spotlight_entry.selection_range(0, 'end')
                     return
             except Exception:
                 pass
         win = tk.Toplevel(self)
         win._skip_custom_chrome = True
         win._skip_popup_centering = True
-        win.title(UI_TEXT['r27'])
+        win.title('RoUtils Command Search')
         win.overrideredirect(True)
-        win.configure(bg=_CURRENT_PALETTE.get('accent', '#8ab4f8'))
-        width, height = 500, 330
+        accent = _CURRENT_PALETTE.get('accent', '#8ab4f8')
+        bg = _CURRENT_PALETTE.get('bg_dark', '#111318')
+        surface = _CURRENT_PALETTE.get('bg_medium', '#1a1d24')
+        foreground = _CURRENT_PALETTE.get('fg', '#e6e9ef')
+        win.configure(bg=accent)
+        width, height = 740, 470
         x = max(0, (self.winfo_screenwidth() - width) // 2)
         y = max(0, (self.winfo_screenheight() - height) // 2 - 35)
         win.geometry(f'{width}x{height}+{x}+{y}')
@@ -9438,17 +9653,22 @@ class App(_TkAppBase):
             win.attributes('-topmost', True)
         except Exception:
             pass
-        card = tk.Frame(win, bg=_CURRENT_PALETTE.get('bg_dark', '#111318'), highlightthickness=1, highlightbackground=_CURRENT_PALETTE.get('accent', '#8ab4f8'))
+        card = tk.Frame(win, bg=bg, highlightthickness=1, highlightbackground=accent)
         card.pack(fill='both', expand=True, padx=2, pady=2)
-        top = tk.Frame(card, bg=_CURRENT_PALETTE.get('bg_medium', '#1a1d24'))
-        top.pack(fill='x', padx=10, pady=(10, 8))
+        header = tk.Frame(card, bg=surface)
+        header.pack(fill='x', padx=12, pady=(12, 7))
         var = tk.StringVar()
-        entry = ttk.Entry(top, textvariable=var, font=('Segoe UI', 11))
-        entry.pack(side='left', fill='x', expand=True, padx=(0, 6), ipady=4)
-        ttk.Button(top, text=UI_TEXT['e5'], width=3, command=win.destroy).pack(side='right')
-        results = tk.Listbox(card, bg=_CURRENT_PALETTE.get('bg_medium', '#1a1d24'), fg=_CURRENT_PALETTE.get('fg', '#e6e9ef'), selectbackground=_CURRENT_PALETTE.get('accent', '#8ab4f8'), selectforeground='#ffffff', bd=0, highlightthickness=0, activestyle='none', font=('Segoe UI', 10))
-        results.pack(fill='both', expand=True, padx=10, pady=(0, 10))
+        entry = ttk.Entry(header, textvariable=var, font=('Segoe UI', 12))
+        entry.pack(side='left', fill='x', expand=True, padx=(0, 8), ipady=5)
+        ttk.Button(header, text='×', width=3, command=win.destroy).pack(side='right')
+        hint = tk.Label(card, text='Search tabs, actions, settings, and FFlag commands', bg=bg, fg='#9aa0a6', anchor='w', font=('Segoe UI', 9))
+        hint.pack(fill='x', padx=15, pady=(0, 7))
+        results = tk.Listbox(card, bg=surface, fg=foreground, selectbackground=accent, selectforeground='#ffffff', bd=0, highlightthickness=0, activestyle='none', font=('Segoe UI', 10), height=16, selectborderwidth=0)
+        results.pack(fill='both', expand=True, padx=12, pady=(0, 7))
+        footer = tk.Label(card, text='↑ ↓ Navigate     Enter Open     Esc Close     Ctrl+K Search', bg=bg, fg='#9aa0a6', anchor='w', font=('Segoe UI', 9))
+        footer.pack(fill='x', padx=15, pady=(0, 10))
         matches = []
+        action_order = {}
         def widget_text(widget):
             values = []
             for option in ('text', 'label', 'title'):
@@ -9470,11 +9690,34 @@ class App(_TkAppBase):
             if re.fullmatch(r'[vV]?\d+(?:\.\d+){1,4}', value):
                 return False
             return True
+        def find_tab(tab_name):
+            for tab_id in self.nb.tabs():
+                try:
+                    if self.nb.tab(tab_id, 'text').casefold() == str(tab_name).casefold():
+                        return tab_id
+                except Exception:
+                    pass
+            return None
+        action_specs = [
+            ('Open FFlags History', UI_TEXT['h5'], 'fflag_history', ('fflag history', 'flag change history', 'history of flags', 'changes history')),
+            ('Apply FFlags', UI_TEXT['h5'], 'fflag_apply', ('apply flags', 'inject fflags', 'apply fastflags')),
+            ('Add FFlag', UI_TEXT['h5'], 'fflag_add', ('new flag', 'create fflag', 'add fastflag')),
+            ('Save FFlags', UI_TEXT['h5'], 'fflag_save', ('save flags', 'save fastflags')),
+            ('Toggle FFlag Auto Apply', UI_TEXT['h5'], 'fflag_auto', ('auto apply', 'automatic fflag apply')),
+            ('Open FFlag JSON Editor', UI_TEXT['h5'], 'fflag_json', ('edit flag json', 'json editor')),
+            ('Import FFlags', UI_TEXT['h5'], 'fflag_import', ('import flags', 'load flags json')),
+            ('Export FFlags', UI_TEXT['h5'], 'fflag_export', ('export flags', 'save flags json')),
+            ('Refresh Roblox Process', UI_TEXT['h5'], 'fflag_process', ('detect roblox', 'refresh pid', 'find roblox process')),
+            ('Open Console', UI_TEXT['u5'], 'console', ('terminal', 'commands', 'console commands')),
+            ('Open Cache', UI_TEXT['f5'], 'cache', ('cache viewer', 'cache files')),
+            ('Open Themes', UI_TEXT['q5'], 'themes', ('appearance', 'colors', 'change theme')),
+            ('Open Settings', UI_TEXT['r5'], 'settings', ('preferences', 'app settings'))
+        ]
         def collect():
             found = []
             tab_aliases = {
                 UI_TEXT['f5']: ('Cache Viewer', 'Cache Editor', 'Browse Roblox cache', 'Find cached assets', 'Replace cache assets', 'Delete cache entries', 'Watch cache changes', 'Export caches'),
-                UI_TEXT['h5']: ('FastFlags', 'Fast Flag Manager', 'FFlag values', 'FFlag offsets', 'Edit Roblox flags'),
+                UI_TEXT['h5']: ('FastFlags', 'Fast Flag Manager', 'FFlag values', 'FFlag offsets', 'Edit Roblox flags', 'FFlag History', 'Change History', 'FastFlag Settings'),
                 UI_TEXT['l5']: ('Roblox configs', 'CConfig manager', 'Save config', 'Load config', 'Import config', 'Export config'),
                 UI_TEXT['k5']: ('Mesh tools', 'Convert mesh', 'Replace Roblox meshes', 'Asset modifications'),
                 UI_TEXT['m5']: ('Join Roblox game', 'Join subplace', 'Place ID', 'Server deeplink'),
@@ -9488,7 +9731,10 @@ class App(_TkAppBase):
                 UI_TEXT['r5']: ('Preferences', 'Performance settings', 'Startup settings', 'Hotkeys', 'Update settings')
             }
             for tab_id in self.nb.tabs():
-                tab_name = str(self.nb.tab(tab_id, 'text')).strip()
+                try:
+                    tab_name = str(self.nb.tab(tab_id, 'text')).strip()
+                except Exception:
+                    continue
                 if not tab_name or tab_name.casefold() == 'home':
                     continue
                 found.append((tab_name, tab_name, tab_id, None))
@@ -9506,9 +9752,17 @@ class App(_TkAppBase):
                     except Exception:
                         pass
                     if isinstance(widget, (ttk.Button, tk.Button, ttk.Checkbutton, tk.Checkbutton, ttk.Radiobutton, tk.Radiobutton)):
-                        text = widget_text(widget)
-                        if is_searchable_text(text):
-                            found.append((text, tab_name, tab_id, widget))
+                        label = widget_text(widget)
+                        if is_searchable_text(label):
+                            found.append((label, tab_name, tab_id, widget))
+            for index, (label, tab_name, action, aliases) in enumerate(action_specs):
+                tab_id = find_tab(tab_name)
+                if tab_id is None:
+                    continue
+                action_order[action] = index
+                found.append((label, tab_name, tab_id, '__action__:' + action))
+                for alias in aliases:
+                    found.append((alias, tab_name, tab_id, '__action__:' + action))
             unique = []
             seen = set()
             for item in found:
@@ -9519,40 +9773,95 @@ class App(_TkAppBase):
                     unique.append(item)
             return unique
         all_items = collect()
+        def score_item(item, query, terms):
+            label, tab_name, _tab_id, widget = item
+            label_norm = re.sub(r'\s+', ' ', str(label)).casefold().strip()
+            tab_norm = str(tab_name).casefold()
+            haystack = f'{label_norm} {tab_norm}'
+            is_action = isinstance(widget, str) and widget.startswith('__action__:')
+            action_name = widget.partition(':')[2] if is_action else ''
+            if not query:
+                if is_action:
+                    return 250 - action_order.get(action_name, 99)
+                if label_norm == tab_norm:
+                    return 120
+                return 65
+            if label_norm == query:
+                return 300
+            if label_norm.startswith(query):
+                return 240 - len(label_norm) * 0.02
+            if all(term in haystack for term in terms):
+                return 190 - len(label_norm) * 0.015 + sum(10 for term in terms if label_norm.startswith(term))
+            tokens = re.findall(r'[a-z0-9çğıöşü]+', label_norm)
+            token_scores = []
+            for term in terms:
+                token_scores.append(max([difflib.SequenceMatcher(None, term, token).ratio() for token in tokens] + [0.0]))
+            fuzzy = sum(token_scores) / max(1, len(token_scores))
+            full_fuzzy = difflib.SequenceMatcher(None, query, label_norm).ratio()
+            score = max(fuzzy * 150, full_fuzzy * 135)
+            return score if score >= 72 else -1
         def render(*_):
-            query = var.get().strip().lower()
-            terms = [part for part in query.split() if part]
+            query = var.get().strip().casefold()
+            terms = [part for part in re.split(r'\s+', query) if part]
             matches.clear()
             results.delete(0, 'end')
-            ai_tab_id = next((tid for tid in self.nb.tabs() if self.nb.tab(tid, 'text') == UI_TEXT['j5']), None)
-            if ai_tab_id is not None:
-                matches.append(('Ask to AI', UI_TEXT['j5'], ai_tab_id, '__ask_ai__'))
-                results.insert('end', UI_TEXT['u27'])
+            ranked = []
             for item in all_items:
-                text, tab_name = item[0], item[1]
-                haystack = f'{text} {tab_name}'.lower()
-                if terms and not all(term in haystack for term in terms):
-                    continue
+                score = score_item(item, query, terms)
+                if score >= 0:
+                    ranked.append((score, item))
+            ai_tab_id = find_tab(UI_TEXT['j5'])
+            if query and ai_tab_id is not None and (query in ('ai', 'ask', 'ask ai', 'ro', 'help') or query.startswith('ask ')):
+                ranked.append((55, ('Ask to AI', UI_TEXT['j5'], ai_tab_id, '__action__:ask_ai')))
+            ranked.sort(key=lambda pair: pair[0], reverse=True)
+            for _score, item in ranked[:70]:
                 matches.append(item)
-                results.insert('end', f'{text}  ·  {tab_name}')
-                if len(matches) >= 80:
-                    break
+                prefix = '↪  ' if isinstance(item[3], str) and item[3].startswith('__action__:') else '›  '
+                results.insert('end', f'{prefix}{item[0]}  ·  {item[1]}')
             if matches:
+                results.selection_clear(0, 'end')
                 results.selection_set(0)
                 results.activate(0)
+                footer.configure(text=f'{len(matches)} result(s)     ↑ ↓ Navigate     Enter Open     Esc Close')
+            else:
+                results.insert('end', 'No matching commands or controls')
+                footer.configure(text='Try a shorter phrase or search by tab, action, setting, or FFlag name')
+        def dispatch_action(action):
+            callbacks = {
+                'fflag_history': self._open_fflag_history_panel,
+                'fflag_apply': self._fflag_apply,
+                'fflag_add': self._fflag_add_dialog,
+                'fflag_save': self._save_fflag_flags,
+                'fflag_auto': self._toggle_fflag_auto_apply,
+                'fflag_json': self._fflag_json_editor,
+                'fflag_import': self._fflag_import,
+                'fflag_export': self._fflag_export,
+                'fflag_process': self._fflag_refresh_process
+            }
+            callback = callbacks.get(action)
+            if callback:
+                callback()
         def activate(_event=None):
             selection = results.curselection()
             if not selection or selection[0] >= len(matches):
-                return
-            _text, _tab_name, tab_id, widget = matches[selection[0]]
-            if widget == '__ask_ai__':
-                prompt = var.get().strip()
+                return 'break'
+            _label, _tab_name, tab_id, widget = matches[selection[0]]
+            if isinstance(widget, str) and widget.startswith('__action__:'):
+                action = widget.partition(':')[2]
+                try:
+                    self.nb.select(tab_id)
+                    self._lazy_tab_changed()
+                except Exception:
+                    pass
                 try:
                     win.destroy()
                 except Exception:
                     pass
-                self._open_ai_chat(prompt if prompt else None)
-                return
+                if action == 'ask_ai':
+                    self.after_idle(lambda: self._open_ai_chat(var.get().strip() or None))
+                else:
+                    self.after_idle(lambda a=action: dispatch_action(a))
+                return 'break'
             try:
                 self.nb.select(tab_id)
                 self._lazy_tab_changed()
@@ -9567,26 +9876,55 @@ class App(_TkAppBase):
                             style = ttk.Style(self)
                             style.configure('RoUtils.Spotlight.TButton', background='#f8d84a', foreground='#161616')
                             widget.configure(style='RoUtils.Spotlight.TButton')
-                            widget.after(2000, lambda w=widget, s=old_style: w.configure(style=s) if w.winfo_exists() else None)
+                            widget.after(1800, lambda w=widget, st=old_style: w.configure(style=st) if w.winfo_exists() else None)
                         elif isinstance(widget, (tk.Label, ttk.Label)):
                             old_fg = widget.cget('foreground') if isinstance(widget, ttk.Label) else widget.cget('fg')
                             if isinstance(widget, ttk.Label):
                                 widget.configure(foreground='#ffd84a')
-                                widget.after(2000, lambda w=widget, c=old_fg: w.configure(foreground=c) if w.winfo_exists() else None)
+                                widget.after(1800, lambda w=widget, c=old_fg: w.configure(foreground=c) if w.winfo_exists() else None)
                             else:
                                 widget.configure(fg='#ffd84a')
-                                widget.after(2000, lambda w=widget, c=old_fg: w.configure(fg=c) if w.winfo_exists() else None)
+                                widget.after(1800, lambda w=widget, c=old_fg: w.configure(fg=c) if w.winfo_exists() else None)
                     except Exception:
                         pass
                 win.destroy()
             except Exception as exc:
                 self._console_log(UI_TEXT['e7'].format(p0=exc))
-        var.trace_add('write', render)
+            return 'break'
+        def move_selection(delta):
+            if not matches:
+                return 'break'
+            current = results.curselection()
+            index = current[0] if current else 0
+            index = max(0, min(len(matches) - 1, index + delta))
+            results.selection_clear(0, 'end')
+            results.selection_set(index)
+            results.activate(index)
+            results.see(index)
+            return 'break'
+        render_job = {'id': None}
+        def schedule_render(*_):
+            previous_job = render_job.get('id')
+            if previous_job:
+                try:
+                    win.after_cancel(previous_job)
+                except Exception:
+                    pass
+            def run_render():
+                render_job['id'] = None
+                render()
+            render_job['id'] = win.after(45, run_render)
+        var.trace_add('write', schedule_render)
         results.bind('<Double-1>', activate)
         results.bind('<Return>', activate)
-        entry.bind('<Return>', lambda _e: (results.focus_set(), activate()))
-        entry.bind('<Escape>', lambda _e: win.destroy())
+        results.bind('<Up>', lambda _e: move_selection(-1))
+        results.bind('<Down>', lambda _e: move_selection(1))
+        entry.bind('<Return>', activate)
+        entry.bind('<Escape>', lambda _e: (win.destroy(), 'break')[1])
+        entry.bind('<Down>', lambda _e: (results.focus_set(), move_selection(1))[1])
+        entry.bind('<Up>', lambda _e: (results.focus_set(), move_selection(-1))[1])
         win.bind('<Escape>', lambda _e: win.destroy())
+        win.bind('<Control-k>', lambda _e: (entry.focus_set(), entry.selection_range(0, 'end'), 'break')[2])
         self._spotlight_window = win
         win._spotlight_entry = entry
         render()
@@ -9903,11 +10241,6 @@ class App(_TkAppBase):
                 if event.x_root > target_center:
                     index += 1
                 order.insert(index, tab_id)
-                release_id = next((item for item in order if self.nb.tab(item, 'text') == UI_TEXT['t5']), None)
-                plugins_id = next((item for item in order if self.nb.tab(item, 'text') == UI_TEXT['s5']), None)
-                if release_id is not None and plugins_id is not None:
-                    order.remove(release_id)
-                    order.insert(order.index(plugins_id) + 1, release_id)
                 for position, item in enumerate(order):
                     self.nb.insert(position, item)
                 self._refresh_tab_nav()
@@ -11154,20 +11487,44 @@ class App(_TkAppBase):
                 else:
                     self.after(0, lambda v=latest: self._show_outdated_dialog(v))
         threading.Thread(target=worker, daemon=True, name='RoUtils-VersionCheck').start()
+    def _initial_tab_order_post_map(self, attempts=0):
+        try:
+            if not self.winfo_exists():
+                return
+            splash = getattr(self, '_routils_splash', None)
+            if splash is not None:
+                try:
+                    if splash.winfo_exists() and attempts < 60:
+                        self.after(100, lambda a=attempts + 1: self._initial_tab_order_post_map(a))
+                        return
+                except Exception:
+                    pass
+            self._reorder_tabs()
+            self._tab_nav_layout_signature = None
+            self._refresh_tab_nav()
+            self.after_idle(self._refresh_tab_nav)
+        except Exception:
+            if attempts < 60:
+                try:
+                    self.after(100, lambda a=attempts + 1: self._initial_tab_order_post_map(a))
+                except Exception:
+                    pass
     def _reorder_tabs(self):
         defaults = [UI_TEXT['w5'], UI_TEXT['f5'], UI_TEXT['h5'], UI_TEXT['i5'], UI_TEXT['j5'], UI_TEXT['l5'], UI_TEXT['k5'], UI_TEXT['m5'], UI_TEXT['n5'], UI_TEXT['o5'], UI_TEXT['p5'], UI_TEXT['q5'], UI_TEXT['s5'], UI_TEXT['t5'], UI_TEXT['u5'], UI_TEXT['r5']]
         current_tabs = list(self.nb.tabs())
-        current_names = {str(self.nb.tab(tab_id, 'text')): tab_id for tab_id in current_tabs}
-        order = [name for name in defaults if name in current_names]
-        order.extend(str(self.nb.tab(tab_id, 'text')) for tab_id in current_tabs if str(self.nb.tab(tab_id, 'text')) not in defaults)
-        if UI_TEXT['s5'] in order and UI_TEXT['t5'] in order:
-            order.remove(UI_TEXT['t5'])
-            order.insert(order.index(UI_TEXT['s5']) + 1, UI_TEXT['t5'])
-        for index, name in enumerate(order):
-            tab_id = current_names.get(name)
+        remaining = list(current_tabs)
+        ordered_tabs = []
+        for name in defaults:
+            tab_id = next((candidate for candidate in remaining if str(self.nb.tab(candidate, 'text')) == name), None)
             if tab_id is not None:
-                self.nb.insert(index, tab_id)
-        self.settings['tab_order'] = order
+                ordered_tabs.append(tab_id)
+                remaining.remove(tab_id)
+        ordered_tabs.extend(remaining)
+        for index, tab_id in enumerate(ordered_tabs):
+            self.nb.insert(index, tab_id)
+        if hasattr(self, 'settings'):
+            self.settings['tab_order'] = [str(self.nb.tab(tab_id, 'text')) for tab_id in self.nb.tabs()]
+        self._tab_nav_layout_signature = None
         self._refresh_tab_nav()
     def _fflag_json_editor(self):
         dlg = tk.Toplevel(self)
@@ -12091,7 +12448,7 @@ class App(_TkAppBase):
                 if cursor:
                     params += '&cursor=' + quote(cursor, safe='')
                 url = f'https://games.roblox.com/v1/games/{place_id}/servers/Public?{params}'
-                with _routils_request(url, timeout=15) as r:
+                with _routils_request(url, timeout=7) as r:
                     data = json.loads(r.read().decode('utf-8', 'replace'))
                 for server in data.get('data', []):
                     if str(server.get('id', '')) == job_id:
@@ -12165,6 +12522,8 @@ class App(_TkAppBase):
         self.emote_action_status.pack(side='left', fill='x', expand=True)
         self._emote_hotkeys_button = ttk.Button(bottom, text=UI_TEXT['w13'], command=self._toggle_emote_hotkeys)
         self._emote_hotkeys_button.pack(side='left', padx=(4, 4))
+        self._emote_toggle_hotkey_button = ttk.Button(bottom, text=self._emote_toggle_hotkey_button_text(), command=self._emote_assign_toggle_hotkey)
+        self._emote_toggle_hotkey_button.pack(side='left', padx=(4, 4))
         self._emote_controls_button = ttk.Button(bottom, text=UI_TEXT['x13'], command=self._toggle_emote_controls)
         self._emote_controls_button.pack(side='left', padx=(4, 4))
         ttk.Button(bottom, text=UI_TEXT['i6'], command=self._emote_save_binds).pack(side='right')
@@ -12237,6 +12596,7 @@ class App(_TkAppBase):
         used = {}
         all_bindings = [(dance, key) for dance, key in self.emote_binds.items()]
         all_bindings.extend(({'previous': UI_TEXT['r30'], 'next': UI_TEXT['s30'], 'play': UI_TEXT['t30']}.get(action, action), key) for action, key in self._emote_nav_binds.items())
+        all_bindings.append(('Hotkeys Toggle', getattr(self, '_emote_hotkeys_toggle_key', '')))
         for label, key in all_bindings:
             key = str(key or '').upper()
             if key and key in used:
@@ -12255,11 +12615,91 @@ class App(_TkAppBase):
             enabled = bool(getattr(self, '_emote_hotkeys_enabled', True))
             if hasattr(self, '_emote_hotkeys_button') and self._emote_hotkeys_button.winfo_exists():
                 self._emote_hotkeys_button.configure(text=UI_TEXT['c14'].format(p0="ON" if enabled else "OFF"))
+            if hasattr(self, '_emote_toggle_hotkey_button') and self._emote_toggle_hotkey_button.winfo_exists():
+                self._emote_toggle_hotkey_button.configure(text=self._emote_toggle_hotkey_button_text())
             panel = getattr(self, '_emote_controls_window', None)
             if hasattr(self, '_emote_controls_button') and self._emote_controls_button.winfo_exists():
                 self._emote_controls_button.configure(text=UI_TEXT['d14'] if panel is not None and panel.winfo_exists() else UI_TEXT['x13'])
         except Exception:
             pass
+    def _emote_toggle_hotkey_button_text(self):
+        key = str(getattr(self, '_emote_hotkeys_toggle_key', '') or '').upper()
+        return f'Toggle Key: {key}' if key else 'Set Toggle Key'
+    def _emote_assign_toggle_hotkey(self):
+        existing_dialog = getattr(self, '_emote_toggle_capture_dialog', None)
+        if existing_dialog is not None:
+            try:
+                if existing_dialog.winfo_exists():
+                    existing_dialog.lift()
+                    existing_dialog.focus_force()
+                    return
+            except Exception:
+                pass
+        dlg = tk.Toplevel(self)
+        self._emote_toggle_capture_dialog = dlg
+        dlg.title('Set Hotkeys Toggle Key')
+        dlg.geometry('390x154')
+        dlg.resizable(False, False)
+        dlg.transient(self)
+        theme_toplevel(dlg)
+        ttk.Label(dlg, text='Press a key to toggle Emote Manager Hotkeys ON/OFF.', wraplength=350, justify='center').pack(fill='x', padx=16, pady=(20, 7))
+        ttk.Label(dlg, text='Escape cancels. Backspace or Delete clears the assigned key.', wraplength=350, justify='center').pack(fill='x', padx=16, pady=(0, 14))
+        state = {'closed': False}
+        self._emote_toggle_hotkey_capture_active = True
+        def close_dialog(clear_capture=True):
+            if state['closed']:
+                return
+            state['closed'] = True
+            if clear_capture:
+                self._emote_toggle_hotkey_capture_active = False
+            try:
+                if dlg.winfo_exists():
+                    dlg.destroy()
+            except Exception:
+                pass
+            self._emote_toggle_capture_dialog = None
+        def capture(event):
+            keysym = str(getattr(event, 'keysym', '') or '')
+            upper = keysym.upper()
+            if upper in ('SHIFT_L', 'SHIFT_R', 'CONTROL_L', 'CONTROL_R', 'ALT_L', 'ALT_R', 'WIN_L', 'WIN_R'):
+                return 'break'
+            if upper == 'ESCAPE':
+                close_dialog()
+                return 'break'
+            if upper in ('BACKSPACE', 'DELETE'):
+                key = ''
+            else:
+                key = upper
+                if key == 'KP_ENTER':
+                    key = 'ENTER'
+                elif key == 'RETURN':
+                    key = 'ENTER'
+                elif key == 'SPACE':
+                    key = 'SPACE'
+            if key and not fflag_key_to_vk(key):
+                return 'break'
+            conflicts = set(str(value or '').upper() for value in getattr(self, 'emote_binds', {}).values() if str(value or '').strip())
+            conflicts.update(str(value or '').upper() for action, value in getattr(self, '_emote_nav_binds', {}).items() if str(value or '').strip())
+            conflicts.update(str(item.get('key', '') or '').upper() for item in getattr(self, 'fflag_hotkeys', []) if isinstance(item, dict) and str(item.get('key', '') or '').strip())
+            conflicts.update(str(value or '').upper() for value in getattr(self, 'fps_hotkeys', {}).values() if str(value or '').strip())
+            conflicts.update(('F7', 'F3'))
+            if key and key in conflicts:
+                self._emote_set_action_status(f'{key} is already assigned. Choose another key.', '#ff6b6b')
+                return 'break'
+            self._emote_hotkeys_toggle_key = key
+            self.settings['emote_hotkeys_toggle_key'] = key
+            vk = fflag_key_to_vk(key) if key else 0
+            if vk:
+                self._hotkey_prev[vk] = True
+            self._save_settings()
+            self._emote_update_control_button_states()
+            close_dialog()
+            self._emote_set_action_status(f'Hotkeys toggle key: {key}' if key else 'Hotkeys toggle key cleared.', '#65d98b')
+            return 'break'
+        dlg.bind('<KeyPress>', capture)
+        dlg.bind('<Escape>', lambda _event: close_dialog())
+        dlg.protocol('WM_DELETE_WINDOW', close_dialog)
+        dlg.after(100, dlg.focus_force)
     def _set_emote_hotkeys_enabled(self, enabled, persist=True):
         self._emote_hotkeys_enabled = bool(enabled)
         self.settings['emote_hotkeys_enabled'] = self._emote_hotkeys_enabled
@@ -12654,6 +13094,7 @@ class App(_TkAppBase):
         all_existing.update(str(item.get('key', '') or '').upper() for item in getattr(self, 'fflag_hotkeys', []) if isinstance(item, dict))
         all_existing.update(str(v or '').upper() for v in getattr(self, 'fps_hotkeys', {}).values() if str(v or '').strip())
         all_existing.add('F7')
+        all_existing.add(str(getattr(self, '_emote_hotkeys_toggle_key', '') or '').upper())
         if key in all_existing:
             self._emote_control_capture_action = None
             self._emote_refresh_controls()
@@ -13007,8 +13448,13 @@ class App(_TkAppBase):
         self.fflag_side_notebook.grid(row=0, column=0, sticky='nsew')
         reference_tab = ttk.Frame(self.fflag_side_notebook, padding=8)
         saved_tab = ttk.Frame(self.fflag_side_notebook, padding=8)
+        history_tab = ttk.Frame(self.fflag_side_notebook, padding=8)
+        self.fflag_history_tab = history_tab
+        self.fflag_reference_tab = reference_tab
+        self.fflag_saved_tab = saved_tab
         self.fflag_side_notebook.add(reference_tab, text=UI_TEXT['n14'])
         self.fflag_side_notebook.add(saved_tab, text=UI_TEXT['o14'])
+        self.fflag_side_notebook.add(history_tab, text='History')
         reference_tab.rowconfigure(1, weight=1)
         reference_tab.columnconfigure(0, weight=1)
         reference_head = ttk.Frame(reference_tab)
@@ -13032,7 +13478,7 @@ class App(_TkAppBase):
         ref_ybar.grid(row=1, column=1, sticky='ns')
         ref_xbar.grid(row=2, column=0, sticky='ew')
         self.fflag_reference_tree.bind('<Double-1>', lambda _e: self._copy_fflag_reference_row(self.fflag_reference_tree))
-        self.fflag_reference_search.trace_add('write', lambda *_: self._refresh_fflag_reference_panel())
+        self.fflag_reference_search.trace_add('write', lambda *_: self._schedule_ui('fflag_reference_filter', 70, self._refresh_fflag_reference_panel))
         self._fflag_reference_rows = []
         self._fflag_reference_render_job = None
         self._fflag_reference_render_token = 0
@@ -13051,6 +13497,35 @@ class App(_TkAppBase):
         ttk.Button(json_buttons, text=UI_TEXT['t14'], command=self._apply_selected_json).pack(side='left', fill='x', expand=True, padx=(0, 4))
         ttk.Button(json_buttons, text=UI_TEXT['c12'], command=self._refresh_json_list).pack(side='right')
         self._refresh_json_list()
+        history_tab.rowconfigure(1, weight=1)
+        history_tab.columnconfigure(0, weight=1)
+        history_head = ttk.Frame(history_tab)
+        history_head.grid(row=0, column=0, sticky='ew', pady=(0, 6))
+        self.fflag_history_search = tk.StringVar()
+        history_search = ttk.Entry(history_head, textvariable=self.fflag_history_search)
+        history_search.pack(side='left', fill='x', expand=True, padx=(0, 6))
+        ttk.Button(history_head, text='Refresh', command=self._fflag_history_refresh).pack(side='left', padx=(0, 4))
+        ttk.Button(history_head, text='Clear', command=self._fflag_history_clear).pack(side='left')
+        history_body = ttk.Frame(history_tab)
+        history_body.grid(row=1, column=0, sticky='nsew')
+        history_body.rowconfigure(0, weight=1)
+        history_body.columnconfigure(0, weight=1)
+        self.fflag_history_text = tk.Text(history_body, wrap='none', height=10, undo=False, relief='flat', bd=0, highlightthickness=1, highlightbackground=_CURRENT_PALETTE.get('border', '#444446'), bg=_CURRENT_PALETTE.get('bg_medium', '#252526'), fg=_CURRENT_PALETTE.get('fg', '#dcdcdc'), insertbackground='#ffffff', selectbackground=_CURRENT_PALETTE.get('accent', '#7f8cff'), font=('Consolas', 9), padx=9, pady=8, state='disabled')
+        history_ybar = ttk.Scrollbar(history_body, orient='vertical', command=self.fflag_history_text.yview)
+        history_xbar = ttk.Scrollbar(history_body, orient='horizontal', command=self.fflag_history_text.xview)
+        self.fflag_history_text.configure(yscrollcommand=history_ybar.set, xscrollcommand=history_xbar.set)
+        self.fflag_history_text.grid(row=0, column=0, sticky='nsew')
+        history_ybar.grid(row=0, column=1, sticky='ns')
+        history_xbar.grid(row=1, column=0, sticky='ew')
+        self.fflag_history_text.tag_configure('history_add', foreground='#f2c94c')
+        self.fflag_history_text.tag_configure('history_old', foreground='#ff6b6b')
+        self.fflag_history_text.tag_configure('history_new', foreground='#65d98b')
+        self.fflag_history_text.tag_configure('history_meta', foreground='#9aa0a6')
+        self.fflag_history_text.tag_configure('history_title', foreground='#8ab4f8', font=('Segoe UI Semibold', 9))
+        self.fflag_history_text.tag_configure('history_removed', foreground='#ff6b6b')
+        self.fflag_history_text.tag_configure('history_separator', foreground='#565b66')
+        self.fflag_history_search.trace_add('write', lambda *_: self._schedule_ui('fflag_history_filter', 90, self._fflag_history_refresh))
+        self._fflag_history_refresh()
         bottom = ttk.Frame(tab)
         bottom.grid(row=3, column=0, sticky='ew', pady=(8, 0))
         self.fflag_auto_apply_button = ttk.Button(bottom, text=UI_TEXT['u14'] if self.fflag_auto_apply.get() else UI_TEXT['v14'], command=self._toggle_fflag_auto_apply)
@@ -13067,6 +13542,19 @@ class App(_TkAppBase):
         self._fflag_reference_load_started = True
         if force:
             self._fflag_reference_cache = None
+        elif not getattr(self, '_fflag_reference_cache', None):
+            try:
+                with open(FFLAG_REFERENCE_CACHE_PATH, 'r', encoding='utf-8') as source:
+                    saved = json.load(source)
+                age = time.time() - float(saved.get('time', 0))
+                if age <= 21600 and len(saved.get('offsets', {})) >= 500 and isinstance(saved.get('rows'), list):
+                    self._fflag_reference_cache = saved
+                    self._fflag_reference_rows = list(saved['rows'])
+                    self._fflag_reference_loaded(saved)
+                    if age <= 900:
+                        return
+            except Exception:
+                pass
         if hasattr(self, 'fflag_reference_status'):
             try:
                 self.fflag_reference_status.configure(text=UI_TEXT['p14'])
@@ -13074,7 +13562,7 @@ class App(_TkAppBase):
                 pass
         def worker():
             try:
-                result = self._fetch_fflag_reference_data()
+                result = self._fetch_fflag_reference_data(force=force)
             except Exception as exc:
                 result = {'rows': [], 'offsets_error': str(exc), 'defaults_error': ''}
             try:
@@ -13143,7 +13631,7 @@ class App(_TkAppBase):
             processed = 0
             started = time.perf_counter()
             pos = start
-            while pos < len(rows) and processed < 80 and time.perf_counter() - started < 0.004:
+            while pos < len(rows) and processed < 240 and time.perf_counter() - started < 0.007:
                 try:
                     tree.insert('', 'end', iid=f'ref_{token}_{pos}', values=rows[pos])
                 except Exception:
@@ -13183,9 +13671,197 @@ class App(_TkAppBase):
                 key = name.lower()
                 counts[key] = counts.get(key, 0) + 1
         return {name for name, count in counts.items() if count > 1}
+    def _fflag_history_load(self):
+        try:
+            with open(FFLAG_HISTORY_PATH, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            if isinstance(data, list):
+                return [x for x in data if isinstance(x, dict)][-500:]
+        except Exception:
+            pass
+        return []
+    def _fflag_history_save(self):
+        try:
+            os.makedirs(os.path.dirname(FFLAG_HISTORY_PATH), exist_ok=True)
+            temporary = FFLAG_HISTORY_PATH + '.tmp'
+            with open(temporary, 'w', encoding='utf-8') as f:
+                json.dump(self._fflag_history_items[-500:], f, ensure_ascii=False, indent=2)
+            os.replace(temporary, FFLAG_HISTORY_PATH)
+        except Exception as exc:
+            try:
+                self._console_log(f'FFlag history save failed: {exc}')
+            except Exception:
+                pass
+    def _fflag_history_snapshot_from_flags(self, flags):
+        snapshot = []
+        for index, flag in enumerate(flags or []):
+            if not isinstance(flag, dict):
+                continue
+            snapshot.append({'name': fflag_strip_prefix(str(flag.get('name', '') or '').strip()), 'value': str(flag.get('value', '') or ''), 'type': str(flag.get('type', '') or ''), 'index': index})
+        return snapshot
+    def _fflag_history_commit(self, entries):
+        if not entries:
+            return
+        lock = getattr(self, '_fflag_history_lock', None)
+        if lock is None:
+            self._fflag_history_lock = threading.RLock()
+            lock = self._fflag_history_lock
+        with lock:
+            items = getattr(self, '_fflag_history_items', None)
+            if not isinstance(items, list):
+                items = self._fflag_history_items = []
+            items.extend(entries)
+            del items[:-500]
+            self._fflag_history_save()
+        if hasattr(self, 'fflag_history_text'):
+            self._schedule_ui('fflag_history_render', 45, self._fflag_history_refresh)
+    def _fflag_history_record(self, event, old=None, new=None):
+        self._fflag_history_commit([{'timestamp': time.time(), 'event': str(event), 'old': dict(old) if isinstance(old, dict) else None, 'new': dict(new) if isinstance(new, dict) else None}])
+    def _fflag_history_track_changes(self):
+        current = self._fflag_history_snapshot_from_flags(self.fflag_flags)
+        previous = getattr(self, '_fflag_history_snapshot', None)
+        if not getattr(self, '_fflag_history_snapshot_ready', False) or not isinstance(previous, list):
+            self._fflag_history_snapshot = current
+            self._fflag_history_snapshot_ready = True
+            return
+        changes = []
+        def keyed(items):
+            counts = {}
+            result = {}
+            for item in items:
+                name_key = str(item.get('name', '')).casefold()
+                occurrence = counts.get(name_key, 0)
+                counts[name_key] = occurrence + 1
+                result[(name_key, occurrence)] = item
+            return result
+        old_by_name = keyed(previous)
+        new_by_name = keyed(current)
+        old_only = [x for key, x in old_by_name.items() if key not in new_by_name]
+        new_only = [x for key, x in new_by_name.items() if key not in old_by_name]
+        paired_old = set()
+        paired_new = set()
+        if len(previous) == len(current) and len(old_only) == len(new_only):
+            new_by_index = {x['index']: x for x in new_only}
+            for old in old_only:
+                candidate = new_by_index.get(old['index'])
+                if candidate is not None:
+                    changes.append({'timestamp': time.time(), 'event': 'changed', 'old': dict(old), 'new': dict(candidate)})
+                    paired_old.add(id(old))
+                    paired_new.add(id(candidate))
+        for key in old_by_name.keys() & new_by_name.keys():
+            old = old_by_name[key]
+            new = new_by_name[key]
+            if old.get('name') != new.get('name') or old.get('value') != new.get('value') or old.get('type') != new.get('type'):
+                changes.append({'timestamp': time.time(), 'event': 'changed', 'old': dict(old), 'new': dict(new)})
+        for item in new_only:
+            if id(item) not in paired_new:
+                changes.append({'timestamp': time.time(), 'event': 'added', 'old': None, 'new': dict(item)})
+        for item in old_only:
+            if id(item) not in paired_old:
+                changes.append({'timestamp': time.time(), 'event': 'removed', 'old': dict(item), 'new': None})
+        self._fflag_history_snapshot = current
+        self._fflag_history_snapshot_ready = True
+        self._fflag_history_commit(changes)
+    def _fflag_history_refresh(self):
+        text = getattr(self, 'fflag_history_text', None)
+        if text is None:
+            return
+        try:
+            if not text.winfo_exists():
+                return
+        except Exception:
+            return
+        query = str(self.fflag_history_search.get() if hasattr(self, 'fflag_history_search') else '').strip().casefold()
+        with getattr(self, '_fflag_history_lock', threading.RLock()):
+            entries = list(reversed(getattr(self, '_fflag_history_items', [])))
+        if query:
+            def matches(item):
+                old = item.get('old') or {}
+                new = item.get('new') or {}
+                combined = ' '.join(str(value) for value in (item.get('event', ''), old.get('name', ''), old.get('value', ''), new.get('name', ''), new.get('value', ''), old.get('type', ''), new.get('type', ''))).casefold()
+                return query in combined
+            entries = [item for item in entries if matches(item)]
+        text.configure(state='normal')
+        text.delete('1.0', 'end')
+        if not entries:
+            text.insert('end', 'No FFlag changes recorded yet.\n' if not query else 'No history entries match this filter.\n', 'history_meta')
+        for entry in entries[:300]:
+            try:
+                stamp = datetime.fromtimestamp(float(entry.get('timestamp', 0))).strftime('%Y-%m-%d %H:%M:%S')
+            except Exception:
+                stamp = 'Unknown time'
+            event = str(entry.get('event', 'changed')).lower()
+            old = entry.get('old') or {}
+            new = entry.get('new') or {}
+            if event == 'added':
+                title, tag = 'NEW FFLAG', 'history_add'
+            elif event == 'removed':
+                title, tag = 'FFLAG REMOVED', 'history_removed'
+            else:
+                title, tag = 'FFLAG CHANGED', 'history_title'
+            text.insert('end', f'{stamp}  ', 'history_meta')
+            text.insert('end', title + '\n', tag)
+            if old.get('name') != new.get('name') and old.get('name') is not None and new.get('name') is not None:
+                text.insert('end', 'Name: ', 'history_meta')
+                text.insert('end', str(old.get('name', '')), 'history_old')
+                text.insert('end', '  →  ', 'history_meta')
+                text.insert('end', str(new.get('name', '')), 'history_new')
+                text.insert('end', '\n')
+            elif new.get('name') is not None:
+                text.insert('end', 'Name: ', 'history_meta')
+                text.insert('end', str(new.get('name', '')), tag if event == 'added' else 'history_meta')
+                text.insert('end', '\n')
+            elif old.get('name') is not None:
+                text.insert('end', 'Name: ', 'history_meta')
+                text.insert('end', str(old.get('name', '')), 'history_old')
+                text.insert('end', '\n')
+            if old.get('value') != new.get('value') and old.get('value') is not None and new.get('value') is not None:
+                text.insert('end', 'Value: ', 'history_meta')
+                text.insert('end', str(old.get('value', '')), 'history_old')
+                text.insert('end', '  →  ', 'history_meta')
+                text.insert('end', str(new.get('value', '')), 'history_new')
+                text.insert('end', '\n')
+            elif new.get('value') is not None:
+                text.insert('end', 'Value: ', 'history_meta')
+                text.insert('end', str(new.get('value', '')), tag if event == 'added' else 'history_meta')
+                text.insert('end', '\n')
+            elif old.get('value') is not None:
+                text.insert('end', 'Value: ', 'history_meta')
+                text.insert('end', str(old.get('value', '')), 'history_old')
+                text.insert('end', '\n')
+            if old.get('type') != new.get('type') and old.get('type') is not None and new.get('type') is not None:
+                text.insert('end', 'Type: ', 'history_meta')
+                text.insert('end', str(old.get('type', '')), 'history_old')
+                text.insert('end', '  →  ', 'history_meta')
+                text.insert('end', str(new.get('type', '')), 'history_new')
+                text.insert('end', '\n')
+            text.insert('end', '────────────────────────────────────────────────────────\n', 'history_separator')
+        text.configure(state='disabled')
+        text.yview_moveto(0)
+    def _fflag_history_clear(self):
+        if not messagebox.askyesno('FFlag History', 'Clear all saved FFlag change history?', parent=self):
+            return
+        with getattr(self, '_fflag_history_lock', threading.RLock()):
+            self._fflag_history_items = []
+            self._fflag_history_save()
+        self._fflag_history_refresh()
+    def _open_fflag_history_panel(self):
+        fflag_tab_id = next((tab_id for tab_id in self.nb.tabs() if self.nb.tab(tab_id, 'text') == UI_TEXT['h5']), None)
+        if fflag_tab_id is not None:
+            self.nb.select(fflag_tab_id)
+            self._lazy_tab_changed()
+        def select_history():
+            try:
+                if hasattr(self, 'fflag_side_notebook') and self.fflag_side_notebook.winfo_exists() and hasattr(self, 'fflag_history_tab'):
+                    self.fflag_side_notebook.select(self.fflag_history_tab)
+                    self._fflag_history_refresh()
+            except Exception:
+                pass
+        self.after_idle(select_history)
     def _refresh_fflag_list(self):
         if not hasattr(self, 'fflag_tree'):
             return
+        self._fflag_history_track_changes()
         self.fflag_tree.delete(*self.fflag_tree.get_children())
         filt = self.fflag_search.get().strip().lower() if hasattr(self, 'fflag_search') else ''
         conflicts = self._fflag_conflicts()
@@ -13402,12 +14078,23 @@ class App(_TkAppBase):
         self._show_fflag_reference_panel()
     def _open_latest_fflag_list(self):
         self._show_fflag_reference_panel()
-    def _fetch_fflag_reference_data(self):
+    def _fetch_fflag_reference_data(self, force=False):
         cached = getattr(self, '_fflag_reference_cache', None)
-        if cached and time.time() - cached.get('time', 0) < 900 and len(cached.get('offsets', {})) >= 500:
+        if not force and cached and time.time() - cached.get('time', 0) < 900 and len(cached.get('offsets', {})) >= 500:
             return cached
+        if not force:
+            try:
+                with open(FFLAG_REFERENCE_CACHE_PATH, 'r', encoding='utf-8') as source:
+                    disk_cache = json.load(source)
+                age = time.time() - float(disk_cache.get('time', 0))
+                if age <= 900 and len(disk_cache.get('offsets', {})) >= 500 and isinstance(disk_cache.get('rows'), list):
+                    disk_cache['time'] = time.time()
+                    self._fflag_reference_cache = disk_cache
+                    return disk_cache
+            except Exception:
+                pass
         def fetch(url):
-            with _routils_request(url, timeout=20, headers={'Accept': 'application/json,text/plain,*/*'}) as response:
+            with _routils_request(url, timeout=10, headers={'Accept': 'application/json,text/plain,*/*'}, cache_bypass=force) as response:
                 return response.read().decode('utf-8', 'replace')
         def extract_block(text, namespace_name):
             match = re.search(r'\bnamespace\s+' + re.escape(namespace_name) + r'\s*\{', text)
@@ -13459,43 +14146,100 @@ class App(_TkAppBase):
         defaults = {}
         defaults_error = ''
         default_names = {}
-        try:
-            raw_defaults = json.loads(fetch(WEBVIEW2_URL_DEFAULTS))
-            if isinstance(raw_defaults, dict):
-                default_items = raw_defaults.items()
-            elif isinstance(raw_defaults, list):
-                default_items = ((item.get('name'), item.get('value', '*')) for item in raw_defaults if isinstance(item, dict) and item.get('name') is not None)
-            else:
-                default_items = ()
-            for name, value in default_items:
-                full_name = str(name or '').strip()
-                if not full_name:
-                    continue
-                bare_name = fflag_strip_prefix(full_name).strip()
-                key = bare_name.casefold()
-                normalized_value = str(value).lower() if isinstance(value, bool) else '*' if value is None else str(value)
-                if key and key not in defaults:
-                    defaults[key] = normalized_value
-                    default_names[key] = full_name
-        except Exception as exc:
-            defaults_error = str(exc)
         offsets = {}
         offsets_error = ''
         source_errors = []
-        for url in (_get_latest_offsets_webview_url(), 'https://raw.githubusercontent.com/4anti/Roblox-Fastflag-Manager/main/data/FFlags.hpp'):
+        primary_url = _get_latest_offsets_webview_url()
+        mirror_url = 'https://raw.githubusercontent.com/4anti/Roblox-Fastflag-Manager/main/data/FFlags.hpp'
+        pool = ThreadPoolExecutor(max_workers=3, thread_name_prefix='RoUtils-FFlagFetch')
+        future_roles = {
+            pool.submit(fetch, WEBVIEW2_URL_DEFAULTS): ('defaults', WEBVIEW2_URL_DEFAULTS),
+            pool.submit(fetch, primary_url): ('primary', primary_url),
+            pool.submit(fetch, mirror_url): ('mirror', mirror_url)
+        }
+        pending = set(future_roles)
+        candidates = {}
+        defaults_done = False
+        deadline = time.monotonic() + 11.0
+        def process_future(future):
+            nonlocal defaults, default_names, defaults_error, defaults_done
+            role, url = future_roles[future]
             try:
-                candidate_text = fetch(url)
-                candidate_offsets = parse_offsets(candidate_text)
-                if len(candidate_offsets) >= 500:
-                    offsets = candidate_offsets
-                    if url != _get_latest_offsets_webview_url():
-                        offsets_error = 'Theo source did not contain a full offset list; loaded the mirror instead.'
-                    break
-                source_errors.append(f'{url}: parsed only {len(candidate_offsets)} offsets')
+                content = future.result()
+            except Exception as exc:
+                if role == 'defaults':
+                    defaults_error = str(exc)
+                    defaults_done = True
+                else:
+                    source_errors.append(f'{url}: {exc}')
+                return
+            if role == 'defaults':
+                try:
+                    raw_defaults = json.loads(content)
+                    if isinstance(raw_defaults, dict):
+                        default_items = raw_defaults.items()
+                    elif isinstance(raw_defaults, list):
+                        default_items = ((item.get('name'), item.get('value', '*')) for item in raw_defaults if isinstance(item, dict) and item.get('name') is not None)
+                    else:
+                        default_items = ()
+                    for name, value in default_items:
+                        full_name = str(name or '').strip()
+                        if not full_name:
+                            continue
+                        bare_name = fflag_strip_prefix(full_name).strip()
+                        key = bare_name.casefold()
+                        normalized_value = str(value).lower() if isinstance(value, bool) else '*' if value is None else str(value)
+                        if key and key not in defaults:
+                            defaults[key] = normalized_value
+                            default_names[key] = full_name
+                except Exception as exc:
+                    defaults_error = str(exc)
+                defaults_done = True
+                return
+            try:
+                candidate_offsets = parse_offsets(content)
             except Exception as exc:
                 source_errors.append(f'{url}: {exc}')
-        if len(offsets) < 500:
-            offsets_error = '; '.join(source_errors) or UI_TEXT['c30']
+                return
+            if len(candidate_offsets) >= 500:
+                candidates[role] = candidate_offsets
+            else:
+                source_errors.append(f'{url}: parsed only {len(candidate_offsets)} offsets')
+        try:
+            while pending and time.monotonic() < deadline:
+                finished, pending = wait(pending, timeout=min(0.2, max(0.0, deadline - time.monotonic())), return_when=FIRST_COMPLETED)
+                if not finished:
+                    continue
+                for future in finished:
+                    process_future(future)
+                if 'primary' in candidates:
+                    offsets = candidates['primary']
+                    break
+                if 'mirror' in candidates:
+                    if any(role == 'primary' and future in pending for future, (role, _) in future_roles.items()):
+                        ready, _ = wait([future for future, (role, _) in future_roles.items() if role == 'primary' and future in pending], timeout=0.25)
+                        for future in ready:
+                            pending.discard(future)
+                            process_future(future)
+                    if 'primary' in candidates:
+                        offsets = candidates['primary']
+                    else:
+                        offsets = candidates['mirror']
+                        offsets_error = 'Theo source did not contain a full offset list; loaded the mirror instead.'
+                    break
+            if not defaults_done:
+                default_future = next((future for future, (role, _) in future_roles.items() if role == 'defaults'), None)
+                if default_future is not None and default_future in pending:
+                    ready, _ = wait([default_future], timeout=0.35)
+                    if ready:
+                        pending.discard(default_future)
+                        process_future(default_future)
+                if not defaults_done and not defaults_error:
+                    defaults_error = 'FFlag defaults request timed out.'
+            if not offsets:
+                offsets_error = '; '.join(source_errors) or UI_TEXT['c30']
+        finally:
+            pool.shutdown(wait=False, cancel_futures=True)
         rows = []
         for bare_name, offset in offsets.items():
             key = str(bare_name).casefold()
@@ -13510,6 +14254,13 @@ class App(_TkAppBase):
         result = {'time': time.time(), 'defaults': defaults, 'default_names': default_names, 'offsets': offsets, 'rows': rows, 'defaults_error': defaults_error, 'offsets_error': offsets_error}
         if len(offsets) >= 500:
             self._fflag_reference_cache = result
+            try:
+                temporary = FFLAG_REFERENCE_CACHE_PATH + '.tmp'
+                with open(temporary, 'w', encoding='utf-8') as output:
+                    json.dump(result, output, ensure_ascii=False, separators=(',', ':'))
+                os.replace(temporary, FFLAG_REFERENCE_CACHE_PATH)
+            except Exception:
+                pass
         return result
     def _copy_fflag_reference_row(self, tree):
         try:
@@ -13642,9 +14393,12 @@ class App(_TkAppBase):
         full_name = 'TaskSchedulerTargetFps'
         normalized_name = fflag_strip_prefix(full_name)
         value = self._fps_flag_value()
+        original_signature = [(str(flag.get('name', '')), str(flag.get('value', '')), str(flag.get('type', ''))) for flag in self.fflag_flags if isinstance(flag, dict)]
         fps_entry = None
         cleaned_flags = []
         for flag in self.fflag_flags:
+            if not isinstance(flag, dict):
+                continue
             flag_name = str(flag.get('name', '')).strip()
             if fflag_strip_prefix(flag_name) == normalized_name:
                 if fps_entry is None:
@@ -13658,10 +14412,12 @@ class App(_TkAppBase):
         if fps_entry is None:
             fps_entry = {'name': full_name, 'value': value, 'type': 'int'}
             cleaned_flags.append(fps_entry)
-        self.fflag_flags = cleaned_flags
-        self._save_fflag_flags()
-        if hasattr(self, 'fflag_tree'):
-            self._refresh_fflag_list()
+        new_signature = [(str(flag.get('name', '')), str(flag.get('value', '')), str(flag.get('type', ''))) for flag in cleaned_flags]
+        if original_signature != new_signature:
+            self.fflag_flags = cleaned_flags
+            self._save_fflag_flags()
+            if hasattr(self, 'fflag_tree'):
+                self._refresh_fflag_list()
     def _apply_fps_flag(self, silent=True):
         self._sync_fps_flag_to_manager()
         if not self.fflag_pid or not self.fflag_engine.handle:
@@ -13692,11 +14448,16 @@ class App(_TkAppBase):
             if candidate not in candidates:
                 candidates.append(candidate)
         offset_value = None
+        lookup_cache = getattr(self, '_fflag_offset_lookup_cache', None)
+        if not isinstance(lookup_cache, tuple) or len(lookup_cache) != 2 or lookup_cache[0] is not offsets:
+            folded_offsets = {str(key).casefold(): value for key, value in offsets.items()}
+            self._fflag_offset_lookup_cache = (offsets, folded_offsets)
+        else:
+            folded_offsets = lookup_cache[1]
         for candidate in candidates:
             offset_value = offsets.get(candidate)
             if offset_value is None:
-                target = candidate.casefold()
-                offset_value = next((v for k, v in offsets.items() if str(k).casefold() == target), None)
+                offset_value = folded_offsets.get(candidate.casefold())
             if offset_value is not None:
                 break
         if offset_value is None:
@@ -13743,33 +14504,66 @@ class App(_TkAppBase):
             if not silent:
                 messagebox.showwarning(UI_TEXT['h5'], UI_TEXT['q16'], parent=self)
             return
-        offset_mode = True
         cache = getattr(self, '_fflag_reference_cache', None)
         if not cache or not isinstance(cache.get('offsets'), dict) or len(cache.get('offsets', {})) < 1:
             self._fflag_status_text('Loading offsets…', '#e6b450')
             self._load_fflag_reference_panel(force=True)
             self._console_log(UI_TEXT['r16'])
             return
-        ok = 0
-        failed = 0
-        for flag in self.fflag_flags:
-            name = fflag_strip_prefix(str(flag.get('name', '')))
-            if not name:
-                continue
-            value = str(flag.get('value', ''))
-            value_type = str(flag.get('type') or fflag_infer_type(value))
-            success = self._fflag_write_offset(name, value, value_type)
-            if success:
-                ok += 1
-            else:
-                failed += 1
-        self._apply_fps_flag(silent=True)
+        self._sync_fps_flag_to_manager()
+        with self._fflag_apply_state_lock:
+            if self._fflag_apply_in_progress:
+                self._fflag_apply_pending = True
+                self._fflag_apply_pending_silent = self._fflag_apply_pending_silent and bool(silent)
+                return
+            self._fflag_apply_in_progress = True
+        flags = [dict(flag) for flag in self.fflag_flags if isinstance(flag, dict)]
         method = 'Offsets'
-        color = '#65d98b' if ok else '#ff6b6b'
-        self.fflag_status.config(text=UI_TEXT['s16'].format(p0=ok, p1=len(self.fflag_flags)), foreground=color)
-        self._console_log(UI_TEXT['t16'].format(p0=method, p1=ok, p2=len(self.fflag_flags), p3=failed, p4=self.fflag_pid))
-        if not silent and not ok:
-            messagebox.showwarning(UI_TEXT['h5'], UI_TEXT['u16'].format(p0=method), parent=self)
+        pid = self.fflag_pid
+        def worker():
+            started = time.perf_counter()
+            ok = 0
+            failed = 0
+            total = len(flags)
+            try:
+                for flag in flags:
+                    name = fflag_strip_prefix(str(flag.get('name', '')))
+                    if name:
+                        value = str(flag.get('value', ''))
+                        value_type = str(flag.get('type') or fflag_infer_type(value))
+                        if self._fflag_write_offset(name, value, value_type):
+                            ok += 1
+                        else:
+                            failed += 1
+                elapsed = time.perf_counter() - started
+                result = {'ok': ok, 'failed': failed, 'total': total, 'elapsed': elapsed, 'method': method, 'pid': pid, 'error': ''}
+            except Exception as exc:
+                elapsed = time.perf_counter() - started
+                result = {'ok': ok, 'failed': failed + 1, 'total': total, 'elapsed': elapsed, 'method': method, 'pid': pid, 'error': str(exc)}
+            self.after(0, self._fflag_apply_finished, result, bool(silent))
+        threading.Thread(target=worker, daemon=True, name='RoUtils-FFlagApply').start()
+    def _fflag_apply_finished(self, result, silent=True):
+        elapsed_text = f"{float(result.get('elapsed', 0.0)):.9f}".replace('.', ',')
+        ok = int(result.get('ok', 0))
+        failed = int(result.get('failed', 0))
+        total = int(result.get('total', 0))
+        method = str(result.get('method', 'Offsets'))
+        pid = result.get('pid', self.fflag_pid)
+        if result.get('error'):
+            self._console_log(f"FFlag apply worker error: {result['error']}")
+        color = '#65d98b' if ok and not failed else '#f2c94c' if ok else '#ff6b6b'
+        self._fflag_status_text(f'Applied ({elapsed_text} seconds)', color)
+        self._console_log(UI_TEXT['t16'].format(p0=method, p1=ok, p2=total, p3=failed, p4=pid))
+        if not silent and (not ok or failed):
+            messagebox.showwarning(UI_TEXT['h5'], UI_TEXT['u16'].format(p0=method) + (f'\n\nSucceeded: {ok}\nFailed: {failed}' if failed else ''), parent=self)
+        with self._fflag_apply_state_lock:
+            self._fflag_apply_in_progress = False
+            pending = self._fflag_apply_pending
+            pending_silent = self._fflag_apply_pending_silent
+            self._fflag_apply_pending = False
+            self._fflag_apply_pending_silent = True
+        if pending:
+            self.after(60, lambda s=pending_silent: self._fflag_apply(silent=s))
     def _fflag_status_text(self, text, color='#9aa0a6'):
         try:
             self.fflag_status.config(text=text, foreground=color)
@@ -13814,7 +14608,7 @@ class App(_TkAppBase):
         except Exception:
             pass
         try:
-            self.after(60000, self._fflag_auto_apply_tick)
+            self.after(15000, self._fflag_auto_apply_tick)
         except Exception:
             pass
     def _plugin_files(self):
@@ -14705,18 +15499,40 @@ class App(_TkAppBase):
         self.release_notes_scroll.pack(fill='both', expand=True, padx=8, pady=(0, 8))
         self.release_notes_content = self.release_notes_scroll.inner
         self.release_notes_content.columnconfigure(0, weight=1)
-        self.after_idle(lambda: self._refresh_release_notes(force=True))
+        cached_releases = None
+        cache_is_fresh = False
+        try:
+            cached_payload = _routils_load_http_cache(RELEASES_API_URL, 600, allow_stale=True)
+            cache_is_fresh = _routils_load_http_cache(RELEASES_API_URL, 600) is not None
+            if cached_payload is not None:
+                parsed = json.loads(cached_payload[0].decode('utf-8', 'replace'))
+                if isinstance(parsed, list):
+                    cached_releases = parsed
+        except Exception:
+            cached_releases = None
+            cache_is_fresh = False
+        if cached_releases is not None:
+            self.after_idle(lambda data=cached_releases: self._render_release_notes(data))
+            self.after_idle(lambda fresh=cache_is_fresh: self._refresh_release_notes(force=not fresh))
+        else:
+            self.after_idle(lambda: self._refresh_release_notes(force=True))
     def _refresh_release_notes(self, force=False):
         if not hasattr(self, 'release_notes_tab') or not self.release_notes_tab.winfo_exists():
             return
         if getattr(self, '_release_notes_loading', False):
             return
+        if not force:
+            try:
+                if _routils_load_http_cache(RELEASES_API_URL, 600) is not None:
+                    return
+            except Exception:
+                pass
         self._release_notes_loading = True
         self.release_notes_status.configure(text=UI_TEXT['g21'], fg='#f2c94c')
         self.release_notes_refresh_button.configure(state='disabled')
         def worker():
             try:
-                with _routils_request(RELEASES_API_URL, timeout=18, headers={'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28'}) as response:
+                with _routils_request(RELEASES_API_URL, timeout=10, headers={'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28'}, cache_bypass=force) as response:
                     payload = response.read(5 * 1024 * 1024 + 1)
                 if len(payload) > 5 * 1024 * 1024:
                     raise ValueError('GitHub release response exceeded the size limit.')
@@ -14936,7 +15752,7 @@ class App(_TkAppBase):
                 gallery = tk.Frame(content, bg=card_bg)
                 gallery.grid(row=3, column=0, sticky='ew', pady=(8, 2))
                 for image_url, image_alt in images[:4]:
-                    if image_count >= 18:
+                    if image_count >= 8:
                         break
                     image_count += 1
                     holder = tk.Frame(gallery, bg=bg, highlightthickness=1, highlightbackground=border)
@@ -16070,6 +16886,7 @@ class App(_TkAppBase):
             return
         data = dict(self.settings)
         data['emote_hotkeys_enabled'] = bool(getattr(self, '_emote_hotkeys_enabled', self.settings.get('emote_hotkeys_enabled', True)))
+        data['emote_hotkeys_toggle_key'] = str(getattr(self, '_emote_hotkeys_toggle_key', self.settings.get('emote_hotkeys_toggle_key', '')) or '').upper()
         data.update({'autoscroll': self.autoscroll.get(), 'hide_tickets': self.hide_tickets.get(), 'stay_on_top': self.stay_on_top.get(), 'show_lines': self.show_lines.get(), 'preview_optimize_vertices': self.viewport_3d.reduce_polys.get() if hasattr(self, 'viewport_3d') else self.settings.get('preview_optimize_vertices', True), 'streamer_mode': self.streamer_mode.get() if hasattr(self, 'streamer_mode') else self.settings.get('streamer_mode', False), 'fps_limit': self.fps_limit.get() if hasattr(self, 'fps_limit') else self.settings.get('fps_limit', 0), 'autostart_watch': self.autostart_watch.get() if hasattr(self, 'autostart_watch') else self.settings.get('autostart_watch', False), 'max_rows': self.max_rows.get() if hasattr(self, 'max_rows') else self.settings.get('max_rows', 0), 'type_filter': self.type_filter.get(), 'columns': {c: var.get() for c, var in getattr(self, '_col_vars', {}).items()}, 'viewer_collapsed': self.viewer_collapsed, 'theme': self.theme_var.get() if hasattr(self, 'theme_var') else self.settings.get('theme', DEFAULT_THEME), 'fflag_hotkeys': self.fflag_hotkeys, 'fps_hotkeys': self.fps_hotkeys, 'fps_hotkey_slots': self.fps_hotkey_slots, 'fflag_auto_apply': self.fflag_auto_apply.get() if hasattr(self, 'fflag_auto_apply') else self.settings.get('fflag_auto_apply', False), 'launch_on_tray': self.launch_on_tray.get() if hasattr(self, 'launch_on_tray') else self.settings.get('launch_on_tray', False), 'launch_on_startup': self.launch_on_startup.get() if hasattr(self, 'launch_on_startup') else self.settings.get('launch_on_startup', False), 'hide_to_tray_on_close': self.hide_to_tray_on_close.get() if hasattr(self, 'hide_to_tray_on_close') else self.settings.get('hide_to_tray_on_close', False), 'auto_update': self.auto_update.get() if hasattr(self, 'auto_update') else self.settings.get('auto_update', False), 'dpi_percent': int(self.dpi_percent.get()) if hasattr(self, 'dpi_percent') else int(getattr(self, '_dpi_scale', 1.0) * 100), 'plugin_enabled': getattr(self, '_plugin_enabled', self.settings.get('plugin_enabled', {})), 'emote_nav_binds': dict(getattr(self, '_emote_nav_binds', self.settings.get('emote_nav_binds', {}))), 'emote_hud_enabled': False, 'hpaned_sash_v2': self.hpaned.sashpos(0) if hasattr(self, 'hpaned') and self.hpaned.winfo_width() > 0 and self.hpaned.sashpos(0) > 0 else self.settings.get('hpaned_sash_v2', None), 'roblox_path': self.settings.get('roblox_path', ''), 'roblox_username': self.settings.get('roblox_username', ''), 'roblox_user_id': self.settings.get('roblox_user_id', ''), 'gemini_api_key': self.gemini_api_key.get().strip() if hasattr(self, 'gemini_api_key') else self.settings.get('gemini_api_key', ''), 'custom_theme': self.settings.get('custom_theme', {}), 'db_path': getattr(self, 'db_path', self.settings.get('db_path', '')), 'shard_root': getattr(self, 'shard_root', self.settings.get('shard_root', '')), 'window_geometry': self.geometry() if self.winfo_exists() else self.settings.get('window_geometry', STARTUP_GEOMETRY), 'include_cconfigs': self.include_cconfigs.get() if hasattr(self, 'include_cconfigs') else self.settings.get('include_cconfigs', False), 'include_cache_dumps': self.include_cache_dumps.get() if hasattr(self, 'include_cache_dumps') else self.settings.get('include_cache_dumps', False), 'tab_order': [self.nb.tab(t, 'text') for t in self.nb.tabs()] if hasattr(self, 'nb') else self.settings.get('tab_order', []), 'selected_tab': self.nb.tab(self.nb.select(), 'text') if hasattr(self, 'nb') and self.nb.select() else self.settings.get('selected_tab', UI_TEXT['w5']), 'hpaned_sash': self.hpaned.sashpos(0) if hasattr(self, 'hpaned') else self.settings.get('hpaned_sash', None), 'vpaned_sash': self.vpaned.sashpos(0) if hasattr(self, 'vpaned') else self.settings.get('vpaned_sash', None)})
         save_settings(data)
         self.settings = data
