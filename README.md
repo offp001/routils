@@ -1,4 +1,4 @@
-# 🛠️ RoUtils (Version 5.2.1)
+# 🛠️ RoUtils (Version 5.2.2)
 [Join Discord server if u need help!](https://discord.com/invite/849VtrYhm2)
 
 <img width="1919" height="1079" alt="routils" src="https://github.com/user-attachments/assets/fb98c4b0-eaf8-4693-9c1f-58401a9eaaa8" />
