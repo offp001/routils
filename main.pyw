@@ -8179,7 +8179,7 @@ class _RoUtilsDiscordRPC:
             if activity != last_activity or now - last_update >= DISCORD_RPC_INTERVAL:
                 details, state = activity
                 try:
-                    presence.update(name='RoUtils', details=details, state=state, large_image='routils', large_text='RoUtils')
+                    presence.update(name='RoUtils', details=details, state=state, large_image='routils', large_text='RoUtils', buttons=[{'label': 'RoUtils Github', 'url': 'https://github.com/offp001/routils'}])
                 except Exception:
                     try:
                         presence.update(name='RoUtils', details=details, state=state)
@@ -10733,6 +10733,78 @@ class App(AIMixin, CacheMixin, ClientMixin, ConsoleMixin, EmoteManagerMixin, FFl
                 self.discord_rpc_status_var.set(str(status))
         except Exception:
             pass
+    def _prompt_change_discord_application_id(self):
+        if getattr(self, '_discord_id_prompt_open', False):
+            return
+        self._discord_id_prompt_open = True
+        win = tk.Toplevel(self)
+        win.title('Discord Rich Presence')
+        win.transient(self)
+        win.resizable(False, False)
+        try:
+            theme_toplevel(win)
+        except Exception:
+            pass
+        body = tk.Frame(win, bg=_CURRENT_PALETTE['bg_dark'], padx=22, pady=18)
+        body.pack(fill='both', expand=True)
+        tk.Label(body, text='Do you want to change Application ID?\n(Not suggested most users)', bg=_CURRENT_PALETTE['bg_dark'], fg=_CURRENT_PALETTE['fg'], justify='center', font=('Segoe UI', 10)).pack(pady=(2, 18))
+        buttons = tk.Frame(body, bg=_CURRENT_PALETTE['bg_dark'])
+        buttons.pack()
+        continue_button = ttk.Button(buttons, text='Continue (3s)', state='disabled')
+        continue_button.pack(side='left', padx=6)
+        cancel_button = ttk.Button(buttons, text="I don't want to", command=win.destroy)
+        cancel_button.pack(side='left', padx=6)
+        entry_area = tk.Frame(body, bg=_CURRENT_PALETTE['bg_dark'])
+        def finish_prompt():
+            self._discord_id_prompt_open = False
+            try:
+                win.destroy()
+            except Exception:
+                pass
+        def continue_to_edit():
+            finish_prompt()
+            edit = tk.Toplevel(self)
+            edit.title('Application ID')
+            edit.transient(self)
+            edit.resizable(False, False)
+            try:
+                theme_toplevel(edit)
+            except Exception:
+                pass
+            panel = tk.Frame(edit, bg=_CURRENT_PALETTE['bg_dark'], padx=18, pady=16)
+            panel.pack(fill='both', expand=True)
+            value = tk.StringVar(value=self.discord_application_id_var.get())
+            tk.Label(panel, text='Application ID', bg=_CURRENT_PALETTE['bg_dark'], fg=_CURRENT_PALETTE['fg']).pack(anchor='w', pady=(0, 6))
+            field = ttk.Entry(panel, textvariable=value, width=34)
+            field.pack(fill='x', pady=(0, 12))
+            def save_value():
+                candidate = value.get().strip()
+                if not candidate.isdigit():
+                    messagebox.showwarning('Discord Rich Presence', 'Application ID must contain digits only.', parent=edit)
+                    return
+                self.discord_application_id_var.set(candidate)
+                self._save_discord_application_id()
+                edit.destroy()
+            ttk.Button(panel, text='Save', command=save_value).pack(anchor='e')
+            edit.after(80, field.focus_set)
+            edit.update_idletasks()
+            edit.geometry(f'+{self.winfo_rootx() + 80}+{self.winfo_rooty() + 80}')
+        continue_button.configure(command=continue_to_edit)
+        state = {'left': 3}
+        def tick():
+            if not win.winfo_exists():
+                self._discord_id_prompt_open = False
+                return
+            if state['left'] > 0:
+                continue_button.configure(text=f"Continue ({state['left']}s)", state='disabled')
+                state['left'] -= 1
+                win.after(1000, tick)
+            else:
+                continue_button.configure(text='Continue', state='normal')
+        win.protocol('WM_DELETE_WINDOW', finish_prompt)
+        win.update_idletasks()
+        win.geometry(f'+{self.winfo_rootx() + 60}+{self.winfo_rooty() + 60}')
+        win.after(1000, tick)
     def _save_discord_application_id(self):
         application_id = str(self.discord_application_id_var.get() or '').strip()
         if not application_id.isdigit():
