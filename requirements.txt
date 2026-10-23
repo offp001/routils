@@ -3,3 +3,4 @@ Pillow>=10.0
 lz4>=4.3
 sv-ttk>=2.6
 ttkbootstrap>=1.10
+pypresence>=4.6.2

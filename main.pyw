@@ -39,6 +39,10 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 from PIL import Image, ImageTk
+try:
+    from pypresence import Presence as _DiscordPresence
+except Exception:
+    _DiscordPresence = None
 from tkinter import colorchooser, filedialog, messagebox, simpledialog, ttk
 from tkinter import font as tkfont
 from typing import Any, Dict, Iterable, List, Optional, Tuple, TYPE_CHECKING
@@ -899,12 +903,13 @@ def _routils_urlopen(url, *args, **kwargs):
             if attempt or not _routils_is_network_error(error):
                 raise
             time.sleep(0.08)
-
 UI_THEME = 'clam'
 THEMES = {'Midnight': {'bg_dark': '#1b1b1c', 'bg_medium': '#252526', 'bg_light': '#3a3a3c', 'bg_hover': '#464648', 'fg': '#dcdcdc', 'accent': '#7f8cff', 'border': '#444446'}, 'Ocean': {'bg_dark': '#0f2436', 'bg_medium': '#153248', 'bg_light': '#1f425e', 'bg_hover': '#2a5474', 'fg': '#d7e6f0', 'accent': '#3aa0ff', 'border': '#28506e'}, 'Hacker': {'bg_dark': '#0a0f0a', 'bg_medium': '#0f180f', 'bg_light': '#1a2a1a', 'bg_hover': '#223522', 'fg': '#b8ffb0', 'accent': '#2fff2f', 'border': '#2a4a2a'}, 'Amethyst': {'bg_dark': '#1a1423', 'bg_medium': '#241b31', 'bg_light': '#35284a', 'bg_hover': '#453665', 'fg': '#e0d6f0', 'accent': '#b06bff', 'border': '#4a3a63'}, 'Onyx': {'bg_dark': '#101010', 'bg_medium': '#171717', 'bg_light': '#262626', 'bg_hover': '#303030', 'fg': '#cfcfcf', 'accent': '#c0c0c0', 'border': '#333333'}}
 THEMES.update({'Nord': {'bg_dark': '#1e2430', 'bg_medium': '#252d3a', 'bg_light': '#303a4a', 'bg_hover': '#3a4658', 'fg': '#d8dee9', 'accent': '#88c0d0', 'border': '#414b5d'}, 'Dracula': {'bg_dark': '#282a36', 'bg_medium': '#303241', 'bg_light': '#44475a', 'bg_hover': '#565a70', 'fg': '#f8f8f2', 'accent': '#bd93f9', 'border': '#44475a'}, 'Monokai': {'bg_dark': '#272822', 'bg_medium': '#2e2f2a', 'bg_light': '#3e3d32', 'bg_hover': '#49483e', 'fg': '#f8f8f2', 'accent': '#a6e22e', 'border': '#49483e'}, 'Solarized': {'bg_dark': '#002b36', 'bg_medium': '#073642', 'bg_light': '#586e75', 'bg_hover': '#657b83', 'fg': '#eee8d5', 'accent': '#2aa198', 'border': '#586e75'}, 'Rose Pine': {'bg_dark': '#191724', 'bg_medium': '#1f1d2e', 'bg_light': '#26233a', 'bg_hover': '#403d52', 'fg': '#e0def4', 'accent': '#ebbcba', 'border': '#403d52'}, 'Catppuccin': {'bg_dark': '#1e1e2e', 'bg_medium': '#313244', 'bg_light': '#45475a', 'bg_hover': '#585b70', 'fg': '#cdd6f4', 'accent': '#cba6f7', 'border': '#45475a'}, 'Gruvbox': {'bg_dark': '#282828', 'bg_medium': '#3c3836', 'bg_light': '#504945', 'bg_hover': '#665c54', 'fg': '#ebdbb2', 'accent': '#fabd2f', 'border': '#504945'}, 'Tokyo Night': {'bg_dark': '#16161e', 'bg_medium': '#1f2335', 'bg_light': '#292e42', 'bg_hover': '#3b4261', 'fg': '#c0caf5', 'accent': '#7aa2f7', 'border': '#3b4261'}, 'Synthwave': {'bg_dark': '#241b2f', 'bg_medium': '#30233d', 'bg_light': '#45304f', 'bg_hover': '#5a3e64', 'fg': '#f5d7fe', 'accent': '#ff7edb', 'border': '#5a3e64'}, 'Forest': {'bg_dark': '#102018', 'bg_medium': '#183025', 'bg_light': '#254638', 'bg_hover': '#315a48', 'fg': '#d8f3dc', 'accent': '#74c69d', 'border': '#315a48'}, 'Ruby': {'bg_dark': '#241417', 'bg_medium': '#351b20', 'bg_light': '#4a252d', 'bg_hover': '#63323d', 'fg': '#f7dfe3', 'accent': '#ff6b81', 'border': '#63323d'}, 'Amber': {'bg_dark': '#211a0e', 'bg_medium': '#33270f', 'bg_light': '#4a3815', 'bg_hover': '#61491d', 'fg': '#fff0c2', 'accent': '#ffb84d', 'border': '#61491d'}, 'Arctic': {'bg_dark': '#17212b', 'bg_medium': '#21303d', 'bg_light': '#304554', 'bg_hover': '#405b6d', 'fg': '#e7f5ff', 'accent': '#66c7ff', 'border': '#405b6d'}, 'Lavender': {'bg_dark': '#211d2b', 'bg_medium': '#2d263b', 'bg_light': '#3c3350', 'bg_hover': '#514466', 'fg': '#eee7ff', 'accent': '#c4a7ff', 'border': '#514466'}, 'Coffee': {'bg_dark': '#211915', 'bg_medium': '#30231d', 'bg_light': '#45332a', 'bg_hover': '#5b4437', 'fg': '#f1dfd0', 'accent': '#d69e78', 'border': '#5b4437'}, 'Slate': {'bg_dark': '#181c20', 'bg_medium': '#232a30', 'bg_light': '#313a42', 'bg_hover': '#414c56', 'fg': '#d9e1e8', 'accent': '#8ab4c7', 'border': '#414c56'}, 'Cyber': {'bg_dark': '#080b12', 'bg_medium': '#101522', 'bg_light': '#182033', 'bg_hover': '#26334d', 'fg': '#d9f7ff', 'accent': '#00e5ff', 'border': '#26334d'}, 'Sunset': {'bg_dark': '#241516', 'bg_medium': '#35201e', 'bg_light': '#4a2b27', 'bg_hover': '#633b35', 'fg': '#ffe4d6', 'accent': '#ff8a65', 'border': '#633b35'}, 'Mint': {'bg_dark': '#10211e', 'bg_medium': '#17312c', 'bg_light': '#24473f', 'bg_hover': '#315d52', 'fg': '#dcfff5', 'accent': '#62e6c8', 'border': '#315d52'}, 'Deep Blue': {'bg_dark': '#0b1424', 'bg_medium': '#10213a', 'bg_light': '#193153', 'bg_hover': '#24446f', 'fg': '#dcecff', 'accent': '#5ca9ff', 'border': '#24446f'}, 'Obsidian': {'bg_dark': '#111318', 'bg_medium': '#1a1d24', 'bg_light': '#292e38', 'bg_hover': '#363d49', 'fg': '#e6e9ef', 'accent': '#8ab4f8', 'border': '#3b4351'}, 'Aurora': {'bg_dark': '#101820', 'bg_medium': '#172633', 'bg_light': '#234353', 'bg_hover': '#2d5c6d', 'fg': '#e4fbff', 'accent': '#66e3d4', 'border': '#376878'}, 'Plasma': {'bg_dark': '#160d24', 'bg_medium': '#24143b', 'bg_light': '#38215b', 'bg_hover': '#4d2b79', 'fg': '#f4eaff', 'accent': '#e38cff', 'border': '#5d3d83'}, 'Ember': {'bg_dark': '#20110d', 'bg_medium': '#321a14', 'bg_light': '#4a2820', 'bg_hover': '#63362a', 'fg': '#ffede5', 'accent': '#ff9d5c', 'border': '#714334'}, 'Meadow': {'bg_dark': '#0d1b16', 'bg_medium': '#142a20', 'bg_light': '#204433', 'bg_hover': '#2c5c43', 'fg': '#e4ffef', 'accent': '#8be28b', 'border': '#38694e'}})
 THEME_NAMES = list(THEMES.keys())
 DEFAULT_THEME = 'Midnight'
+DISCORD_APPLICATION_ID = '1563194941868351519'
+DISCORD_RPC_INTERVAL = 1.0
 _CURRENT_PALETTE = dict(THEMES[DEFAULT_THEME])
 STARTUP_GEOMETRY = '1400x800'
 PANED_TOP_FRACTION = 0.45
@@ -1047,7 +1052,7 @@ class _RoUtilsResponseCacheCapture:
 SPLASH_DIR = os.path.join(DATA_DIR, 'src')
 SPLASH_IMAGE_PATH = os.path.join(SPLASH_DIR, 'routils.png')
 SPLASH_IMAGE_URL = 'https://raw.githubusercontent.com/offp001/routils/refs/heads/main/src/routils.png'
-APP_VERSION = '5.2.2'
+APP_VERSION = '5.2.4'
 RELEASES_URL = 'https://github.com/offp001/routils/releases'
 RELEASES_API_URL = 'https://api.github.com/repos/offp001/routils/releases?per_page=30'
 def _routils_request(url, timeout=10, headers=None, data=None, method=None, cache_bypass=False):
@@ -4047,6 +4052,20 @@ def save_settings(data: Dict) -> None:
         pass
 _BUNDLE_DIR = getattr(sys, '_MEIPASS', BASE_DIR)
 ICON_PATH = os.path.join(_BUNDLE_DIR, 'routils.ico')
+RPC_LOGO_PATH = os.path.join(DATA_DIR, 'routils_rpc.png')
+def _ensure_discord_rpc_logo():
+    try:
+        os.makedirs(DATA_DIR, exist_ok=True)
+        if os.path.isfile(RPC_LOGO_PATH):
+            return RPC_LOGO_PATH
+        for source in (os.path.join(_BUNDLE_DIR, 'routils_rpc.png'), os.path.join(BASE_DIR, 'routils_rpc.png')):
+            if os.path.isfile(source):
+                shutil.copy2(source, RPC_LOGO_PATH)
+                return RPC_LOGO_PATH
+    except Exception:
+        pass
+    return RPC_LOGO_PATH
+_ensure_discord_rpc_logo()
 WEBVIEW2_URL_DEFAULTS = 'https://raw.githubusercontent.com/MaximumADHD/Roblox-FFlag-Tracker/refs/heads/main/PCDesktopClient.json'
 WEBVIEW2_URL_OFFSETS_ROOT = 'https://offsets.imtheo.lol/'
 WEBVIEW2_URL_OFFSETS_TEMPLATE = 'https://offsets.imtheo.lol/{version}/fflags.hpp'
@@ -8052,6 +8071,134 @@ class _ConsoleStream:
             self.original.flush()
         except Exception:
             pass
+class _RoUtilsDiscordRPC:
+    def __init__(self, client_id, status_callback=None):
+        self.client_id = str(client_id)
+        self.status_callback = status_callback
+        self._lock = threading.RLock()
+        self._wake = threading.Event()
+        self._stop_event = threading.Event()
+        self._thread = None
+        self._enabled = True
+        self._reconnect_requested = False
+        self._activity = ('Not playing Roblox', 'Sekme: Ana Sayfa')
+    def _status(self, text):
+        callback = self.status_callback
+        if callback is not None:
+            try:
+                callback(str(text))
+            except Exception:
+                pass
+    def set_enabled(self, enabled):
+        with self._lock:
+            self._enabled = bool(enabled)
+        self._wake.set()
+    def set_client_id(self, client_id):
+        value = str(client_id or '').strip()
+        if not value.isdigit():
+            return False
+        with self._lock:
+            if value == self.client_id:
+                return True
+            self.client_id = value
+            self._reconnect_requested = True
+        self._wake.set()
+        return True
+    def set_activity(self, details, state):
+        activity = (str(details)[:128], str(state)[:128])
+        with self._lock:
+            if activity == self._activity:
+                return
+            self._activity = activity
+        self._wake.set()
+    def start(self):
+        if self._thread is not None and self._thread.is_alive():
+            return
+        self._stop_event.clear()
+        self._thread = threading.Thread(target=self._run, daemon=True, name='RoUtils-DiscordRPC')
+        self._thread.start()
+    def stop(self):
+        self._stop_event.set()
+        self._wake.set()
+        thread = self._thread
+        if thread is not None and thread.is_alive() and thread is not threading.current_thread():
+            thread.join(timeout=2.0)
+    def _close_presence(self, presence):
+        if presence is not None:
+            try:
+                presence.clear()
+            except Exception:
+                pass
+            try:
+                presence.close()
+            except Exception:
+                pass
+    def _run(self):
+        presence = None
+        last_activity = None
+        last_update = 0.0
+        while not self._stop_event.is_set():
+            with self._lock:
+                enabled = self._enabled
+                activity = self._activity
+                reconnect_requested = self._reconnect_requested
+                self._reconnect_requested = False
+            if reconnect_requested:
+                self._close_presence(presence)
+                presence = None
+                last_activity = None
+                last_update = 0.0
+            if not enabled:
+                self._close_presence(presence)
+                presence = None
+                last_activity = None
+                self._status('Discord RPC disabled')
+                self._wake.wait(1.0)
+                self._wake.clear()
+                continue
+            if _DiscordPresence is None:
+                self._status('Discord RPC unavailable: install requirements.txt')
+                self._wake.wait(10.0)
+                self._wake.clear()
+                continue
+            if presence is None:
+                try:
+                    presence = _DiscordPresence(self.client_id)
+                    presence.connect()
+                    last_activity = None
+                    last_update = 0.0
+                    self._status('Discord RPC connected')
+                except Exception:
+                    self._close_presence(presence)
+                    presence = None
+                    self._status('Waiting for Discord desktop app')
+                    self._wake.wait(10.0)
+                    self._wake.clear()
+                    continue
+            now = time.monotonic()
+            if activity != last_activity or now - last_update >= DISCORD_RPC_INTERVAL:
+                details, state = activity
+                try:
+                    presence.update(name='RoUtils', details=details, state=state, large_image='routils', large_text='RoUtils')
+                except Exception:
+                    try:
+                        presence.update(name='RoUtils', details=details, state=state)
+                    except Exception:
+                        self._close_presence(presence)
+                        presence = None
+                        last_activity = None
+                        self._status('Reconnecting Discord RPC')
+                        self._wake.wait(5.0)
+                        self._wake.clear()
+                        continue
+                last_activity = activity
+                last_update = time.monotonic()
+                self._status('Discord RPC connected')
+            timeout = max(0.2, min(DISCORD_RPC_INTERVAL, DISCORD_RPC_INTERVAL - (time.monotonic() - last_update)))
+            self._wake.wait(timeout)
+            self._wake.clear()
+        self._close_presence(presence)
+        self._status('Discord RPC stopped')
 def _win32_root_hwnd(win):
     if sys.platform != 'win32':
         return 0
@@ -8115,7 +8262,22 @@ def _apply_native_titlebar_theme(win):
                 pass
     except Exception:
         pass
-class App(_TkAppBase):
+from ai.ai import AIMixin
+from cache.cache import CacheMixin
+from client.client import ClientMixin
+from console.console import ConsoleMixin
+from emote_manager.emote_manager import EmoteManagerMixin
+from fflag.fflag import FFlagMixin
+from history.history import HistoryMixin
+from home.home import HomeMixin
+from plugins.plugins import PluginsMixin
+from release_notes.release_notes import ReleaseNotesMixin
+from server_viewer.server_viewer import ServerViewerMixin
+from settings.settings import SettingsMixin
+from subplace.subplace import SubplaceMixin
+from themes.themes import ThemesMixin
+from viewer.viewer import ViewerMixin
+class App(AIMixin, CacheMixin, ClientMixin, ConsoleMixin, EmoteManagerMixin, FFlagMixin, HistoryMixin, HomeMixin, PluginsMixin, ReleaseNotesMixin, ServerViewerMixin, SettingsMixin, SubplaceMixin, ThemesMixin, ViewerMixin, _TkAppBase):
     def after(self, ms, func=None, *args):
         ui_thread = getattr(self, '_ui_thread_id', None)
         if func is not None and ui_thread is not None and threading.get_ident() != ui_thread:
@@ -8349,6 +8511,10 @@ class App(_TkAppBase):
         self._thread_ui_counter = 0
         self._thread_ui_counter_lock = threading.Lock()
         super().__init__()
+        try:
+            self.withdraw()
+        except Exception:
+            pass
         self.after(12, self._pump_thread_ui_queue)
         self._routils_splash = None
         self._routils_splash_canvas = None
@@ -8363,6 +8529,14 @@ class App(_TkAppBase):
         self._console_original_stdout = sys.stdout
         sys.stdout = _ConsoleStream(self, self._console_original_stdout)
         self.settings = load_settings()
+        self.settings.pop('multi_instance_enabled', None)
+        configured_discord_id = str(self.settings.get('discord_application_id') or DISCORD_APPLICATION_ID).strip()
+        if not configured_discord_id.isdigit():
+            configured_discord_id = DISCORD_APPLICATION_ID
+        self.settings['discord_application_id'] = configured_discord_id
+        self.discord_application_id_var = tk.StringVar(value=configured_discord_id)
+        self.discord_rpc_enabled = tk.BooleanVar(value=bool(self.settings.get('discord_rpc_enabled', True)))
+        self.discord_rpc_status_var = tk.StringVar(value='Starting Discord RPC...')
         _saved_roblox = str(self.settings.get('roblox_path', '') or '').strip()
         if _saved_roblox and os.path.isdir(_saved_roblox):
             _candidate = os.path.join(_saved_roblox, 'RobloxPlayerBeta.exe')
@@ -8598,6 +8772,9 @@ class App(_TkAppBase):
         self.fflag_pid = 0
         self.fflag_original_values = {}
         self.fflag_auto_apply = tk.BooleanVar(value=self.settings.get('fflag_auto_apply', False))
+        self.anti_afk_enabled = tk.BooleanVar(value=bool(self.settings.get('anti_afk_enabled', False)))
+        self._anti_afk_last_action = time.monotonic()
+        self._anti_afk_in_progress = False
         self.emote_names = ['/e dance1', '/e dance2', '/e dance3', '/e cheer', '/e laugh', '/e wave', '/e point']
         saved_emotes = self.settings.get('emote_binds', {})
         self.emote_binds = {name: str(saved_emotes.get(name, '') or '').upper() for name in self.emote_names} if isinstance(saved_emotes, dict) else {name: '' for name in self.emote_names}
@@ -8690,18 +8867,89 @@ class App(_TkAppBase):
         self.after(UI_QUEUE_INTERVAL_MS, self._drain_queue)
         self.after(200, self._save_settings)
         self.after(15000, self._fflag_auto_apply_tick)
+        self.after(15000, self._anti_afk_tick)
+        self._discord_rpc = _RoUtilsDiscordRPC(self.discord_application_id_var.get(), self._discord_rpc_status_changed)
+        self._discord_rpc.set_enabled(self.discord_rpc_enabled.get())
+        self._discord_rpc.start()
+        self.after(150, self._refresh_discord_rpc_activity)
+        self.after(int(DISCORD_RPC_INTERVAL * 1000), self._discord_rpc_poll_tick)
         if self._routils_splash is not None:
+            self.after(90, self._startup_mint_theme_cycle)
             self.after(420, self._finish_startup_splash)
+    def _startup_mint_theme_cycle(self):
+        if getattr(self, '_startup_mint_theme_cycle_done', False):
+            return
+        self._startup_mint_theme_cycle_done = True
+        try:
+            theme_id = next((tab_id for tab_id in self.nb.tabs() if str(self.nb.tab(tab_id, 'text')) == UI_TEXT['q5']), None)
+            if theme_id is not None and not hasattr(self, 'theme_var'):
+                info = self._lazy_tabs.get(str(theme_id))
+                if info is not None:
+                    tab_name, builder, placeholder = info
+                    try:
+                        self.nb.forget(placeholder)
+                    except Exception:
+                        pass
+                    try:
+                        placeholder.destroy()
+                    except Exception:
+                        pass
+                    self._lazy_tabs.pop(str(theme_id), None)
+                    self._lazy_tab_ids.pop(tab_name, None)
+                    builder()
+                    self._reorder_tabs()
+                    self._refresh_tab_nav()
+            if not hasattr(self, 'theme_var'):
+                return
+            original_theme = str(self.settings.get('theme', self.theme_var.get()) or DEFAULT_THEME)
+            if original_theme not in THEMES and original_theme != 'Custom':
+                original_theme = DEFAULT_THEME
+            theme_listbox = getattr(self, '_theme_listbox', None)
+            def select_theme_item(name):
+                try:
+                    if theme_listbox is None or not theme_listbox.winfo_exists():
+                        return
+                    names = theme_listbox.get(0, 'end')
+                    if name in names:
+                        index = names.index(name)
+                        theme_listbox.selection_clear(0, 'end')
+                        theme_listbox.selection_set(index)
+                        theme_listbox.see(index)
+                except Exception:
+                    pass
+            try:
+                self.theme_var.set('Mint')
+                select_theme_item('Mint')
+                self._apply_theme()
+                self.update_idletasks()
+            except Exception:
+                pass
+            finally:
+                try:
+                    self.theme_var.set(original_theme)
+                    select_theme_item(original_theme)
+                    self._apply_theme()
+                except Exception:
+                    self.settings['theme'] = original_theme
+                    try:
+                        _CURRENT_PALETTE.update(THEMES.get(original_theme, THEMES[DEFAULT_THEME]))
+                    except Exception:
+                        pass
+        except Exception:
+            pass
     def _create_startup_splash(self):
         if '--tray' in sys.argv:
             return
         self._routils_splash_started_at = time.monotonic()
         try:
             try:
-                self.deiconify()
                 self.attributes('-alpha', 0.0)
+                self.deiconify()
             except Exception:
-                self.withdraw()
+                try:
+                    self.withdraw()
+                except Exception:
+                    pass
             splash = tk.Toplevel(self)
             splash._skip_custom_chrome = True
             splash._skip_popup_centering = True
@@ -8907,6 +9155,10 @@ class App(_TkAppBase):
                 pass
     def _lazy_tab_changed(self, _event=None):
         self._refresh_tab_nav()
+        try:
+            self._refresh_discord_rpc_activity()
+        except Exception:
+            pass
         try:
             tab_id = self.nb.select()
         except Exception:
@@ -10426,8 +10678,6 @@ class App(_TkAppBase):
         self._emote_refresh_list()
         self._emote_update_control_button_states()
         self.after(100, self._emote_status_tick)
-
-
     def _open_default_fflag_values(self):
         self._show_fflag_reference_panel()
     def _open_latest_fflag_list(self):
@@ -10457,7 +10707,6 @@ class App(_TkAppBase):
             os.replace(temp, CONSOLE_HISTORY_PATH)
         except Exception:
             pass
-
     def _apply_or_defer_canvas_window_width(self, canvas, window_id, width, state_key):
         try:
             width = max(1, int(width))
@@ -10472,15 +10721,89 @@ class App(_TkAppBase):
             setattr(self, state_key, width)
         except Exception:
             pass
+    def _discord_rpc_status_changed(self, status):
+        if threading.get_ident() != getattr(self, '_ui_thread_id', threading.get_ident()):
+            try:
+                self.after(0, self._discord_rpc_status_changed, status)
+            except Exception:
+                pass
+            return
+        try:
+            if hasattr(self, 'discord_rpc_status_var'):
+                self.discord_rpc_status_var.set(str(status))
+        except Exception:
+            pass
+    def _save_discord_application_id(self):
+        application_id = str(self.discord_application_id_var.get() or '').strip()
+        if not application_id.isdigit():
+            messagebox.showwarning('Discord Rich Presence', 'Application ID must contain digits only.', parent=self)
+            return
+        self.discord_application_id_var.set(application_id)
+        self.settings['discord_application_id'] = application_id
+        try:
+            self._save_settings()
+        except Exception:
+            save_settings(self.settings)
+        rpc = getattr(self, '_discord_rpc', None)
+        if rpc is not None:
+            rpc.set_client_id(application_id)
+            self._discord_rpc_status_changed('Reconnecting Discord RPC...')
+            self._refresh_discord_rpc_activity()
+    def _toggle_discord_rpc(self):
+        enabled = bool(self.discord_rpc_enabled.get())
+        self.settings['discord_rpc_enabled'] = enabled
+        self._save_settings()
+        rpc = getattr(self, '_discord_rpc', None)
+        if rpc is not None:
+            rpc.set_enabled(enabled)
+        if enabled:
+            self._refresh_discord_rpc_activity()
+    def _refresh_discord_rpc_activity(self):
+        rpc = getattr(self, '_discord_rpc', None)
+        if rpc is None:
+            return
+        try:
+            enabled = bool(self.discord_rpc_enabled.get())
+        except Exception:
+            enabled = bool(self.settings.get('discord_rpc_enabled', True))
+        rpc.set_enabled(enabled)
+        if not enabled:
+            return
+        tab_name = 'Home'
+        try:
+            selected = self.nb.select()
+            if selected:
+                tab_name = str(self.nb.tab(selected, 'text') or 'Home')
+        except Exception:
+            pass
+        try:
+            is_roblox_running = bool(self._client_roblox_pids())
+        except Exception:
+            try:
+                is_roblox_running = bool(_fflag_find_pid())
+            except Exception:
+                is_roblox_running = False
+        details = 'Playing Roblox with RoUtils' if is_roblox_running else 'Not playing Roblox'
+        rpc.set_activity(details, f'Tab: {tab_name}')
+    def _discord_rpc_poll_tick(self):
+        try:
+            if not self.winfo_exists():
+                return
+            self._refresh_discord_rpc_activity()
+            self.after(int(DISCORD_RPC_INTERVAL * 1000), self._discord_rpc_poll_tick)
+        except Exception:
+            pass
     def _save_settings(self):
         if getattr(self, '_resize_active', False):
             self._settings_save_deferred = True
             self._geometry_save_job = None
             return
         data = dict(self.settings)
+        data.pop('multi_instance_enabled', None)
         data['emote_hotkeys_enabled'] = bool(getattr(self, '_emote_hotkeys_enabled', self.settings.get('emote_hotkeys_enabled', True)))
         data['emote_hotkeys_toggle_key'] = str(getattr(self, '_emote_hotkeys_toggle_key', self.settings.get('emote_hotkeys_toggle_key', '')) or '').upper()
-        data.update({'autoscroll': self.autoscroll.get(), 'hide_tickets': self.hide_tickets.get(), 'stay_on_top': self.stay_on_top.get(), 'show_lines': self.show_lines.get(), 'preview_optimize_vertices': self.viewport_3d.reduce_polys.get() if hasattr(self, 'viewport_3d') else self.settings.get('preview_optimize_vertices', True), 'streamer_mode': self.streamer_mode.get() if hasattr(self, 'streamer_mode') else self.settings.get('streamer_mode', False), 'fps_limit': self.fps_limit.get() if hasattr(self, 'fps_limit') else self.settings.get('fps_limit', 0), 'autostart_watch': self.autostart_watch.get() if hasattr(self, 'autostart_watch') else self.settings.get('autostart_watch', False), 'max_rows': self.max_rows.get() if hasattr(self, 'max_rows') else self.settings.get('max_rows', 0), 'type_filter': self.type_filter.get(), 'columns': {c: var.get() for c, var in getattr(self, '_col_vars', {}).items()}, 'viewer_collapsed': self.viewer_collapsed, 'theme': self.theme_var.get() if hasattr(self, 'theme_var') else self.settings.get('theme', DEFAULT_THEME), 'fflag_hotkeys': self.fflag_hotkeys, 'fps_hotkeys': self.fps_hotkeys, 'fps_hotkey_slots': self.fps_hotkey_slots, 'fflag_auto_apply': self.fflag_auto_apply.get() if hasattr(self, 'fflag_auto_apply') else self.settings.get('fflag_auto_apply', False), 'launch_on_tray': self.launch_on_tray.get() if hasattr(self, 'launch_on_tray') else self.settings.get('launch_on_tray', False), 'launch_on_startup': self.launch_on_startup.get() if hasattr(self, 'launch_on_startup') else self.settings.get('launch_on_startup', False), 'hide_to_tray_on_close': self.hide_to_tray_on_close.get() if hasattr(self, 'hide_to_tray_on_close') else self.settings.get('hide_to_tray_on_close', False), 'auto_update': self.auto_update.get() if hasattr(self, 'auto_update') else self.settings.get('auto_update', False), 'dpi_percent': int(self.dpi_percent.get()) if hasattr(self, 'dpi_percent') else int(getattr(self, '_dpi_scale', 1.0) * 100), 'plugin_enabled': getattr(self, '_plugin_enabled', self.settings.get('plugin_enabled', {})), 'emote_nav_binds': dict(getattr(self, '_emote_nav_binds', self.settings.get('emote_nav_binds', {}))), 'emote_hud_enabled': False, 'hpaned_sash_v2': self.hpaned.sashpos(0) if hasattr(self, 'hpaned') and self.hpaned.winfo_width() > 0 and self.hpaned.sashpos(0) > 0 else self.settings.get('hpaned_sash_v2', None), 'roblox_path': self.settings.get('roblox_path', ''), 'roblox_username': self.settings.get('roblox_username', ''), 'roblox_user_id': self.settings.get('roblox_user_id', ''), 'gemini_api_key': self.gemini_api_key.get().strip() if hasattr(self, 'gemini_api_key') else self.settings.get('gemini_api_key', ''), 'custom_theme': self.settings.get('custom_theme', {}), 'db_path': getattr(self, 'db_path', self.settings.get('db_path', '')), 'shard_root': getattr(self, 'shard_root', self.settings.get('shard_root', '')), 'window_geometry': self.geometry() if self.winfo_exists() else self.settings.get('window_geometry', STARTUP_GEOMETRY), 'include_cconfigs': self.include_cconfigs.get() if hasattr(self, 'include_cconfigs') else self.settings.get('include_cconfigs', False), 'include_cache_dumps': self.include_cache_dumps.get() if hasattr(self, 'include_cache_dumps') else self.settings.get('include_cache_dumps', False), 'tab_order': [self.nb.tab(t, 'text') for t in self.nb.tabs()] if hasattr(self, 'nb') else self.settings.get('tab_order', []), 'selected_tab': self.nb.tab(self.nb.select(), 'text') if hasattr(self, 'nb') and self.nb.select() else self.settings.get('selected_tab', UI_TEXT['w5']), 'hpaned_sash': self.hpaned.sashpos(0) if hasattr(self, 'hpaned') else self.settings.get('hpaned_sash', None), 'vpaned_sash': self.vpaned.sashpos(0) if hasattr(self, 'vpaned') else self.settings.get('vpaned_sash', None)})
+        data.update({'autoscroll': self.autoscroll.get(), 'hide_tickets': self.hide_tickets.get(), 'stay_on_top': self.stay_on_top.get(), 'show_lines': self.show_lines.get(), 'preview_optimize_vertices': self.viewport_3d.reduce_polys.get() if hasattr(self, 'viewport_3d') else self.settings.get('preview_optimize_vertices', True), 'streamer_mode': self.streamer_mode.get() if hasattr(self, 'streamer_mode') else self.settings.get('streamer_mode', False), 'fps_limit': self.fps_limit.get() if hasattr(self, 'fps_limit') else self.settings.get('fps_limit', 0), 'autostart_watch': self.autostart_watch.get() if hasattr(self, 'autostart_watch') else self.settings.get('autostart_watch', False), 'max_rows': self.max_rows.get() if hasattr(self, 'max_rows') else self.settings.get('max_rows', 0), 'type_filter': self.type_filter.get(), 'columns': {c: var.get() for c, var in getattr(self, '_col_vars', {}).items()}, 'viewer_collapsed': self.viewer_collapsed, 'theme': self.theme_var.get() if hasattr(self, 'theme_var') else self.settings.get('theme', DEFAULT_THEME), 'fflag_hotkeys': self.fflag_hotkeys, 'fps_hotkeys': self.fps_hotkeys, 'fps_hotkey_slots': self.fps_hotkey_slots, 'fflag_auto_apply': self.fflag_auto_apply.get() if hasattr(self, 'fflag_auto_apply') else self.settings.get('fflag_auto_apply', False), 'launch_on_tray': self.launch_on_tray.get() if hasattr(self, 'launch_on_tray') else self.settings.get('launch_on_tray', False), 'launch_on_startup': self.launch_on_startup.get() if hasattr(self, 'launch_on_startup') else self.settings.get('launch_on_startup', False), 'hide_to_tray_on_close': self.hide_to_tray_on_close.get() if hasattr(self, 'hide_to_tray_on_close') else self.settings.get('hide_to_tray_on_close', False), 'auto_update': self.auto_update.get() if hasattr(self, 'auto_update') else self.settings.get('auto_update', False), 'discord_rpc_enabled': self.discord_rpc_enabled.get() if hasattr(self, 'discord_rpc_enabled') else self.settings.get('discord_rpc_enabled', True), 'dpi_percent': int(self.dpi_percent.get()) if hasattr(self, 'dpi_percent') else int(getattr(self, '_dpi_scale', 1.0) * 100), 'plugin_enabled': getattr(self, '_plugin_enabled', self.settings.get('plugin_enabled', {})), 'emote_nav_binds': dict(getattr(self, '_emote_nav_binds', self.settings.get('emote_nav_binds', {}))), 'emote_hud_enabled': False, 'hpaned_sash_v2': self.hpaned.sashpos(0) if hasattr(self, 'hpaned') and self.hpaned.winfo_width() > 0 and self.hpaned.sashpos(0) > 0 else self.settings.get('hpaned_sash_v2', None), 'roblox_path': self.settings.get('roblox_path', ''), 'roblox_username': self.settings.get('roblox_username', ''), 'roblox_user_id': self.settings.get('roblox_user_id', ''), 'gemini_api_key': self.gemini_api_key.get().strip() if hasattr(self, 'gemini_api_key') else self.settings.get('gemini_api_key', ''), 'custom_theme': self.settings.get('custom_theme', {}), 'db_path': getattr(self, 'db_path', self.settings.get('db_path', '')), 'shard_root': getattr(self, 'shard_root', self.settings.get('shard_root', '')), 'window_geometry': self.geometry() if self.winfo_exists() else self.settings.get('window_geometry', STARTUP_GEOMETRY), 'include_cconfigs': self.include_cconfigs.get() if hasattr(self, 'include_cconfigs') else self.settings.get('include_cconfigs', False), 'include_cache_dumps': self.include_cache_dumps.get() if hasattr(self, 'include_cache_dumps') else self.settings.get('include_cache_dumps', False), 'tab_order': [self.nb.tab(t, 'text') for t in self.nb.tabs()] if hasattr(self, 'nb') else self.settings.get('tab_order', []), 'selected_tab': self.nb.tab(self.nb.select(), 'text') if hasattr(self, 'nb') and self.nb.select() else self.settings.get('selected_tab', UI_TEXT['w5']), 'hpaned_sash': self.hpaned.sashpos(0) if hasattr(self, 'hpaned') else self.settings.get('hpaned_sash', None), 'vpaned_sash': self.vpaned.sashpos(0) if hasattr(self, 'vpaned') else self.settings.get('vpaned_sash', None)})
+        data['discord_application_id'] = str(self.discord_application_id_var.get()).strip() if hasattr(self, 'discord_application_id_var') else str(self.settings.get('discord_application_id') or DISCORD_APPLICATION_ID)
         save_settings(data)
         self.settings = data
     def _apply_startup_layouts(self):
@@ -10686,6 +11009,12 @@ class App(_TkAppBase):
             self._hide_to_tray()
             return
         self._emote_hud_closing_from_app = True
+        try:
+            rpc = getattr(self, '_discord_rpc', None)
+            if rpc is not None:
+                rpc.stop()
+        except Exception:
+            pass
         self.watching = False
         self.stop_event.set()
         self._hotkey_stop.set()
@@ -10709,7 +11038,6 @@ class App(_TkAppBase):
         self._resize_active = False
         self._settings_save_deferred = False
         self.destroy()
-
 def _routils_visible_text(value):
     if not isinstance(value, str) or not value:
         return value
@@ -10782,7 +11110,6 @@ def _routils_visible_text(value):
     for marker, phrase in saved_phrases:
         value = value.replace(marker, phrase)
     return value
-
 def _routils_install_text_rules():
     widget_classes = (
         (tk.Label, False, False), (tk.Button, False, False), (tk.Checkbutton, True, False),
@@ -10863,7 +11190,6 @@ def _routils_install_text_rules():
             if isinstance(entry, dict):
                 entry['title'] = _routils_visible_text(str(entry.get('title', 'Notification')))
                 entry['message'] = _routils_visible_text(str(entry.get('message', '')))
-
     for name in ('showinfo', 'showwarning', 'showerror', 'askquestion', 'askokcancel', 'askyesno', 'askretrycancel'):
         original_messagebox = getattr(messagebox, name, None)
         if not callable(original_messagebox):
@@ -10875,24 +11201,13 @@ def _routils_install_text_rules():
                 text = 'RoUtils could not complete this action\n\nTry again and check the error log if it keeps happening'
             return __original(title, text, *args, **kwargs)
         setattr(messagebox, name, wrapped_messagebox)
-
-
-from cache.cache import *
-from home.home import *
-from fflag.fflag import *
-from emote_manager.emote_manager import *
-from history.history import *
-from client.client import *
-from subplace.subplace import *
-from server_viewer.server_viewer import *
-from plugins.plugins import *
-from settings.settings import *
-from themes.themes import *
-from release_notes.release_notes import *
-from console.console import *
-from ai.ai import *
-from viewer.viewer import *
-
+_routils_shared_module_names = ('ai.ai', 'cache.cache', 'client.client', 'console.console', 'emote_manager.emote_manager', 'fflag.fflag', 'history.history', 'home.home', 'plugins.plugins', 'release_notes.release_notes', 'server_viewer.server_viewer', 'settings.settings', 'subplace.subplace', 'themes.themes', 'viewer.viewer')
+for _routils_module_name in _routils_shared_module_names:
+    _routils_module = sys.modules.get(_routils_module_name)
+    if _routils_module is not None:
+        _routils_module.__dict__.update({k: v for k, v in globals().items() if not k.startswith('__') and k not in {'_host'}})
+        _routils_module.__dict__['__file__'] = __file__
+del _routils_shared_module_names, _routils_module_name, _routils_module
 def main():
     global _ACTIVE_APP
     _routils_install_text_rules()

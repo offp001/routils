@@ -1,4 +1,4 @@
-# RoUtils (Version 5.2.3)
+# RoUtils (Version 5.2.2)
 <img width="1919" height="1079" alt="routils" src="https://github.com/user-attachments/assets/fb98c4b0-eaf8-4693-9c1f-58401a9eaaa8" />
 
 - Join Discord Server if u need help!
@@ -256,3 +256,7 @@ The purpose of Server Viewer is to let you inspect a server before deciding whet
 * `Discord` Please join to my discord server if you want to support me✅
 
 [![RoUtils](https://github.com/user-attachments/assets/8c886223-36f3-4f29-8160-364b2fa8c9c4)](https://discord.com/invite/849VtrYhm2)
+
+## Discord Rich Presence
+
+RoUtils can publish the current Roblox status and selected RoUtils tab to the Discord desktop client. Rich Presence is enabled by default and can be toggled in Settings. The bundled `routils_rpc.png` image can be uploaded under the asset key `routils` in the Discord Developer Portal's Rich Presence Art Assets section to use the RoUtils icon and `RoUtils` hover text.

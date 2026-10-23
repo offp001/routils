@@ -1,9 +1,424 @@
 import sys
-_host = sys.modules.get('__main__')
-if _host is None or not hasattr(_host, 'App'):
-    import main as _host
-_namespace = vars(_host)
-exec('def _console_log(self, message):\n        if threading.get_ident() != getattr(self, \'_ui_thread_id\', threading.get_ident()):\n            try:\n                self.after(0, self._console_log, str(message))\n            except Exception:\n                pass\n            return\n        lines = _routils_visible_text(str(message)).replace(\'\\r\', \'\').splitlines() or [\'\']\n        history = getattr(self, \'_console_history\', [])\n        history.extend(lines)\n        self._console_history = history[-1000:]\n        if self._console_save_job is None:\n            try:\n                self._console_save_job = self.after(350, self._save_console_history)\n            except Exception:\n                self._console_save_job = None\n        if hasattr(self, \'console_text\'):\n            if getattr(self, \'_console_render_pending\', False):\n                return\n            self._console_render_pending = True\n            def render():\n                try:\n                    self._console_render_pending = False\n                    self.console_text.configure(state=\'normal\')\n                    self.console_text.delete(\'1.0\', \'end\')\n                    self.console_text.insert(\'end\', \'\\n\'.join(self._console_history) + \'\\n\')\n                    self.console_text.see(\'end\')\n                    self.console_text.configure(state=\'disabled\')\n                except Exception:\n                    self._console_render_pending = False\n            try:\n                self.after(0, render)\n            except Exception:\n                pass\n\ndef _console_undo(self):\n        if not self._console_undo_stack:\n            self._console_log(UI_TEXT[\'g19\'])\n            return\n        kind, payload = self._console_undo_stack.pop()\n        if kind == \'fflags\':\n            self.fflag_flags = payload\n            self._save_fflag_flags()\n            self._refresh_fflag_list()\n            self._console_log(UI_TEXT[\'h19\'])\n        elif kind == \'cache\':\n            clean, blob = payload\n            conn = connect_rw(self.db_path)\n            try:\n                conn.execute(\'INSERT OR REPLACE INTO files(id, content) VALUES(?, ?)\', (bytes.fromhex(clean), sqlite3.Binary(blob)))\n                conn.commit()\n            finally:\n                conn.close()\n            self._console_log(UI_TEXT[\'i19\'].format(p0=clean))\n        elif kind == \'config\':\n            path, data = payload\n            with open(path, \'wb\') as f:\n                f.write(data)\n            self._cc_refresh_list()\n            self._console_log(UI_TEXT[\'j19\'].format(p0=os.path.basename(path)))\n\ndef _console_select_tab(self, name):\n        for tab_id in self.nb.tabs():\n            if self.nb.tab(tab_id, \'text\') == name:\n                self.nb.select(tab_id)\n                return True\n        return False\n\ndef _console_cache_search(self, query=\'\'):\n        query = str(query or \'\').lower().strip()\n        rows = []\n        for it in self.items_by_hash.values():\n            text = f\'{it.name} {it.hash} {it.kind} {it.src}\'.lower()\n            if not query or query in text:\n                rows.append(f\'{it.name} | {it.hash} | {it.kind}\')\n        self._console_log(UI_TEXT[\'k19\'] + (\'\\n\'.join(rows) if rows else UI_TEXT[\'l19\']))\n\ndef _console_create_backup(self, name=\'backup\'):\n        safe = _sanitize_filename_for_windows(str(name).strip()) or \'backup\'\n        backup_dir = os.path.join(DATA_DIR, \'backups\')\n        os.makedirs(backup_dir, exist_ok=True)\n        path = os.path.join(backup_dir, f"{safe}_{datetime.now().strftime(\'%Y%m%d_%H%M%S\')}.zip")\n        with zipfile.ZipFile(path, \'w\', zipfile.ZIP_DEFLATED) as archive:\n            for filename in (\'routils_settings.json\', \'routils_fflags.json\', \'console_history.json\'):\n                source = os.path.join(DATA_DIR, filename)\n                if os.path.isfile(source):\n                    archive.write(source, filename)\n            for folder in (\'filesaves\', \'hashsaves\'):\n                root = os.path.join(DATA_DIR, folder)\n                if os.path.isdir(root):\n                    for current, _, files in os.walk(root):\n                        for filename in files:\n                            source = os.path.join(current, filename)\n                            archive.write(source, os.path.relpath(source, DATA_DIR))\n        self._console_log(UI_TEXT[\'m19\'].format(p0=path))\n\ndef _console_restore_backup(self, path):\n        path = os.path.abspath(os.path.expandvars(os.path.expanduser(str(path))))\n        if not os.path.isfile(path) or not path.lower().endswith(\'.zip\'):\n            raise ValueError(UI_TEXT[\'d29\'])\n        root = os.path.abspath(DATA_DIR)\n        with zipfile.ZipFile(path, \'r\') as archive:\n            for member in archive.infolist():\n                target = os.path.abspath(os.path.join(root, member.filename))\n                if os.path.commonpath((root, target)) != root:\n                    raise ValueError(\'Unsafe backup path.\')\n            archive.extractall(root)\n        if hasattr(self, \'replacer\'):\n            self.replacer.refresh_view(preserve_selection=True)\n        self._console_log(UI_TEXT[\'n19\'].format(p0=path))\n\ndef _console_command(self, raw):\n        raw = str(raw or \'\').strip()\n        if not raw:\n            return\n        self._console_log(UI_TEXT[\'o19\'] + raw)\n        if getattr(self, \'_dump_caches_prompt_pending\', False):\n            answer = raw.strip().lower()\n            if answer in (\'y\', \'yes\'):\n                self._dump_caches_prompt_pending = False\n                self._start_dump_all_caches(True)\n            elif answer in (\'n\', \'no\'):\n                self._dump_caches_prompt_pending = False\n                self._start_dump_all_caches(False)\n            else:\n                self._console_log(UI_TEXT[\'p19\'])\n                self._console_log(UI_TEXT[\'q19\'])\n            return\n        try:\n            args = shlex.split(raw, posix=False)\n            args = [x[1:-1] if len(x) >= 2 and x[0] == x[-1] and (x[0] in \'"\\\'\') else x for x in args]\n            command = args[0].lower()\n            values = args[1:]\n            if command == \'help\':\n                self._console_log(UI_TEXT[\'r19\'])\n            elif command == \'cache\' and len(values) >= 2 and (values[0].lower() not in (\'delete\', \'list\', \'clear\', \'search\')):\n                self._console_apply_cache(values[0], values[1])\n            elif command == \'cache\' and values and (values[0].lower() == \'delete\') and (len(values) >= 2):\n                self._console_delete_cache(values[1])\n            elif command == \'cache\' and values and (values[0].lower() == \'list\'):\n                self._console_list_caches(values[1] if len(values) >= 2 else \'\')\n            elif command == \'cache\' and values and (values[0].lower() == \'search\'):\n                self._console_cache_search(\' \'.join(values[1:]))\n            elif command == \'fflag\' and len(values) >= 2 and (values[0].lower() not in (\'delete\', \'list\', \'clear\')):\n                self._console_undo_stack.append((\'fflags\', json.loads(json.dumps(self.fflag_flags))))\n                name, value = (fflag_strip_prefix(values[0]), values[1])\n                self.fflag_flags = [x for x in self.fflag_flags if fflag_strip_prefix(x.get(\'name\', \'\')).lower() != name.lower()]\n                self.fflag_flags.append({\'name\': name, \'value\': value, \'type\': fflag_infer_type(value)})\n                self._save_fflag_flags()\n                self._refresh_fflag_list()\n                self._fflag_apply(silent=True)\n                self._console_log(UI_TEXT[\'s19\'].format(p0=name, p1=value))\n            elif command == \'fflag\' and values and (values[0].lower() == \'delete\') and (len(values) >= 2):\n                self._console_undo_stack.append((\'fflags\', json.loads(json.dumps(self.fflag_flags))))\n                self._console_delete_fflag(values[1])\n            elif command == \'fflag\' and values and (values[0].lower() == \'clear\'):\n                self._console_undo_stack.append((\'fflags\', json.loads(json.dumps(self.fflag_flags))))\n                self.fflag_flags = []\n                self._save_fflag_flags()\n                self._refresh_fflag_list()\n                self._fflag_apply(silent=True)\n                self._console_log(UI_TEXT[\'t19\'])\n            elif command == \'fflag\' and values and (values[0].lower() == \'list\'):\n                self._console_list_fflags()\n            elif command == \'fflag\' and values and (values[0].lower() == \'apply\'):\n                self._fflag_apply(silent=True)\n                self._console_log(UI_TEXT[\'u19\'])\n            elif command == \'fflag\' and values and (values[0].lower() == \'unapply\'):\n                self._fflag_unapply()\n                self._console_log(UI_TEXT[\'v19\'])\n            elif command == \'fflag\' and values and (values[0].lower() in (\'defaults\', \'default\')):\n                self._open_default_fflag_values()\n                self._console_log(UI_TEXT[\'w19\'])\n            elif command == \'fflag\' and values and (values[0].lower() in (\'latest\', \'latestlist\')):\n                self._open_latest_fflag_list()\n                self._console_log(UI_TEXT[\'x19\'])\n            elif command == \'config\' and values:\n                if values[0].lower() == \'list\':\n                    self._console_list_configs()\n                elif values[0].lower() == \'save\' and len(values) >= 2:\n                    self._cc_save_named_config(\' \'.join(values[1:]))\n                    self._console_log(UI_TEXT[\'y19\'].format(p0=\' \'.join(values[1:])))\n                elif values[0].lower() == \'delete\' and len(values) >= 2:\n                    self._console_delete_config(values[1])\n                else:\n                    self._console_apply_config(values[0])\n            elif command == \'modif\' and values and (values[0].lower() == \'meshtoobj\') and (len(values) >= 2):\n                self._console_mesh_to_obj(values[1])\n            elif command == \'modif\' and len(values) >= 2:\n                self._console_replace_mesh(values[0], values[1], values[2] if len(values) >= 3 else \'\')\n            elif command == \'join\' and values and str(values[0]).isdigit():\n                os.startfile(f\'roblox://placeId={values[0]}\')\n                self._console_log(UI_TEXT[\'z19\'].format(p0=values[0]))\n            elif command == \'viewserver\' and values:\n                self._console_select_tab(UI_TEXT[\'n5\'])\n                self.after(100, lambda link=\' \'.join(values): (self.server_viewer_link.set(link), self._server_viewer_load()))\n            elif command == \'information\':\n                self._console_select_tab(UI_TEXT[\'p5\'])\n                self.after(150, self._client_refresh)\n                self._console_log(UI_TEXT[\'a20\'])\n            elif command == \'theme\' and values:\n                if values[0].lower() == \'list\':\n                    self._console_log(UI_TEXT[\'b20\'] + \', \'.join(THEME_NAMES))\n                else:\n                    self._console_apply_theme(\' \'.join(values))\n            elif command == \'watch\' and values and (values[0].lower() in (\'start\', \'stop\')):\n                if values[0].lower() == \'start\':\n                    if self._start_watching():\n                        self._console_log(UI_TEXT[\'c20\'])\n                    else:\n                        self._console_log(UI_TEXT[\'d20\'])\n                else:\n                    self._stop_watching()\n                    self._console_log(UI_TEXT[\'e20\'])\n            elif command == \'fps\' and values:\n                fps = max(0, min(240, int(values[0])))\n                self.fps_limit.set(fps)\n                self._save_settings()\n                self._sync_fps_flag_to_manager()\n                self._apply_fps_flag(silent=True)\n                self._console_log(UI_TEXT[\'f20\'].format(p0=fps if fps else \'uncapped\'))\n            elif command == \'dump-folder\':\n                dump_root = getattr(self, \'_last_dump_folder\', os.path.join(DATA_DIR, \'Dump\'))\n                os.makedirs(dump_root, exist_ok=True)\n                try:\n                    if hasattr(os, \'startfile\'):\n                        os.startfile(dump_root)\n                    else:\n                        webbrowser.open(\'file://\' + os.path.abspath(dump_root))\n                    self._console_log(UI_TEXT[\'g20\'].format(p0=os.path.abspath(dump_root)))\n                except Exception as e:\n                    raise RuntimeError(f\'Could not open dump folder: {e}\')\n            elif command == \'export\' and values and (values[0].lower() == \'all\'):\n                self._dump_all_caches()\n                self._console_log(UI_TEXT[\'h20\'])\n            elif command == \'backup\' and values and (values[0].lower() == \'create\'):\n                self._console_create_backup(\' \'.join(values[1:]) if len(values) > 1 else \'backup\')\n            elif command == \'backup\' and values and (values[0].lower() == \'restore\') and (len(values) >= 2):\n                self._console_restore_backup(values[1])\n            elif command == \'ai\':\n                self._open_ai_chat()\n            elif command == \'open\' and values:\n                tab_name = \' \'.join(values)\n                if not self._console_select_tab(tab_name):\n                    raise ValueError(f\'Tab not found: {tab_name}\')\n                self._console_log(UI_TEXT[\'i20\'].format(p0=tab_name))\n            elif command == \'status\':\n                self._console_log(UI_TEXT[\'j20\'].format(p0=self.fflag_pid or \'not attached\', p1=\'running\' if self.watching else \'stopped\', p2=self.db_path))\n            elif command == \'clear\':\n                self._console_history = []\n                self._save_console_history()\n                if hasattr(self, \'console_text\'):\n                    self.console_text.configure(state=\'normal\')\n                    self.console_text.delete(\'1.0\', \'end\')\n                    self.console_text.configure(state=\'disabled\')\n            elif command == \'history\':\n                self._console_log(UI_TEXT[\'k20\'] + (\'\\n\'.join(self._console_history) if self._console_history else UI_TEXT[\'l20\']))\n            elif command == \'undo\':\n                self._console_undo()\n            else:\n                self._console_log(UI_TEXT[\'m20\'])\n        except Exception as e:\n            self._console_log(UI_TEXT[\'n20\'] + str(e))\n\ndef _console_apply_cache(self, path, hash_value):\n        path = os.path.abspath(os.path.expandvars(os.path.expanduser(path)))\n        clean = re.sub(\'[^0-9A-Fa-f]\', \'\', str(hash_value))\n        if not os.path.isfile(path) or not clean or len(clean) % 2:\n            raise ValueError(UI_TEXT[\'e29\'])\n        with open(path, \'rb\') as f:\n            blob = f.read()\n        id_b = bytes.fromhex(clean)\n        conn = connect_rw(self.db_path)\n        try:\n            cur = conn.cursor()\n            cur.execute(\'BEGIN IMMEDIATE\')\n            cur.execute(\'DELETE FROM files WHERE id=?\', (id_b,))\n            cur.execute(\'INSERT INTO files(id, content) VALUES(?, ?)\', (id_b, sqlite3.Binary(blob)))\n            conn.commit()\n        finally:\n            conn.close()\n        self._console_log(UI_TEXT[\'o20\'].format(p0=clean, p1=path))\n\ndef _console_delete_cache(self, hash_value):\n        clean = re.sub(\'[^0-9A-Fa-f]\', \'\', str(hash_value)).lower()\n        if not clean or len(clean) % 2:\n            raise ValueError(UI_TEXT[\'f29\'])\n        id_b = bytes.fromhex(clean)\n        old_blob = None\n        conn = connect_rw(self.db_path)\n        try:\n            cur = conn.cursor()\n            cur.execute(\'BEGIN IMMEDIATE\')\n            row = cur.execute(\'SELECT content FROM files WHERE id=?\', (id_b,)).fetchone()\n            if row and row[0] is not None:\n                old_blob = bytes(row[0])\n            cur.execute(\'DELETE FROM files WHERE id=?\', (id_b,))\n            deleted = cur.rowcount\n            conn.commit()\n        finally:\n            conn.close()\n        try:\n            sp = shard_path(self.shard_root, clean)\n            if os.path.isfile(sp):\n                os.remove(sp)\n        except Exception:\n            pass\n        self.seen_hashes.discard(clean)\n        self.items_by_hash.pop(clean, None)\n        self.items_by_iid.pop(clean, None)\n        if hasattr(self, \'tree\'):\n            try:\n                self.tree.delete(clean)\n            except Exception:\n                pass\n        if hasattr(self, \'status_label\'):\n            self._update_status()\n        if deleted and old_blob is not None:\n            self._console_undo_stack.append((\'cache\', (clean, old_blob)))\n        self._console_log(UI_TEXT[\'p20\'].format(p0=clean) if deleted else UI_TEXT[\'q20\'].format(p0=clean))\n\ndef _console_list_caches(self, query=\'\'):\n        query = str(query or \'\').lower()\n        rows = []\n        for item in self.items_by_hash.values():\n            text = f\'{item.hash} {item.name} {item.kind}\'.lower()\n            if not query or query in text:\n                rows.append(f"{item.hash} | {item.name or \'(unnamed)\'} | {item.kind}")\n        self._console_log(UI_TEXT[\'r20\'] + (\'\\n\'.join(rows) if rows else UI_TEXT[\'s20\']))\n\ndef _console_delete_fflag(self, query):\n        query = fflag_strip_prefix(str(query)).lower()\n        matches = [x for x in self.fflag_flags if fflag_strip_prefix(x.get(\'name\', \'\')).lower() == query]\n        if len(matches) != 1:\n            raise ValueError(UI_TEXT[\'g29\'])\n        self.fflag_flags = [x for x in self.fflag_flags if fflag_strip_prefix(x.get(\'name\', \'\')).lower() != query]\n        self._save_fflag_flags()\n        self._refresh_fflag_list()\n        self._fflag_apply(silent=True)\n        self._console_log(UI_TEXT[\'t20\'].format(p0=query))\n\ndef _console_list_fflags(self):\n        rows = [f"{x.get(\'name\', \'\')} = {x.get(\'value\', \'\')}" for x in self.fflag_flags]\n        self._console_log(UI_TEXT[\'u20\'] + (\'\\n\'.join(rows) if rows else UI_TEXT[\'v20\']))\n\ndef _console_list_configs(self):\n        configs = self._cc_scan_packages()\n        rows = [f"{x.get(\'name\', \'\')} | {x.get(\'_file\', \'\')}" for x in configs]\n        self._console_log(UI_TEXT[\'w20\'] + (\'\\n\'.join(rows) if rows else UI_TEXT[\'v20\']))\n\ndef _console_delete_config(self, query):\n        q = str(query).lower()\n        matches = [x for x in self._cc_scan_packages() if str(x.get(\'name\', \'\')).lower().startswith(q)]\n        if len(matches) != 1:\n            raise ValueError(UI_TEXT[\'h29\'])\n        path = matches[0][\'_path\']\n        with open(path, \'rb\') as f:\n            self._console_undo_stack.append((\'config\', (path, f.read())))\n        os.remove(path)\n        self._cc_refresh_list()\n        self._console_log(UI_TEXT[\'x20\'].format(p0=matches[0].get(\'name\', \'\')))\n\ndef _console_apply_config(self, query):\n        self._console_select_tab(UI_TEXT[\'l5\'])\n        def apply():\n            candidates = self._cc_scan_packages()\n            q = str(query).lower()\n            matches = [x for x in candidates if str(x.get(\'name\', \'\')).lower().startswith(q)]\n            if len(q) < 4 and len(matches) != 1:\n                raise ValueError(\'Use at least the first 4 unique config characters.\')\n            if len(matches) != 1:\n                raise ValueError(\'Config prefix is missing or ambiguous.\')\n            wanted = os.path.abspath(matches[0][\'_path\'])\n            self._cc_refresh_list(select_path=wanted)\n            self._cc_apply_db()\n            self._console_log(UI_TEXT[\'y20\'].format(p0=matches[0].get(\'name\', \'\')))\n        self.after(150, lambda: self._console_safe_call(apply))\n\ndef _console_safe_call(self, fn):\n        try:\n            fn()\n        except Exception as e:\n            self._console_log(UI_TEXT[\'n20\'] + str(e))\n\ndef _console_mesh_to_obj(self, path):\n        path = os.path.abspath(os.path.expandvars(os.path.expanduser(path)))\n        if not os.path.isfile(path):\n            raise FileNotFoundError(path)\n        out = os.path.splitext(path)[0] + \'.obj\'\n        with open(path, \'rb\') as f:\n            data = f.read()\n        convert(data, out)\n        self._console_log(UI_TEXT[\'z20\'].format(p0=out))\n\ndef _console_replace_mesh(self, mesh_name, replacement, roblox_path=\'\'):\n        mesh_aliases = {\'head\': \'Head.mesh\', \'torso\': \'Torso.mesh\', \'left arm\': \'Left Arm.mesh\', \'right arm\': \'Right Arm.mesh\', \'left leg\': \'Left Leg.mesh\', \'right leg\': \'Right Leg.mesh\'}\n        mesh_name = mesh_aliases.get(str(mesh_name).strip().lower(), str(mesh_name).strip())\n        if not mesh_name.lower().endswith(\'.mesh\'):\n            mesh_name += \'.mesh\'\n        source = os.path.abspath(os.path.expandvars(os.path.expanduser(replacement)))\n        if not os.path.isfile(source):\n            raise FileNotFoundError(source)\n        if roblox_path:\n            self.roblox_path_var.set(os.path.abspath(os.path.expandvars(os.path.expanduser(roblox_path))))\n        target = self._default_mesh_path(mesh_name)\n        if not target:\n            raise ValueError(UI_TEXT[\'i29\'])\n        os.makedirs(os.path.dirname(target), exist_ok=True)\n        shutil.copy2(source, target)\n        self._console_log(UI_TEXT[\'a21\'].format(p0=mesh_name))\n\ndef _console_apply_theme(self, query):\n        names = [x for x in THEME_NAMES if x.lower() == str(query).lower() or x.lower().startswith(str(query).lower())]\n        if len(names) != 1:\n            raise ValueError(UI_TEXT[\'j29\'])\n        self._console_select_tab(UI_TEXT[\'q5\'])\n        def apply():\n            self.theme_var.set(names[0])\n            self._apply_theme()\n            self._console_log(UI_TEXT[\'b21\'].format(p0=names[0]))\n        self.after(150, lambda: self._console_safe_call(apply))\n\ndef _build_console_tab(self):\n        tab = ttk.Frame(self.nb, padding=10)\n        self.nb.add(tab, text=UI_TEXT[\'u5\'])\n        tab.rowconfigure(1, weight=1)\n        tab.columnconfigure(0, weight=1)\n        ttk.Label(tab, text=UI_TEXT[\'u5\'], font=(\'Segoe UI Semibold\', 15)).grid(row=0, column=0, sticky=\'w\', pady=(0, 8))\n        self.console_text = tk.Text(tab, wrap=\'word\', state=\'disabled\', font=(\'Consolas\', 9), bg=_CURRENT_PALETTE[\'bg_medium\'], fg=_CURRENT_PALETTE[\'fg\'], insertbackground=\'#ffffff\', relief=\'flat\', bd=0)\n        self.console_text.grid(row=1, column=0, sticky=\'nsew\')\n        row = ttk.Frame(tab)\n        row.grid(row=2, column=0, sticky=\'ew\', pady=(8, 0))\n        row.columnconfigure(1, weight=1)\n        ttk.Label(row, text=UI_TEXT[\'v21\'], font=(\'Consolas\', 10, \'bold\')).grid(row=0, column=0, padx=(0, 6))\n        self.console_entry = ttk.Entry(row)\n        self.console_entry.grid(row=0, column=1, sticky=\'ew\')\n        self.console_entry.bind(\'<Return>\', lambda _e: (self._console_command(self.console_entry.get()), self.console_entry.delete(0, \'end\'), \'break\')[2])\n        self._console_log(UI_TEXT[\'w21\'])', _namespace)
-for _method_name in ['_console_log', '_console_undo', '_console_select_tab', '_console_cache_search', '_console_create_backup', '_console_restore_backup', '_console_command', '_console_apply_cache', '_console_delete_cache', '_console_list_caches', '_console_delete_fflag', '_console_list_fflags', '_console_list_configs', '_console_delete_config', '_console_apply_config', '_console_safe_call', '_console_mesh_to_obj', '_console_replace_mesh', '_console_apply_theme', '_build_console_tab']:
-    setattr(_host.App, _method_name, _namespace.pop(_method_name))
-del _host, _namespace, _method_name, sys
+_host = sys.modules.get('main') or sys.modules.get('__main__')
+if _host is not None:
+    globals().update({k: v for k, v in vars(_host).items() if not k.startswith('__') and k not in {'_host'}})
+class ConsoleMixin:
+    def _console_log(self, message):
+        if threading.get_ident() != getattr(self, '_ui_thread_id', threading.get_ident()):
+            try:
+                self.after(0, self._console_log, str(message))
+            except Exception:
+                pass
+            return
+        lines = _routils_visible_text(str(message)).replace('\r', '').splitlines() or ['']
+        history = getattr(self, '_console_history', [])
+        history.extend(lines)
+        self._console_history = history[-1000:]
+        if self._console_save_job is None:
+            try:
+                self._console_save_job = self.after(350, self._save_console_history)
+            except Exception:
+                self._console_save_job = None
+        if hasattr(self, 'console_text'):
+            if getattr(self, '_console_render_pending', False):
+                return
+            self._console_render_pending = True
+            def render():
+                try:
+                    self._console_render_pending = False
+                    self.console_text.configure(state='normal')
+                    self.console_text.delete('1.0', 'end')
+                    self.console_text.insert('end', '\n'.join(self._console_history) + '\n')
+                    self.console_text.see('end')
+                    self.console_text.configure(state='disabled')
+                except Exception:
+                    self._console_render_pending = False
+            try:
+                self.after(0, render)
+            except Exception:
+                pass
+    def _console_undo(self):
+        if not self._console_undo_stack:
+            self._console_log(UI_TEXT['g19'])
+            return
+        kind, payload = self._console_undo_stack.pop()
+        if kind == 'fflags':
+            self.fflag_flags = payload
+            self._save_fflag_flags()
+            self._refresh_fflag_list()
+            self._console_log(UI_TEXT['h19'])
+        elif kind == 'cache':
+            clean, blob = payload
+            conn = connect_rw(self.db_path)
+            try:
+                conn.execute('INSERT OR REPLACE INTO files(id, content) VALUES(?, ?)', (bytes.fromhex(clean), sqlite3.Binary(blob)))
+                conn.commit()
+            finally:
+                conn.close()
+            self._console_log(UI_TEXT['i19'].format(p0=clean))
+        elif kind == 'config':
+            path, data = payload
+            with open(path, 'wb') as f:
+                f.write(data)
+            self._cc_refresh_list()
+            self._console_log(UI_TEXT['j19'].format(p0=os.path.basename(path)))
+    def _console_select_tab(self, name):
+        for tab_id in self.nb.tabs():
+            if self.nb.tab(tab_id, 'text') == name:
+                self.nb.select(tab_id)
+                return True
+        return False
+    def _console_cache_search(self, query=''):
+        query = str(query or '').lower().strip()
+        rows = []
+        for it in self.items_by_hash.values():
+            text = f'{it.name} {it.hash} {it.kind} {it.src}'.lower()
+            if not query or query in text:
+                rows.append(f'{it.name} | {it.hash} | {it.kind}')
+        self._console_log(UI_TEXT['k19'] + ('\n'.join(rows) if rows else UI_TEXT['l19']))
+    def _console_create_backup(self, name='backup'):
+        safe = _sanitize_filename_for_windows(str(name).strip()) or 'backup'
+        backup_dir = os.path.join(DATA_DIR, 'backups')
+        os.makedirs(backup_dir, exist_ok=True)
+        path = os.path.join(backup_dir, f"{safe}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip")
+        with zipfile.ZipFile(path, 'w', zipfile.ZIP_DEFLATED) as archive:
+            for filename in ('routils_settings.json', 'routils_fflags.json', 'console_history.json'):
+                source = os.path.join(DATA_DIR, filename)
+                if os.path.isfile(source):
+                    archive.write(source, filename)
+            for folder in ('filesaves', 'hashsaves'):
+                root = os.path.join(DATA_DIR, folder)
+                if os.path.isdir(root):
+                    for current, _, files in os.walk(root):
+                        for filename in files:
+                            source = os.path.join(current, filename)
+                            archive.write(source, os.path.relpath(source, DATA_DIR))
+        self._console_log(UI_TEXT['m19'].format(p0=path))
+    def _console_restore_backup(self, path):
+        path = os.path.abspath(os.path.expandvars(os.path.expanduser(str(path))))
+        if not os.path.isfile(path) or not path.lower().endswith('.zip'):
+            raise ValueError(UI_TEXT['d29'])
+        root = os.path.abspath(DATA_DIR)
+        with zipfile.ZipFile(path, 'r') as archive:
+            for member in archive.infolist():
+                target = os.path.abspath(os.path.join(root, member.filename))
+                if os.path.commonpath((root, target)) != root:
+                    raise ValueError('Unsafe backup path.')
+            archive.extractall(root)
+        if hasattr(self, 'replacer'):
+            self.replacer.refresh_view(preserve_selection=True)
+        self._console_log(UI_TEXT['n19'].format(p0=path))
+    def _console_command(self, raw):
+        raw = str(raw or '').strip()
+        if not raw:
+            return
+        self._console_log(UI_TEXT['o19'] + raw)
+        if getattr(self, '_dump_caches_prompt_pending', False):
+            answer = raw.strip().lower()
+            if answer in ('y', 'yes'):
+                self._dump_caches_prompt_pending = False
+                self._start_dump_all_caches(True)
+            elif answer in ('n', 'no'):
+                self._dump_caches_prompt_pending = False
+                self._start_dump_all_caches(False)
+            else:
+                self._console_log(UI_TEXT['p19'])
+                self._console_log(UI_TEXT['q19'])
+            return
+        try:
+            args = shlex.split(raw, posix=False)
+            args = [x[1:-1] if len(x) >= 2 and x[0] == x[-1] and (x[0] in '"\'') else x for x in args]
+            command = args[0].lower()
+            values = args[1:]
+            if command == 'help':
+                self._console_log(UI_TEXT['r19'])
+            elif command == 'cache' and len(values) >= 2 and (values[0].lower() not in ('delete', 'list', 'clear', 'search')):
+                self._console_apply_cache(values[0], values[1])
+            elif command == 'cache' and values and (values[0].lower() == 'delete') and (len(values) >= 2):
+                self._console_delete_cache(values[1])
+            elif command == 'cache' and values and (values[0].lower() == 'list'):
+                self._console_list_caches(values[1] if len(values) >= 2 else '')
+            elif command == 'cache' and values and (values[0].lower() == 'search'):
+                self._console_cache_search(' '.join(values[1:]))
+            elif command == 'fflag' and len(values) >= 2 and (values[0].lower() not in ('delete', 'list', 'clear')):
+                self._console_undo_stack.append(('fflags', json.loads(json.dumps(self.fflag_flags))))
+                name, value = (fflag_strip_prefix(values[0]), values[1])
+                self.fflag_flags = [x for x in self.fflag_flags if fflag_strip_prefix(x.get('name', '')).lower() != name.lower()]
+                self.fflag_flags.append({'name': name, 'value': value, 'type': fflag_infer_type(value)})
+                self._save_fflag_flags()
+                self._refresh_fflag_list()
+                self._fflag_apply(silent=True)
+                self._console_log(UI_TEXT['s19'].format(p0=name, p1=value))
+            elif command == 'fflag' and values and (values[0].lower() == 'delete') and (len(values) >= 2):
+                self._console_undo_stack.append(('fflags', json.loads(json.dumps(self.fflag_flags))))
+                self._console_delete_fflag(values[1])
+            elif command == 'fflag' and values and (values[0].lower() == 'clear'):
+                self._console_undo_stack.append(('fflags', json.loads(json.dumps(self.fflag_flags))))
+                self.fflag_flags = []
+                self._save_fflag_flags()
+                self._refresh_fflag_list()
+                self._fflag_apply(silent=True)
+                self._console_log(UI_TEXT['t19'])
+            elif command == 'fflag' and values and (values[0].lower() == 'list'):
+                self._console_list_fflags()
+            elif command == 'fflag' and values and (values[0].lower() == 'apply'):
+                self._fflag_apply(silent=True)
+                self._console_log(UI_TEXT['u19'])
+            elif command == 'fflag' and values and (values[0].lower() == 'unapply'):
+                self._fflag_unapply()
+                self._console_log(UI_TEXT['v19'])
+            elif command == 'fflag' and values and (values[0].lower() in ('defaults', 'default')):
+                self._open_default_fflag_values()
+                self._console_log(UI_TEXT['w19'])
+            elif command == 'fflag' and values and (values[0].lower() in ('latest', 'latestlist')):
+                self._open_latest_fflag_list()
+                self._console_log(UI_TEXT['x19'])
+            elif command == 'config' and values:
+                if values[0].lower() == 'list':
+                    self._console_list_configs()
+                elif values[0].lower() == 'save' and len(values) >= 2:
+                    self._cc_save_named_config(' '.join(values[1:]))
+                    self._console_log(UI_TEXT['y19'].format(p0=' '.join(values[1:])))
+                elif values[0].lower() == 'delete' and len(values) >= 2:
+                    self._console_delete_config(values[1])
+                else:
+                    self._console_apply_config(values[0])
+            elif command == 'modif' and values and (values[0].lower() == 'meshtoobj') and (len(values) >= 2):
+                self._console_mesh_to_obj(values[1])
+            elif command == 'modif' and len(values) >= 2:
+                self._console_replace_mesh(values[0], values[1], values[2] if len(values) >= 3 else '')
+            elif command == 'join' and values and str(values[0]).isdigit():
+                os.startfile(f'roblox://placeId={values[0]}')
+                self._console_log(UI_TEXT['z19'].format(p0=values[0]))
+            elif command == 'viewserver' and values:
+                self._console_select_tab(UI_TEXT['n5'])
+                self.after(100, lambda link=' '.join(values): (self.server_viewer_link.set(link), self._server_viewer_load()))
+            elif command == 'information':
+                self._console_select_tab(UI_TEXT['p5'])
+                self.after(150, self._client_refresh)
+                self._console_log(UI_TEXT['a20'])
+            elif command == 'theme' and values:
+                if values[0].lower() == 'list':
+                    self._console_log(UI_TEXT['b20'] + ', '.join(THEME_NAMES))
+                else:
+                    self._console_apply_theme(' '.join(values))
+            elif command == 'watch' and values and (values[0].lower() in ('start', 'stop')):
+                if values[0].lower() == 'start':
+                    if self._start_watching():
+                        self._console_log(UI_TEXT['c20'])
+                    else:
+                        self._console_log(UI_TEXT['d20'])
+                else:
+                    self._stop_watching()
+                    self._console_log(UI_TEXT['e20'])
+            elif command == 'fps' and values:
+                fps = max(0, min(240, int(values[0])))
+                self.fps_limit.set(fps)
+                self._save_settings()
+                self._sync_fps_flag_to_manager()
+                self._apply_fps_flag(silent=True)
+                self._console_log(UI_TEXT['f20'].format(p0=fps if fps else 'uncapped'))
+            elif command == 'dump-folder':
+                dump_root = getattr(self, '_last_dump_folder', os.path.join(DATA_DIR, 'Dump'))
+                os.makedirs(dump_root, exist_ok=True)
+                try:
+                    if hasattr(os, 'startfile'):
+                        os.startfile(dump_root)
+                    else:
+                        webbrowser.open('file://' + os.path.abspath(dump_root))
+                    self._console_log(UI_TEXT['g20'].format(p0=os.path.abspath(dump_root)))
+                except Exception as e:
+                    raise RuntimeError(f'Could not open dump folder: {e}')
+            elif command == 'export' and values and (values[0].lower() == 'all'):
+                self._dump_all_caches()
+                self._console_log(UI_TEXT['h20'])
+            elif command == 'backup' and values and (values[0].lower() == 'create'):
+                self._console_create_backup(' '.join(values[1:]) if len(values) > 1 else 'backup')
+            elif command == 'backup' and values and (values[0].lower() == 'restore') and (len(values) >= 2):
+                self._console_restore_backup(values[1])
+            elif command == 'ai':
+                self._open_ai_chat()
+            elif command == 'open' and values:
+                tab_name = ' '.join(values)
+                if not self._console_select_tab(tab_name):
+                    raise ValueError(f'Tab not found: {tab_name}')
+                self._console_log(UI_TEXT['i20'].format(p0=tab_name))
+            elif command == 'status':
+                self._console_log(UI_TEXT['j20'].format(p0=self.fflag_pid or 'not attached', p1='running' if self.watching else 'stopped', p2=self.db_path))
+            elif command == 'clear':
+                self._console_history = []
+                self._save_console_history()
+                if hasattr(self, 'console_text'):
+                    self.console_text.configure(state='normal')
+                    self.console_text.delete('1.0', 'end')
+                    self.console_text.configure(state='disabled')
+            elif command == 'history':
+                self._console_log(UI_TEXT['k20'] + ('\n'.join(self._console_history) if self._console_history else UI_TEXT['l20']))
+            elif command == 'undo':
+                self._console_undo()
+            else:
+                self._console_log(UI_TEXT['m20'])
+        except Exception as e:
+            self._console_log(UI_TEXT['n20'] + str(e))
+    def _console_apply_cache(self, path, hash_value):
+        path = os.path.abspath(os.path.expandvars(os.path.expanduser(path)))
+        clean = re.sub('[^0-9A-Fa-f]', '', str(hash_value))
+        if not os.path.isfile(path) or not clean or len(clean) % 2:
+            raise ValueError(UI_TEXT['e29'])
+        with open(path, 'rb') as f:
+            blob = f.read()
+        id_b = bytes.fromhex(clean)
+        conn = connect_rw(self.db_path)
+        try:
+            cur = conn.cursor()
+            cur.execute('BEGIN IMMEDIATE')
+            cur.execute('DELETE FROM files WHERE id=?', (id_b,))
+            cur.execute('INSERT INTO files(id, content) VALUES(?, ?)', (id_b, sqlite3.Binary(blob)))
+            conn.commit()
+        finally:
+            conn.close()
+        self._console_log(UI_TEXT['o20'].format(p0=clean, p1=path))
+    def _console_delete_cache(self, hash_value):
+        clean = re.sub('[^0-9A-Fa-f]', '', str(hash_value)).lower()
+        if not clean or len(clean) % 2:
+            raise ValueError(UI_TEXT['f29'])
+        id_b = bytes.fromhex(clean)
+        old_blob = None
+        conn = connect_rw(self.db_path)
+        try:
+            cur = conn.cursor()
+            cur.execute('BEGIN IMMEDIATE')
+            row = cur.execute('SELECT content FROM files WHERE id=?', (id_b,)).fetchone()
+            if row and row[0] is not None:
+                old_blob = bytes(row[0])
+            cur.execute('DELETE FROM files WHERE id=?', (id_b,))
+            deleted = cur.rowcount
+            conn.commit()
+        finally:
+            conn.close()
+        try:
+            sp = shard_path(self.shard_root, clean)
+            if os.path.isfile(sp):
+                os.remove(sp)
+        except Exception:
+            pass
+        self.seen_hashes.discard(clean)
+        self.items_by_hash.pop(clean, None)
+        self.items_by_iid.pop(clean, None)
+        if hasattr(self, 'tree'):
+            try:
+                self.tree.delete(clean)
+            except Exception:
+                pass
+        if hasattr(self, 'status_label'):
+            self._update_status()
+        if deleted and old_blob is not None:
+            self._console_undo_stack.append(('cache', (clean, old_blob)))
+        self._console_log(UI_TEXT['p20'].format(p0=clean) if deleted else UI_TEXT['q20'].format(p0=clean))
+    def _console_list_caches(self, query=''):
+        query = str(query or '').lower()
+        rows = []
+        for item in self.items_by_hash.values():
+            text = f'{item.hash} {item.name} {item.kind}'.lower()
+            if not query or query in text:
+                rows.append(f"{item.hash} | {item.name or '(unnamed)'} | {item.kind}")
+        self._console_log(UI_TEXT['r20'] + ('\n'.join(rows) if rows else UI_TEXT['s20']))
+    def _console_delete_fflag(self, query):
+        query = fflag_strip_prefix(str(query)).lower()
+        matches = [x for x in self.fflag_flags if fflag_strip_prefix(x.get('name', '')).lower() == query]
+        if len(matches) != 1:
+            raise ValueError(UI_TEXT['g29'])
+        self.fflag_flags = [x for x in self.fflag_flags if fflag_strip_prefix(x.get('name', '')).lower() != query]
+        self._save_fflag_flags()
+        self._refresh_fflag_list()
+        self._fflag_apply(silent=True)
+        self._console_log(UI_TEXT['t20'].format(p0=query))
+    def _console_list_fflags(self):
+        rows = [f"{x.get('name', '')} = {x.get('value', '')}" for x in self.fflag_flags]
+        self._console_log(UI_TEXT['u20'] + ('\n'.join(rows) if rows else UI_TEXT['v20']))
+    def _console_list_configs(self):
+        configs = self._cc_scan_packages()
+        rows = [f"{x.get('name', '')} | {x.get('_file', '')}" for x in configs]
+        self._console_log(UI_TEXT['w20'] + ('\n'.join(rows) if rows else UI_TEXT['v20']))
+    def _console_delete_config(self, query):
+        q = str(query).lower()
+        matches = [x for x in self._cc_scan_packages() if str(x.get('name', '')).lower().startswith(q)]
+        if len(matches) != 1:
+            raise ValueError(UI_TEXT['h29'])
+        path = matches[0]['_path']
+        with open(path, 'rb') as f:
+            self._console_undo_stack.append(('config', (path, f.read())))
+        os.remove(path)
+        self._cc_refresh_list()
+        self._console_log(UI_TEXT['x20'].format(p0=matches[0].get('name', '')))
+    def _console_apply_config(self, query):
+        self._console_select_tab(UI_TEXT['l5'])
+        def apply():
+            candidates = self._cc_scan_packages()
+            q = str(query).lower()
+            matches = [x for x in candidates if str(x.get('name', '')).lower().startswith(q)]
+            if len(q) < 4 and len(matches) != 1:
+                raise ValueError('Use at least the first 4 unique config characters.')
+            if len(matches) != 1:
+                raise ValueError('Config prefix is missing or ambiguous.')
+            wanted = os.path.abspath(matches[0]['_path'])
+            self._cc_refresh_list(select_path=wanted)
+            self._cc_apply_db()
+            self._console_log(UI_TEXT['y20'].format(p0=matches[0].get('name', '')))
+        self.after(150, lambda: self._console_safe_call(apply))
+    def _console_safe_call(self, fn):
+        try:
+            fn()
+        except Exception as e:
+            self._console_log(UI_TEXT['n20'] + str(e))
+    def _console_mesh_to_obj(self, path):
+        path = os.path.abspath(os.path.expandvars(os.path.expanduser(path)))
+        if not os.path.isfile(path):
+            raise FileNotFoundError(path)
+        out = os.path.splitext(path)[0] + '.obj'
+        with open(path, 'rb') as f:
+            data = f.read()
+        convert(data, out)
+        self._console_log(UI_TEXT['z20'].format(p0=out))
+    def _console_replace_mesh(self, mesh_name, replacement, roblox_path=''):
+        mesh_aliases = {'head': 'Head.mesh', 'torso': 'Torso.mesh', 'left arm': 'Left Arm.mesh', 'right arm': 'Right Arm.mesh', 'left leg': 'Left Leg.mesh', 'right leg': 'Right Leg.mesh'}
+        mesh_name = mesh_aliases.get(str(mesh_name).strip().lower(), str(mesh_name).strip())
+        if not mesh_name.lower().endswith('.mesh'):
+            mesh_name += '.mesh'
+        source = os.path.abspath(os.path.expandvars(os.path.expanduser(replacement)))
+        if not os.path.isfile(source):
+            raise FileNotFoundError(source)
+        if roblox_path:
+            self.roblox_path_var.set(os.path.abspath(os.path.expandvars(os.path.expanduser(roblox_path))))
+        target = self._default_mesh_path(mesh_name)
+        if not target:
+            raise ValueError(UI_TEXT['i29'])
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        shutil.copy2(source, target)
+        self._console_log(UI_TEXT['a21'].format(p0=mesh_name))
+    def _console_apply_theme(self, query):
+        names = [x for x in THEME_NAMES if x.lower() == str(query).lower() or x.lower().startswith(str(query).lower())]
+        if len(names) != 1:
+            raise ValueError(UI_TEXT['j29'])
+        self._console_select_tab(UI_TEXT['q5'])
+        def apply():
+            self.theme_var.set(names[0])
+            self._apply_theme()
+            self._console_log(UI_TEXT['b21'].format(p0=names[0]))
+        self.after(150, lambda: self._console_safe_call(apply))
+    def _build_console_tab(self):
+        tab = ttk.Frame(self.nb, padding=10)
+        self.nb.add(tab, text=UI_TEXT['u5'])
+        tab.rowconfigure(1, weight=1)
+        tab.columnconfigure(0, weight=1)
+        ttk.Label(tab, text=UI_TEXT['u5'], font=('Segoe UI Semibold', 15)).grid(row=0, column=0, sticky='w', pady=(0, 8))
+        self.console_text = tk.Text(tab, wrap='word', state='disabled', font=('Consolas', 9), bg=_CURRENT_PALETTE['bg_medium'], fg=_CURRENT_PALETTE['fg'], insertbackground='#ffffff', relief='flat', bd=0)
+        self.console_text.grid(row=1, column=0, sticky='nsew')
+        row = ttk.Frame(tab)
+        row.grid(row=2, column=0, sticky='ew', pady=(8, 0))
+        row.columnconfigure(1, weight=1)
+        ttk.Label(row, text=UI_TEXT['v21'], font=('Consolas', 10, 'bold')).grid(row=0, column=0, padx=(0, 6))
+        self.console_entry = ttk.Entry(row)
+        self.console_entry.grid(row=0, column=1, sticky='ew')
+        self.console_entry.bind('<Return>', lambda _e: (self._console_command(self.console_entry.get()), self.console_entry.delete(0, 'end'), 'break')[2])
+        self._console_log(UI_TEXT['w21'])
