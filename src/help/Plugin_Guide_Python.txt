@@ -1,0 +1,328 @@
+RoUtils Python Plugin Guide
+============================
+
+IMPORTANT
+---------
+The Python macros associated with RoUtils have administrative permissions. Plugins are ordinary .py modules and can execute local Python using the same permissions as the user who is running RoUtils.
+
+Import plugins only if you trust them.
+
+1. BASIC PLUGIN
+---------------
+A minimal plugin:
+
+import tkinter as tk
+from tkinter import ttk
+
+PLUGIN_NAME = "My Plugin"
+PLUGIN_DESCRIPTION = "Example RoUtils plugin"
+
+def register(app):
+    tab = ttk.Frame(app.nb)
+    app.nb.add(tab, text=PLUGIN_NAME)
+
+    ttk.Label(tab, text="Hello from my plugin!").pack(pady=20)
+
+    def clicked():
+        print("Button clicked")
+
+    ttk.Button(tab, text="Click Me", command=clicked).pack()
+
+    def cleanup():
+        pass
+
+    return {"cleanup": cleanup}
+
+The required function is:
+
+register(app)
+
+2. PLUGIN METADATA
+------------------
+PLUGIN_NAME
+  Name of the plugin.
+
+PLUGIN_DESCRIPTION
+  The description is shown in the Plugins tab.
+
+3. ADDING A TAB
+---------------
+Use:
+
+tab = ttk.Frame(app.nb)
+app.nb.add(tab, text="My Tab")
+
+Also add controls to that tab.
+
+The tab then turns into a genuine RoUtils Notebook tab.
+
+4. ADDING BUTTONS
+-----------------
+button = ttk.Button(tab, "Run", my_function)
+button.pack()
+
+Or:
+
+ttk.Button(tab, text="Run", command=my_function).pack()
+
+5. LABELS
+---------
+ttk.Label(tab, text="Information").pack()
+
+6. CHECKBOXES
+-------------
+enabled = tk.BooleanVar(value=False)
+
+ttk.Checkbutton(
+    tab,
+    text="Enable feature",
+    variable=enabled
+).pack()
+
+7. TEXT / ENTRY
+---------------
+entry_var = tk.StringVar()
+
+ttk.Entry(tab, textvariable=entry_var).pack(fill="x")
+
+def read_value():
+    value = entry_var.get()
+    print(value)
+
+ttk.Button(tab, text="Read", command=read_value).pack()
+
+8. COMBOBOX
+-----------
+choice = tk.StringVar(value="One")
+
+ttk.Combobox(
+    tab,
+    textvariable=choice,
+    values=("One", "Two", "Three"),
+    state="readonly"
+).pack()
+
+9. LISTBOX
+----------
+lst = tk.Listbox(tab)
+lst.pack(fill="both", expand=True)
+
+for item in ("One", "Two", "Three"):
+    lst.insert("end", item)
+
+10. MULTIPLE SECTIONS
+---------------------
+Use LabelFrame to create sections:
+
+box = ttk.LabelFrame(tab, text="Settings")
+box.pack(fill="x", padx=10, pady=10)
+
+ttk.Label(box, text="Option").pack(anchor="w", padx=8, pady=4)
+ttk.Button(box, text="Apply", command=my_function).pack(padx=8, pady=4)
+
+11. CUSTOM WINDOWS
+------------------
+Create another window:
+
+def open_window():
+    win = tk.Toplevel(app)
+    win.title("My Plugin Window")
+    win.geometry("500x300")
+
+    ttk.Label(win, text="Custom window").pack(pady=20)
+    ttk.Button(win, text="Close", command=win.destroy).pack()
+
+    Apply the window styling provided by RoUtils.
+    theme_toplevel(win)
+
+ttk.Button(tab, text="Open Window", command=open_window).pack()
+
+When the function theme_toplevel(win) is used, RoUtils will apply its own window titlebar.
+
+12. BACKGROUND TASKS
+--------------------
+Don't block the Tkinter interface with lengthy operations.
+
+Use threading:
+
+import threading
+import time
+
+def worker():
+    time.sleep(5)
+    app.after(0, lambda: status.configure(text="Finished"))
+
+def start():
+    threading.Thread(target=worker, daemon=True).start()
+
+ttk.Button(tab, text="Start", command=start).pack()
+
+Important:
+The Tkinter widgets have to be updated on the main/UI thread and in order to return to the UI thread you should use app.after(...) .
+
+13. PERIODIC TASKS
+------------------
+Use app.after:
+
+def tick():
+    status.configure(text="Running")
+    app.after(1000, tick)
+
+app.after(1000, tick)
+
+14. FILES
+---------
+Normal Python file access is allowed:
+
+from pathlib import Path
+
+path = Path.home() / "Desktop" / "example.txt"
+path.write_text("Hello", encoding="utf-8")
+
+15. SETTINGS
+------------
+Plugins can access the RoUtils app object:
+
+app.settings
+
+You can read values:
+
+value = app.settings.get("some_setting")
+
+You can store values:
+
+app.settings["some_setting"] = "hello"
+app._save_settings()
+
+Use unique setting names so plugins do not conflict with each other.
+
+16. CONSOLE
+-----------
+Plugins can write useful diagnostics:
+
+app._console_log("Plugin started")
+
+Normal print() is also useful for debugging.
+
+17. ROUTILS UI
+-------------
+The plugin gets the real RoUtils application object as app.
+
+Useful objects include:
+- app
+- app.nb goes to main Notebook.
+- app.settings        becomes the settings dictionary
+- app.after(...)      calls the Tkinter scheduler.
+- app._console_log() now logs to the RoUtils Console.
+
+Plugin code may also make use of the standard Tkinter APIs.
+
+18. CLEANUP
+-----------
+A plugin should return a cleanup function when it creates timers, threads, hooks, or other resources:
+
+def cleanup():
+    # stop timers / release resources
+    pass
+
+return {"cleanup": cleanup}
+
+19. ADVANCED PLUGINS
+--------------------
+Because plugins are unrestricted Python, normal Python techniques are allowed:
+- classes
+- decorators
+- threads
+- subprocesses
+- ctypes
+- sockets
+- filesystem access
+- network access
+- installed third-party modules
+- tkinter
+- JSON
+- databases
+
+There is no plugin sandbox.
+
+20. COMPLETE EXAMPLE
+--------------------
+import tkinter as tk
+from tkinter import ttk
+import threading
+import time
+
+PLUGIN_NAME = "Example"
+The description of the plugin is "A complete basic plugin."
+
+def register(app):
+    tab = ttk.Frame(app.nb, padding=12)
+    app.nb.add(tab, text=PLUGIN_NAME)
+
+    ttk.Label(
+        tab,
+        text="Example Plugin",
+        font=("Segoe UI Semibold", 15)
+    ).pack(anchor="w")
+
+    status = ttk.Label(tab, text="Idle")
+    status.pack(anchor="w", pady=10)
+
+    def run_background():
+        status_text = "Working..."
+        app.after(0, lambda: status.configure(text=status_text))
+        time.sleep(2)
+        app.after(0, lambda: status.configure(text="Finished"))
+
+    def start():
+        threading.Thread(
+            target=run_background,
+            daemon=True
+        ).start()
+
+    ttk.Button(
+        tab,
+        text="Start",
+        command=start
+    ).pack(anchor="w")
+
+    def open_window():
+        win = tk.Toplevel(app)
+        win.title("Example Window")
+        win.geometry("450x250")
+        theme_toplevel(win)
+
+        ttk.Label(
+            win,
+            text="Plugin window"
+        ).pack(pady=30)
+
+        ttk.Button(
+            win,
+            text="Close",
+            command=win.destroy
+        ).pack()
+
+    ttk.Button(
+        tab,
+        text="Open Window",
+        command=open_window
+    ).pack(anchor="w", pady=8)
+
+    def cleanup():
+        pass
+
+    return {"cleanup": cleanup}
+
+21. INSTALL
+-----------
+In RoUtils:
+Go to Plugins and then select Import Python, after which pick a .py file.
+
+Turn on the plugin from the Plugins tab.
+
+22. SECURITY
+------------
+On purpose, there is no sandbox, and a plugin is able to execute arbitrary Python code.
+
+Only use plugins from sources you trust.

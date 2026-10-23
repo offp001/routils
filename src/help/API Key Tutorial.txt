@@ -1,0 +1,9 @@
+# Gemini API Key Tutorial 
+
+1. Open This website on your browser: https://aistudio.google.com/api-keys
+2. Log in with your google account🧾
+3. Click to "Create API Key"🔑
+4. Click to "Create Key" button on the notification🔑
+5. After Creating key Click to Copy Key on the notification⌨️
+6. Paste it to RoUtils🛠️
+7. Done✅
