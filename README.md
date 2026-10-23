@@ -1,7 +1,9 @@
-# 🛠️ RoUtils (Version 5.2.2)
-[Join Discord server if u need help!](https://discord.com/invite/849VtrYhm2)
-
+# RoUtils (Version 5.2.2)
 <img width="1919" height="1079" alt="routils" src="https://github.com/user-attachments/assets/fb98c4b0-eaf8-4693-9c1f-58401a9eaaa8" />
+
+- Join Discord Server if u need help!
+
+[![RoUtils](https://github.com/user-attachments/assets/8c886223-36f3-4f29-8160-364b2fa8c9c4)](https://discord.com/invite/849VtrYhm2)
 
 ## Features
 
@@ -108,7 +110,7 @@ RoUtils also creates a `jsons` folder where saved `.json` configurations can be 
 ### RoUtils AI
 * **RoUtils AI Chat** – Ask questions directly inside RoUtils (Add Gemini API Key on settings to use) (Powered by Gemini AI)
 
-### 🛠️ Modifications
+### Modifications
 
 * **Mesh Changer** – Change Roblox avatar meshes
 * **Skybox Changer** – Change Roblox skybox textures
@@ -157,7 +159,7 @@ If you already know the **Place ID** of the subplace you want to enter, you can 
 
 After generating the join link, **Copy Deep Link** can be used to copy the Roblox deep link to your clipboard.
 
-> 💡 If a game contains multiple places, the Place ID is the important value when you want to target a specific subplace.
+> If a game contains multiple places, the Place ID is the important value when you want to target a specific subplace.
 
 ---
 
@@ -251,4 +253,6 @@ The purpose of Server Viewer is to let you inspect a server before deciding whet
 ## Credits
 
 * `offp001` (If you encounter any issues, feel free to contact me on Discord👍)
-* `Discord` [Please join to my discord server if you want to support me✅](https://discord.com/invite/849VtrYhm2)
+* `Discord` Please join to my discord server if you want to support me✅
+
+[![RoUtils](https://github.com/user-attachments/assets/8c886223-36f3-4f29-8160-364b2fa8c9c4)](https://discord.com/invite/849VtrYhm2)
