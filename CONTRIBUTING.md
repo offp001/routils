@@ -2,6 +2,8 @@
 
 Thank you for your interest in contributing to **RoUtils**!
 
+- If you liked RoUtils, Please star the the Repository
+
 ---
 
 ## Prerequisites
