@@ -3,7 +3,7 @@
 
 - Join Discord Server if u need help!
 
-[![RoUtils](https://github.com/user-attachments/assets/8c886223-36f3-4f29-8160-364b2fa8c9c4)](https://discord.com/invite/849VtrYhm2)
+[RoUtils Discord](https://discord.com/invite/849VtrYhm2)
 
 ## Features
 
@@ -246,16 +246,14 @@ The purpose of Server Viewer is to let you inspect a server before deciding whet
 
 ## Installation
 
-1. Download or Clone Repositoriy
-2. Open `RoUtils.exe`
-3. Done :) (easy right?)
+1. Check CONTRIBUTING
 
 ## Credits
 
 * `offp001` (If you encounter any issues, feel free to contact me on Discord👍)
 * `Discord` Please join to my discord server if you want to support me✅
 
-[![RoUtils](https://github.com/user-attachments/assets/8c886223-36f3-4f29-8160-364b2fa8c9c4)](https://discord.com/invite/849VtrYhm2)
+[RoUtils Discord](https://discord.com/invite/849VtrYhm2)
 
 ## Discord Rich Presence
 
