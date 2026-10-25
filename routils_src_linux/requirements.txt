@@ -1,0 +1,12 @@
+numpy>=1.26
+DracoPy>=1.0
+Pillow>=10.0
+lz4>=4.3
+zstandard>=0.22
+sv-ttk>=2.6
+ttkbootstrap>=1.10
+pypresence>=4.6.2
+psutil>=5.9
+pynput>=1.7.7
+cryptography>=42.0
+mitmproxy>=11.0,<13
