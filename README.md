@@ -1,21 +1,52 @@
-# RoUtils ![Latest Release](https://img.shields.io/github/v/release/offp001/routils?label=Latest%20Release) ![GitHub Downloads](https://img.shields.io/github/downloads/offp001/routils/total?label=Downloads&color=brightgreen) ![License](https://img.shields.io/github/license/offp001/routils)
+<p align="center">
+  <h1 align="center">RoUtils   <a href="https://github.com/offp001/routils/releases/latest"><img src="https://img.shields.io/github/v/release/offp001/routils?label=Latest%20Release" alt="Latest Release"></a>
+</h1>
+  <h3 align="center">Your All-in-One Roblox Utilities</h3>
+  <p align="center">Everything You Need, in One Place.</p>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/github/downloads/offp001/routils/total?label=Downloads&color=brightgreen" alt="Downloads">
+  <img src="https://img.shields.io/github/license/offp001/routils" alt="License">
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/github/repo-size/offp001/routils?label=Repository%20Size" alt="Repository Size">
+  <img src="https://img.shields.io/github/languages/code-size/offp001/routils?label=Code%20Size" alt="Code Size">
+  <img src="https://img.shields.io/github/languages/top/offp001/routils?label=Top%20Language" alt="Top Language">
+  <img src="https://img.shields.io/github/commit-activity/m/offp001/routils?label=Monthly%20Commits" alt="Monthly Commits">
+  <img src="https://img.shields.io/github/issues/offp001/routils?label=Issues" alt="Issues">
+</p>
+
+<p align="center">
+  <sub>Enjoying RoUtils? <strong><a href="https://github.com/offp001/routils">Give it a star</a></strong> and check <a href="CONTRIBUTING.md">CONTRIBUTING</a>.</sub>
+</p>
+
+<p align="center">
+  <a href="https://github.com/offp001/routils/releases/latest">Download</a> ·
+  <a href="https://offp001.github.io/routilsw/">Website</a> ·
+  <a href="https://discord.com/invite/849VtrYhm2">Discord</a> ·
+  <a href="https://github.com/offp001/routils/issues">Report an Issue</a>
+</p>
+
+---
 
 <details>
-<summary><b>RoUtils Application Preview</b></summary>
+<summary><strong>RoUtils Application Preview</strong></summary>
 
 [![RoUtils](https://github.com/user-attachments/assets/fb98c4b0-eaf8-4693-9c1f-58401a9eaaa8)](https://discord.com/invite/849VtrYhm2)
 
 </details>
 
-**Discord Community and Support**
+## Discord Community and Support
 
 For support, announcements, and community discussions, visit the [RoUtils Discord Server](https://discord.com/invite/849VtrYhm2).
 
 [![RoUtils Discord Server](https://github.com/user-attachments/assets/26837ba0-f091-4855-b310-62efc29d3666)](https://discord.com/invite/849VtrYhm2)
 
-**Official Website**
+## Official Website
 
-Visit the [RoUtils Website](https://offp001.github.io/routilsw/) for project resources.
+Visit the [RoUtils Website](https://offp001.github.io/routilsw/)
 
 [![RoUtils Website](https://github.com/user-attachments/assets/3c6e82b6-a78e-40cf-baf0-608002515359)](https://offp001.github.io/routilsw/)
 
@@ -39,18 +70,18 @@ Visit the [RoUtils Website](https://offp001.github.io/routilsw/) for project res
 
 ### Cache Editor
 
-- **3D Preview** – View cached Roblox meshes and models directly within RoUtils.
-- **Image Preview** – Preview cached PNG and other image assets.
-- **Audio Preview** – Preview cached OGG and MP3 files.
-- **Dump** – Extract Roblox cache files into organized folders.
-- **Export** – Export individual cache entries in supported formats:
+- **3D Preview** — View cached Roblox meshes and models directly within RoUtils.
+- **Image Preview** — Preview cached PNG and other image assets.
+- **Audio Preview** — Preview cached OGG and MP3 files.
+- **Dump** — Extract Roblox cache files into organized folders.
+- **Export** — Export individual cache entries in supported formats:
   - `Full Blob`
   - `RBXM`
   - `Image`
   - `Video`
   - `OBJ`
-- **Copy / Save Hash** – Copy or save cache hashes.
-- **Delete Cache Type** – Remove cached data from a selected category.
+- **Copy / Save Hash** — Copy or save cache hashes.
+- **Delete Cache Type** — Remove cached data from a selected category.
 
 #### How Cache Editor Works
 
@@ -76,10 +107,10 @@ Select a cache entry to inspect it. Supported assets can be previewed directly i
 
 The **Export** options provide different ways to export selected cache entries:
 
-- **Full Blob** – Export the complete cache blob.
-- **RBXM** – Export compatible Roblox model data.
-- **Image** – Export image assets.
-- **Copy / Save Hash** – Copy or save a cache hash for later use.
+- **Full Blob** — Export the complete cache blob.
+- **RBXM** — Export compatible Roblox model data.
+- **Image** — Export image assets.
+- **Copy / Save Hash** — Copy or save a cache hash for later use.
 
 **Delete Cache Type** removes cached data belonging to a selected category. For example, selecting `Image` removes cached image data without requiring each file to be deleted individually.
 
@@ -89,12 +120,12 @@ RoUtils is designed to keep cache operations from unnecessarily blocking the mai
 
 ### FFlag Manager
 
-- **FFlag Injector** – Apply FFlags to Roblox.
-- **Saved JSONs** – Save and load FFlag JSON configurations.
-- **Hotkeys** – Apply or change supported values using keyboard shortcuts.
-- **Presets** – Load FFlag presets from the RoUtils GitHub repository.
-- **JSON Editor** – Edit FFlag JSON configurations directly.
-- **Default FFlags / Offsets / Values** – View lists of FFlags, offsets, and values.
+- **FFlag Injector** — Apply FFlags to Roblox.
+- **Saved JSONs** — Save and load FFlag JSON configurations.
+- **Hotkeys** — Apply or change supported values using keyboard shortcuts.
+- **Presets** — Load FFlag presets from the RoUtils GitHub repository.
+- **JSON Editor** — Edit FFlag JSON configurations directly.
+- **Default FFlags / Offsets / Values** — View lists of FFlags, offsets, and values.
 
 #### How FFlag Manager Works
 
@@ -112,7 +143,7 @@ Example:
 
 ```json
 {
-    "FFlagExample": "True"
+  "FFlagExample": "True"
 }
 ```
 
@@ -132,32 +163,32 @@ RoUtils provides a `jsons` folder for storing saved `.json` configurations. Save
 
 ### Emote Manager
 
-- **Emote Commands** – Enter `/e` emote commands more conveniently.
-- **Emote Controls** – Switch between emotes using configurable hotkeys without assigning a separate binding to every emote.
+- **Emote Commands** — Enter `/e` emote commands more conveniently.
+- **Emote Controls** — Switch between emotes using configurable hotkeys without assigning a separate binding to every emote.
 
 ### RoUtils AI
 
-- **RoUtils AI Chat** – Ask questions directly within RoUtils. A Gemini API key must be configured in Settings. Powered by Google Gemini.
+- **RoUtils AI Chat** — Ask questions directly within RoUtils. A Gemini API key must be configured in Settings. Powered by Google Gemini.
 
 ### Modifications
 
-- **Mesh Changer** – Change Roblox avatar meshes.
-- **Skybox Changer** – Change Roblox skybox textures.
-- **Sounds Changer** – Modify Roblox sound files.
-- **Other File Changers** – Modify Roblox texture and font files.
-- **Default R6 Mesh Changer** – Change default R6 character meshes.
-- **Mesh to OBJ Converter** – Convert meshes to OBJ format.
-- **RBXM → RBXH Blob** – Convert RBXM files to RBXH v2 cache blobs.
-- **R6 to R15 Animations** – Convert R6 animations to R15 animations.
+- **Mesh Changer** — Change Roblox avatar meshes.
+- **Skybox Changer** — Change Roblox skybox textures.
+- **Sounds Changer** — Modify Roblox sound files.
+- **Other File Changers** — Modify Roblox texture and font files.
+- **Default R6 Mesh Changer** — Change default R6 character meshes.
+- **Mesh to OBJ Converter** — Convert meshes to OBJ format.
+- **RBXM → RBXH Blob** — Convert RBXM files to RBXH v2 cache blobs.
+- **R6 to R15 Animations** — Convert R6 animations to R15 animations.
 
 ### CConfigs (.db configs)
 
-- **Save `rbx-storage.db`** – Save the Roblox storage database file.
+- **Save `rbx-storage.db`** — Save the Roblox storage database file.
 
 ### Subplace Joiner
 
-- **Subplace Joiner** – Join Roblox subplaces using a Universe ID or Place ID.
-- **Copy Deep Link** – Copy the generated Roblox deep link.
+- **Subplace Joiner** — Join Roblox subplaces using a Universe ID or Place ID.
+- **Copy Deep Link** — Copy the generated Roblox deep link.
 
 #### How Subplace Joiner Works
 
@@ -179,7 +210,7 @@ When targeting a specific subplace, the Place ID is the relevant identifier. Aft
 
 ### Server Viewer
 
-- **Server Information** – Inspect available server information without joining through a deep link.
+- **Server Information** — Inspect available server information without joining through a deep link.
 - **Place ID**
 - **Job ID**
 - **Players**
@@ -219,41 +250,45 @@ Job ID   = Which server?
 
 Depending on data availability, Server Viewer can display:
 
-- **Place ID** – The Roblox place being hosted.
-- **Job ID** – The unique server instance identifier.
-- **Players** – The current number of players.
-- **Max Capacity** – The maximum player capacity.
-- **Ping** – Reported server or network latency.
-- **Server FPS** – Available server-side performance information.
-- **Location** – Server location or region, when available.
+- **Place ID** — The Roblox place being hosted.
+- **Job ID** — The unique server instance identifier.
+- **Players** — The current number of players.
+- **Max Capacity** — The maximum player capacity.
+- **Ping** — Reported server or network latency.
+- **Server FPS** — Available server-side performance information.
+- **Location** — Server location or region, when available.
 
 ### History
 
-- **Game History** – Save game history and reopen previously visited games.
-- **Server History** – Keep a record of recently visited servers and return to them.
+- **Game History** — Save game history and reopen previously visited games.
+- **Server History** — Keep a record of recently visited servers and return to them.
 
 ### Client
 
-- **Client Information** – Display CPU and RAM usage alongside the current Game ID and Job ID.
-- **FPS Changer** – Change Roblox's FPS limit.
-- **FPS Hotkeys** – Change the FPS limit using keyboard shortcuts.
+- **Client Information** — Display CPU and RAM usage alongside the current Game ID and Job ID.
+- **FPS Changer** — Change Roblox's FPS limit.
+- **FPS Hotkeys** — Change the FPS limit using keyboard shortcuts.
 
 ### Plugins
 
-- **Import Custom Plugins** – Import custom plugins to extend RoUtils functionality.
-- **Plugin Guide and Example Plugin** – Resources for developing and using plugins.
+- **Import Custom Plugins** — Import custom plugins to extend RoUtils functionality.
+- **Plugin Guide and Example Plugin** — Resources for developing and using plugins.
 - [Example Plugin](https://www.google.com/search?q=https%3A%2F%2Fcdn.discordapp.com%2Fattachments%2F1549063956901924895%2F1549063959598858360%2Fexample.py%3Fex%3D6aa955bc%26is%3D6aa8043c%26hm%3Dbdc1fd10a3ae58797f59a3b130e9a0a0015edc0aa16ee2532e6fa5b43c462fe8%26)
 - [Plugin Guide](https://www.google.com/search?q=https%3A%2F%2Fcdn.discordapp.com%2Fattachments%2F1549063956901924895%2F1549063958110015669%2FPlugin_Guide_Python.txt%3Fex%3D6aa955bb%26is%3D6aa8043b%26hm%3D3cf9c3ae0541237ffa2affacdde12e4892f5873911a780457a3ae77a43f19533%26)
 
 ## Installation
 
-Refer to [CONTRIBUTING](CONTRIBUTING) for the relevant project instructions.
+Refer to [CONTRIBUTING.md](CONTRIBUTING.md) for installation and development instructions.
 
 ## Credits
 
-- **offp001** – RoUtils creator and maintainer.
-- **Discord Community** – Community support and discussions.
+- **offp001** — RoUtils creator and maintainer.
+- **Discord Community** — Community support and discussions.
 
-[![RoUtils Discord Server](https://github.com/user-attachments/assets/26837ba0-f091-4855-b310-62efc29d3666)](https://discord.com/invite/849VtrYhm2)
+<p align="center">
+  <a href="https://discord.com/invite/849VtrYhm2"><img src="https://github.com/user-attachments/assets/26837ba0-f091-4855-b310-62efc29d3666" alt="RoUtils Discord Server"></a>
+</p>
 
-*RoUtils by offp001*
+<p align="center">
+  <em>RoUtils by offp001</em>
+</p>
