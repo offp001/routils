@@ -12,15 +12,12 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  build-windows:
     runs-on: windows-latest
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
@@ -33,28 +30,96 @@ jobs:
           }
           python -m pip install pyinstaller
 
-      - name: Build RoUtils
+      - name: Build Windows executable
         shell: pwsh
         run: |
-          $buildArgs = @("--noconfirm", "--clean", "--onefile", "--windowed", "--name", "RoUtils")
-          if (Test-Path "routils.ico") {
-            $buildArgs += @("--icon", "routils.ico")
+          if (!(Test-Path "main.pyw")) {
+            throw "main.pyw not found"
           }
-          $buildArgs += "routils.pyw"
-          python -m PyInstaller @buildArgs
+          $args = @("--noconfirm", "--clean", "--onefile", "--windowed", "--name", "RoUtils")
+          if (Test-Path "routils.ico") {
+            $args += @("--icon", "routils.ico")
+          }
+          $args += "main.pyw"
+          python -m PyInstaller @args
           if ($LASTEXITCODE -ne 0) {
             exit $LASTEXITCODE
           }
 
-      - name: Upload executable
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: RoUtils-Windows
           path: dist/RoUtils.exe
           if-no-files-found: error
 
-      - name: Publish release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
         with:
-          files: dist/RoUtils.exe
+          python-version: "3.12"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1 libglib2.0-0 libxkbcommon0 libegl1 libdbus-1-3 libxcb-cursor0
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f routils_src_linux/requirements.txt ]; then
+            python -m pip install -r routils_src_linux/requirements.txt
+          elif [ -f requirements-linux.txt ]; then
+            python -m pip install -r requirements-linux.txt
+          elif [ -f requirements.txt ]; then
+            python -m pip install -r requirements.txt
+          fi
+          python -m pip install pyinstaller
+
+      - name: Build Linux executable
+        shell: bash
+        run: |
+          if [ ! -d routils_src_linux ]; then
+            echo "routils_src_linux directory not found"
+            exit 1
+          fi
+          ENTRY=""
+          for file in routils_src_linux/main.py routils_src_linux/main.pyw routils_src_linux/routils.py routils_src_linux/app.py routils_src_linux/__main__.py; do
+            if [ -f "$file" ]; then
+              ENTRY="$file"
+              break
+            fi
+          done
+          if [ -z "$ENTRY" ]; then
+            echo "Linux entry point not found"
+            find routils_src_linux -maxdepth 2 -type f
+            exit 1
+          fi
+          python -m PyInstaller --noconfirm --clean --onefile --name RoUtils-Linux --paths routils_src_linux "$ENTRY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RoUtils-Linux
+          path: dist/RoUtils-Linux
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [build-windows, build-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: RoUtils-Windows
+          path: release
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: RoUtils-Linux
+          path: release
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
