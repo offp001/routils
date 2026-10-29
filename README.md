@@ -1,9 +1,11 @@
-<p align="center">
-  <h1 align="center">RoUtils   <a href="https://github.com/offp001/routils/releases/latest"><img src="https://img.shields.io/github/v/release/offp001/routils?label=Latest%20Release" alt="Latest Release"></a>
+<h1 align="center">
+  RoUtils
+  <a href="https://github.com/offp001/routils/releases/latest"><img src="https://img.shields.io/github/v/release/offp001/routils?label=Latest%20Release" alt="Latest Release"></a>
 </h1>
-  <h3 align="center">Your All-in-One Roblox Utilities</h3>
-  <p align="center">Everything You Need, in One Place.</p>
-</p>
+
+<h3 align="center">Your All-in-One Roblox Utilities</h3>
+
+<p align="center">Everything You Need, in One Place.</p>
 
 <p align="center">
   <img src="https://img.shields.io/github/downloads/offp001/routils/total?label=Downloads&color=brightgreen" alt="Downloads">
@@ -29,6 +31,10 @@
   <a href="https://github.com/offp001/routils/issues">Report an Issue</a>
 </p>
 
+<p align="center">
+  <strong>Contact:</strong> <a href="mailto:offp001@tuta.io">offp001@tuta.io</a>
+</p>
+
 ---
 
 <details>
@@ -46,7 +52,7 @@ For support, announcements, and community discussions, visit the [RoUtils Discor
 
 ## Official Website
 
-Visit the [RoUtils Website](https://offp001.github.io/routilsw/)
+Visit the [RoUtils Website](https://offp001.github.io/routilsw/).
 
 [![RoUtils Website](https://github.com/user-attachments/assets/3c6e82b6-a78e-40cf-baf0-608002515359)](https://offp001.github.io/routilsw/)
 
@@ -64,7 +70,9 @@ Visit the [RoUtils Website](https://offp001.github.io/routilsw/)
 - [Client](#client)
 - [Plugins](#plugins)
 - [Installation](#installation)
+- [Issues](#issues)
 - [Credits](#credits)
+- [Contact Me](#contact-me)
 
 ## Features
 
@@ -280,15 +288,29 @@ Depending on data availability, Server Viewer can display:
 
 Refer to [CONTRIBUTING.md](CONTRIBUTING.md) for installation and development instructions.
 
+## Issues
+
+Found a bug or have a feature request?
+
+- [Report a Bug](https://github.com/offp001/routils/issues/new)
+- [Request a Feature](https://github.com/offp001/routils/issues/new)
+- [View Existing Issues](https://github.com/offp001/routils/issues)
+
 ## Credits
 
 - **offp001** — RoUtils creator and maintainer.
 - **Discord Community** — Community support and discussions.
+
+## Contact Me
+
+Feel free to contact me by email.
+
+**Email:** [offp001@tuta.io](mailto:offp001@tuta.io)
 
 <p align="center">
   <a href="https://discord.com/invite/849VtrYhm2"><img src="https://github.com/user-attachments/assets/26837ba0-f091-4855-b310-62efc29d3666" alt="RoUtils Discord Server"></a>
 </p>
 
 <p align="center">
-  <em>RoUtils by offp001</em>
+  <sub>RoUtils by offp001</sub>
 </p>
