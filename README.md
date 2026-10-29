@@ -1,6 +1,6 @@
 # RoUtils (Version 5.2.4)
 <details>
-<summary><b>Click to see RoUtils</b></summary>
+<summary><b>Click to see RoUtils (App Preview)</b></summary>
 
 [![Routils](https://github.com/user-attachments/assets/fb98c4b0-eaf8-4693-9c1f-58401a9eaaa8)](https://discord.com/invite/849VtrYhm2)
 
