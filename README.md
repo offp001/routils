@@ -1,4 +1,4 @@
-# RoUtils (Version 5.2.4)
+# RoUtils ![Latest Release](https://img.shields.io/github/v/release/offp001/routils?label=Latest%20Release) ![GitHub Downloads](https://img.shields.io/github/downloads/offp001/routils/total?label=Downloads&color=brightgreen) ![License](https://img.shields.io/github/license/offp001/routils)
 
 <details>
 <summary><b>RoUtils Application Preview</b></summary>
