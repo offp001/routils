@@ -1,80 +1,115 @@
-# Contributing to RoUtils (Windows)
+# Contributing to RoUtils
 
-Thank you for your interest in contributing to **RoUtils**!
+Thank you for your interest in contributing to **RoUtils**! Contributions, bug reports, suggestions, and improvements are welcome.
 
-- If you liked RoUtils, Please star the the Repository
+<p align="center">
+  <a href="https://github.com/offp001/routils"><img src="https://img.shields.io/badge/GitHub-RoUtils-black?logo=github" alt="GitHub"></a>
+  <a href="https://offp001.github.io/routilsw/"><img src="https://img.shields.io/badge/Website-Visit-blue?logo=googlechrome" alt="Website"></a>
+  <a href="https://discord.com/invite/849VtrYhm2"><img src="https://img.shields.io/badge/Discord-Community-5865F2?logo=discord&logoColor=white" alt="Discord"></a>
+</p>
 
+<p align="center">
+  If you like RoUtils, please consider giving the repository a star.
+</p>
+
+<p align="center">
+  <a href="https://github.com/offp001/routils">GitHub Repository</a> ·
+  <a href="https://github.com/offp001/routils/issues">Issues</a> ·
+  <a href="https://discord.com/invite/849VtrYhm2">Discord Support</a>
+</p>
+
+---
+
+## Table of Contents
+
+- [Requirements](#requirements)
+- [Compilation on Windows](#compilation-on-windows)
+  - [Easy Method](#easy-method)
+  - [Normal Method](#normal-method)
+- [Compilation on Linux](#compilation-on-linux)
+  - [Requirements](#linux-requirements)
+  - [Install Requirements](#install-requirements)
+  - [Easy Method](#linux-easy-method)
+  - [Normal Method](#linux-normal-method)
+- [Reporting Issues](#reporting-issues)
+- [Community and Website](#community-and-website)
 
 ---
 
 ## Requirements
 
-- **Python 3.12**: Python 3.12 or Higher
+- **Python 3.12 or newer** for the Windows build instructions.
+- Git, if you plan to clone the repository.
+- A compatible Python environment and the dependencies listed in `requirements.txt`.
 
-> During installation, make sure to check the box that says **"Add Python to PATH"** so that pip and python commands works.
-
----
-
-## Compilation (Windows)
-
-### Easy Method
-
-You can let the scripts handle everything for you:
-
-1. Double-click on `install_requirements.bat` to automatically install all requirements for RoUtils
-
-2. Once that finishes, double-click on `compile.bat`.
-3. When the compilation is complete, navigate to the newly created `dist` folder.
-4. Open **`RoUtils.exe`** and you're good to go!
+When installing Python on Windows, enable **Add Python to PATH** so that Python and pip can be accessed from the terminal.
 
 ---
 
-### Normal Method
+# Compilation on Windows
 
-If you prefer full control over the process step-by-step:
+## Easy Method
 
-1. Open your terminal (CMD, etc) inside the project folder.
+The included scripts automate the installation and compilation process.
 
-2. Verify that Python 3.12 and pip are ready by checking your environment.
-3. Install the required dependencies by running:
+1. Run `install_requirements.bat` to install the required dependencies.
+2. Once installation finishes, run `compile.bat`.
+3. Wait for the compilation process to complete.
+4. Open the generated `dist` folder.
+5. Run `RoUtils.exe`.
+
+## Normal Method
+
+If you prefer to compile RoUtils manually, follow these steps.
+
+### 1. Open a terminal
+
+Open CMD or PowerShell in the project directory.
+
+### 2. Install dependencies
+
+Verify that Python 3.12 or newer and pip are available, then run:
+
 ```bash
 pip install -r requirements.txt
 ```
 
+### 3. Compile RoUtils
 
-4. Build the executable using PyInstaller with the clean configuration:
+Run the following command:
+
 ```bash
 py -3.12 -m PyInstaller --noconfirm --clean --onefile --windowed --icon=routils.ico --add-data "routils.ico;." --name=RoUtils main.pyw
 ```
 
+### 4. Run the compiled application
 
-5. Wait for the compilation process to finish.
-6. Navigate into the output directory:
-```bash
+After compilation finishes, navigate to the output directory:
+
+```powershell
 cd dist
 ```
 
+Run RoUtils from the terminal:
 
-7. Open the compiled RoUtils directly from the terminal:
-```bash
+```powershell
 .\RoUtils.exe
 ```
 
-
-8. Alternatively, you can open the source folder, go into the `dist` folder, and simply double-click **`RoUtils.exe`** to run it without needing a terminal.
-
+Alternatively, open the `dist` folder in File Explorer and double-click `RoUtils.exe`.
 
 ---
 
+# Compilation on Linux
 
-# Compilation (Linux)
-
-## Requirements
+## Linux Requirements
 
 - Python 3.10 or newer
-- Tkinter and Python virtual environment support
+- Tkinter
+- Python virtual environment support
+- Required packages listed in the installation instructions below
 
-## Install Requirements;
+## Install Requirements
 
 ### Debian and Ubuntu
 
@@ -95,11 +130,11 @@ sudo dnf install python3 python3-tkinter python3-pip
 sudo pacman -S python tk python-pip
 ```
 
-## Start Compiling
+## Linux Easy Method
 
-## Easy Method
+Extract the complete project directory and open a terminal inside it.
 
-Extract the complete project directory, open a terminal in that directory, then run:
+Make the scripts executable and run the installation and compilation scripts:
 
 ```bash
 chmod +x install.sh run.sh compile.sh
@@ -107,72 +142,77 @@ chmod +x install.sh run.sh compile.sh
 ./compile.sh
 ```
 
-After Compiling done, Run this.
+After compilation completes, run the generated executable:
 
 ```bash
 chmod +x dist/routils
 ./dist/routils
-
 ```
 
+## Linux Normal Method
 
-
-## Normal Method
-
-Create and activate the virtual environment:
+### 1. Create a virtual environment
 
 ```bash
 python3 -m venv venv
-
 ```
 
-Activate the created virtual environment:
+### 2. Activate the environment
 
 ```bash
 source venv/bin/activate
-
 ```
 
-Upgrade pip to the latest version (again):
+### 3. Upgrade pip
 
 ```bash
 python -m pip install --upgrade pip
-
 ```
 
-Install all required Python packages and Pyinstaller:
+### 4. Install dependencies
 
 ```bash
 python -m pip install numpy DracoPy Pillow lz4 zstandard sv-ttk ttkbootstrap pypresence psutil pynput cryptography 'mitmproxy>=11,<13' pyinstaller
-
 ```
 
-Run a Python syntax check across the files:
+### 5. Check Python syntax
 
 ```bash
 python -m compileall -q main.pyw sober_support.py ai cache client console emote_manager fflag history home plugins release_notes server_viewer settings subplace themes viewer sober_proxy
-
 ```
 
-Build the executable:
+### 6. Build the executable
 
 ```bash
 python -m PyInstaller --clean --noconfirm --onefile --windowed --name routils --paths "$PWD" --add-data "$PWD/routils.ico:." --add-data "$PWD/routils_rpc.png:." --collect-all sv_ttk --collect-all ttkbootstrap --hidden-import pynput.keyboard._xorg --hidden-import pynput.mouse._xorg main.pyw
-
 ```
 
-Grant execution permission:
+### 7. Grant execution permission
 
 ```bash
 chmod +x dist/routils
-
 ```
 
-Run it:
+### 8. Run RoUtils
 
 ```bash
 ./dist/routils
-
 ```
 
-*RoUtils by offp001*
+---
+
+## Reporting Issues
+
+If you encounter a bug, have a suggestion, or want to request a feature, use the GitHub issue tracker.
+
+- [Report a Bug](https://github.com/offp001/routils/issues/new)
+- [Request a Feature](https://github.com/offp001/routils/issues/new)
+- [View Existing Issues](https://github.com/offp001/routils/issues)
+
+When reporting a bug, include relevant error messages, steps to reproduce the issue, and details about your operating system and Python version when applicable.
+
+---
+
+<p align="center">
+  <sub>RoUtils by offp001</sub>
+</p>
