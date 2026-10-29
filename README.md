@@ -1,26 +1,60 @@
 # RoUtils (Version 5.2.4)
-<img width="1919" height="1079" alt="routils" src="https://github.com/user-attachments/assets/fb98c4b0-eaf8-4693-9c1f-58401a9eaaa8" />
+<details>
+<summary><b>Click to see RoUtils</b></summary>
+
+[![Routils](https://github.com/user-attachments/assets/fb98c4b0-eaf8-4693-9c1f-58401a9eaaa8)](https://discord.com/invite/849VtrYhm2)
+
+</details>
 
 - Join Discord Server if u need help!
 
-[RoUtils Discord](https://discord.com/invite/849VtrYhm2)
+
+[![RoUtils Discord Server](https://github.com/user-attachments/assets/26837ba0-f091-4855-b310-62efc29d3666)](https://discord.com/invite/849VtrYhm2)
+
+## Sections
+- [Cache Editor](#cache-editor)
+- [FFlag Manager](#fflag-manager)
+- [Emote Manager](#emote-manager)
+- [RoUtils AI](#routils-ai)
+- [Modifications](#modifications)
+- [CConfigs (.db configs)](#cconfigs-db-configs)
+- [Subplace Joiner](#subplace-joiner)
+- [Server Viewer](#server-viewer)
+- [History](#history)
+- [Client](#client)
+- [Plugins](#plugins)
+- [Windows / Startup](#windows--startup)
+- [Installation](#installation)
+- [Credits](#credits)
 
 ## Features
 
 ### Cache Editor
 
-* **3D preview** – View cached Roblox meshes and models directly inside RoUtils
-* **Image preview** – Preview cached PNG/image assets
-* **Audio preview** – Preview cached OGG/MP3 assets
-* **Dump** – Dump Roblox cache files into organized folders
-* **Export** – Export individual cache files in different formats
-* `Full Blob`
-* `RBXM`
-* `Image`
-* `Video`
-* `OBJ`
-* `Copy / Save Hash`
-* **Delete Cache Type** – Delete a selected cache category
+- **3D preview** – View cached Roblox meshes and models directly inside RoUtils
+
+- **Image preview** – Preview cached PNG/image assets
+
+- **Audio preview** – Preview cached OGG/MP3 assets
+
+- **Dump** – Dump Roblox cache files into organized folders
+
+- **Export** – Export individual cache files in different formats
+
+- `Full Blob`
+
+- `RBXM`
+
+- `Image`
+
+- `Video`
+
+- `OBJ`
+
+- `Copy / Save Hash`
+
+- **Delete Cache Type** – Delete a selected cache category
+
 
 #### How does Cache Editor work?
 
@@ -30,15 +64,24 @@ When you open the **Cache** tab, RoUtils scans the Roblox cache database and ide
 
 Cached files are separated into categories such as:
 
-* Mesh
-* Model / RBXM
-* Animation
-* Image
-* Audio
-* Video
-* Font
-* Text
-* Unknown
+- Mesh
+
+- Model / RBXM
+
+- Animation
+
+- Image
+
+- Audio
+
+- Video
+
+- Font
+
+- Text
+
+- Unknown
+
 
 You can select a cache entry to inspect it. Supported assets can be previewed directly in RoUtils, including 3D models, images and audio files.
 
@@ -46,10 +89,14 @@ You can select a cache entry to inspect it. Supported assets can be previewed di
 
 The **Export** options allow you to export a selected cache entry in the format you need:
 
-* **Full Blob** – Export the complete cache blob
-* **RBXM** – Export compatible Roblox model data
-* **Image** – Export image assets
-* **Copy / Save Hash** – Copy or save the cache hash for later use
+- **Full Blob** – Export the complete cache blob
+
+- **RBXM** – Export compatible Roblox model data
+
+- **Image** – Export image assets
+
+- **Copy / Save Hash** – Copy or save the cache hash for later use
+
 
 The **Delete Cache Type** option allows you to remove an entire category of cached data. For example, selecting `Image` will remove cached image data without requiring you to manually find each individual file.
 
@@ -59,12 +106,18 @@ RoUtils performs cache operations without intentionally blocking the main interf
 
 ### FFlag Manager
 
-* **FFlag Injector** – Apply FFlags into Roblox
-* **Saved JSONs** – Save and load FFlag JSON configurations
-* **Hotkeys** – Apply/Change Values using Hotkeys
-* **Presets** – Load FFlag presets from the RoUtils GitHub
-* **JSON Editor** – Edit FFlag JSON files directly
-* **Default FFlags/Offsets/Values ** – Open the list of FFlags/Offsets/Values
+- **FFlag Injector** – Apply FFlags into Roblox
+
+- **Saved JSONs** – Save and load FFlag JSON configurations
+
+- **Hotkeys** – Apply/Change Values using Hotkeys
+
+- **Presets** – Load FFlag presets from the RoUtils GitHub
+
+- **JSON Editor** – Edit FFlag JSON files directly
+
+- **Default FFlags/Offsets/Values ** – Open the list of FFlags/Offsets/Values
+
 
 #### How does FFlag Manager work?
 
@@ -84,6 +137,7 @@ Example:
 {
     "FFlagExample": "True"
 }
+
 ```
 
 RoUtils also creates a `jsons` folder where saved `.json` configurations can be stored. These files appear inside the FFlag Manager, allowing you to select a configuration and apply it later without having to paste the JSON again.
@@ -101,13 +155,13 @@ RoUtils also creates a `jsons` folder where saved `.json` configurations can be 
 ---
 
 ### Emote Manager
-* ** If you're lazy to type /e * this is for you, it types /e " for lazy people
-* ** Emote Controls: You dont need to set a bind to every emote. You can change the emote with hotkeys (you can set it yourself), and press to hotkey to use it!
-* ** Image for Emote Controls;
-<img width="182" height="80" alt="ec" src="https://github.com/user-attachments/assets/048382d0-e62e-4a5b-9103-a009857701c6" />
 
+*  If you're lazy to type /e * this is for you, it types /e " for lazy people
+*  Emote Controls: You dont need to set a bind to every emote. You can change the emote with hotkeys (you can set it yourself), and press to hotkey to use it!
+*  Image for Emote Controls;
 
 ### RoUtils AI
+
 * **RoUtils AI Chat** – Ask questions directly inside RoUtils (Add Gemini API Key on settings to use) (Powered by Gemini AI)
 
 ### Modifications
@@ -120,7 +174,6 @@ RoUtils also creates a `jsons` folder where saved `.json` configurations can be 
 * **Mesh to OBJ Converter** – Convert meshes to OBJ format
 * **RBXM → RBXH Blob** – Convert RBXM to RBXH v2 cache blobs
 * **R6 to R15 Animations** – Convert R6 animations to R15 animations
-
 
 ### CConfigs (.db configs)
 
@@ -166,14 +219,15 @@ After generating the join link, **Copy Deep Link** can be used to copy the Roblo
 ### Server Viewer
 
 * **See server information without joining with deeplink**
+* Place ID
+* Job ID
+* Players
+* Max Capacity
+* Ping
+* Server FPS
+* Location
 
-  * Place ID
-  * Job ID
-  * Players
-  * Max Capacity
-  * Ping
-  * Server FPS
-  * Location
+
 
 #### How does Server Viewer work?
 
@@ -195,6 +249,7 @@ Place ID:
 
 Job ID:
 xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+
 ```
 
 There can be many servers running the same Place ID at the same time. Each server has its own Job ID.
@@ -204,6 +259,7 @@ This means:
 ```text
 Place ID = Which game/place?
 Job ID   = Which server?
+
 ```
 
 After providing the required information, Server Viewer can display available server information such as:
@@ -232,10 +288,11 @@ The purpose of Server Viewer is to let you inspect a server before deciding whet
 * **FPS Hotkeys** – Change Roblox's FPS limit using Hotkeys
 
 ### Plugins
+
 * **Import Custom Plugins** - You can import custom plugins to use more things
 * **Plugin Guide and example plugin** ;
-* [Example Plugin](https://cdn.discordapp.com/attachments/1549063956901924895/1549063959598858360/example.py?ex=6aa955bc&is=6aa8043c&hm=bdc1fd10a3ae58797f59a3b130e9a0a0015edc0aa16ee2532e6fa5b43c462fe8&)
-* [Plugin Guide](https://cdn.discordapp.com/attachments/1549063956901924895/1549063958110015669/Plugin_Guide_Python.txt?ex=6aa955bb&is=6aa8043b&hm=3cf9c3ae0541237ffa2affacdde12e4892f5873911a780457a3ae77a43f19533&)
+* [Example Plugin](https://www.google.com/search?q=https://cdn.discordapp.com/attachments/1549063956901924895/1549063959598858360/example.py%3Fex%3D6aa955bc%26is%3D6aa8043c%26hm%3Dbdc1fd10a3ae58797f59a3b130e9a0a0015edc0aa16ee2532e6fa5b43c462fe8%26)
+* [Plugin Guide](https://www.google.com/search?q=https://cdn.discordapp.com/attachments/1549063956901924895/1549063958110015669/Plugin_Guide_Python.txt%3Fex%3D6aa955bb%26is%3D6aa8043b%26hm%3D3cf9c3ae0541237ffa2affacdde12e4892f5873911a780457a3ae77a43f19533%26)
 
 ### Windows / Startup
 
@@ -253,8 +310,7 @@ The purpose of Server Viewer is to let you inspect a server before deciding whet
 * `offp001` (If you encounter any issues, feel free to contact me on Discord👍)
 * `Discord` Please join to my discord server if you want to support me✅
 
-[RoUtils Discord](https://discord.com/invite/849VtrYhm2)
+[![RoUtils Discord Server](https://github.com/user-attachments/assets/26837ba0-f091-4855-b310-62efc29d3666)](https://discord.com/invite/849VtrYhm2)
 
-## Discord Rich Presence
 
-RoUtils can publish the current Roblox status and selected RoUtils tab to the Discord desktop client. Rich Presence is enabled by default and can be toggled in Settings. The bundled `routils_rpc.png` image can be uploaded under the asset key `routils` in the Discord Developer Portal's Rich Presence Art Assets section to use the RoUtils icon and `RoUtils` hover text.
+*RoUtils by offp001*
