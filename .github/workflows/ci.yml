@@ -24,13 +24,16 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install pytest
+          python -m pip install pytest ruff
           if [ -f requirements.txt ]; then
             python -m pip install -r requirements.txt
           fi
           if [ -f routils_linux/requirements.txt ]; then
             python -m pip install -r routils_linux/requirements.txt
           fi
+
+      - name: Run Ruff
+        run: ruff check routils_windows routils_linux tests
 
       - name: Check Windows source syntax
         run: python -m compileall -q routils_windows
@@ -39,4 +42,6 @@ jobs:
         run: python -m compileall -q routils_linux
 
       - name: Run repository tests
-        run: python -m pytest tests routils_linux/tests
+        env:
+          PYTHONPATH: routils_linux
+        run: python -m pytest tests routils_linux/tests -q

@@ -791,7 +791,8 @@ class FFlagMixin:
                         ttk.Label(inner, text=UI_TEXT['s15'], foreground='#9aa0a6').pack(pady=20)
                 self.after(0, done)
             except Exception as e:
-                self.after(0, lambda: ttk.Label(inner, text=UI_TEXT['t15'].format(p0=e), foreground='#ff6b6b').pack(pady=20))
+                error_message = str(e)
+                self.after(0, lambda error=error_message: ttk.Label(inner, text=UI_TEXT['t15'].format(p0=error), foreground='#ff6b6b').pack(pady=20))
         search.trace_add('write', render)
         ttk.Label(inner, text=UI_TEXT['u15'], foreground='#9aa0a6').pack(pady=20)
         threading.Thread(target=worker, daemon=True).start()

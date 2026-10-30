@@ -646,7 +646,6 @@ class EmoteManagerMixin:
         thread_id = 0
         old_layout = None
         english_layout = None
-        layout_switched = False
         pressed_keys = set()
         def status(message, color='#9aa0a6'):
             try:
@@ -791,7 +790,6 @@ class EmoteManagerMixin:
                 tap_vk(vk, bool(modifiers & 1))
             status(f'{key} → {dance}: switching to English keyboard...', '#f2c94c')
             switch_layout(english_layout)
-            layout_switched = True
             command_name = str(dance).strip()
             if command_name.lower().startswith('/e '):
                 command_name = command_name[3:].strip()

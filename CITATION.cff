@@ -1,0 +1,8 @@
+cff-version: 1.2.0
+message: "If you use RoUtils, please cite it using this metadata."
+title: "RoUtils"
+type: software
+authors:
+  - name: "offp001"
+repository-code: "https://github.com/offp001/routils"
+license: "GPL-3.0-only"

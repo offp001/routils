@@ -1,11 +1,17 @@
 # Security Policy
 
-## Reporting a Vulnerability
+## Supported versions
 
-If you find a security issue in RoUtils, please report it privately to the project maintainer through one of the contact methods listed on the official GitHub profile or repository.
+Security fixes are provided for the current development branch. Older releases may not receive security updates.
 
-Please include a short description of the issue and how it can be reproduced. Do not share passwords, API keys, or private user data in public issues.
+## Reporting a vulnerability
 
-## Safe Testing
+Please do not disclose security vulnerabilities through public issues or pull requests.
 
-Only test systems you own or have permission to use. Respect other people's privacy and data.
+Use GitHub's private vulnerability reporting feature:
+
+https://github.com/offp001/routils/security/advisories/new
+
+Include the affected version or commit, the impact, and clear reproduction details. Avoid including real credentials, personal data, or other secrets.
+
+Reports will be reviewed privately. Please allow maintainers reasonable time to investigate and prepare a fix before publicly disclosing the issue.

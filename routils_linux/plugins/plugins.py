@@ -57,7 +57,7 @@ class PluginsMixin:
             return
         try:
             self._plugin_forget_tabs(name)
-            old_module = self._plugin_modules.pop(name, None)
+            self._plugin_modules.pop(name, None)
             self._plugin_cleanup.pop(name, None)
             before_tabs = set(self.nb.tabs())
             module = self._plugin_load_python(path)

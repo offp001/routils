@@ -177,7 +177,6 @@ class SettingsMixin:
                     include_cconfigs = bool(self.include_cconfigs.get())
                     include_dumps = bool(self.include_cache_dumps.get())
                     for root, dirs, files in os.walk(DATA_DIR):
-                        relative_root = os.path.relpath(root, DATA_DIR).replace('\\', '/')
                         dirs[:] = [name for name in dirs if name != 'errors' and (name != 'cconfigs' or include_cconfigs) and (name != 'Dump' or include_dumps)]
                         for filename in files:
                             full = os.path.join(root, filename)

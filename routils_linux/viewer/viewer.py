@@ -198,7 +198,7 @@ class ViewerMixin:
         try:
             panes = self.vpaned.panes()
             tf = str(self.table_frame)
-            df = str(self.details)
+
             if not panes or panes[0] != tf:
                 self.vpaned.forget(self.table_frame)
                 self.vpaned.forget(self.details)

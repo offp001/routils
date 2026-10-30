@@ -15,7 +15,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
 
-from sober_support import sober_data_root, sober_process_pids, sober_flatpak_running
+from sober_support import sober_data_root, sober_flatpak_running
 
 SOBER_APP_ID = "org.vinegarhq.Sober"
 PROXY_HOST = "127.0.0.1"

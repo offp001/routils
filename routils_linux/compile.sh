@@ -16,7 +16,6 @@ if [[ ! -f "$ROOT/main.pyw" || ! -f "$ROOT/routils_rpc.png" || ! -f "$ROOT/routi
 fi
 
 "$PYTHON" -m compileall -q main.pyw sober_support.py ai cache client console emote_manager fflag history home plugins release_notes server_viewer settings subplace themes viewer sober_proxy
-"$PYTHON" -m pip install --upgrade pyinstaller
 rm -rf "$ROOT/build" "$ROOT/dist" "$ROOT/routils.spec"
 "$PYTHON" -m PyInstaller --clean --noconfirm --onefile --windowed --name routils --paths "$ROOT" --add-data "$ROOT/routils.ico:." --add-data "$ROOT/routils_rpc.png:." --collect-all sv_ttk --collect-all ttkbootstrap --hidden-import pynput.keyboard._xorg --hidden-import pynput.mouse._xorg main.pyw
 
@@ -26,4 +25,4 @@ if [[ ! -x "$ROOT/dist/routils" ]]; then
 fi
 
 chmod +x "$ROOT/dist/routils"
-printf '%s\n' 'Build completed. Start the compiled application with ./run.sh or ./dist/routils.'
+printf '%s\n' 'Build completed. Start the compiled executable with ./dist/routils.'

@@ -42,3 +42,28 @@ Thumbs.db
 # Local test and tool output
 .pyre/
 .hypothesis/
+
+# Additional Python tooling
+.pyright/
+.pytype/
+.tox/
+.nox/
+.pdm-build/
+pip-wheel-metadata/
+.python-version.local
+
+# Benchmark and security reports
+.benchmarks/
+.bandit/
+.coverage.*
+coverage.xml
+bandit-report.*
+radon-report.*
+sbom.*
+*.cdx.json
+*.spdx.json
+THIRD-PARTY-LICENSES*
+licenses.json
+
+# Generated package metadata
+*.spec

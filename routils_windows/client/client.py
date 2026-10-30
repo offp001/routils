@@ -212,9 +212,6 @@ class ClientMixin:
                     if self._client_cpu_prev and self._client_system_prev:
                         dp = proc - self._client_cpu_prev
                         ds_total = system[0] - self._client_system_prev[0]
-                        prev_busy = self._client_system_prev[0] - self._client_system_prev[1]
-                        curr_busy = system[0] - system[1]
-                        busy = curr_busy - prev_busy
                         if ds_total > 0:
                             cpu_pct = dp / ds_total * 100.0
                             self.client_cpu_var.set(f'{max(0.0, min(100.0, cpu_pct)):.1f}%')

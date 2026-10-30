@@ -151,8 +151,8 @@ class HistoryMixin:
             ttk.Label(row, text=pid).grid(row=0, column=1, sticky='w', padx=6)
             ttk.Label(row, text=jid).grid(row=0, column=2, sticky='w', padx=6)
             ttk.Label(row, text=dt).grid(row=0, column=3, sticky='w', padx=6)
-            ttk.Button(row, text=UI_TEXT['g12'], command=lambda l=link: self._history_copy(l)).grid(row=0, column=4, padx=4)
-            ttk.Button(row, text=UI_TEXT['h12'], command=lambda l=link: self._history_join(l)).grid(row=0, column=5, padx=(2, 6))
+            ttk.Button(row, text=UI_TEXT['g12'], command=lambda link=link: self._history_copy(link)).grid(row=0, column=4, padx=4)
+            ttk.Button(row, text=UI_TEXT['h12'], command=lambda link=link: self._history_join(link)).grid(row=0, column=5, padx=(2, 6))
     def _history_copy(self, link):
         try:
             self.clipboard_clear()

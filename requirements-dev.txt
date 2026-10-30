@@ -1,0 +1,7 @@
+pytest>=8.0
+ruff>=0.17.3
+mypy>=1.10
+bandit>=1.7
+radon>=6.0
+pre-commit>=3.7
+pip-audit>=2.7
