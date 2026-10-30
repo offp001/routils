@@ -1,4 +1,4 @@
-psutil>=5.9
-pynput>=1.7.7
-cryptography>=42.0
-mitmproxy>=11.0,<13
+psutil>=7.2.2
+pynput>=1.8.2
+cryptography>=50.0.2
+mitmproxy>=12.3.1,<13
