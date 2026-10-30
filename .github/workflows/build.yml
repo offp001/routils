@@ -1,7 +1,8 @@
 
-name: Build RoUtils
+name: Build All
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - "v*"
