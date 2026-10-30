@@ -73,6 +73,13 @@ Visit the [RoUtils Website](https://offp001.github.io/routilsw/).
 
 ### Cache Editor
 
+<details>
+<summary><strong>Cache Editor Preview</strong></summary>
+    
+[![RoUtils](https://github.com/user-attachments/assets/9d820271-652a-4414-885f-7b7b89e8a0d3)](https://offp001.github.io/routilsw/)
+
+</details>
+
 - **3D Preview** — View cached Roblox meshes and models directly within RoUtils.
 - **Image Preview** — Preview cached PNG and other image assets.
 - **Audio Preview** — Preview cached OGG and MP3 files.
@@ -123,6 +130,13 @@ RoUtils is designed to keep cache operations from unnecessarily blocking the mai
 
 ### FFlag Manager
 
+<details>
+<summary><strong>FFlag Manager Preview</strong></summary>
+    
+[![RoUtils](https://github.com/user-attachments/assets/084c63b5-f308-43ec-8ebe-4fd638305b39)](https://offp001.github.io/routilsw/)
+
+</details>
+
 - **FFlag Injector** — Apply FFlags to Roblox.
 - **Saved JSONs** — Save and load FFlag JSON configurations.
 - **Hotkeys** — Apply or change supported values using keyboard shortcuts.
@@ -166,10 +180,24 @@ RoUtils provides a `jsons` folder for storing saved `.json` configurations. Save
 
 ### Emote Manager
 
+<details>
+<summary><strong>Emote Manager Preview</strong></summary>
+    
+[![RoUtils](https://github.com/user-attachments/assets/11a1c4cf-4f8c-4bf5-9f39-264f5bcedcf6)](https://offp001.github.io/routilsw/)
+
+</details>
+
 - **Emote Commands** — Enter `/e` emote commands more conveniently.
 - **Emote Controls** — Switch between emotes using configurable hotkeys without assigning a separate binding to every emote.
 
 ### RoUtils AI
+
+<details>
+<summary><strong>AI Preview</strong></summary>
+    
+[![RoUtils](https://github.com/user-attachments/assets/60e6680c-13f6-41b7-940e-74bc39e7d71e)](https://offp001.github.io/routilsw/)
+
+</details>
 
 - **RoUtils AI Chat** — Ask questions directly within RoUtils. A Gemini API key must be configured in Settings. Powered by Google Gemini.
 
