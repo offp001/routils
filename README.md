@@ -8,7 +8,7 @@
 <p align="center">Everything You Need, in One Place.</p>
 
 <p align="center">
-  <img src="https://img.shields.io/github/downloads/offp001/routils/total?label=Downloads&color=brightgreen" alt="Downloads">
+  <img src="https://img.shields.io/badge/Downloads-1873-brightgreen" alt="Downloads">
   <img src="https://img.shields.io/github/license/offp001/routils" alt="RoUtils License">
 </p>
 
