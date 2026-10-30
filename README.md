@@ -32,7 +32,7 @@
 </p>
 
 <p align="center">
-  <strong>Contact:</strong> <a href="mailto:offp001@tuta.io">offp001@tuta.io</a>
+  <strong>Contact:</strong> <a href="mailto:offp01@proton.me">ooffp01@proton.me</a>
 </p>
 
 ---
@@ -305,7 +305,7 @@ Found a bug or have a feature request?
 
 Feel free to contact me by email.
 
-**Email:** [offp001@tuta.io](mailto:offp001@tuta.io)
+**Email:** [offp01@proton.me](mailto:offp01@proton.me)
 
 <p align="center">
   <a href="https://discord.com/invite/849VtrYhm2"><img src="https://github.com/user-attachments/assets/26837ba0-f091-4855-b310-62efc29d3666" alt="RoUtils Discord Server"></a>
