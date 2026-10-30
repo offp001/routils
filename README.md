@@ -37,12 +37,7 @@
 
 ---
 
-<details>
-<summary><strong>RoUtils Application Preview</strong></summary>
-
-[![RoUtils](https://github.com/user-attachments/assets/fb98c4b0-eaf8-4693-9c1f-58401a9eaaa8)](https://discord.com/invite/849VtrYhm2)
-
-</details>
+[![RoUtils](https://github.com/user-attachments/assets/e3ed7bc1-a39f-464c-9696-db9b132c294c)](https://offp001.github.io/routilsw/)
 
 ## Discord Community and Support
 
