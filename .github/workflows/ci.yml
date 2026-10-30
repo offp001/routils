@@ -21,11 +21,22 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install test runner
-        run: python -m pip install --upgrade pip pytest
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest
+          if [ -f requirements.txt ]; then
+            python -m pip install -r requirements.txt
+          fi
+          if [ -f routils_linux/requirements.txt ]; then
+            python -m pip install -r routils_linux/requirements.txt
+          fi
 
-      - name: Check main module syntax
-        run: python -m compileall -q main.pyw
+      - name: Check Windows source syntax
+        run: python -m compileall -q routils_windows
+
+      - name: Check Linux source syntax
+        run: python -m compileall -q routils_linux
 
       - name: Run repository tests
-        run: python -m pytest
+        run: python -m pytest tests routils_linux/tests

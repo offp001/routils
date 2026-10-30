@@ -25,7 +25,9 @@ jobs:
         shell: pwsh
         run: |
           python -m pip install --upgrade pip
-          if (Test-Path "requirements.txt") {
+          if (Test-Path "routils_windows/requirements.txt") {
+            python -m pip install -r routils_windows/requirements.txt
+          } elseif (Test-Path "requirements.txt") {
             python -m pip install -r requirements.txt
           }
           python -m pip install pyinstaller
@@ -33,8 +35,9 @@ jobs:
       - name: Build Windows executable
         shell: pwsh
         run: |
+          Set-Location routils_windows
           if (!(Test-Path "main.pyw")) {
-            throw "main.pyw not found"
+            throw "routils_windows/main.pyw not found"
           }
           $args = @("--noconfirm", "--clean", "--onefile", "--windowed", "--name", "RoUtils")
           if (Test-Path "routils.ico") {
@@ -45,6 +48,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) {
             exit $LASTEXITCODE
           }
+          New-Item -ItemType Directory -Force -Path ../dist | Out-Null
+          Copy-Item dist/RoUtils.exe ../dist/RoUtils.exe
 
       - uses: actions/upload-artifact@v4
         with:
@@ -69,24 +74,15 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          if [ -f routils_src_linux/requirements.txt ]; then
-            python -m pip install -r routils_src_linux/requirements.txt
-          elif [ -f requirements-linux.txt ]; then
-            python -m pip install -r requirements-linux.txt
-          elif [ -f requirements.txt ]; then
-            python -m pip install -r requirements.txt
-          fi
+          python -m pip install -r routils_linux/requirements.txt
           python -m pip install pyinstaller
 
       - name: Build Linux executable
         shell: bash
         run: |
-          if [ ! -d routils_src_linux ]; then
-            echo "routils_src_linux directory not found"
-            exit 1
-          fi
+          cd routils_linux
           ENTRY=""
-          for file in routils_src_linux/main.py routils_src_linux/main.pyw routils_src_linux/routils.py routils_src_linux/app.py routils_src_linux/__main__.py; do
+          for file in main.py main.pyw routils.py app.py __main__.py; do
             if [ -f "$file" ]; then
               ENTRY="$file"
               break
@@ -94,10 +90,13 @@ jobs:
           done
           if [ -z "$ENTRY" ]; then
             echo "Linux entry point not found"
-            find routils_src_linux -maxdepth 2 -type f
+            find . -maxdepth 2 -type f
             exit 1
           fi
-          python -m PyInstaller --noconfirm --clean --onefile --name RoUtils-Linux --paths routils_src_linux "$ENTRY"
+          python -m PyInstaller --noconfirm --clean --onefile --name RoUtils-Linux --paths . "$ENTRY"
+          mkdir -p ../dist
+          cp dist/RoUtils-Linux ../dist/RoUtils-Linux
+          chmod +x ../dist/RoUtils-Linux
 
       - uses: actions/upload-artifact@v4
         with:
