@@ -1,0 +1,9 @@
+numpy>=1.26
+Pillow>=10.0
+lz4>=4.3
+DracoPy>=1.0
+zstandard>=0.22
+sv-ttk>=2.6
+ttkbootstrap>=1.10
+pypresence>=4.6.2
+pyinstaller>=6.0

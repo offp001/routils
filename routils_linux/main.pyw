@@ -1066,7 +1066,7 @@ class _RoUtilsResponseCacheCapture:
 SPLASH_DIR = os.path.join(DATA_DIR, 'src')
 SPLASH_IMAGE_PATH = os.path.join(SPLASH_DIR, 'routils.png')
 SPLASH_IMAGE_URL = 'https://raw.githubusercontent.com/offp001/routils/refs/heads/main/src/routils.png'
-APP_VERSION = '5.2.4'
+APP_VERSION = '5.2.5'
 RELEASES_URL = 'https://github.com/offp001/routils/releases'
 RELEASES_API_URL = 'https://api.github.com/repos/offp001/routils/releases?per_page=30'
 def _routils_request(url, timeout=10, headers=None, data=None, method=None, cache_bypass=False):
@@ -8216,7 +8216,7 @@ class _RoUtilsDiscordRPC:
             if activity != last_activity or now - last_update >= DISCORD_RPC_INTERVAL:
                 details, state = activity
                 try:
-                    presence.update(name='RoUtils', details=details, state=state, large_image='routils', large_text='RoUtils', buttons=[{'label': 'RoUtils Github', 'url': 'https://github.com/offp001/routils'}])
+                    presence.update(name='RoUtils', details=details, state=state, large_image='routils', large_text='RoUtils', buttons=[{'label': 'RoUtils Github', 'url': 'https://github.com/offp001/routils'}, {'label': 'RoUtils Website', 'url': 'https://offp001.github.io/routilsw/'}])
                 except Exception:
                     try:
                         presence.update(name='RoUtils', details=details, state=state)
@@ -8567,12 +8567,12 @@ class App(AIMixin, CacheMixin, ClientMixin, ConsoleMixin, EmoteManagerMixin, FFl
         sys.stdout = _ConsoleStream(self, self._console_original_stdout)
         self.settings = load_settings()
         self.settings.pop('multi_instance_enabled', None)
+        self.settings.pop('discord_rpc_enabled', None)
         configured_discord_id = str(self.settings.get('discord_application_id') or DISCORD_APPLICATION_ID).strip()
         if not configured_discord_id.isdigit():
             configured_discord_id = DISCORD_APPLICATION_ID
         self.settings['discord_application_id'] = configured_discord_id
         self.discord_application_id_var = tk.StringVar(value=configured_discord_id)
-        self.discord_rpc_enabled = tk.BooleanVar(value=bool(self.settings.get('discord_rpc_enabled', True)))
         self.discord_rpc_status_var = tk.StringVar(value='Starting Discord RPC...')
         _saved_roblox = str(self.settings.get('roblox_path', '') or '').strip()
         if _saved_roblox and os.path.isdir(_saved_roblox):
@@ -8843,7 +8843,10 @@ class App(AIMixin, CacheMixin, ClientMixin, ConsoleMixin, EmoteManagerMixin, FFl
         self.launch_on_tray = tk.BooleanVar(value=self.settings.get('launch_on_tray', False))
         self.hide_to_tray_on_close = tk.BooleanVar(value=self.settings.get('hide_to_tray_on_close', False))
         self.after_idle(self._update_kill_routils_visibility)
-        self.auto_update = tk.BooleanVar(value=self.settings.get('auto_update', False))
+        if not self.settings.get('auto_update_v525_migrated', False):
+            self.settings['auto_update'] = True
+            self.settings['auto_update_v525_migrated'] = True
+        self.auto_update = tk.BooleanVar(value=bool(self.settings.get('auto_update', True)))
         self._latest_version = None
         self._auto_update_in_progress = False
         self._outdated_dialog_shown = False
@@ -8915,7 +8918,7 @@ class App(AIMixin, CacheMixin, ClientMixin, ConsoleMixin, EmoteManagerMixin, FFl
         self.after(15000, self._fflag_auto_apply_tick)
         self.after(15000, self._anti_afk_tick)
         self._discord_rpc = _RoUtilsDiscordRPC(self.discord_application_id_var.get(), self._discord_rpc_status_changed)
-        self._discord_rpc.set_enabled(self.discord_rpc_enabled.get())
+        self._discord_rpc.set_enabled(True)
         self._discord_rpc.start()
         self.after(150, self._refresh_discord_rpc_activity)
         self.after(int(DISCORD_RPC_INTERVAL * 1000), self._discord_rpc_poll_tick)
@@ -10960,26 +10963,11 @@ class App(AIMixin, CacheMixin, ClientMixin, ConsoleMixin, EmoteManagerMixin, FFl
             rpc.set_client_id(application_id)
             self._discord_rpc_status_changed('Reconnecting Discord RPC...')
             self._refresh_discord_rpc_activity()
-    def _toggle_discord_rpc(self):
-        enabled = bool(self.discord_rpc_enabled.get())
-        self.settings['discord_rpc_enabled'] = enabled
-        self._save_settings()
-        rpc = getattr(self, '_discord_rpc', None)
-        if rpc is not None:
-            rpc.set_enabled(enabled)
-        if enabled:
-            self._refresh_discord_rpc_activity()
     def _refresh_discord_rpc_activity(self):
         rpc = getattr(self, '_discord_rpc', None)
         if rpc is None:
             return
-        try:
-            enabled = bool(self.discord_rpc_enabled.get())
-        except Exception:
-            enabled = bool(self.settings.get('discord_rpc_enabled', True))
-        rpc.set_enabled(enabled)
-        if not enabled:
-            return
+        rpc.set_enabled(True)
         tab_name = 'Home'
         try:
             selected = self.nb.select()
@@ -11011,9 +10999,10 @@ class App(AIMixin, CacheMixin, ClientMixin, ConsoleMixin, EmoteManagerMixin, FFl
             return
         data = dict(self.settings)
         data.pop('multi_instance_enabled', None)
+        data.pop('discord_rpc_enabled', None)
         data['emote_hotkeys_enabled'] = bool(getattr(self, '_emote_hotkeys_enabled', self.settings.get('emote_hotkeys_enabled', True)))
         data['emote_hotkeys_toggle_key'] = str(getattr(self, '_emote_hotkeys_toggle_key', self.settings.get('emote_hotkeys_toggle_key', '')) or '').upper()
-        data.update({'autoscroll': self.autoscroll.get(), 'hide_tickets': self.hide_tickets.get(), 'stay_on_top': self.stay_on_top.get(), 'show_lines': self.show_lines.get(), 'preview_optimize_vertices': self.viewport_3d.reduce_polys.get() if hasattr(self, 'viewport_3d') else self.settings.get('preview_optimize_vertices', True), 'streamer_mode': self.streamer_mode.get() if hasattr(self, 'streamer_mode') else self.settings.get('streamer_mode', False), 'fps_limit': self.fps_limit.get() if hasattr(self, 'fps_limit') else self.settings.get('fps_limit', 0), 'autostart_watch': self.autostart_watch.get() if hasattr(self, 'autostart_watch') else self.settings.get('autostart_watch', False), 'max_rows': self.max_rows.get() if hasattr(self, 'max_rows') else self.settings.get('max_rows', 0), 'type_filter': self.type_filter.get(), 'columns': {c: var.get() for c, var in getattr(self, '_col_vars', {}).items()}, 'viewer_collapsed': self.viewer_collapsed, 'theme': self.theme_var.get() if hasattr(self, 'theme_var') else self.settings.get('theme', DEFAULT_THEME), 'fflag_hotkeys': self.fflag_hotkeys, 'fps_hotkeys': self.fps_hotkeys, 'fps_hotkey_slots': self.fps_hotkey_slots, 'fflag_auto_apply': self.fflag_auto_apply.get() if hasattr(self, 'fflag_auto_apply') else self.settings.get('fflag_auto_apply', False), 'launch_on_tray': self.launch_on_tray.get() if hasattr(self, 'launch_on_tray') else self.settings.get('launch_on_tray', False), 'launch_on_startup': self.launch_on_startup.get() if hasattr(self, 'launch_on_startup') else self.settings.get('launch_on_startup', False), 'hide_to_tray_on_close': self.hide_to_tray_on_close.get() if hasattr(self, 'hide_to_tray_on_close') else self.settings.get('hide_to_tray_on_close', False), 'auto_update': self.auto_update.get() if hasattr(self, 'auto_update') else self.settings.get('auto_update', False), 'discord_rpc_enabled': self.discord_rpc_enabled.get() if hasattr(self, 'discord_rpc_enabled') else self.settings.get('discord_rpc_enabled', True), 'dpi_percent': int(self.dpi_percent.get()) if hasattr(self, 'dpi_percent') else int(getattr(self, '_dpi_scale', 1.0) * 100), 'plugin_enabled': getattr(self, '_plugin_enabled', self.settings.get('plugin_enabled', {})), 'emote_nav_binds': dict(getattr(self, '_emote_nav_binds', self.settings.get('emote_nav_binds', {}))), 'emote_hud_enabled': False, 'hpaned_sash_v2': self.hpaned.sashpos(0) if hasattr(self, 'hpaned') and self.hpaned.winfo_width() > 0 and self.hpaned.sashpos(0) > 0 else self.settings.get('hpaned_sash_v2', None), 'roblox_path': self.settings.get('roblox_path', ''), 'roblox_username': self.settings.get('roblox_username', ''), 'roblox_user_id': self.settings.get('roblox_user_id', ''), 'gemini_api_key': self.gemini_api_key.get().strip() if hasattr(self, 'gemini_api_key') else self.settings.get('gemini_api_key', ''), 'custom_theme': self.settings.get('custom_theme', {}), 'db_path': getattr(self, 'db_path', self.settings.get('db_path', '')), 'shard_root': getattr(self, 'shard_root', self.settings.get('shard_root', '')), 'window_geometry': self.geometry() if self.winfo_exists() else self.settings.get('window_geometry', STARTUP_GEOMETRY), 'include_cconfigs': self.include_cconfigs.get() if hasattr(self, 'include_cconfigs') else self.settings.get('include_cconfigs', False), 'include_cache_dumps': self.include_cache_dumps.get() if hasattr(self, 'include_cache_dumps') else self.settings.get('include_cache_dumps', False), 'tab_order': [self.nb.tab(t, 'text') for t in self.nb.tabs()] if hasattr(self, 'nb') else self.settings.get('tab_order', []), 'selected_tab': self.nb.tab(self.nb.select(), 'text') if hasattr(self, 'nb') and self.nb.select() else self.settings.get('selected_tab', UI_TEXT['w5']), 'hpaned_sash': self.hpaned.sashpos(0) if hasattr(self, 'hpaned') else self.settings.get('hpaned_sash', None), 'vpaned_sash': self.vpaned.sashpos(0) if hasattr(self, 'vpaned') else self.settings.get('vpaned_sash', None)})
+        data.update({'autoscroll': self.autoscroll.get(), 'hide_tickets': self.hide_tickets.get(), 'stay_on_top': self.stay_on_top.get(), 'show_lines': self.show_lines.get(), 'preview_optimize_vertices': self.viewport_3d.reduce_polys.get() if hasattr(self, 'viewport_3d') else self.settings.get('preview_optimize_vertices', True), 'streamer_mode': self.streamer_mode.get() if hasattr(self, 'streamer_mode') else self.settings.get('streamer_mode', False), 'fps_limit': self.fps_limit.get() if hasattr(self, 'fps_limit') else self.settings.get('fps_limit', 0), 'autostart_watch': self.autostart_watch.get() if hasattr(self, 'autostart_watch') else self.settings.get('autostart_watch', False), 'max_rows': self.max_rows.get() if hasattr(self, 'max_rows') else self.settings.get('max_rows', 0), 'type_filter': self.type_filter.get(), 'columns': {c: var.get() for c, var in getattr(self, '_col_vars', {}).items()}, 'viewer_collapsed': self.viewer_collapsed, 'theme': self.theme_var.get() if hasattr(self, 'theme_var') else self.settings.get('theme', DEFAULT_THEME), 'fflag_hotkeys': self.fflag_hotkeys, 'fps_hotkeys': self.fps_hotkeys, 'fps_hotkey_slots': self.fps_hotkey_slots, 'fflag_auto_apply': self.fflag_auto_apply.get() if hasattr(self, 'fflag_auto_apply') else self.settings.get('fflag_auto_apply', False), 'launch_on_tray': self.launch_on_tray.get() if hasattr(self, 'launch_on_tray') else self.settings.get('launch_on_tray', False), 'launch_on_startup': self.launch_on_startup.get() if hasattr(self, 'launch_on_startup') else self.settings.get('launch_on_startup', False), 'hide_to_tray_on_close': self.hide_to_tray_on_close.get() if hasattr(self, 'hide_to_tray_on_close') else self.settings.get('hide_to_tray_on_close', False), 'auto_update': self.auto_update.get() if hasattr(self, 'auto_update') else self.settings.get('auto_update', False), 'dpi_percent': int(self.dpi_percent.get()) if hasattr(self, 'dpi_percent') else int(getattr(self, '_dpi_scale', 1.0) * 100), 'plugin_enabled': getattr(self, '_plugin_enabled', self.settings.get('plugin_enabled', {})), 'emote_nav_binds': dict(getattr(self, '_emote_nav_binds', self.settings.get('emote_nav_binds', {}))), 'emote_hud_enabled': False, 'hpaned_sash_v2': self.hpaned.sashpos(0) if hasattr(self, 'hpaned') and self.hpaned.winfo_width() > 0 and self.hpaned.sashpos(0) > 0 else self.settings.get('hpaned_sash_v2', None), 'roblox_path': self.settings.get('roblox_path', ''), 'roblox_username': self.settings.get('roblox_username', ''), 'roblox_user_id': self.settings.get('roblox_user_id', ''), 'gemini_api_key': self.gemini_api_key.get().strip() if hasattr(self, 'gemini_api_key') else self.settings.get('gemini_api_key', ''), 'custom_theme': self.settings.get('custom_theme', {}), 'db_path': getattr(self, 'db_path', self.settings.get('db_path', '')), 'shard_root': getattr(self, 'shard_root', self.settings.get('shard_root', '')), 'window_geometry': self.geometry() if self.winfo_exists() else self.settings.get('window_geometry', STARTUP_GEOMETRY), 'include_cconfigs': self.include_cconfigs.get() if hasattr(self, 'include_cconfigs') else self.settings.get('include_cconfigs', False), 'include_cache_dumps': self.include_cache_dumps.get() if hasattr(self, 'include_cache_dumps') else self.settings.get('include_cache_dumps', False), 'tab_order': [self.nb.tab(t, 'text') for t in self.nb.tabs()] if hasattr(self, 'nb') else self.settings.get('tab_order', []), 'selected_tab': self.nb.tab(self.nb.select(), 'text') if hasattr(self, 'nb') and self.nb.select() else self.settings.get('selected_tab', UI_TEXT['w5']), 'hpaned_sash': self.hpaned.sashpos(0) if hasattr(self, 'hpaned') else self.settings.get('hpaned_sash', None), 'vpaned_sash': self.vpaned.sashpos(0) if hasattr(self, 'vpaned') else self.settings.get('vpaned_sash', None)})
         data['discord_application_id'] = str(self.discord_application_id_var.get()).strip() if hasattr(self, 'discord_application_id_var') else str(self.settings.get('discord_application_id') or DISCORD_APPLICATION_ID)
         save_settings(data)
         self.settings = data

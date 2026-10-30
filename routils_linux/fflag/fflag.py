@@ -2,6 +2,15 @@ import sys
 _host = sys.modules.get('main') or sys.modules.get('__main__')
 if _host is not None:
     globals().update({k: v for k, v in vars(_host).items() if not k.startswith('__') and k not in {'_host'}})
+_FFLAG_COLOR_MUTED = globals().get('_FFLAG_COLOR_MUTED', '#9aa0a6')
+_FFLAG_COLOR_SUCCESS = globals().get('_FFLAG_COLOR_SUCCESS', '#65d98b')
+_FFLAG_COLOR_ERROR = globals().get('_FFLAG_COLOR_ERROR', '#ff6b6b')
+_FFLAG_COLOR_WARNING = globals().get('_FFLAG_COLOR_WARNING', '#f2c94c')
+_FFLAG_COLOR_WHITE = globals().get('_FFLAG_COLOR_WHITE', '#ffffff')
+_FFLAG_DEFAULT_MODE = globals().get('_FFLAG_DEFAULT_MODE', 'Toggle')
+_FFLAG_DEFAULT_TRUE = globals().get('_FFLAG_DEFAULT_TRUE', 'true')
+_FFLAG_DEFAULT_FALSE = globals().get('_FFLAG_DEFAULT_FALSE', 'false')
+
 class FFlagMixin:
     def _sober_confirm_close_port_owner(self, program_name, pid=None, port=58443):
         dialog = tk.Toplevel(self)
@@ -49,21 +58,22 @@ class FFlagMixin:
                 if not error.pid:
                     raise
                 if not self._sober_confirm_close_port_owner(error.process_name, error.pid, error.port):
-                    self._fflag_status_text('Proxy start cancelled', '#9aa0a6')
+                    self._fflag_status_text('Proxy start cancelled', _FFLAG_COLOR_MUTED)
                     return
                 self._console_log(f'Closing {error.process_name} (PID {error.pid}) after confirmation because it owns 127.0.0.1:{error.port}.')
                 service.terminate_port_owner(error.pid, error.port)
                 result = service.start_and_launch()
             self._sober_proxy_service = service
-            self._fflag_status_text('Proxy Running', '#65d98b')
+            self._fflag_status_text('Proxy Running', _FFLAG_COLOR_SUCCESS)
             if hasattr(self, 'sober_proxy_status_label'):
-                self.sober_proxy_status_label.configure(text=f"Running · PID {result['proxy_pid']}", foreground='#65d98b')
+                self.sober_proxy_status_label.configure(text=f"Running · PID {result['proxy_pid']}", foreground=_FFLAG_COLOR_SUCCESS)
             self._console_log(f"FFlag proxy started on 127.0.0.1:{result['port']}; CA bundle: {result['overlay_path']}")
             self._console_log(f"Proxy log: {result['log_path']}")
         except Exception as error:
-            self._fflag_status_text('Proxy start failed', '#ff6b6b')
+            self._fflag_status_text('Proxy start failed', _FFLAG_COLOR_ERROR)
             self._console_log(f'FFlag proxy start failed: {error}')
             messagebox.showerror('FFlag', str(error), parent=self)
+
     def _sober_proxy_stop(self):
         if not sys.platform.startswith('linux'):
             return
@@ -72,108 +82,13 @@ class FFlagMixin:
             service = SoberProxyService(DATA_DIR)
             service.stop()
             if hasattr(self, 'sober_proxy_status_label'):
-                self.sober_proxy_status_label.configure(text='Proxy: stopped', foreground='#9aa0a6')
-            self._fflag_status_text('Proxy stopped', '#9aa0a6')
+                self.sober_proxy_status_label.configure(text='Proxy: stopped', foreground=_FFLAG_COLOR_MUTED)
+            self._fflag_status_text('Proxy stopped', _FFLAG_COLOR_MUTED)
             self._console_log('FFlag proxy stopped and the previous CA bundle was restored.')
         except Exception as error:
             self._console_log(f'Sober proxy stop failed: {error}')
             messagebox.showerror('FFlag', str(error), parent=self)
-    def _fflag_hotkeys_dialog(self):
-        dlg = tk.Toplevel(self)
-        dlg.title('FFlag Hotkeys')
-        dlg.geometry('900x500')
-        dlg.transient(self)
-        theme_toplevel(dlg)
-        outer = ttk.Frame(dlg, padding=12)
-        outer.pack(fill='both', expand=True)
-        outer.columnconfigure(0, weight=1)
-        outer.rowconfigure(1, weight=1)
-        ttk.Label(outer, text=UI_TEXT['n6'], font=('Segoe UI Semibold', 13)).grid(row=0, column=0, sticky='w', pady=(0, 8))
-        cols = ('key', 'flag', 'mode', 'value1', 'value2')
-        tree = ttk.Treeview(outer, columns=cols, show='headings', selectmode='browse')
-        headers = {'key': 'KEY', 'flag': 'FFLAG', 'mode': 'MODE', 'value1': 'TOGGLE 1', 'value2': 'TOGGLE 2'}
-        widths = {'key': 100, 'flag': 320, 'mode': 100, 'value1': 140, 'value2': 140}
-        for col in cols:
-            tree.heading(col, text=headers[col])
-            tree.column(col, width=widths[col], anchor='w')
-        tree.grid(row=1, column=0, sticky='nsew')
-        def refresh():
-            tree.delete(*tree.get_children())
-            for i, item in enumerate(self.fflag_hotkeys):
-                tree.insert('', 'end', iid=str(i), values=(item.get('key', ''), item.get('flag', ''), item.get('mode', 'Toggle'), item.get('value1', 'true'), item.get('value2', 'false')))
-        def edit():
-            sel = tree.selection()
-            if not sel:
-                return
-            idx = int(sel[0])
-            self._fflag_hotkey_editor(idx, dlg, refresh)
-        btns = ttk.Frame(outer)
-        btns.grid(row=2, column=0, sticky='ew', pady=(8, 0))
-        ttk.Button(btns, text=UI_TEXT['o6'], command=lambda: self._fflag_hotkey_editor(None, dlg, refresh)).pack(side='left')
-        ttk.Button(btns, text=UI_TEXT['p6'], command=edit).pack(side='left', padx=5)
-        ttk.Button(btns, text=UI_TEXT['q6'], command=lambda: self._remove_fflag_hotkey(tree, refresh)).pack(side='left')
-        ttk.Button(btns, text=UI_TEXT['r6'], command=dlg.destroy).pack(side='right')
-        refresh()
-    def _fflag_hotkey_editor(self, index, parent, refresh):
-        dlg = tk.Toplevel(parent)
-        dlg.title(UI_TEXT['q27'])
-        dlg.transient(parent)
-        dlg.grab_set()
-        theme_toplevel(dlg)
-        existing = self.fflag_hotkeys[index] if index is not None else {}
-        key_var = tk.StringVar(value=str(existing.get('key', '')))
-        flag_var = tk.StringVar(value=str(existing.get('flag', '')))
-        mode_var = tk.StringVar(value=str(existing.get('mode', 'Toggle')))
-        v1_var = tk.StringVar(value=str(existing.get('value1', 'true')))
-        v2_var = tk.StringVar(value=str(existing.get('value2', 'false')))
-        ttk.Label(dlg, text=UI_TEXT['s6']).grid(row=0, column=0, padx=10, pady=(12, 4), sticky='w')
-        key_entry = ttk.Entry(dlg, textvariable=key_var, width=20)
-        key_entry.grid(row=1, column=0, padx=10, sticky='ew')
-        ttk.Label(dlg, text=UI_TEXT['t6']).grid(row=2, column=0, padx=10, pady=(8, 4), sticky='w')
-        flag_combo = ttk.Combobox(dlg, textvariable=flag_var, values=[x.get('name', '') for x in self.fflag_flags], width=48)
-        flag_combo.grid(row=3, column=0, padx=10, sticky='ew')
-        ttk.Label(dlg, text=UI_TEXT['u6']).grid(row=4, column=0, padx=10, pady=(8, 4), sticky='w')
-        mode_combo = ttk.Combobox(dlg, textvariable=mode_var, values=['Toggle'], state='readonly', width=20)
-        mode_combo.grid(row=5, column=0, padx=10, sticky='w')
-        ttk.Label(dlg, text=UI_TEXT['v6']).grid(row=6, column=0, padx=10, pady=(8, 4), sticky='w')
-        ttk.Entry(dlg, textvariable=v1_var, width=30).grid(row=7, column=0, padx=10, sticky='ew')
-        ttk.Label(dlg, text=UI_TEXT['w6']).grid(row=8, column=0, padx=10, pady=(8, 4), sticky='w')
-        ttk.Entry(dlg, textvariable=v2_var, width=30).grid(row=9, column=0, padx=10, sticky='ew')
-        ttk.Label(dlg, text=UI_TEXT['x6'], foreground='#9aa0a6').grid(row=10, column=0, padx=10, pady=(8, 4), sticky='w')
-        def capture_key(event):
-            if event.keysym in ('Shift_L', 'Shift_R', 'Control_L', 'Control_R', 'Alt_L', 'Alt_R'):
-                return 'break'
-            key = event.keysym.upper()
-            if key == 'ESCAPE':
-                key = 'ESC'
-            key_var.set(key)
-            return 'break'
-        key_entry.bind('<KeyPress>', capture_key)
-        def save():
-            key = key_var.get().strip().upper()
-            flag = fflag_strip_prefix(flag_var.get().strip())
-            if not key or not fflag_key_to_vk(key):
-                messagebox.showerror(UI_TEXT['y6'], UI_TEXT['z6'], parent=dlg)
-                return
-            if not flag:
-                messagebox.showerror(UI_TEXT['y6'], UI_TEXT['a7'], parent=dlg)
-                return
-            item = {'key': key, 'flag': flag, 'mode': 'Toggle', 'value1': v1_var.get(), 'value2': v2_var.get(), 'state': bool(existing.get('state', False))}
-            if index is None:
-                self.fflag_hotkeys.append(item)
-            else:
-                self.fflag_hotkeys[index] = item
-            self._save_settings()
-            refresh()
-            dlg.destroy()
-        btns = ttk.Frame(dlg)
-        btns.grid(row=11, column=0, pady=12)
-        ttk.Button(btns, text=UI_TEXT['i6'], command=save).pack(side='left', padx=4)
-        ttk.Button(btns, text=UI_TEXT['b3'], command=dlg.destroy).pack(side='left', padx=4)
-        dlg.columnconfigure(0, weight=1)
-        for button_number in range(1, 6):
-            key_entry.bind(f'<Button-{button_number}>', lambda event, n=button_number: (key_var.set(f'MOUSE{n}'), 'break')[1])
-        key_entry.focus_set()
+
     def _load_sober_fflag_catalog(self, force=False):
         if getattr(self, '_sober_fflag_catalog_loading', False) and not force:
             return
@@ -186,7 +101,7 @@ class FFlagMixin:
         self._sober_fflag_catalog_generation = getattr(self, '_sober_fflag_catalog_generation', 0) + 1
         generation = self._sober_fflag_catalog_generation
         if hasattr(self, 'fflag_reference_status'):
-            self.fflag_reference_status.configure(text='Loading FFlags…', foreground='#9aa0a6')
+            self.fflag_reference_status.configure(text='Loading FFlags…', foreground=_FFLAG_COLOR_MUTED)
         def worker():
             try:
                 result = fetch_fflag_catalog(DATA_DIR, force=force)
@@ -197,6 +112,7 @@ class FFlagMixin:
             except Exception:
                 pass
         threading.Thread(target=worker, daemon=True, name='RoUtils-SoberFFlagCatalog').start()
+
     def _sober_fflag_catalog_loaded(self, generation, result):
         if generation != getattr(self, '_sober_fflag_catalog_generation', generation):
             return
@@ -204,9 +120,10 @@ class FFlagMixin:
         self._sober_fflag_catalog_rows = list(result.get('entries') or [])
         self._sober_fflag_catalog_status = str(result.get('status') or result.get('error') or '')
         self._sober_fflag_catalog_error = bool(result.get('error'))
-        color = '#65d98b' if self._sober_fflag_catalog_rows and not self._sober_fflag_catalog_error else '#9aa0a6' if self._sober_fflag_catalog_rows else '#ff6b6b'
+        color = _FFLAG_COLOR_SUCCESS if self._sober_fflag_catalog_rows and not self._sober_fflag_catalog_error else _FFLAG_COLOR_MUTED if self._sober_fflag_catalog_rows else _FFLAG_COLOR_ERROR
         self.fflag_reference_status.configure(text=self._sober_fflag_catalog_status, foreground=color)
         self._refresh_sober_fflag_catalog()
+
     def _refresh_sober_fflag_catalog(self):
         tree = getattr(self, 'fflag_reference_tree', None)
         if tree is None:
@@ -231,7 +148,7 @@ class FFlagMixin:
         needle = self.fflag_reference_search.get().strip().casefold()
         rows = [row for row in getattr(self, '_sober_fflag_catalog_rows', []) if not needle or needle in str(row[0]).casefold() or needle in str(row[1]).casefold()]
         status = getattr(self, '_sober_fflag_catalog_status', '')
-        color = '#ff6b6b' if not getattr(self, '_sober_fflag_catalog_rows', []) else '#9aa0a6' if getattr(self, '_sober_fflag_catalog_error', False) else '#65d98b'
+        color = _FFLAG_COLOR_ERROR if not getattr(self, '_sober_fflag_catalog_rows', []) else _FFLAG_COLOR_MUTED if getattr(self, '_sober_fflag_catalog_error', False) else _FFLAG_COLOR_SUCCESS
         self.fflag_reference_status.configure(text=f'{len(rows):,} / {len(getattr(self, "_sober_fflag_catalog_rows", [])):,} · {status}', foreground=color)
         def insert_batch(start=0):
             if token != getattr(self, '_fflag_reference_render_token', None):
@@ -252,8 +169,10 @@ class FFlagMixin:
             else:
                 self._fflag_reference_render_job = None
         insert_batch(0)
+
     def _fflag_path(self):
         return os.path.join(DATA_DIR, 'routils_fflags.json')
+
     def _load_fflag_flags(self):
         try:
             with open(self._fflag_path(), 'r', encoding='utf-8') as f:
@@ -261,6 +180,7 @@ class FFlagMixin:
             self.fflag_flags = data if isinstance(data, list) else []
         except Exception:
             self.fflag_flags = []
+
     def _save_fflag_flags(self):
         try:
             path = self._fflag_path()
@@ -274,16 +194,9 @@ class FFlagMixin:
             return True
         except Exception as error:
             self._console_log(f'FFlag save failed: {error}')
-            self._fflag_status_text('FFlag save failed', '#ff6b6b')
+            self._fflag_status_text('FFlag save failed', _FFLAG_COLOR_ERROR)
             return False
-    def _fflag_json_editor(self):
-        dlg = tk.Toplevel(self)
-        dlg.title('JSON Editor')
-        dlg.geometry('620x460')
-        theme_toplevel(dlg)
-        txt = tk.Text(dlg, wrap='none', font=('Consolas', 10), bg=_CURRENT_PALETTE['bg_medium'], fg=_CURRENT_PALETTE['fg'], insertbackground='#fff')
-        txt.pack(fill='both', expand=True, padx=10, pady=10)
-        ttk.Button(dlg, text=UI_TEXT['s10'], command=lambda: self._add_json_editor_value(txt, dlg)).pack(pady=(0, 10))
+
     def _build_fflag_tab(self, tab=None):
         if tab is None:
             tab = ttk.Frame(self.nb, padding=12)
@@ -301,12 +214,12 @@ class FFlagMixin:
         head.grid(row=0, column=0, sticky='ew', pady=(0, 8))
         header_text = 'FFlag'
         ttk.Label(head, text=header_text, font=('Segoe UI Semibold', 15)).pack(side='left')
-        self.fflag_status = ttk.Label(head, text=UI_TEXT['q13'], foreground='#9aa0a6')
+        self.fflag_status = ttk.Label(head, text=UI_TEXT['q13'], foreground=_FFLAG_COLOR_MUTED)
         self.fflag_status.pack(side='right', padx=(12, 0))
         if sys.platform.startswith('linux'):
             proxy_controls = ttk.Frame(head)
             proxy_controls.pack(side='right', padx=(8, 0))
-            self.sober_proxy_status_label = ttk.Label(proxy_controls, text='Proxy stopped', foreground='#9aa0a6')
+            self.sober_proxy_status_label = ttk.Label(proxy_controls, text='Proxy stopped', foreground=_FFLAG_COLOR_MUTED)
             self.sober_proxy_status_label.pack(side='left', padx=(0, 12))
             ttk.Button(proxy_controls, text='Start Proxy + Launch Sober', command=self._sober_proxy_start_and_launch).pack(side='left', padx=(0, 6), ipady=4, ipadx=3)
             ttk.Button(proxy_controls, text='Stop Proxy', command=self._sober_proxy_stop).pack(side='left', padx=(0, 6), ipady=4, ipadx=3)
@@ -381,7 +294,7 @@ class FFlagMixin:
             reference_tab.columnconfigure(0, weight=1)
             reference_head = ttk.Frame(reference_tab)
             reference_head.grid(row=0, column=0, sticky='ew', pady=(0, 6))
-            self.fflag_reference_status = ttk.Label(reference_head, text='Loading FFlags…', foreground='#9aa0a6')
+            self.fflag_reference_status = ttk.Label(reference_head, text='Loading FFlags…', foreground=_FFLAG_COLOR_MUTED)
             self.fflag_reference_status.pack(side='right')
             self.fflag_reference_search = tk.StringVar()
             reference_search = ttk.Entry(reference_head, textvariable=self.fflag_reference_search)
@@ -416,7 +329,7 @@ class FFlagMixin:
             reference_tab.columnconfigure(0, weight=1)
             reference_head = ttk.Frame(reference_tab)
             reference_head.grid(row=0, column=0, sticky='ew', pady=(0, 6))
-            self.fflag_reference_status = ttk.Label(reference_head, text=UI_TEXT['p14'], foreground='#9aa0a6')
+            self.fflag_reference_status = ttk.Label(reference_head, text=UI_TEXT['p14'], foreground=_FFLAG_COLOR_MUTED)
             self.fflag_reference_status.pack(side='right')
             self.fflag_reference_search = tk.StringVar()
             reference_search = ttk.Entry(reference_head, textvariable=self.fflag_reference_search)
@@ -443,7 +356,7 @@ class FFlagMixin:
         saved_tab.rowconfigure(1, weight=1)
         saved_tab.columnconfigure(0, weight=1)
         ttk.Label(saved_tab, text=UI_TEXT['o14'], font=('Segoe UI Semibold', 10)).grid(row=0, column=0, sticky='w', pady=(0, 6))
-        self.json_tree = tk.Listbox(saved_tab, bg=_CURRENT_PALETTE['bg_medium'], fg=_CURRENT_PALETTE['fg'], relief='flat', bd=0, highlightthickness=0, selectbackground=_CURRENT_PALETTE['accent'], selectforeground='#ffffff')
+        self.json_tree = tk.Listbox(saved_tab, bg=_CURRENT_PALETTE['bg_medium'], fg=_CURRENT_PALETTE['fg'], relief='flat', bd=0, highlightthickness=0, selectbackground=_CURRENT_PALETTE['accent'], selectforeground=_FFLAG_COLOR_WHITE)
         json_ybar = ttk.Scrollbar(saved_tab, orient='vertical', command=self.json_tree.yview)
         self.json_tree.configure(yscrollcommand=json_ybar.set)
         self.json_tree.grid(row=1, column=0, sticky='nsew')
@@ -467,19 +380,19 @@ class FFlagMixin:
         history_body.grid(row=1, column=0, sticky='nsew')
         history_body.rowconfigure(0, weight=1)
         history_body.columnconfigure(0, weight=1)
-        self.fflag_history_text = tk.Text(history_body, wrap='none', height=10, undo=False, relief='flat', bd=0, highlightthickness=1, highlightbackground=_CURRENT_PALETTE.get('border', '#444446'), bg=_CURRENT_PALETTE.get('bg_medium', '#252526'), fg=_CURRENT_PALETTE.get('fg', '#dcdcdc'), insertbackground='#ffffff', selectbackground=_CURRENT_PALETTE.get('accent', '#7f8cff'), font=('Consolas', 9), padx=9, pady=8, state='disabled')
+        self.fflag_history_text = tk.Text(history_body, wrap='none', height=10, undo=False, relief='flat', bd=0, highlightthickness=1, highlightbackground=_CURRENT_PALETTE.get('border', '#444446'), bg=_CURRENT_PALETTE.get('bg_medium', '#252526'), fg=_CURRENT_PALETTE.get('fg', '#dcdcdc'), insertbackground=_FFLAG_COLOR_WHITE, selectbackground=_CURRENT_PALETTE.get('accent', '#7f8cff'), font=('Consolas', 9), padx=9, pady=8, state='disabled')
         history_ybar = ttk.Scrollbar(history_body, orient='vertical', command=self.fflag_history_text.yview)
         history_xbar = ttk.Scrollbar(history_body, orient='horizontal', command=self.fflag_history_text.xview)
         self.fflag_history_text.configure(yscrollcommand=history_ybar.set, xscrollcommand=history_xbar.set)
         self.fflag_history_text.grid(row=0, column=0, sticky='nsew')
         history_ybar.grid(row=0, column=1, sticky='ns')
         history_xbar.grid(row=1, column=0, sticky='ew')
-        self.fflag_history_text.tag_configure('history_add', foreground='#65d98b')
-        self.fflag_history_text.tag_configure('history_old', foreground='#ff6b6b')
-        self.fflag_history_text.tag_configure('history_new', foreground='#65d98b')
-        self.fflag_history_text.tag_configure('history_meta', foreground='#9aa0a6')
+        self.fflag_history_text.tag_configure('history_add', foreground=_FFLAG_COLOR_SUCCESS)
+        self.fflag_history_text.tag_configure('history_old', foreground=_FFLAG_COLOR_ERROR)
+        self.fflag_history_text.tag_configure('history_new', foreground=_FFLAG_COLOR_SUCCESS)
+        self.fflag_history_text.tag_configure('history_meta', foreground=_FFLAG_COLOR_MUTED)
         self.fflag_history_text.tag_configure('history_title', foreground='#8ab4f8', font=('Segoe UI Semibold', 9))
-        self.fflag_history_text.tag_configure('history_removed', foreground='#ff6b6b')
+        self.fflag_history_text.tag_configure('history_removed', foreground=_FFLAG_COLOR_ERROR)
         self.fflag_history_text.tag_configure('history_separator', foreground='#565b66')
         self.fflag_history_search.trace_add('write', lambda *_: self._schedule_ui('fflag_history_filter', 90, self._fflag_history_refresh))
         self._fflag_history_refresh()
@@ -494,113 +407,7 @@ class FFlagMixin:
         self.after(350, self._fflag_refresh_process)
         if not sys.platform.startswith('linux'):
             self._load_fflag_reference_panel()
-    def _load_fflag_reference_panel(self, force=False):
-        if getattr(self, '_fflag_reference_load_started', False) and (not force):
-            return
-        self._fflag_reference_load_started = True
-        if force:
-            self._fflag_reference_cache = None
-        elif not getattr(self, '_fflag_reference_cache', None):
-            try:
-                with open(FFLAG_REFERENCE_CACHE_PATH, 'r', encoding='utf-8') as source:
-                    saved = json.load(source)
-                age = time.time() - float(saved.get('time', 0))
-                if age <= 21600 and len(saved.get('offsets', {})) >= 500 and isinstance(saved.get('rows'), list):
-                    self._fflag_reference_cache = saved
-                    self._fflag_reference_rows = list(saved['rows'])
-                    self._fflag_reference_loaded(saved)
-                    if age <= 900:
-                        return
-            except Exception:
-                pass
-        if hasattr(self, 'fflag_reference_status'):
-            try:
-                self.fflag_reference_status.configure(text=UI_TEXT['p14'])
-            except Exception:
-                pass
-        def worker():
-            try:
-                result = self._fetch_fflag_reference_data(force=force)
-            except Exception as exc:
-                result = {'rows': [], 'offsets_error': str(exc), 'defaults_error': ''}
-            try:
-                self.after(0, lambda r=result: self._fflag_reference_loaded(r))
-            except Exception:
-                pass
-        threading.Thread(target=worker, daemon=True, name='RoUtils-FFlagReference').start()
-    def _fflag_reference_loaded(self, result):
-        if isinstance(result, dict) and result.get('offsets'):
-            self._fflag_reference_cache = result
-        if not hasattr(self, 'fflag_reference_tree'):
-            return
-        rows = result.get('rows', [])
-        self._fflag_reference_rows = list(rows)
-        if rows:
-            status = f'{len(rows):,} flags'
-            if result.get('defaults_error'):
-                status += ' · defaults unavailable (* = missing)'
-            if result.get('offsets_error'):
-                status += ' · fallback offsets'
-            self.fflag_reference_status.configure(text=status)
-            self._refresh_fflag_reference_panel()
-        else:
-            errors = '; '.join((value for value in (result.get('offsets_error'), result.get('defaults_error')) if value))
-            self.fflag_reference_status.configure(text=UI_TEXT['y14'])
-            if errors:
-                self._console_log(UI_TEXT['z14'].format(p0=errors))
-    def _refresh_fflag_reference_panel(self):
-        tree = getattr(self, 'fflag_reference_tree', None)
-        if tree is None:
-            return
-        try:
-            if not tree.winfo_exists():
-                return
-        except Exception:
-            return
-        self._fflag_reference_render_token = getattr(self, '_fflag_reference_render_token', 0) + 1
-        token = self._fflag_reference_render_token
-        old_job = getattr(self, '_fflag_reference_render_job', None)
-        if old_job:
-            try:
-                tree.after_cancel(old_job)
-            except Exception:
-                pass
-        try:
-            tree.delete(*tree.get_children())
-        except Exception:
-            pass
-        needle = self.fflag_reference_search.get().strip().casefold()
-        rows = [row for row in getattr(self, '_fflag_reference_rows', []) if not needle or any((needle in str(value).casefold() for value in row))]
-        self.fflag_reference_status.configure(text=UI_TEXT['a15'].format(p0=len(rows)))
-        def insert_batch(start=0):
-            if token != getattr(self, '_fflag_reference_render_token', None):
-                return
-            if getattr(self, '_resize_active', False):
-                try:
-                    self._fflag_reference_render_job = tree.after(80, insert_batch, start)
-                except Exception:
-                    self._fflag_reference_render_job = None
-                return
-            try:
-                if not tree.winfo_exists():
-                    return
-            except Exception:
-                return
-            processed = 0
-            started = time.perf_counter()
-            pos = start
-            while pos < len(rows) and processed < 240 and (time.perf_counter() - started < 0.007):
-                try:
-                    tree.insert('', 'end', iid=f'ref_{token}_{pos}', values=rows[pos])
-                except Exception:
-                    pass
-                pos += 1
-                processed += 1
-            if pos < len(rows):
-                self._fflag_reference_render_job = tree.after(1, insert_batch, pos)
-            else:
-                self._fflag_reference_render_job = None
-        insert_batch(0)
+
     def _responsive_fflag_toolbar(self, _event=None):
         bar = getattr(self, '_fflag_toolbar_frame', None)
         buttons = getattr(self, '_fflag_toolbar', [])
@@ -621,201 +428,7 @@ class FFlagMixin:
                 bar.columnconfigure(col, weight=0)
         except Exception:
             pass
-    def _fflag_conflicts(self):
-        counts = {}
-        for flag in self.fflag_flags:
-            name = fflag_strip_prefix(str(flag.get('name', '')).strip())
-            if name:
-                key = name.lower()
-                counts[key] = counts.get(key, 0) + 1
-        return {name for name, count in counts.items() if count > 1}
-    def _fflag_history_load(self):
-        try:
-            with open(FFLAG_HISTORY_PATH, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-            if isinstance(data, list):
-                return [x for x in data if isinstance(x, dict)][-500:]
-        except Exception:
-            pass
-        return []
-    def _fflag_history_save(self):
-        try:
-            os.makedirs(os.path.dirname(FFLAG_HISTORY_PATH), exist_ok=True)
-            temporary = FFLAG_HISTORY_PATH + '.tmp'
-            with open(temporary, 'w', encoding='utf-8') as f:
-                json.dump(self._fflag_history_items[-500:], f, ensure_ascii=False, indent=2)
-            os.replace(temporary, FFLAG_HISTORY_PATH)
-        except Exception as exc:
-            try:
-                self._console_log(f'FFlag history save failed: {exc}')
-            except Exception:
-                pass
-    def _fflag_history_snapshot_from_flags(self, flags):
-        snapshot = []
-        for index, flag in enumerate(flags or []):
-            if not isinstance(flag, dict):
-                continue
-            snapshot.append({'name': fflag_strip_prefix(str(flag.get('name', '') or '').strip()), 'value': str(flag.get('value', '') or ''), 'type': str(flag.get('type', '') or ''), 'index': index})
-        return snapshot
-    def _fflag_history_commit(self, entries):
-        if not entries:
-            return
-        lock = getattr(self, '_fflag_history_lock', None)
-        if lock is None:
-            self._fflag_history_lock = threading.RLock()
-            lock = self._fflag_history_lock
-        with lock:
-            items = getattr(self, '_fflag_history_items', None)
-            if not isinstance(items, list):
-                items = self._fflag_history_items = []
-            items.extend(entries)
-            del items[:-500]
-            self._fflag_history_save()
-        if hasattr(self, 'fflag_history_text'):
-            self._schedule_ui('fflag_history_render', 45, self._fflag_history_refresh)
-    def _fflag_history_record(self, event, old=None, new=None):
-        self._fflag_history_commit([{'timestamp': time.time(), 'event': str(event), 'old': dict(old) if isinstance(old, dict) else None, 'new': dict(new) if isinstance(new, dict) else None}])
-    def _fflag_history_track_changes(self):
-        current = self._fflag_history_snapshot_from_flags(self.fflag_flags)
-        previous = getattr(self, '_fflag_history_snapshot', None)
-        if not getattr(self, '_fflag_history_snapshot_ready', False) or not isinstance(previous, list):
-            self._fflag_history_snapshot = current
-            self._fflag_history_snapshot_ready = True
-            return
-        changes = []
-        def keyed(items):
-            counts = {}
-            result = {}
-            for item in items:
-                name_key = str(item.get('name', '')).casefold()
-                occurrence = counts.get(name_key, 0)
-                counts[name_key] = occurrence + 1
-                result[name_key, occurrence] = item
-            return result
-        old_by_name = keyed(previous)
-        new_by_name = keyed(current)
-        old_only = [x for key, x in old_by_name.items() if key not in new_by_name]
-        new_only = [x for key, x in new_by_name.items() if key not in old_by_name]
-        paired_old = set()
-        paired_new = set()
-        if len(previous) == len(current) and len(old_only) == len(new_only):
-            new_by_index = {x['index']: x for x in new_only}
-            for old in old_only:
-                candidate = new_by_index.get(old['index'])
-                if candidate is not None:
-                    changes.append({'timestamp': time.time(), 'event': 'changed', 'old': dict(old), 'new': dict(candidate)})
-                    paired_old.add(id(old))
-                    paired_new.add(id(candidate))
-        for key in old_by_name.keys() & new_by_name.keys():
-            old = old_by_name[key]
-            new = new_by_name[key]
-            if old.get('name') != new.get('name') or old.get('value') != new.get('value') or old.get('type') != new.get('type'):
-                changes.append({'timestamp': time.time(), 'event': 'changed', 'old': dict(old), 'new': dict(new)})
-        for item in new_only:
-            if id(item) not in paired_new:
-                changes.append({'timestamp': time.time(), 'event': 'added', 'old': None, 'new': dict(item)})
-        for item in old_only:
-            if id(item) not in paired_old:
-                changes.append({'timestamp': time.time(), 'event': 'removed', 'old': dict(item), 'new': None})
-        self._fflag_history_snapshot = current
-        self._fflag_history_snapshot_ready = True
-        self._fflag_history_commit(changes)
-    def _fflag_history_refresh(self):
-        text = getattr(self, 'fflag_history_text', None)
-        if text is None:
-            return
-        try:
-            if not text.winfo_exists():
-                return
-        except Exception:
-            return
-        query = str(self.fflag_history_search.get() if hasattr(self, 'fflag_history_search') else '').strip().casefold()
-        with getattr(self, '_fflag_history_lock', threading.RLock()):
-            entries = list(reversed(getattr(self, '_fflag_history_items', [])))
-        if query:
-            def matches(item):
-                old = item.get('old') or {}
-                new = item.get('new') or {}
-                combined = ' '.join((str(value) for value in (item.get('event', ''), old.get('name', ''), old.get('value', ''), new.get('name', ''), new.get('value', ''), old.get('type', ''), new.get('type', '')))).casefold()
-                return query in combined
-            entries = [item for item in entries if matches(item)]
-        text.configure(state='normal')
-        text.delete('1.0', 'end')
-        if not entries:
-            text.insert('end', 'No FFlag changes recorded yet.\n' if not query else 'No history entries match this filter.\n', 'history_meta')
-        for entry in entries[:300]:
-            try:
-                stamp = datetime.fromtimestamp(float(entry.get('timestamp', 0))).strftime('%Y-%m-%d %H:%M:%S')
-            except Exception:
-                stamp = 'Unknown time'
-            event = str(entry.get('event', 'changed')).lower()
-            old = entry.get('old') or {}
-            new = entry.get('new') or {}
-            if event == 'added':
-                title, tag = ('NEW FFLAG', 'history_add')
-            elif event == 'removed':
-                title, tag = ('FFLAG REMOVED', 'history_removed')
-            else:
-                title, tag = ('FFLAG CHANGED', 'history_title')
-            text.insert('end', f'{stamp}  ', 'history_meta')
-            text.insert('end', title + '\n', tag)
-            if old.get('name') != new.get('name') and old.get('name') is not None and (new.get('name') is not None):
-                text.insert('end', 'Name: ', 'history_meta')
-                text.insert('end', str(old.get('name', '')), 'history_old')
-                text.insert('end', '  →  ', 'history_meta')
-                text.insert('end', str(new.get('name', '')), 'history_new')
-                text.insert('end', '\n')
-            elif new.get('name') is not None:
-                text.insert('end', 'Name: ', 'history_meta')
-                text.insert('end', str(new.get('name', '')), tag if event == 'added' else 'history_meta')
-                text.insert('end', '\n')
-            elif old.get('name') is not None:
-                text.insert('end', 'Name: ', 'history_meta')
-                text.insert('end', str(old.get('name', '')), 'history_old')
-                text.insert('end', '\n')
-            if old.get('value') != new.get('value') and old.get('value') is not None and (new.get('value') is not None):
-                text.insert('end', 'Value: ', 'history_meta')
-                text.insert('end', str(old.get('value', '')), 'history_old')
-                text.insert('end', '  →  ', 'history_meta')
-                text.insert('end', str(new.get('value', '')), 'history_new')
-                text.insert('end', '\n')
-            elif new.get('value') is not None:
-                text.insert('end', 'Value: ', 'history_meta')
-                text.insert('end', str(new.get('value', '')), tag if event == 'added' else 'history_meta')
-                text.insert('end', '\n')
-            elif old.get('value') is not None:
-                text.insert('end', 'Value: ', 'history_meta')
-                text.insert('end', str(old.get('value', '')), 'history_old')
-                text.insert('end', '\n')
-            if old.get('type') != new.get('type') and old.get('type') is not None and (new.get('type') is not None):
-                text.insert('end', 'Type: ', 'history_meta')
-                text.insert('end', str(old.get('type', '')), 'history_old')
-                text.insert('end', '  →  ', 'history_meta')
-                text.insert('end', str(new.get('type', '')), 'history_new')
-                text.insert('end', '\n')
-            text.insert('end', '────────────────────────────────────────────────────────\n', 'history_separator')
-        text.configure(state='disabled')
-        text.yview_moveto(0)
-    def _fflag_history_clear(self):
-        if not messagebox.askyesno('FFlag History', 'Clear all saved FFlag change history?', parent=self):
-            return
-        with getattr(self, '_fflag_history_lock', threading.RLock()):
-            self._fflag_history_items = []
-            self._fflag_history_save()
-        self._fflag_history_refresh()
-    def _open_fflag_history_panel(self):
-        fflag_tab_id = next((tab_id for tab_id in self.nb.tabs() if self.nb.tab(tab_id, 'text') == UI_TEXT['h5']), None)
-        if fflag_tab_id is not None:
-            self.nb.select(fflag_tab_id)
-            self._lazy_tab_changed()
-        def select_history():
-            try:
-                if hasattr(self, 'fflag_side_notebook') and self.fflag_side_notebook.winfo_exists() and hasattr(self, 'fflag_history_tab'):
-                    self.fflag_side_notebook.select(self.fflag_history_tab)
-                    self._fflag_history_refresh()
-            except Exception:
-                pass
-        self.after_idle(select_history)
+
     def _refresh_fflag_list(self):
         if not hasattr(self, 'fflag_tree'):
             return
@@ -824,7 +437,7 @@ class FFlagMixin:
         filt = self.fflag_search.get().strip().lower() if hasattr(self, 'fflag_search') else ''
         conflicts = self._fflag_conflicts()
         try:
-            self.fflag_tree.tag_configure('conflict', background='#8b1e1e', foreground='#ffffff')
+            self.fflag_tree.tag_configure('conflict', background='#8b1e1e', foreground=_FFLAG_COLOR_WHITE)
         except Exception:
             pass
         for i, flag in enumerate(self.fflag_flags):
@@ -833,6 +446,16 @@ class FFlagMixin:
                 continue
             tags = ('conflict',) if name.lower() in conflicts else ()
             self.fflag_tree.insert('', 'end', iid=str(i), values=(name, flag.get('type', ''), flag.get('value', ''), '×'), tags=tags)
+
+    def _fflag_conflicts(self):
+        counts = {}
+        for flag in self.fflag_flags:
+            name = fflag_strip_prefix(str(flag.get('name', '')).strip())
+            if name:
+                key = name.lower()
+                counts[key] = counts.get(key, 0) + 1
+        return {name for name, count in counts.items() if count > 1}
+
     def _fflag_tree_click_remove(self, event):
         try:
             row = self.fflag_tree.identify_row(event.y)
@@ -848,6 +471,7 @@ class FFlagMixin:
         except Exception:
             pass
         return None
+
     def _fflag_add_dialog(self):
         dlg = tk.Toplevel(self)
         dlg.title(UI_TEXT['y31'])
@@ -881,6 +505,7 @@ class FFlagMixin:
         ttk.Button(btns, text=UI_TEXT['b3'], command=dlg.destroy).pack(side='left', padx=4)
         dlg.columnconfigure(0, weight=1)
         name.focus_set()
+
     def _fflag_inline_edit(self, event):
         tree = self.fflag_tree
         row = tree.identify_row(event.y)
@@ -916,6 +541,7 @@ class FFlagMixin:
         entry.bind('<Return>', save)
         entry.bind('<FocusOut>', save)
         entry.bind('<Escape>', lambda _e: entry.destroy())
+
     def _fflag_remove(self):
         sel = self.fflag_tree.selection()
         if not sel:
@@ -925,6 +551,7 @@ class FFlagMixin:
         self._save_fflag_flags()
         self._refresh_fflag_list()
         self._console_log(UI_TEXT['g15'].format(p0=removed))
+
     def _fflag_remove_all(self):
         if not self.fflag_flags or not messagebox.askyesno(UI_TEXT['h5'], UI_TEXT['h15'], parent=self):
             return
@@ -932,6 +559,16 @@ class FFlagMixin:
         self._save_fflag_flags()
         self._refresh_fflag_list()
         self._console_log(UI_TEXT['i15'])
+
+    def _fflag_json_editor(self):
+        dlg = tk.Toplevel(self)
+        dlg.title('JSON Editor')
+        dlg.geometry('620x460')
+        theme_toplevel(dlg)
+        txt = tk.Text(dlg, wrap='none', font=('Consolas', 10), bg=_CURRENT_PALETTE['bg_medium'], fg=_CURRENT_PALETTE['fg'], insertbackground='#fff')
+        txt.pack(fill='both', expand=True, padx=10, pady=10)
+        ttk.Button(dlg, text=UI_TEXT['s10'], command=lambda: self._add_json_editor_value(txt, dlg)).pack(pady=(0, 10))
+
     def _fflag_presets_dialog(self):
         dlg = tk.Toplevel(self)
         dlg.title('FFlag Presets')
@@ -939,7 +576,7 @@ class FFlagMixin:
         dlg.transient(self)
         theme_toplevel(dlg)
         ttk.Label(dlg, text=UI_TEXT['j15'], font=('Segoe UI Semibold', 12)).pack(anchor='w', padx=12, pady=(10, 6))
-        ttk.Label(dlg, text=UI_TEXT['k15'], foreground='#9aa0a6').pack(anchor='w', padx=12, pady=(0, 8))
+        ttk.Label(dlg, text=UI_TEXT['k15'], foreground=_FFLAG_COLOR_MUTED).pack(anchor='w', padx=12, pady=(0, 8))
         search = tk.StringVar()
         ttk.Entry(dlg, textvariable=search).pack(fill='x', padx=12, pady=(0, 8))
         body = ttk.Frame(dlg)
@@ -1014,14 +651,202 @@ class FFlagMixin:
                     state['files'] = files
                     render()
                     if not files:
-                        ttk.Label(inner, text=UI_TEXT['s15'], foreground='#9aa0a6').pack(pady=20)
+                        ttk.Label(inner, text=UI_TEXT['s15'], foreground=_FFLAG_COLOR_MUTED).pack(pady=20)
                 self.after(0, done)
             except Exception as e:
                 error_message = str(e)
-                self.after(0, lambda error=error_message: ttk.Label(inner, text=UI_TEXT['t15'].format(p0=error), foreground='#ff6b6b').pack(pady=20))
+                self.after(0, lambda error=error_message: ttk.Label(inner, text=UI_TEXT['t15'].format(p0=error), foreground=_FFLAG_COLOR_ERROR).pack(pady=20))
         search.trace_add('write', render)
-        ttk.Label(inner, text=UI_TEXT['u15'], foreground='#9aa0a6').pack(pady=20)
+        ttk.Label(inner, text=UI_TEXT['u15'], foreground=_FFLAG_COLOR_MUTED).pack(pady=20)
         threading.Thread(target=worker, daemon=True).start()
+
+    def _fflag_import(self):
+        path = filedialog.askopenfilename(parent=self, title=UI_TEXT['x15'], filetypes=[(UI_TEXT['y15'], '*.json'), (UI_TEXT['z7'], '*.*')])
+        if not path:
+            return
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            count = 0
+            if isinstance(data, dict):
+                for n, v in data.items():
+                    bare = fflag_strip_prefix(n)
+                    found = next((x for x in self.fflag_flags if x.get('name') == bare), None)
+                    item = {'name': bare, 'value': str(v).lower() if isinstance(v, bool) else str(v), 'type': fflag_infer_type(v)}
+                    if found:
+                        found.update(item)
+                    else:
+                        self.fflag_flags.append(item)
+                    count += 1
+            elif isinstance(data, list):
+                for x in data:
+                    if isinstance(x, dict) and x.get('name') is not None:
+                        item = {'name': fflag_strip_prefix(x['name']), 'value': str(x.get('value', '')), 'type': x.get('type') or fflag_infer_type(x.get('value', ''))}
+                        self.fflag_flags.append(item)
+                        count += 1
+            self._save_fflag_flags()
+            self._refresh_fflag_list()
+            messagebox.showinfo(UI_TEXT['h5'], UI_TEXT['z15'].format(p0=count), parent=self)
+            self._console_log(UI_TEXT['a16'].format(p0=count, p1=os.path.basename(path)))
+        except Exception as e:
+            messagebox.showerror(UI_TEXT['h5'], UI_TEXT['b16'].format(p0=e), parent=self)
+
+    def _fflag_export(self):
+        if not self.fflag_flags:
+            return
+        data = {x['name']: x['value'] for x in self.fflag_flags}
+        dialog = tk.Toplevel(self)
+        dialog.title(UI_TEXT['z31'])
+        dialog.geometry('470x170')
+        dialog.minsize(430, 150)
+        dialog.transient(self)
+        dialog.grab_set()
+        theme_toplevel(dialog)
+        ttk.Label(dialog, text=UI_TEXT['c16'], font=('Segoe UI Semibold', 10)).pack(anchor='w', padx=14, pady=(14, 4))
+        name_var = tk.StringVar(value=f"fflags_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+        ttk.Entry(dialog, textvariable=name_var).pack(fill='x', padx=14, pady=(0, 12))
+        buttons = ttk.Frame(dialog)
+        buttons.pack(fill='x', padx=14)
+        def save_json(path, target_label):
+            try:
+                base = _sanitize_filename_for_windows(name_var.get().strip()) or 'fflags'
+                if not base.lower().endswith('.json'):
+                    base += '.json'
+                if path is None:
+                    path = os.path.join(DATA_DIR, 'jsons', base)
+                elif os.path.isdir(path):
+                    path = os.path.join(path, base)
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                with open(path, 'w', encoding='utf-8') as f:
+                    json.dump(data, f, ensure_ascii=False, indent=4)
+                try:
+                    in_file_saves = hasattr(self.replacer, 'file_saves_dir') and os.path.commonpath((os.path.abspath(path), os.path.abspath(self.replacer.file_saves_dir))) == os.path.abspath(self.replacer.file_saves_dir)
+                except ValueError:
+                    in_file_saves = False
+                if in_file_saves:
+                    self.replacer.source_var.set('FileSaves')
+                    self.replacer.refresh_view(preserve_selection=True)
+                self._console_log(UI_TEXT['d16'].format(p0=len(data), p1=target_label, p2=path))
+                dialog.destroy()
+            except Exception as e:
+                messagebox.showerror(UI_TEXT['h5'], UI_TEXT['e16'].format(p0=e), parent=dialog)
+        ttk.Button(buttons, text=UI_TEXT['f16'], command=lambda: save_json(None, 'JSONs')).pack(side='left', expand=True, fill='x', padx=(0, 6))
+        def choose_path():
+            path = filedialog.asksaveasfilename(parent=dialog, title=UI_TEXT['g16'], initialfile=name_var.get().strip() + '.json', defaultextension='.json', filetypes=[(UI_TEXT['y15'], '*.json'), (UI_TEXT['z7'], '*.*')])
+            if path:
+                save_json(path, 'chosen location')
+        ttk.Button(buttons, text=UI_TEXT['h16'], command=choose_path).pack(side='left', expand=True, fill='x')
+
+    def _load_fflag_reference_panel(self, force=False):
+        if getattr(self, '_fflag_reference_load_started', False) and (not force):
+            return
+        self._fflag_reference_load_started = True
+        if force:
+            self._fflag_reference_cache = None
+        elif not getattr(self, '_fflag_reference_cache', None):
+            try:
+                with open(FFLAG_REFERENCE_CACHE_PATH, 'r', encoding='utf-8') as source:
+                    saved = json.load(source)
+                age = time.time() - float(saved.get('time', 0))
+                if age <= 21600 and len(saved.get('offsets', {})) >= 500 and isinstance(saved.get('rows'), list):
+                    self._fflag_reference_cache = saved
+                    self._fflag_reference_rows = list(saved['rows'])
+                    self._fflag_reference_loaded(saved)
+                    if age <= 900:
+                        return
+            except Exception:
+                pass
+        if hasattr(self, 'fflag_reference_status'):
+            try:
+                self.fflag_reference_status.configure(text=UI_TEXT['p14'])
+            except Exception:
+                pass
+        def worker():
+            try:
+                result = self._fetch_fflag_reference_data(force=force)
+            except Exception as exc:
+                result = {'rows': [], 'offsets_error': str(exc), 'defaults_error': ''}
+            try:
+                self.after(0, lambda r=result: self._fflag_reference_loaded(r))
+            except Exception:
+                pass
+        threading.Thread(target=worker, daemon=True, name='RoUtils-FFlagReference').start()
+
+    def _fflag_reference_loaded(self, result):
+        if isinstance(result, dict) and result.get('offsets'):
+            self._fflag_reference_cache = result
+        if not hasattr(self, 'fflag_reference_tree'):
+            return
+        rows = result.get('rows', [])
+        self._fflag_reference_rows = list(rows)
+        if rows:
+            status = f'{len(rows):,} flags'
+            if result.get('defaults_error'):
+                status += ' · defaults unavailable (* = missing)'
+            if result.get('offsets_error'):
+                status += ' · fallback offsets'
+            self.fflag_reference_status.configure(text=status)
+            self._refresh_fflag_reference_panel()
+        else:
+            errors = '; '.join((value for value in (result.get('offsets_error'), result.get('defaults_error')) if value))
+            self.fflag_reference_status.configure(text=UI_TEXT['y14'])
+            if errors:
+                self._console_log(UI_TEXT['z14'].format(p0=errors))
+
+    def _refresh_fflag_reference_panel(self):
+        tree = getattr(self, 'fflag_reference_tree', None)
+        if tree is None:
+            return
+        try:
+            if not tree.winfo_exists():
+                return
+        except Exception:
+            return
+        self._fflag_reference_render_token = getattr(self, '_fflag_reference_render_token', 0) + 1
+        token = self._fflag_reference_render_token
+        old_job = getattr(self, '_fflag_reference_render_job', None)
+        if old_job:
+            try:
+                tree.after_cancel(old_job)
+            except Exception:
+                pass
+        try:
+            tree.delete(*tree.get_children())
+        except Exception:
+            pass
+        needle = self.fflag_reference_search.get().strip().casefold()
+        rows = [row for row in getattr(self, '_fflag_reference_rows', []) if not needle or any((needle in str(value).casefold() for value in row))]
+        self.fflag_reference_status.configure(text=UI_TEXT['a15'].format(p0=len(rows)))
+        def insert_batch(start=0):
+            if token != getattr(self, '_fflag_reference_render_token', None):
+                return
+            if getattr(self, '_resize_active', False):
+                try:
+                    self._fflag_reference_render_job = tree.after(80, insert_batch, start)
+                except Exception:
+                    self._fflag_reference_render_job = None
+                return
+            try:
+                if not tree.winfo_exists():
+                    return
+            except Exception:
+                return
+            processed = 0
+            started = time.perf_counter()
+            pos = start
+            while pos < len(rows) and processed < 240 and (time.perf_counter() - started < 0.007):
+                try:
+                    tree.insert('', 'end', iid=f'ref_{token}_{pos}', values=rows[pos])
+                except Exception:
+                    pass
+                pos += 1
+                processed += 1
+            if pos < len(rows):
+                self._fflag_reference_render_job = tree.after(1, insert_batch, pos)
+            else:
+                self._fflag_reference_render_job = None
+        insert_batch(0)
+
     def _show_fflag_reference_panel(self):
         if not hasattr(self, 'nb'):
             return
@@ -1043,6 +868,7 @@ class FFlagMixin:
                     return
             except Exception:
                 continue
+
     def _fetch_fflag_reference_data(self, force=False):
         cached = getattr(self, '_fflag_reference_cache', None)
         if not force and cached and (time.time() - cached.get('time', 0) < 900) and (len(cached.get('offsets', {})) >= 500):
@@ -1220,6 +1046,7 @@ class FFlagMixin:
             except Exception:
                 pass
         return result
+
     def _copy_fflag_reference_row(self, tree):
         try:
             selection = tree.selection()
@@ -1236,81 +1063,301 @@ class FFlagMixin:
             messagebox.showinfo(UI_TEXT['h5'], UI_TEXT['v15'], parent=self)
         except Exception as exc:
             self._console_log(UI_TEXT['w15'].format(p0=exc))
-    def _fflag_import(self):
-        path = filedialog.askopenfilename(parent=self, title=UI_TEXT['x15'], filetypes=[(UI_TEXT['y15'], '*.json'), (UI_TEXT['z7'], '*.*')])
-        if not path:
+
+    def _fflag_history_load(self):
+        try:
+            with open(FFLAG_HISTORY_PATH, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            if isinstance(data, list):
+                return [x for x in data if isinstance(x, dict)][-500:]
+        except Exception:
+            pass
+        return []
+
+    def _fflag_history_save(self):
+        try:
+            os.makedirs(os.path.dirname(FFLAG_HISTORY_PATH), exist_ok=True)
+            temporary = FFLAG_HISTORY_PATH + '.tmp'
+            with open(temporary, 'w', encoding='utf-8') as f:
+                json.dump(self._fflag_history_items[-500:], f, ensure_ascii=False, indent=2)
+            os.replace(temporary, FFLAG_HISTORY_PATH)
+        except Exception as exc:
+            try:
+                self._console_log(f'FFlag history save failed: {exc}')
+            except Exception:
+                pass
+
+    def _fflag_history_snapshot_from_flags(self, flags):
+        snapshot = []
+        for index, flag in enumerate(flags or []):
+            if not isinstance(flag, dict):
+                continue
+            snapshot.append({'name': fflag_strip_prefix(str(flag.get('name', '') or '').strip()), 'value': str(flag.get('value', '') or ''), 'type': str(flag.get('type', '') or ''), 'index': index})
+        return snapshot
+
+    def _fflag_history_commit(self, entries):
+        if not entries:
+            return
+        lock = getattr(self, '_fflag_history_lock', None)
+        if lock is None:
+            self._fflag_history_lock = threading.RLock()
+            lock = self._fflag_history_lock
+        with lock:
+            items = getattr(self, '_fflag_history_items', None)
+            if not isinstance(items, list):
+                items = self._fflag_history_items = []
+            items.extend(entries)
+            del items[:-500]
+            self._fflag_history_save()
+        if hasattr(self, 'fflag_history_text'):
+            self._schedule_ui('fflag_history_render', 45, self._fflag_history_refresh)
+
+    def _fflag_history_record(self, event, old=None, new=None):
+        self._fflag_history_commit([{'timestamp': time.time(), 'event': str(event), 'old': dict(old) if isinstance(old, dict) else None, 'new': dict(new) if isinstance(new, dict) else None}])
+
+    def _fflag_history_track_changes(self):
+        current = self._fflag_history_snapshot_from_flags(self.fflag_flags)
+        previous = getattr(self, '_fflag_history_snapshot', None)
+        if not getattr(self, '_fflag_history_snapshot_ready', False) or not isinstance(previous, list):
+            self._fflag_history_snapshot = current
+            self._fflag_history_snapshot_ready = True
+            return
+        changes = []
+        def keyed(items):
+            counts = {}
+            result = {}
+            for item in items:
+                name_key = str(item.get('name', '')).casefold()
+                occurrence = counts.get(name_key, 0)
+                counts[name_key] = occurrence + 1
+                result[name_key, occurrence] = item
+            return result
+        old_by_name = keyed(previous)
+        new_by_name = keyed(current)
+        old_only = [x for key, x in old_by_name.items() if key not in new_by_name]
+        new_only = [x for key, x in new_by_name.items() if key not in old_by_name]
+        paired_old = set()
+        paired_new = set()
+        if len(previous) == len(current) and len(old_only) == len(new_only):
+            new_by_index = {x['index']: x for x in new_only}
+            for old in old_only:
+                candidate = new_by_index.get(old['index'])
+                if candidate is not None:
+                    changes.append({'timestamp': time.time(), 'event': 'changed', 'old': dict(old), 'new': dict(candidate)})
+                    paired_old.add(id(old))
+                    paired_new.add(id(candidate))
+        for key in old_by_name.keys() & new_by_name.keys():
+            old = old_by_name[key]
+            new = new_by_name[key]
+            if old.get('name') != new.get('name') or old.get('value') != new.get('value') or old.get('type') != new.get('type'):
+                changes.append({'timestamp': time.time(), 'event': 'changed', 'old': dict(old), 'new': dict(new)})
+        for item in new_only:
+            if id(item) not in paired_new:
+                changes.append({'timestamp': time.time(), 'event': 'added', 'old': None, 'new': dict(item)})
+        for item in old_only:
+            if id(item) not in paired_old:
+                changes.append({'timestamp': time.time(), 'event': 'removed', 'old': dict(item), 'new': None})
+        self._fflag_history_snapshot = current
+        self._fflag_history_snapshot_ready = True
+        self._fflag_history_commit(changes)
+
+    def _fflag_history_refresh(self):
+        text = getattr(self, 'fflag_history_text', None)
+        if text is None:
             return
         try:
-            with open(path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-            count = 0
-            if isinstance(data, dict):
-                for n, v in data.items():
-                    bare = fflag_strip_prefix(n)
-                    found = next((x for x in self.fflag_flags if x.get('name') == bare), None)
-                    item = {'name': bare, 'value': str(v).lower() if isinstance(v, bool) else str(v), 'type': fflag_infer_type(v)}
-                    if found:
-                        found.update(item)
-                    else:
-                        self.fflag_flags.append(item)
-                    count += 1
-            elif isinstance(data, list):
-                for x in data:
-                    if isinstance(x, dict) and x.get('name') is not None:
-                        item = {'name': fflag_strip_prefix(x['name']), 'value': str(x.get('value', '')), 'type': x.get('type') or fflag_infer_type(x.get('value', ''))}
-                        self.fflag_flags.append(item)
-                        count += 1
-            self._save_fflag_flags()
-            self._refresh_fflag_list()
-            messagebox.showinfo(UI_TEXT['h5'], UI_TEXT['z15'].format(p0=count), parent=self)
-            self._console_log(UI_TEXT['a16'].format(p0=count, p1=os.path.basename(path)))
-        except Exception as e:
-            messagebox.showerror(UI_TEXT['h5'], UI_TEXT['b16'].format(p0=e), parent=self)
-    def _fflag_export(self):
-        if not self.fflag_flags:
+            if not text.winfo_exists():
+                return
+        except Exception:
             return
-        data = {x['name']: x['value'] for x in self.fflag_flags}
-        dialog = tk.Toplevel(self)
-        dialog.title(UI_TEXT['z31'])
-        dialog.geometry('470x170')
-        dialog.minsize(430, 150)
-        dialog.transient(self)
-        dialog.grab_set()
-        theme_toplevel(dialog)
-        ttk.Label(dialog, text=UI_TEXT['c16'], font=('Segoe UI Semibold', 10)).pack(anchor='w', padx=14, pady=(14, 4))
-        name_var = tk.StringVar(value=f"fflags_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
-        ttk.Entry(dialog, textvariable=name_var).pack(fill='x', padx=14, pady=(0, 12))
-        buttons = ttk.Frame(dialog)
-        buttons.pack(fill='x', padx=14)
-        def save_json(path, target_label):
+        query = str(self.fflag_history_search.get() if hasattr(self, 'fflag_history_search') else '').strip().casefold()
+        with getattr(self, '_fflag_history_lock', threading.RLock()):
+            entries = list(reversed(getattr(self, '_fflag_history_items', [])))
+        if query:
+            def matches(item):
+                old = item.get('old') or {}
+                new = item.get('new') or {}
+                combined = ' '.join((str(value) for value in (item.get('event', ''), old.get('name', ''), old.get('value', ''), new.get('name', ''), new.get('value', ''), old.get('type', ''), new.get('type', '')))).casefold()
+                return query in combined
+            entries = [item for item in entries if matches(item)]
+        text.configure(state='normal')
+        text.delete('1.0', 'end')
+        if not entries:
+            text.insert('end', 'No FFlag changes recorded yet.\n' if not query else 'No history entries match this filter.\n', 'history_meta')
+        for entry in entries[:300]:
             try:
-                base = _sanitize_filename_for_windows(name_var.get().strip()) or 'fflags'
-                if not base.lower().endswith('.json'):
-                    base += '.json'
-                if path is None:
-                    path = os.path.join(DATA_DIR, 'jsons', base)
-                elif os.path.isdir(path):
-                    path = os.path.join(path, base)
-                os.makedirs(os.path.dirname(path), exist_ok=True)
-                with open(path, 'w', encoding='utf-8') as f:
-                    json.dump(data, f, ensure_ascii=False, indent=4)
-                try:
-                    in_file_saves = hasattr(self.replacer, 'file_saves_dir') and os.path.commonpath((os.path.abspath(path), os.path.abspath(self.replacer.file_saves_dir))) == os.path.abspath(self.replacer.file_saves_dir)
-                except ValueError:
-                    in_file_saves = False
-                if in_file_saves:
-                    self.replacer.source_var.set('FileSaves')
-                    self.replacer.refresh_view(preserve_selection=True)
-                self._console_log(UI_TEXT['d16'].format(p0=len(data), p1=target_label, p2=path))
-                dialog.destroy()
-            except Exception as e:
-                messagebox.showerror(UI_TEXT['h5'], UI_TEXT['e16'].format(p0=e), parent=dialog)
-        ttk.Button(buttons, text=UI_TEXT['f16'], command=lambda: save_json(None, 'JSONs')).pack(side='left', expand=True, fill='x', padx=(0, 6))
-        def choose_path():
-            path = filedialog.asksaveasfilename(parent=dialog, title=UI_TEXT['g16'], initialfile=name_var.get().strip() + '.json', defaultextension='.json', filetypes=[(UI_TEXT['y15'], '*.json'), (UI_TEXT['z7'], '*.*')])
-            if path:
-                save_json(path, 'chosen location')
-        ttk.Button(buttons, text=UI_TEXT['h16'], command=choose_path).pack(side='left', expand=True, fill='x')
+                stamp = datetime.fromtimestamp(float(entry.get('timestamp', 0))).strftime('%Y-%m-%d %H:%M:%S')
+            except Exception:
+                stamp = 'Unknown time'
+            event = str(entry.get('event', 'changed')).lower()
+            old = entry.get('old') or {}
+            new = entry.get('new') or {}
+            if event == 'added':
+                title, tag = ('NEW FFLAG', 'history_add')
+            elif event == 'removed':
+                title, tag = ('FFLAG REMOVED', 'history_removed')
+            else:
+                title, tag = ('FFLAG CHANGED', 'history_title')
+            text.insert('end', f'{stamp}  ', 'history_meta')
+            text.insert('end', title + '\n', tag)
+            if old.get('name') != new.get('name') and old.get('name') is not None and (new.get('name') is not None):
+                text.insert('end', 'Name: ', 'history_meta')
+                text.insert('end', str(old.get('name', '')), 'history_old')
+                text.insert('end', '  →  ', 'history_meta')
+                text.insert('end', str(new.get('name', '')), 'history_new')
+                text.insert('end', '\n')
+            elif new.get('name') is not None:
+                text.insert('end', 'Name: ', 'history_meta')
+                text.insert('end', str(new.get('name', '')), tag if event == 'added' else 'history_meta')
+                text.insert('end', '\n')
+            elif old.get('name') is not None:
+                text.insert('end', 'Name: ', 'history_meta')
+                text.insert('end', str(old.get('name', '')), 'history_old')
+                text.insert('end', '\n')
+            if old.get('value') != new.get('value') and old.get('value') is not None and (new.get('value') is not None):
+                text.insert('end', 'Value: ', 'history_meta')
+                text.insert('end', str(old.get('value', '')), 'history_old')
+                text.insert('end', '  →  ', 'history_meta')
+                text.insert('end', str(new.get('value', '')), 'history_new')
+                text.insert('end', '\n')
+            elif new.get('value') is not None:
+                text.insert('end', 'Value: ', 'history_meta')
+                text.insert('end', str(new.get('value', '')), tag if event == 'added' else 'history_meta')
+                text.insert('end', '\n')
+            elif old.get('value') is not None:
+                text.insert('end', 'Value: ', 'history_meta')
+                text.insert('end', str(old.get('value', '')), 'history_old')
+                text.insert('end', '\n')
+            if old.get('type') != new.get('type') and old.get('type') is not None and (new.get('type') is not None):
+                text.insert('end', 'Type: ', 'history_meta')
+                text.insert('end', str(old.get('type', '')), 'history_old')
+                text.insert('end', '  →  ', 'history_meta')
+                text.insert('end', str(new.get('type', '')), 'history_new')
+                text.insert('end', '\n')
+            text.insert('end', '────────────────────────────────────────────────────────\n', 'history_separator')
+        text.configure(state='disabled')
+        text.yview_moveto(0)
+
+    def _fflag_history_clear(self):
+        if not messagebox.askyesno('FFlag History', 'Clear all saved FFlag change history?', parent=self):
+            return
+        with getattr(self, '_fflag_history_lock', threading.RLock()):
+            self._fflag_history_items = []
+            self._fflag_history_save()
+        self._fflag_history_refresh()
+
+    def _open_fflag_history_panel(self):
+        fflag_tab_id = next((tab_id for tab_id in self.nb.tabs() if self.nb.tab(tab_id, 'text') == UI_TEXT['h5']), None)
+        if fflag_tab_id is not None:
+            self.nb.select(fflag_tab_id)
+            self._lazy_tab_changed()
+        def select_history():
+            try:
+                if hasattr(self, 'fflag_side_notebook') and self.fflag_side_notebook.winfo_exists() and hasattr(self, 'fflag_history_tab'):
+                    self.fflag_side_notebook.select(self.fflag_history_tab)
+                    self._fflag_history_refresh()
+            except Exception:
+                pass
+        self.after_idle(select_history)
+
+    def _fflag_hotkeys_dialog(self):
+        dlg = tk.Toplevel(self)
+        dlg.title('FFlag Hotkeys')
+        dlg.geometry('900x500')
+        dlg.transient(self)
+        theme_toplevel(dlg)
+        outer = ttk.Frame(dlg, padding=12)
+        outer.pack(fill='both', expand=True)
+        outer.columnconfigure(0, weight=1)
+        outer.rowconfigure(1, weight=1)
+        ttk.Label(outer, text=UI_TEXT['n6'], font=('Segoe UI Semibold', 13)).grid(row=0, column=0, sticky='w', pady=(0, 8))
+        cols = ('key', 'flag', 'mode', 'value1', 'value2')
+        tree = ttk.Treeview(outer, columns=cols, show='headings', selectmode='browse')
+        headers = {'key': 'KEY', 'flag': 'FFLAG', 'mode': 'MODE', 'value1': 'TOGGLE 1', 'value2': 'TOGGLE 2'}
+        widths = {'key': 100, 'flag': 320, 'mode': 100, 'value1': 140, 'value2': 140}
+        for col in cols:
+            tree.heading(col, text=headers[col])
+            tree.column(col, width=widths[col], anchor='w')
+        tree.grid(row=1, column=0, sticky='nsew')
+        def refresh():
+            tree.delete(*tree.get_children())
+            for i, item in enumerate(self.fflag_hotkeys):
+                tree.insert('', 'end', iid=str(i), values=(item.get('key', ''), item.get('flag', ''), item.get('mode', _FFLAG_DEFAULT_MODE), item.get('value1', _FFLAG_DEFAULT_TRUE), item.get('value2', _FFLAG_DEFAULT_FALSE)))
+        def edit():
+            sel = tree.selection()
+            if not sel:
+                return
+            idx = int(sel[0])
+            self._fflag_hotkey_editor(idx, dlg, refresh)
+        btns = ttk.Frame(outer)
+        btns.grid(row=2, column=0, sticky='ew', pady=(8, 0))
+        ttk.Button(btns, text=UI_TEXT['o6'], command=lambda: self._fflag_hotkey_editor(None, dlg, refresh)).pack(side='left')
+        ttk.Button(btns, text=UI_TEXT['p6'], command=edit).pack(side='left', padx=5)
+        ttk.Button(btns, text=UI_TEXT['q6'], command=lambda: self._remove_fflag_hotkey(tree, refresh)).pack(side='left')
+        ttk.Button(btns, text=UI_TEXT['r6'], command=dlg.destroy).pack(side='right')
+        refresh()
+
+    def _fflag_hotkey_editor(self, index, parent, refresh):
+        dlg = tk.Toplevel(parent)
+        dlg.title(UI_TEXT['q27'])
+        dlg.transient(parent)
+        dlg.grab_set()
+        theme_toplevel(dlg)
+        existing = self.fflag_hotkeys[index] if index is not None else {}
+        key_var = tk.StringVar(value=str(existing.get('key', '')))
+        flag_var = tk.StringVar(value=str(existing.get('flag', '')))
+        mode_var = tk.StringVar(value=str(existing.get('mode', _FFLAG_DEFAULT_MODE)))
+        v1_var = tk.StringVar(value=str(existing.get('value1', _FFLAG_DEFAULT_TRUE)))
+        v2_var = tk.StringVar(value=str(existing.get('value2', _FFLAG_DEFAULT_FALSE)))
+        ttk.Label(dlg, text=UI_TEXT['s6']).grid(row=0, column=0, padx=10, pady=(12, 4), sticky='w')
+        key_entry = ttk.Entry(dlg, textvariable=key_var, width=20)
+        key_entry.grid(row=1, column=0, padx=10, sticky='ew')
+        ttk.Label(dlg, text=UI_TEXT['t6']).grid(row=2, column=0, padx=10, pady=(8, 4), sticky='w')
+        flag_combo = ttk.Combobox(dlg, textvariable=flag_var, values=[x.get('name', '') for x in self.fflag_flags], width=48)
+        flag_combo.grid(row=3, column=0, padx=10, sticky='ew')
+        ttk.Label(dlg, text=UI_TEXT['u6']).grid(row=4, column=0, padx=10, pady=(8, 4), sticky='w')
+        mode_combo = ttk.Combobox(dlg, textvariable=mode_var, values=[_FFLAG_DEFAULT_MODE], state='readonly', width=20)
+        mode_combo.grid(row=5, column=0, padx=10, sticky='w')
+        ttk.Label(dlg, text=UI_TEXT['v6']).grid(row=6, column=0, padx=10, pady=(8, 4), sticky='w')
+        ttk.Entry(dlg, textvariable=v1_var, width=30).grid(row=7, column=0, padx=10, sticky='ew')
+        ttk.Label(dlg, text=UI_TEXT['w6']).grid(row=8, column=0, padx=10, pady=(8, 4), sticky='w')
+        ttk.Entry(dlg, textvariable=v2_var, width=30).grid(row=9, column=0, padx=10, sticky='ew')
+        ttk.Label(dlg, text=UI_TEXT['x6'], foreground=_FFLAG_COLOR_MUTED).grid(row=10, column=0, padx=10, pady=(8, 4), sticky='w')
+        def capture_key(event):
+            if event.keysym in ('Shift_L', 'Shift_R', 'Control_L', 'Control_R', 'Alt_L', 'Alt_R'):
+                return 'break'
+            key = event.keysym.upper()
+            if key == 'ESCAPE':
+                key = 'ESC'
+            key_var.set(key)
+            return 'break'
+        key_entry.bind('<KeyPress>', capture_key)
+        def save():
+            key = key_var.get().strip().upper()
+            flag = fflag_strip_prefix(flag_var.get().strip())
+            if not key or not fflag_key_to_vk(key):
+                messagebox.showerror(UI_TEXT['y6'], UI_TEXT['z6'], parent=dlg)
+                return
+            if not flag:
+                messagebox.showerror(UI_TEXT['y6'], UI_TEXT['a7'], parent=dlg)
+                return
+            item = {'key': key, 'flag': flag, 'mode': _FFLAG_DEFAULT_MODE, 'value1': v1_var.get(), 'value2': v2_var.get(), 'state': bool(existing.get('state', False))}
+            if index is None:
+                self.fflag_hotkeys.append(item)
+            else:
+                self.fflag_hotkeys[index] = item
+            self._save_settings()
+            refresh()
+            dlg.destroy()
+        btns = ttk.Frame(dlg)
+        btns.grid(row=11, column=0, pady=12)
+        ttk.Button(btns, text=UI_TEXT['i6'], command=save).pack(side='left', padx=4)
+        ttk.Button(btns, text=UI_TEXT['b3'], command=dlg.destroy).pack(side='left', padx=4)
+        dlg.columnconfigure(0, weight=1)
+        for button_number in range(1, 6):
+            key_entry.bind(f'<Button-{button_number}>', lambda event, n=button_number: (key_var.set(f'MOUSE{n}'), 'break')[1])
+        key_entry.focus_set()
+
     def _fflag_refresh_process(self):
         pid = _fflag_find_pid()
         if sys.platform.startswith('linux'):
@@ -1325,9 +1372,9 @@ class FFlagMixin:
                     self._console_log(f'Sober detected: PID {pid}; using Sober config mode.')
                     if self.fflag_auto_apply.get():
                         self.after(0, lambda: self._fflag_apply(silent=True))
-                self.fflag_status.config(text=f'Sober detected (PID {pid}) · config mode', foreground='#65d98b')
+                self.fflag_status.config(text=f'Sober detected (PID {pid}) · config mode', foreground=_FFLAG_COLOR_SUCCESS)
                 if hasattr(self, 'fps_pid_label'):
-                    self.fps_pid_label.config(text=f'Sober PID: {pid}', foreground='#65d98b')
+                    self.fps_pid_label.config(text=f'Sober PID: {pid}', foreground=_FFLAG_COLOR_SUCCESS)
             else:
                 had_pid = self.fflag_pid
                 self.fflag_pid = 0
@@ -1336,11 +1383,11 @@ class FFlagMixin:
                     self.fflag_engine.close()
                 except Exception:
                     pass
-                self.fflag_status.config(text='Sober not detected', foreground='#9aa0a6')
+                self.fflag_status.config(text='Sober not detected', foreground=_FFLAG_COLOR_MUTED)
                 if had_pid:
                     self._console_log('Sober process closed; config-based FFlag mode remains available.')
                 if hasattr(self, 'fps_pid_label'):
-                    self.fps_pid_label.config(text='Sober not detected', foreground='#9aa0a6')
+                    self.fps_pid_label.config(text='Sober not detected', foreground=_FFLAG_COLOR_MUTED)
             self.after(1000, self._fflag_refresh_process)
             return
         if pid and pid != self.fflag_pid:
@@ -1353,14 +1400,14 @@ class FFlagMixin:
                 if hasattr(self, 'roblox_path_var'):
                     self.roblox_path_var.set(exe_path)
             if self.fflag_engine.attach(pid):
-                self.fflag_status.config(text=UI_TEXT['j14'].format(p0=pid), foreground='#65d98b')
+                self.fflag_status.config(text=UI_TEXT['j14'].format(p0=pid), foreground=_FFLAG_COLOR_SUCCESS)
                 self._console_log(UI_TEXT['i16'].format(p0=pid))
                 if hasattr(self, 'fps_pid_label'):
-                    self.fps_pid_label.config(text=UI_TEXT['j16'].format(p0=pid), foreground='#65d98b')
+                    self.fps_pid_label.config(text=UI_TEXT['j16'].format(p0=pid), foreground=_FFLAG_COLOR_SUCCESS)
                 if self.fflag_auto_apply.get():
                     self.after(0, lambda: self._fflag_apply(silent=True))
             else:
-                self.fflag_status.config(text=UI_TEXT['k16'], foreground='#ff6b6b')
+                self.fflag_status.config(text=UI_TEXT['k16'], foreground=_FFLAG_COLOR_ERROR)
                 self._console_log(UI_TEXT['l16'].format(p0=pid))
         elif not pid:
             had_pid = self.fflag_pid
@@ -1368,15 +1415,17 @@ class FFlagMixin:
                 self.fflag_engine.close()
             self.fflag_original_values.clear()
             self.fflag_pid = 0
-            self.fflag_status.config(text=UI_TEXT['q13'], foreground='#9aa0a6')
+            self.fflag_status.config(text=UI_TEXT['q13'], foreground=_FFLAG_COLOR_MUTED)
             if had_pid:
                 self._console_log(UI_TEXT['m16'])
             if hasattr(self, 'fps_pid_label'):
-                self.fps_pid_label.config(text=UI_TEXT['r12'], foreground='#9aa0a6')
+                self.fps_pid_label.config(text=UI_TEXT['r12'], foreground=_FFLAG_COLOR_MUTED)
         self.after(1000, self._fflag_refresh_process)
+
     def _fps_flag_value(self):
         fps = max(0, min(240, int(self.fps_limit.get())))
         return str(fps)
+
     def _sync_fps_flag_to_manager(self):
         full_name = 'TaskSchedulerTargetFps'
         normalized_name = fflag_strip_prefix(full_name)
@@ -1406,11 +1455,12 @@ class FFlagMixin:
             self._save_fflag_flags()
             if hasattr(self, 'fflag_tree'):
                 self._refresh_fflag_list()
+
     def _apply_fps_flag(self, silent=True):
         if sys.platform.startswith('linux'):
             try:
                 path, value = set_sober_fps_cap(self.fps_limit.get())
-                self._fflag_status_text(f'Sober FPS cap set to {value}', '#65d98b')
+                self._fflag_status_text(f'Sober FPS cap set to {value}', _FFLAG_COLOR_SUCCESS)
                 self._console_log(f'Sober FPS cap set to {value} in {path}')
                 if not silent:
                     messagebox.showinfo(UI_TEXT['h5'], f'Sober FPS cap set to {value}. Restart Sober to apply it.', parent=self)
@@ -1425,6 +1475,7 @@ class FFlagMixin:
             return False
         value = self._fps_flag_value()
         return bool(self._fflag_write_offset('DFIntTaskSchedulerTargetFps', value, 'int'))
+
     def _apply_fps_after_slider(self):
         self._fps_release_job = None
         try:
@@ -1436,6 +1487,7 @@ class FFlagMixin:
             self._save_settings()
         except Exception:
             pass
+
     def _fflag_write_offset(self, name, value, value_type):
         cache = getattr(self, '_fflag_reference_cache', None)
         if not cache or not isinstance(cache.get('offsets'), dict):
@@ -1469,7 +1521,7 @@ class FFlagMixin:
             value_text = str(value).strip()
             kind = str(value_type or fflag_infer_type(value_text)).lower()
             if kind == 'bool':
-                data = bytes([1 if value_text.lower() in ('true', '1') else 0])
+                data = bytes([1 if value_text.lower() in (_FFLAG_DEFAULT_TRUE, '1') else 0])
             elif kind == 'int':
                 data = int(value_text, 10).to_bytes(4, 'little', signed=True)
             elif kind == 'float':
@@ -1486,6 +1538,7 @@ class FFlagMixin:
             return bool(ok and written.value == len(data))
         except Exception:
             return False
+
     def _fflag_apply(self, silent=False):
         conflicts = self._fflag_conflicts()
         if conflicts:
@@ -1513,7 +1566,7 @@ class FFlagMixin:
                 live = SoberProxyService(DATA_DIR).is_running()
                 status = 'Applied (Restart Needed)'
                 ok = applied == total and not skipped
-                self._fflag_status_text(status if ok else f'{status} · {len(skipped)} skipped', '#65d98b' if ok else '#ff6b6b')
+                self._fflag_status_text(status if ok else f'{status} · {len(skipped)} skipped', _FFLAG_COLOR_SUCCESS if ok else _FFLAG_COLOR_ERROR)
                 self._console_log(f'Sober FFlags written to {result.get("path", sober_config_path())}: {applied}/{total}')
                 if live:
                     self._console_log('Custom FFlags are available to the live proxy on the next ClientSettings refresh.')
@@ -1521,7 +1574,7 @@ class FFlagMixin:
                     for detail in skipped[:10]:
                         self._console_log(f'Sober FFlag skipped: {detail}')
             except Exception as error:
-                self._fflag_status_text('FFlag apply failed', '#ff6b6b')
+                self._fflag_status_text('FFlag apply failed', _FFLAG_COLOR_ERROR)
                 self._console_log(f'Sober FFlag apply failed: {error}')
             return
         if not self.fflag_pid or not self.fflag_engine.handle:
@@ -1531,7 +1584,7 @@ class FFlagMixin:
             return
         cache = getattr(self, '_fflag_reference_cache', None)
         if not cache or not isinstance(cache.get('offsets'), dict) or len(cache.get('offsets', {})) < 1:
-            self._fflag_status_text('Loading offsets…', '#9aa0a6')
+            self._fflag_status_text('Loading offsets…', _FFLAG_COLOR_MUTED)
             self._load_fflag_reference_panel(force=True)
             self._console_log(UI_TEXT['r16'])
             return
@@ -1567,6 +1620,7 @@ class FFlagMixin:
                 result = {'ok': ok, 'failed': failed + 1, 'total': total, 'elapsed': elapsed, 'method': method, 'pid': pid, 'error': str(exc)}
             self.after(0, self._fflag_apply_finished, result, bool(silent))
         threading.Thread(target=worker, daemon=True, name='RoUtils-FFlagApply').start()
+
     def _fflag_apply_finished(self, result, silent=True):
         elapsed_text = f"{float(result.get('elapsed', 0.0)):.9f}".replace('.', ',')
         ok = int(result.get('ok', 0))
@@ -1576,7 +1630,7 @@ class FFlagMixin:
         pid = result.get('pid', self.fflag_pid)
         if result.get('error'):
             self._console_log(f"FFlag apply worker error: {result['error']}")
-        color = '#65d98b' if ok and (not failed) else '#ff6b6b'
+        color = _FFLAG_COLOR_SUCCESS if ok and (not failed) else _FFLAG_COLOR_ERROR
         self._fflag_status_text(f'Applied ({elapsed_text} seconds)', color)
         self._console_log(UI_TEXT['t16'].format(p0=method, p1=ok, p2=total, p3=failed, p4=pid))
         if not silent and (not ok or failed):
@@ -1589,21 +1643,23 @@ class FFlagMixin:
             self._fflag_apply_pending_silent = True
         if pending:
             self.after(60, lambda s=pending_silent: self._fflag_apply(silent=s))
-    def _fflag_status_text(self, text, color='#9aa0a6'):
+
+    def _fflag_status_text(self, text, color=_FFLAG_COLOR_MUTED):
         try:
             self.fflag_status.config(text=text, foreground=color)
         except Exception:
             pass
+
     def _fflag_unapply(self):
         self.fflag_auto_apply.set(False)
         if sys.platform.startswith('linux'):
             try:
                 path = restore_sober_fflags(DATA_DIR)
-                self._fflag_status_text('Restored previous Sober FFlags', '#65d98b')
+                self._fflag_status_text('Restored previous Sober FFlags', _FFLAG_COLOR_SUCCESS)
                 self._console_log(f'Restored previous Sober FFlags in {path}')
                 messagebox.showinfo(UI_TEXT['h5'], f'Previous Sober FFlags were restored in:\n{path}', parent=self)
             except Exception as error:
-                self._fflag_status_text('No Sober FFlag backup', '#9aa0a6')
+                self._fflag_status_text('No Sober FFlag backup', _FFLAG_COLOR_MUTED)
                 messagebox.showwarning(UI_TEXT['h5'], str(error), parent=self)
             return
         if not self.fflag_pid or not self.fflag_engine.handle:
@@ -1624,8 +1680,9 @@ class FFlagMixin:
             except Exception:
                 failed += 1
         self.fflag_original_values.clear()
-        self.fflag_status.config(text=UI_TEXT['v16'].format(p0=restored) + (UI_TEXT['w16'].format(p0=failed) if failed else UI_TEXT['m1']), foreground='#65d98b' if not failed else '#ff6b6b')
+        self.fflag_status.config(text=UI_TEXT['v16'].format(p0=restored) + (UI_TEXT['w16'].format(p0=failed) if failed else UI_TEXT['m1']), foreground=_FFLAG_COLOR_SUCCESS if not failed else _FFLAG_COLOR_ERROR)
         self._console_log(UI_TEXT['x16'].format(p0=restored, p1=failed))
+
     def _toggle_fflag_auto_apply(self):
         enabled = not bool(self.fflag_auto_apply.get())
         self.fflag_auto_apply.set(enabled)
@@ -1633,9 +1690,10 @@ class FFlagMixin:
         self._save_settings()
         if hasattr(self, 'fflag_auto_apply_button'):
             self.fflag_auto_apply_button.config(text=UI_TEXT['u14'] if enabled else UI_TEXT['v14'])
-        self._fflag_status_text(UI_TEXT['z28'] if enabled else UI_TEXT['a29'], '#65d98b' if enabled else '#9aa0a6')
+        self._fflag_status_text(UI_TEXT['z28'] if enabled else UI_TEXT['a29'], _FFLAG_COLOR_SUCCESS if enabled else _FFLAG_COLOR_MUTED)
         if enabled and (sys.platform.startswith('linux') or (self.fflag_pid and self.fflag_engine.handle)):
             threading.Thread(target=lambda: self.after(0, lambda: self._fflag_apply(silent=True)), name='RoUtilsFFlagAutoApply', daemon=True).start()
+
     def _fflag_auto_apply_tick(self):
         try:
             if self.fflag_auto_apply.get() and (sys.platform.startswith('linux') or (self.fflag_pid and self.fflag_engine.handle)):
@@ -1646,6 +1704,7 @@ class FFlagMixin:
             self.after(15000, self._fflag_auto_apply_tick)
         except Exception:
             pass
+
     def _toggle_anti_afk(self):
         enabled = bool(self.anti_afk_enabled.get())
         self.settings['anti_afk_enabled'] = enabled
@@ -1653,6 +1712,7 @@ class FFlagMixin:
             self._anti_afk_last_action = time.monotonic()
         self._save_settings()
         self._console_log('Anti-AFK enabled; activity signal scheduled every 15 minutes.' if enabled else 'Anti-AFK disabled.')
+
     def _anti_afk_tick(self):
         try:
             enabled = bool(self.anti_afk_enabled.get())
@@ -1679,6 +1739,7 @@ class FFlagMixin:
             self.after(15000, self._anti_afk_tick)
         except Exception:
             pass
+
     def _anti_afk_signal_worker(self, pids):
         success = False
         error = ''
@@ -1696,6 +1757,7 @@ class FFlagMixin:
             self.after(0, self._anti_afk_signal_finished, success, error)
         except Exception:
             self._anti_afk_in_progress = False
+
     def _anti_afk_send_virtual_signal(self, pid):
         if os.name != 'nt':
             return False
@@ -1796,6 +1858,7 @@ class FFlagMixin:
                 except Exception:
                     pass
         return success
+
     def _anti_afk_signal_finished(self, success, error=''):
         self._anti_afk_in_progress = False
         if success:

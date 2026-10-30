@@ -7,6 +7,75 @@ class SettingsMixin:
         width = int(getattr(event, 'width', 0) or 0)
         key = f'_canvas_width_{id(canvas)}'
         self._apply_or_defer_canvas_window_width(canvas, window_id, width, key)
+    def _auto_update_setting_changed(self):
+        if bool(self.auto_update.get()):
+            self.settings['auto_update'] = True
+            self._save_settings()
+            return
+        self.auto_update.set(True)
+        if getattr(self, '_auto_update_confirmation_open', False):
+            return
+        self._auto_update_confirmation_open = True
+        dialog = tk.Toplevel(self)
+        dialog.title('Custom')
+        dialog.transient(self)
+        dialog.resizable(False, False)
+        try:
+            theme_toplevel(dialog)
+        except Exception:
+            pass
+        panel = tk.Frame(dialog, bg=_CURRENT_PALETTE['bg_dark'], padx=22, pady=20)
+        panel.pack(fill='both', expand=True)
+        tk.Label(panel, text='Updates are important, Do you still want to disable Auto Updates?', bg=_CURRENT_PALETTE['bg_dark'], fg=_CURRENT_PALETTE['fg'], justify='center', wraplength=390, font=('Segoe UI', 10)).pack(fill='x', pady=(4, 20))
+        buttons = ttk.Frame(panel)
+        buttons.pack(fill='x')
+        state = {'remaining': 8, 'closed': False}
+        def finish(disable):
+            if state['closed']:
+                return
+            state['closed'] = True
+            self._auto_update_confirmation_open = False
+            enabled = not disable
+            self.auto_update.set(enabled)
+            self.settings['auto_update'] = enabled
+            try:
+                self._save_settings()
+            except Exception:
+                pass
+            try:
+                dialog.grab_release()
+            except Exception:
+                pass
+            try:
+                dialog.destroy()
+            except Exception:
+                pass
+        yes_button = ttk.Button(buttons, text='Yes (8s)', state='disabled', command=lambda: finish(True))
+        yes_button.grid(row=0, column=0, padx=(0, 8), sticky='e')
+        no_button = ttk.Button(buttons, text='No', command=lambda: finish(False))
+        no_button.grid(row=0, column=1, sticky='e')
+        buttons.columnconfigure(0, weight=1)
+        def tick():
+            if state['closed'] or not dialog.winfo_exists():
+                return
+            state['remaining'] -= 1
+            if state['remaining'] > 0:
+                yes_button.configure(text=f"Yes ({state['remaining']}s)")
+                dialog.after(1000, tick)
+            else:
+                yes_button.configure(text='Yes', state='normal')
+        dialog.protocol('WM_DELETE_WINDOW', lambda: finish(False))
+        dialog.update_idletasks()
+        width, height = 440, 150
+        x = max(0, self.winfo_rootx() + (self.winfo_width() - width) // 2)
+        y = max(0, self.winfo_rooty() + (self.winfo_height() - height) // 2)
+        dialog.geometry(f'{width}x{height}+{x}+{y}')
+        try:
+            dialog.grab_set()
+        except Exception:
+            pass
+        dialog.after(1000, tick)
+        dialog.after(100, lambda: (dialog.lift(), dialog.focus_force()) if dialog.winfo_exists() else None)
     def _build_settings_tab(self):
         try:
             st = ttk.Style(self)
@@ -112,24 +181,13 @@ class SettingsMixin:
         ttk.Checkbutton(startup, style='RoUtils.Settings.TCheckbutton', text=UI_TEXT['z17'], variable=self.launch_on_tray, command=self._startup_setting_changed).pack(anchor='w', padx=8, pady=2)
         ttk.Checkbutton(startup, style='RoUtils.Settings.TCheckbutton', text=UI_TEXT['a18'], variable=self.launch_on_startup, command=self._startup_setting_changed).pack(anchor='w', padx=8, pady=2)
         ttk.Checkbutton(startup, style='RoUtils.Settings.TCheckbutton', text=UI_TEXT['b18'], variable=self.hide_to_tray_on_close, command=self._startup_setting_changed).pack(anchor='w', padx=8, pady=2)
-        discord_box = ttk.LabelFrame(tab, style='RoUtils.Settings.TLabelframe', text='Discord Rich Presence')
-        discord_box.pack(fill='x', pady=6)
-        ttk.Checkbutton(discord_box, style='RoUtils.Settings.TCheckbutton', text='Enable Discord Rich Presence', variable=self.discord_rpc_enabled, command=self._toggle_discord_rpc).pack(anchor='w', padx=8, pady=(7, 3))
-        application_id_row = ttk.Frame(discord_box, style='RoUtils.Settings.TFrame')
-        application_id_row.pack(fill='x', padx=8, pady=(4, 7))
-        ttk.Label(application_id_row, style='RoUtils.Settings.TLabel', text='Application ID').pack(side='left')
-        application_id_entry = ttk.Entry(application_id_row, textvariable=self.discord_application_id_var, width=26, state='readonly')
-        application_id_entry.pack(side='left', fill='x', expand=True, padx=(8, 6))
-        application_id_entry.bind('<Button-1>', lambda _event: (self._prompt_change_discord_application_id(), 'break')[1])
-        ttk.Button(application_id_row, text='Change ID', command=self._prompt_change_discord_application_id).pack(side='left')
-        ttk.Label(discord_box, style='RoUtils.Settings.TLabel', textvariable=self.discord_rpc_status_var, foreground='#9aa0a6').pack(anchor='w', padx=8, pady=(0, 7))
         streamer = ttk.LabelFrame(tab, style='RoUtils.Settings.TLabelframe', text=UI_TEXT['c18'])
         streamer.pack(fill='x', pady=6)
         ttk.Checkbutton(streamer, style='RoUtils.Settings.TCheckbutton', text=UI_TEXT['d18'], variable=self.streamer_mode, command=self._apply_streamer_mode).pack(anchor='w', padx=8, pady=4)
         ttk.Label(streamer, text=UI_TEXT['e18'], foreground='#9aa0a6').pack(anchor='w', padx=8, pady=(0, 6))
         updates = ttk.LabelFrame(tab, style='RoUtils.Settings.TLabelframe', text=UI_TEXT['f18'])
         updates.pack(fill='x', pady=6)
-        ttk.Checkbutton(updates, style='RoUtils.Settings.TCheckbutton', text=UI_TEXT['g18'], variable=self.auto_update, command=self._save_settings).pack(anchor='w', padx=8, pady=(6, 1))
+        ttk.Checkbutton(updates, style='RoUtils.Settings.TCheckbutton', text=UI_TEXT['g18'], variable=self.auto_update, command=self._auto_update_setting_changed).pack(anchor='w', padx=8, pady=(6, 1))
         ttk.Label(updates, text=UI_TEXT['h18'], foreground='#9aa0a6').pack(anchor='w', padx=8, pady=(0, 7))
         gemini = ttk.LabelFrame(tab, style='RoUtils.Settings.TLabelframe', text=UI_TEXT['i18'])
         gemini.pack(fill='x', pady=6)
@@ -231,13 +289,14 @@ class SettingsMixin:
                     raise ValueError(UI_TEXT['h32'])
                 self.settings.update(data)
             self.settings.pop('multi_instance_enabled', None)
+            self.settings.pop('discord_rpc_enabled', None)
             if hasattr(self, 'discord_application_id_var'):
                 imported_id = str(self.settings.get('discord_application_id') or DISCORD_APPLICATION_ID).strip()
                 if imported_id.isdigit():
                     self.discord_application_id_var.set(imported_id)
                     if hasattr(self, '_discord_rpc'):
                         self._discord_rpc.set_client_id(imported_id)
-            for name in ('autoscroll', 'hide_tickets', 'stay_on_top', 'show_lines', 'streamer_mode', 'autostart_watch', 'auto_update', 'launch_on_tray', 'launch_on_startup', 'hide_to_tray_on_close', 'discord_rpc_enabled'):
+            for name in ('autoscroll', 'hide_tickets', 'stay_on_top', 'show_lines', 'streamer_mode', 'autostart_watch', 'auto_update', 'launch_on_tray', 'launch_on_startup', 'hide_to_tray_on_close'):
                 var = getattr(self, name, None)
                 if var is not None and name in self.settings:
                     var.set(bool(self.settings[name]))
@@ -250,7 +309,7 @@ class SettingsMixin:
                 self.theme_var.set(str(self.settings['theme']))
                 self._apply_theme()
             if hasattr(self, '_discord_rpc'):
-                self._discord_rpc.set_enabled(bool(self.discord_rpc_enabled.get()))
+                self._discord_rpc.set_enabled(True)
                 self._refresh_discord_rpc_activity()
             self._load_fflag_flags()
             if hasattr(self, 'fflag_tree'):

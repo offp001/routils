@@ -1,7 +1,7 @@
 @echo off
 setlocal
+cd /d "%~dp0"
 
-set "ROOT=%~dp0.."
 set "VENV=%~dp0.venv"
 set "PYTHON=%VENV%\Scripts\python.exe"
 
@@ -19,7 +19,7 @@ if errorlevel 1 (
     exit /b 1
 )
 
-"%PYTHON%" -m pip install -r "%ROOT%\requirements.txt" -r "%ROOT%\requirements-build.txt"
+"%PYTHON%" -m pip install -r "%~dp0requirements.txt"
 if errorlevel 1 (
     echo Requirements installation failed.
     pause
