@@ -32,7 +32,7 @@
 </p>
 
 <p align="center">
-  <strong>Contact:</strong> <a href="mailto:offp01@proton.me">ooffp01@proton.me</a>
+  <strong>Contact:</strong> <a href="mailto:offp01@proton.me">offp01@proton.me</a>
 </p>
 
 ---
