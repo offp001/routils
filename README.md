@@ -9,7 +9,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/github/downloads/offp001/routils/total?label=Downloads&color=brightgreen" alt="Downloads">
-  <img src="https://img.shields.io/github/license/offp001/routils" alt="License">
+  <img src="https://img.shields.io/github/license/offp001/routils" alt="RoUtils License">
 </p>
 
 <p align="center">
