@@ -1066,7 +1066,7 @@ class _RoUtilsResponseCacheCapture:
 SPLASH_DIR = os.path.join(DATA_DIR, 'src')
 SPLASH_IMAGE_PATH = os.path.join(SPLASH_DIR, 'routils.png')
 SPLASH_IMAGE_URL = 'https://raw.githubusercontent.com/offp001/routils/refs/heads/main/src/routils.png'
-APP_VERSION = '5.2.5'
+APP_VERSION = '5.2.6'
 RELEASES_URL = 'https://github.com/offp001/routils/releases'
 RELEASES_API_URL = 'https://api.github.com/repos/offp001/routils/releases?per_page=30'
 def _routils_request(url, timeout=10, headers=None, data=None, method=None, cache_bypass=False):

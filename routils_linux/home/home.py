@@ -217,7 +217,7 @@ class HomeMixin:
                     dlg.destroy()
                 except Exception:
                     pass
-                webbrowser.open(f'https://github.com/offp001/routils/releases/download/{latest}/RoUtils-Linux')
+                webbrowser.open(f'https://github.com/offp001/routils/releases/download/{latest}/RoUtils.exe')
             def later():
                 try:
                     dlg.grab_release()
@@ -245,9 +245,9 @@ class HomeMixin:
                 if not self._is_newer_version(latest, current):
                     self._auto_update_in_progress = False
                     return
-                download_url = f'https://github.com/offp001/routils/releases/download/{latest}/RoUtils-Linux'
+                download_url = f'https://github.com/offp001/routils/releases/download/{latest}/RoUtils.exe'
                 target_dir = os.path.dirname(os.path.abspath(sys.executable if getattr(sys, 'frozen', False) else __file__))
-                target_path = os.path.join(target_dir, f'RoUtils-{latest}-Linux')
+                target_path = os.path.join(target_dir, f'RoUtils-{latest}.exe')
                 temp_path = os.path.join(tempfile.gettempdir(), f'RoUtils-{latest}.download')
                 self.after(0, lambda: self._set_update_progress(0, 0, True))
                 self.after(0, lambda v=latest: self._console_log(UI_TEXT['m10'].format(p0=v)))
@@ -265,7 +265,6 @@ class HomeMixin:
                 if not os.path.isfile(temp_path) or os.path.getsize(temp_path) < 1024:
                     raise RuntimeError('Downloaded update is invalid.')
                 os.replace(temp_path, target_path)
-                os.chmod(target_path, 0o755)
                 self.after(0, lambda p=target_path: self._console_log(UI_TEXT['n10'].format(p0=p)))
                 subprocess.Popen([target_path], cwd=target_dir, close_fds=True, creationflags=getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0))
                 self.after(0, lambda: (self._set_update_progress(0, 0, False), self._on_close(force=True)))

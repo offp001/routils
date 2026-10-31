@@ -1,4 +1,5 @@
 import sys
+from client.global_settings import default_global_settings_path as _default_global_settings_path, read_global_settings as _read_global_settings, save_global_settings as _save_global_settings
 _host = sys.modules.get('main') or sys.modules.get('__main__')
 if _host is not None:
     globals().update({k: v for k, v in vars(_host).items() if not k.startswith('__') and k not in {'_host'}})
@@ -84,6 +85,126 @@ class ClientMixin:
         self._client_system_prev = None
         self._client_refresh()
         self.after(UI_CLIENT_INTERVAL_MS, self._client_live_update)
+        self._global_settings_path_var = tk.StringVar(value="Detecting GlobalBasicSettings_13.xml...")
+        self._build_global_settings_editor(tab)
+    def _build_global_settings_editor(self, tab):
+        box = ttk.LabelFrame(tab, text="Global Settings Modification", padding=(10, 8))
+        box.grid(row=5, column=0, sticky="nsew", pady=(12, 8))
+        box.columnconfigure(0, weight=1)
+        ttk.Label(box, textvariable=self._global_settings_path_var).grid(row=0, column=0, sticky="w")
+        ttk.Label(box, text="Close Roblox or Sober before saving. A running client may overwrite this file.", foreground="#9aa0a6").grid(row=1, column=0, sticky="w", pady=(3, 8))
+        actions = ttk.Frame(box)
+        actions.grid(row=2, column=0, sticky="w", pady=(0, 8))
+        ttk.Button(actions, text="Refresh", command=self._global_settings_refresh).pack(side="left", padx=(0, 6))
+        ttk.Button(actions, text="Browse...", command=self._global_settings_browse).pack(side="left", padx=(0, 6))
+        ttk.Button(actions, text="Save Changes", command=self._global_settings_save).pack(side="left")
+        table_frame = ttk.Frame(box)
+        table_frame.grid(row=3, column=0, sticky="nsew")
+        table_frame.columnconfigure(0, weight=1)
+        table_frame.rowconfigure(0, weight=1)
+        self.global_settings_tree = ttk.Treeview(table_frame, columns=("type", "value"), show="tree headings", selectmode="browse", height=12)
+        self.global_settings_tree.heading("#0", text="Setting")
+        self.global_settings_tree.heading("type", text="Type")
+        self.global_settings_tree.heading("value", text="Value")
+        self.global_settings_tree.column("#0", width=260, minwidth=150, stretch=True)
+        self.global_settings_tree.column("type", width=90, minwidth=70, stretch=False)
+        self.global_settings_tree.column("value", width=320, minwidth=160, stretch=True)
+        scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=self.global_settings_tree.yview)
+        self.global_settings_tree.configure(yscrollcommand=scrollbar.set)
+        self.global_settings_tree.grid(row=0, column=0, sticky="nsew")
+        scrollbar.grid(row=0, column=1, sticky="ns")
+        self.global_settings_tree.bind("<Double-1>", self._global_settings_edit)
+        self._global_settings_pending = {}
+        self._global_settings_rows = {}
+        self._global_settings_custom_path = None
+        self._global_settings_file = None
+        self._global_settings_digest = None
+        self._global_settings_refresh()
+
+    def _global_settings_default_path(self):
+        if os.name == "nt":
+            return _default_global_settings_path("nt", local_app_data=os.environ.get("LOCALAPPDATA"))
+        try:
+            return _default_global_settings_path("posix", sober_appdata=sober_appdata_root())
+        except Exception:
+            return _default_global_settings_path("posix")
+
+    def _global_settings_refresh(self):
+        from pathlib import Path
+        path = Path(self._global_settings_custom_path).expanduser() if self._global_settings_custom_path else self._global_settings_default_path()
+        self._global_settings_file = path
+        self._global_settings_pending = {}
+        self._global_settings_rows = {}
+        for item in self.global_settings_tree.get_children():
+            self.global_settings_tree.delete(item)
+        try:
+            rows, digest = _read_global_settings(path)
+            self._global_settings_digest = digest
+            for index, row in enumerate(rows):
+                item_id = f"gs{index}"
+                self._global_settings_rows[item_id] = row
+                self.global_settings_tree.insert("", "end", iid=item_id, text=row["name"], values=(row["type"], row["value"]))
+            self._global_settings_path_var.set(f"{path}  |  {len(rows)} settings")
+            if not rows:
+                self._global_settings_path_var.set(f"{path}  |  No editable settings found")
+        except FileNotFoundError:
+            self._global_settings_digest = None
+            self._global_settings_path_var.set(f"Not found: {path}  |  Launch Roblox or Sober once, then refresh")
+        except Exception as error:
+            self._global_settings_digest = None
+            self._global_settings_path_var.set(f"Could not read: {path}  |  {error}")
+
+    def _global_settings_browse(self):
+        selected = filedialog.askopenfilename(
+            parent=self,
+            title="Select GlobalBasicSettings_13.xml",
+            filetypes=(("Roblox XML settings", "*.xml"), ("All files", "*.*")),
+        )
+        if selected:
+            self._global_settings_custom_path = selected
+            self._global_settings_refresh()
+
+    def _global_settings_edit(self, event):
+        tree = self.global_settings_tree
+        if tree.identify_region(event.x, event.y) != "cell" or tree.identify_column(event.x) != "#2":
+            return
+        item_id = tree.identify_row(event.y)
+        row = self._global_settings_rows.get(item_id)
+        if row is None:
+            return
+        current = tree.set(item_id, "value")
+        value = simpledialog.askstring(
+            "Edit Global Setting",
+            f"{row['name']} ({row['type']})",
+            initialvalue=current,
+            parent=self,
+        )
+        if value is None:
+            return
+        self.global_settings_tree.set(item_id, "value", value)
+        if value == row["value"]:
+            self._global_settings_pending.pop(item_id, None)
+        else:
+            self._global_settings_pending[item_id] = value
+
+    def _global_settings_save(self):
+        if not self._global_settings_pending:
+            messagebox.showinfo("Global Settings Modification", "There are no unsaved changes.", parent=self)
+            return
+        if self._global_settings_file is None or self._global_settings_digest is None:
+            messagebox.showwarning("Global Settings Modification", "The settings file is not available. Refresh or select an XML file first.", parent=self)
+            return
+        updates = {
+            tuple(self._global_settings_rows[item_id]["path"]): value
+            for item_id, value in self._global_settings_pending.items()
+        }
+        try:
+            backup, _ = _save_global_settings(self._global_settings_file, updates, self._global_settings_digest)
+            self._global_settings_refresh()
+            messagebox.showinfo("Global Settings Modification", f"Settings saved. Restart Roblox or Sober to apply. Original backup: {backup}", parent=self)
+        except Exception as error:
+            messagebox.showerror("Global Settings Modification", str(error), parent=self)
+
     def _client_roblox_pids(self):
         if os.name != 'nt':
             return []
