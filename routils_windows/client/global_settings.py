@@ -8,14 +8,13 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 
-def default_global_settings_path(platform=None, local_app_data=None, home=None, sober_appdata=None):
+def default_global_settings_path(platform=None, local_app_data=None, home=None):
     platform = str(platform or os.name).lower()
+    if platform not in {"nt", "win32", "windows"}:
+        raise OSError("The Windows version only supports the Roblox Global Settings path.")
     home_path = Path(home).expanduser() if home is not None else Path.home()
-    if platform in {"nt", "win32", "windows"}:
-        local_path = Path(local_app_data).expanduser() if local_app_data else home_path / "AppData" / "Local"
-        return local_path / "Roblox" / "GlobalBasicSettings_13.xml"
-    appdata_path = Path(sober_appdata).expanduser() if sober_appdata else home_path / ".var" / "app" / "org.vinegarhq.Sober" / "data" / "sober" / "appData"
-    return appdata_path / "GlobalBasicSettings_13.xml"
+    local_path = Path(local_app_data).expanduser() if local_app_data else home_path / "AppData" / "Local"
+    return local_path / "Roblox" / "GlobalBasicSettings_13.xml"
 
 
 def _xml_parser():

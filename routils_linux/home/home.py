@@ -37,33 +37,11 @@ class HomeMixin:
                 messagebox.showerror(UI_TEXT['x5'], UI_TEXT['k9'].format(p0=e))
             except Exception:
                 pass
-    def _version_path(self):
-        return os.path.join(DATA_DIR, 'version.txt')
-    def _reset_version_file(self):
-        try:
-            vp = self._version_path()
-            if os.path.exists(vp):
-                try:
-                    os.remove(vp)
-                except Exception:
-                    pass
-            with open(vp, 'w', encoding='utf-8') as f:
-                f.write(APP_VERSION)
-        except Exception:
-            pass
-    def _local_version(self):
-        try:
-            if not os.path.exists(self._version_path()):
-                with open(self._version_path(), 'w', encoding='utf-8') as f:
-                    f.write(APP_VERSION)
-            with open(self._version_path(), encoding='utf-8') as f:
-                return f.read().strip() or APP_VERSION
-        except Exception:
-            return APP_VERSION
     def _build_home_tab(self):
         tab = ttk.Frame(self.nb, padding=12)
         self.nb.insert(0, tab, text=UI_TEXT['w5'])
         ttk.Label(tab, text=UI_TEXT['x5'], font=('Segoe UI Semibold', 20)).pack(anchor='w')
+        self._build_home_profile_card(tab)
         ttk.Label(tab, text=UI_TEXT['c10'], font=('Segoe UI Semibold', 14)).pack(anchor='w', pady=(14, 14))
         links = ttk.Frame(tab)
         links.pack(anchor='w', fill='x')
@@ -112,313 +90,153 @@ class HomeMixin:
         self.home_download_label.pack(anchor='w')
         self.home_download_progress = ttk.Progressbar(self.home_download_frame, orient='horizontal', mode='determinate', length=320)
         self.home_download_progress.pack(anchor='w', fill='x', pady=(3, 0))
-    def _set_update_progress(self, downloaded=0, total=0, visible=True):
+    def _home_device_name(self):
+        name = os.environ.get('COMPUTERNAME') or os.environ.get('HOSTNAME')
+        if not name and hasattr(os, 'uname'):
+            try:
+                name = os.uname().nodename
+            except Exception:
+                name = None
+        return str(name or 'This device')
+    def _build_home_profile_card(self, parent):
+        palette = _CURRENT_PALETTE
+        bg = palette.get('bg_medium', palette.get('bg_dark', '#1e1e1e'))
+        border = palette.get('border', '#3a3a3a')
+        muted = palette.get('fg', '#d7d7d7')
+        accent = palette.get('accent', '#4da6ff')
+        shell = tk.Frame(parent, bg=border, padx=1, pady=1)
+        shell.pack(fill='x', pady=(12, 12))
+        card = tk.Frame(shell, bg=bg, padx=18, pady=14)
+        card.pack(fill='x')
+        info = tk.Frame(card, bg=bg)
+        info.pack(side='left', fill='both', expand=True)
+        self.home_profile_kind = tk.Label(info, text='DEVICE', bg=bg, fg=accent, font=('Segoe UI', 9, 'bold'), anchor='w')
+        self.home_profile_kind.pack(anchor='w', pady=(0, 5))
+        self.home_profile_name = tk.Label(info, text=self._home_device_name(), bg=bg, fg=muted, font=('Segoe UI Semibold', 19), anchor='w', justify='left')
+        self.home_profile_name.pack(anchor='w', fill='x')
+        self.home_profile_handle = tk.Label(info, text='', bg=bg, fg='#9aa0a6', font=('Segoe UI', 10), anchor='w')
+        self.home_profile_handle.pack(anchor='w', pady=(4, 0))
+        self.home_profile_avatar_frame = tk.Frame(card, bg=border, padx=2, pady=2)
+        self.home_profile_avatar = tk.Label(self.home_profile_avatar_frame, bg=bg, bd=0, width=92, height=92)
+        self.home_profile_avatar.pack()
+        self.home_profile_photo = None
+    def _profile_cookie_paths(self):
         try:
-            if visible:
-                self.home_download_frame.pack(side='bottom', anchor='w', fill='x', padx=10, pady=10)
-                if total > 0:
-                    self.home_download_progress.configure(mode='determinate', maximum=total, value=downloaded)
-                    self.home_download_label.configure(text=UI_TEXT['h10'].format(p0=downloaded / total * 100))
-                else:
-                    self.home_download_progress.configure(mode='indeterminate')
-                    self.home_download_progress.start(12)
-                    self.home_download_label.configure(text=UI_TEXT['g10'])
-            else:
-                try:
-                    self.home_download_progress.stop()
-                except Exception:
-                    pass
-                self.home_download_frame.pack_forget()
+            root = str(sober_appdata_root())
         except Exception:
-            pass
+            return []
+        return [
+            os.path.join(root, 'LocalStorage', 'RobloxCookies.dat'),
+            os.path.join(root, 'Roblox', 'LocalStorage', 'RobloxCookies.dat'),
+            os.path.join(root, 'RobloxCookies.dat'),
+        ]
     def _extract_profile_from_cookies(self):
-        path = os.path.join(os.environ.get('LOCALAPPDATA', ''), 'Roblox', 'LocalStorage', 'RobloxCookies.dat') if os.name == 'nt' else os.path.join(str(sober_appdata_root()), 'RobloxCookies.dat')
-        if not os.path.isfile(path):
-            return (None, None)
+        for path in self._profile_cookie_paths():
+            if not os.path.isfile(path):
+                continue
+            try:
+                with open(path, 'rb') as source:
+                    raw = source.read(2 * 1024 * 1024)
+                text = raw.decode('utf-8', errors='ignore')
+                uid = None
+                username = None
+                for pattern in (r'"userId"\s*[:=]\s*"?(\d+)', r'"UserId"\s*[:=]\s*"?(\d+)', r'"user_id"\s*[:=]\s*"?(\d+)', r'userid[^0-9]{0,16}(\d{3,})'):
+                    match = re.search(pattern, text, re.I)
+                    if match:
+                        uid = match.group(1)
+                        break
+                for pattern in (r'"username"\s*[:=]\s*"([^"\\]+)', r'"userName"\s*[:=]\s*"([^"\\]+)'):
+                    match = re.search(pattern, text, re.I)
+                    if match:
+                        username = match.group(1)
+                        break
+                if uid or username:
+                    return username, uid
+            except Exception:
+                continue
+        return None, None
+    def _fetch_roblox_profile(self, username, uid):
         try:
-            raw = open(path, 'rb').read()
-            text = raw.decode('utf-8', errors='ignore')
-            uid = None
-            username = None
-            for pat in ('"userId"\\s*[:=]\\s*"?(\\d+)', '"UserId"\\s*[:=]\\s*"?(\\d+)', 'userid[^0-9]{0,30}(\\d+)'):
-                m = re.search(pat, text, re.I)
-                if m:
-                    uid = m.group(1)
-                    break
-            for pat in ('"username"\\s*[:=]\\s*"([^"\\\\]+)', '"name"\\s*[:=]\\s*"([^"\\\\]+)'):
-                m = re.search(pat, text, re.I)
-                if m:
-                    username = m.group(1)
-                    break
-            if not uid:
-                for token in re.findall('[A-Za-z0-9+/=]{24,}', text):
-                    try:
-                        t = base64.b64decode(token).decode('utf-8', errors='ignore')
-                        m = re.search('"(?:userId|UserId)"\\s*:\\s*"?(\\d+)', t)
-                        if m:
-                            uid = m.group(1)
-                        m2 = re.search('"(?:username|name)"\\s*:\\s*"([^"\\\\]+)', t, re.I)
-                        if m2:
-                            username = m2.group(1)
-                        if uid:
-                            break
-                    except Exception:
-                        pass
-            return (username, uid)
+            if uid:
+                url = f'https://users.roblox.com/v1/users/{uid}'
+                with _routils_request(url, timeout=12, headers={'Accept': 'application/json'}) as response:
+                    profile = json.loads(response.read().decode('utf-8', errors='replace'))
+            elif username:
+                payload = json.dumps({'usernames': [username], 'excludeBannedUsers': False}).encode('utf-8')
+                with _routils_request('https://users.roblox.com/v1/usernames/users', timeout=12, headers={'Accept': 'application/json', 'Content-Type': 'application/json'}, data=payload, method='POST') as response:
+                    result = json.loads(response.read().decode('utf-8', errors='replace'))
+                profile = (result.get('data') or [None])[0] or {}
+            else:
+                return None
+            resolved_uid = str(profile.get('id') or uid or '')
+            resolved_username = str(profile.get('name') or username or '')
+            display_name = str(profile.get('displayName') or resolved_username or '')
+            if not resolved_uid:
+                return None
+            return {'user_id': resolved_uid, 'username': resolved_username, 'display_name': display_name}
         except Exception:
-            return (None, None)
+            if uid:
+                return {'user_id': str(uid), 'username': str(username or ''), 'display_name': str(username or '')}
+            return None
+    def _fetch_roblox_avatar(self, uid):
+        try:
+            url = f'https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds={uid}&size=150x150&format=Png&isCircular=true&thumbnailType=HeadShot'
+            with _routils_request(url, timeout=12, headers={'Accept': 'application/json'}) as response:
+                result = json.loads(response.read().decode('utf-8', errors='replace'))
+            items = result.get('data') or []
+            image_url = items[0].get('imageUrl') if items else None
+            if not image_url:
+                return None
+            with _routils_request(image_url, timeout=15, headers={'Accept': 'image/png,image/*,*/*'}) as response:
+                return response.read()
+        except Exception:
+            return None
     def _detect_roblox_profile(self):
         username, uid = self._extract_profile_from_cookies()
-        if username:
-            self.settings['roblox_username'] = username
-        if uid:
-            self.settings['roblox_user_id'] = uid
-        save_settings(self.settings)
+        if not uid and not username:
+            return None, None
+        profile = self._fetch_roblox_profile(username, uid)
+        if not profile:
+            return None, None
+        avatar = self._fetch_roblox_avatar(profile['user_id'])
+        return profile, avatar
+    def _apply_home_profile(self, profile, avatar_data):
+        try:
+            if not self.winfo_exists() or not hasattr(self, 'home_profile_name'):
+                return
+            if not profile:
+                self.home_profile_kind.configure(text='DEVICE')
+                self.home_profile_name.configure(text=self._home_device_name())
+                self.home_profile_handle.configure(text='')
+                self.home_profile_avatar_frame.pack_forget()
+                return
+            self.settings['roblox_username'] = profile.get('username', '')
+            self.settings['roblox_user_id'] = profile.get('user_id', '')
+            self.settings['roblox_display_name'] = profile.get('display_name', '')
+            save_settings(self.settings)
+            self.home_profile_kind.configure(text='ROBLOX ACCOUNT')
+            self.home_profile_name.configure(text=profile.get('display_name') or profile.get('username') or 'Roblox User')
+            self.home_profile_handle.configure(text=f"@{profile['username']}" if profile.get('username') else '')
+            if avatar_data:
+                try:
+                    image = Image.open(io.BytesIO(avatar_data)).convert('RGBA')
+                    image.thumbnail((92, 92), getattr(Image, 'Resampling', Image).LANCZOS)
+                    self.home_profile_photo = ImageTk.PhotoImage(image)
+                    self.home_profile_avatar.configure(image=self.home_profile_photo, text='')
+                    self.home_profile_avatar_frame.pack(side='right', padx=(18, 0))
+                except Exception:
+                    self.home_profile_avatar_frame.pack_forget()
+        except Exception:
+            pass
     def _start_profile_detection(self):
         def worker():
-            self._detect_roblox_profile()
-        threading.Thread(target=worker, daemon=True).start()
+            profile, avatar = self._detect_roblox_profile()
+            try:
+                self.after(0, lambda p=profile, a=avatar: self._apply_home_profile(p, a))
+            except Exception:
+                pass
+        threading.Thread(target=worker, daemon=True, name='RoUtilsRobloxProfile').start()
     @staticmethod
-    def _version_tuple(version):
-        parts = re.findall('\\d+', str(version or ''))
-        if not parts:
-            return (0,)
-        return tuple((int(x) for x in parts[:4]))
-    def _is_newer_version(self, latest, current):
-        return self._version_tuple(latest) > self._version_tuple(current)
-    def _show_outdated_dialog(self, latest):
-        if self._outdated_dialog_shown or self._auto_update_in_progress:
-            return
-        self._outdated_dialog_shown = True
-        try:
-            dlg = tk.Toplevel(self)
-            dlg.title('RoUtils is Outdated')
-            dlg.resizable(False, False)
-            dlg.transient(self)
-            dlg.grab_set()
-            theme_toplevel(dlg)
-            width, height = (440, 230)
-            self.update_idletasks()
-            x = max(0, (self.winfo_screenwidth() - width) // 2)
-            y = max(0, (self.winfo_screenheight() - height) // 2)
-            dlg.geometry(f'{width}x{height}+{x}+{y}')
-            outer = ttk.Frame(dlg, padding=24)
-            outer.pack(fill='both', expand=True)
-            ttk.Label(outer, text=UI_TEXT['i10'], font=('Segoe UI Semibold', 18)).pack(pady=(8, 8))
-            ttk.Label(outer, text=UI_TEXT['j10'].format(p0=latest), font=('Segoe UI', 11)).pack(pady=(0, 20))
-            buttons = ttk.Frame(outer)
-            buttons.pack()
-            def download():
-                try:
-                    dlg.grab_release()
-                except Exception:
-                    pass
-                try:
-                    dlg.destroy()
-                except Exception:
-                    pass
-                webbrowser.open(f'https://github.com/offp001/routils/releases/download/{latest}/RoUtils.exe')
-            def later():
-                try:
-                    dlg.grab_release()
-                except Exception:
-                    pass
-                try:
-                    dlg.destroy()
-                except Exception:
-                    pass
-            ttk.Button(buttons, text=UI_TEXT['k10'], command=download).pack(side='left', padx=6)
-            ttk.Button(buttons, text=UI_TEXT['l10'], command=later).pack(side='left', padx=6)
-            dlg._routils_close_callback = later
-            dlg.protocol('WM_DELETE_WINDOW', later)
-            dlg.after(100, lambda d=dlg: (_routils_popup_chrome(d), d.lift(), d.focus_force()) if d.winfo_exists() else None)
-            dlg.focus_force()
-        except Exception:
-            self._outdated_dialog_shown = False
-    def _start_auto_update(self, latest):
-        if self._auto_update_in_progress:
-            return
-        self._auto_update_in_progress = True
-        def worker():
-            try:
-                current = self._local_version()
-                if not self._is_newer_version(latest, current):
-                    self._auto_update_in_progress = False
-                    return
-                download_url = f'https://github.com/offp001/routils/releases/download/{latest}/RoUtils.exe'
-                target_dir = os.path.dirname(os.path.abspath(sys.executable if getattr(sys, 'frozen', False) else __file__))
-                target_path = os.path.join(target_dir, f'RoUtils-{latest}.exe')
-                temp_path = os.path.join(tempfile.gettempdir(), f'RoUtils-{latest}.download')
-                self.after(0, lambda: self._set_update_progress(0, 0, True))
-                self.after(0, lambda v=latest: self._console_log(UI_TEXT['m10'].format(p0=v)))
-                with _routils_request(download_url, timeout=30, headers={'Accept': 'application/octet-stream, */*'}) as response:
-                    total = int(response.headers.get('Content-Length', '0') or 0)
-                    downloaded = 0
-                    with open(temp_path, 'wb') as out:
-                        while True:
-                            chunk = response.read(1024 * 256)
-                            if not chunk:
-                                break
-                            out.write(chunk)
-                            downloaded += len(chunk)
-                            self.after(0, lambda d=downloaded, t=total: self._set_update_progress(d, t, True))
-                if not os.path.isfile(temp_path) or os.path.getsize(temp_path) < 1024:
-                    raise RuntimeError('Downloaded update is invalid.')
-                os.replace(temp_path, target_path)
-                self.after(0, lambda p=target_path: self._console_log(UI_TEXT['n10'].format(p0=p)))
-                subprocess.Popen([target_path], cwd=target_dir, close_fds=True, creationflags=getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0))
-                self.after(0, lambda: (self._set_update_progress(0, 0, False), self._on_close(force=True)))
-            except Exception as e:
-                self._auto_update_in_progress = False
-                try:
-                    self.after(0, lambda err=str(e): self._console_log(UI_TEXT['o10'].format(p0=err)))
-                except Exception:
-                    pass
-                try:
-                    self.after(0, lambda: self._set_update_progress(0, 0, False))
-                except Exception:
-                    pass
-                try:
-                    temp_path = locals().get('temp_path')
-                    if temp_path and os.path.isfile(temp_path):
-                        os.remove(temp_path)
-                except Exception:
-                    pass
-                try:
-                    self.after(0, lambda err=str(e): self._show_update_error(err))
-                except Exception:
-                    pass
-        threading.Thread(target=worker, daemon=True, name='RoUtils-AutoUpdate').start()
-    def _show_update_error(self, error):
-        self._auto_update_in_progress = False
-        try:
-            messagebox.showwarning(UI_TEXT['p10'], UI_TEXT['q10'].format(p0=error), parent=self)
-        except Exception:
-            pass
-    def _start_version_check(self):
-        if getattr(self, '_version_check_started', False):
-            return
-        self._version_check_started = True
-        self._version_check_result_queue = queue.Queue()
-        current = self._local_version()
-        try:
-            self.home_version_value.configure(text=current)
-            self.home_version_state.configure(text='Checking...', foreground='#f2c94c')
-            self.home_version_var.set(UI_TEXT['r10'].format(p0=current, p1='Checking...'))
-        except Exception:
-            pass
-        def worker():
-            current_version = current
-            errors = []
-            latest = ''
-            endpoints = (
-                ('https://api.github.com/repos/offp001/routils/releases/latest', 'single'),
-                ('https://api.github.com/repos/offp001/routils/releases?per_page=1', 'list'),
-            )
-            for url, response_kind in endpoints:
-                try:
-                    with _routils_request(url, timeout=2.5, headers={'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28'}) as response:
-                        payload = response.read(256 * 1024)
-                    data = json.loads(payload.decode('utf-8', 'replace'))
-                    if response_kind == 'list':
-                        if not isinstance(data, list) or not data:
-                            raise ValueError('No published releases were returned')
-                        release = data[0]
-                    else:
-                        release = data
-                    if not isinstance(release, dict):
-                        raise ValueError('Invalid release response')
-                    tag = str(release.get('tag_name', '')).strip()
-                    if not tag:
-                        raise ValueError('The release response did not contain tag_name')
-                    latest = tag.lstrip('vV').strip()
-                    if not latest:
-                        raise ValueError('The release tag was empty')
-                    break
-                except Exception as error:
-                    errors.append(f'{url}: {error}')
-            if latest:
-                try:
-                    outdated = self._is_newer_version(latest, current_version)
-                    state = 'Outdated' if outdated else 'Latest'
-                    color = '#ff5f57' if outdated else '#65d98b'
-                    result = {'current': current_version, 'latest': latest, 'state': state, 'color': color, 'outdated': outdated, 'error': ''}
-                except Exception as error:
-                    result = {'current': current_version, 'latest': '', 'retry': True, 'error': str(error)}
-            else:
-                result = {'current': current_version, 'latest': '', 'retry': True, 'error': ' | '.join(errors) or 'Version endpoint unavailable'}
-            try:
-                self._version_check_result_queue.put_nowait(result)
-            except Exception:
-                pass
-        self._version_check_worker = threading.Thread(target=worker, daemon=True, name='RoUtils-VersionCheck')
-        self._version_check_worker.start()
-        try:
-            self._version_check_poll_after = self.after(40, self._poll_version_check_result)
-        except Exception:
-            self._version_check_poll_after = None
-    def _retry_version_check(self):
-        self._version_check_retry_after = None
-        self._version_check_started = False
-        try:
-            if self.winfo_exists():
-                self._start_version_check()
-        except Exception:
-            pass
-    def _poll_version_check_result(self):
-        try:
-            result_queue = getattr(self, '_version_check_result_queue', None)
-            result = result_queue.get_nowait() if result_queue is not None else None
-        except queue.Empty:
-            result = None
-        except Exception:
-            result = None
-        if result is None:
-            try:
-                if self.winfo_exists():
-                    self._version_check_poll_after = self.after(60, self._poll_version_check_result)
-            except Exception:
-                self._version_check_poll_after = None
-            return
-        current = str(result.get('current') or self._local_version())
-        if result.get('retry'):
-            try:
-                self.home_version_value.configure(text=current)
-                self.home_version_state.configure(text='Checking...', foreground='#f2c94c')
-                self.home_version_var.set(UI_TEXT['r10'].format(p0=current, p1='Checking...'))
-            except Exception:
-                pass
-            try:
-                logging.getLogger('RoUtils').debug('Version check will retry: %s', result.get('error', 'unavailable'))
-            except Exception:
-                pass
-            try:
-                if self.winfo_exists():
-                    old_job = getattr(self, '_version_check_retry_after', None)
-                    if old_job:
-                        try:
-                            self.after_cancel(old_job)
-                        except Exception:
-                            pass
-                    self._version_check_retry_after = self.after(2500, self._retry_version_check)
-            except Exception:
-                self._version_check_retry_after = None
-            return
-        latest = str(result.get('latest') or current)
-        state = str(result.get('state') or 'Latest')
-        color = str(result.get('color') or '#65d98b')
-        self._latest_version = latest
-        try:
-            self.home_version_value.configure(text=current)
-            self.home_version_state.configure(text=state, foreground=color)
-            self.home_version_var.set(UI_TEXT['r10'].format(p0=current, p1=state))
-        except Exception:
-            pass
-        if result.get('outdated'):
-            if self.auto_update.get():
-                self._start_auto_update(latest)
-            else:
-                self._show_outdated_dialog(latest)
     def _initial_tab_order_post_map(self, attempts=0):
         try:
             if not self.winfo_exists():

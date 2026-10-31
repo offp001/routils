@@ -92,7 +92,7 @@ class ClientMixin:
         box.grid(row=5, column=0, sticky="nsew", pady=(12, 8))
         box.columnconfigure(0, weight=1)
         ttk.Label(box, textvariable=self._global_settings_path_var).grid(row=0, column=0, sticky="w")
-        ttk.Label(box, text="Close Roblox or Sober before saving. A running client may overwrite this file.", foreground="#9aa0a6").grid(row=1, column=0, sticky="w", pady=(3, 8))
+        ttk.Label(box, text="Close Roblox before saving. A running client may overwrite this file.", foreground="#9aa0a6").grid(row=1, column=0, sticky="w", pady=(3, 8))
         actions = ttk.Frame(box)
         actions.grid(row=2, column=0, sticky="w", pady=(0, 8))
         ttk.Button(actions, text="Refresh", command=self._global_settings_refresh).pack(side="left", padx=(0, 6))
@@ -122,12 +122,7 @@ class ClientMixin:
         self._global_settings_refresh()
 
     def _global_settings_default_path(self):
-        if os.name == "nt":
-            return _default_global_settings_path("nt", local_app_data=os.environ.get("LOCALAPPDATA"))
-        try:
-            return _default_global_settings_path("posix", sober_appdata=sober_appdata_root())
-        except Exception:
-            return _default_global_settings_path("posix")
+        return _default_global_settings_path("nt", local_app_data=os.environ.get("LOCALAPPDATA"))
 
     def _global_settings_refresh(self):
         from pathlib import Path
@@ -149,7 +144,7 @@ class ClientMixin:
                 self._global_settings_path_var.set(f"{path}  |  No editable settings found")
         except FileNotFoundError:
             self._global_settings_digest = None
-            self._global_settings_path_var.set(f"Not found: {path}  |  Launch Roblox or Sober once, then refresh")
+            self._global_settings_path_var.set(f"Not found: {path}  |  Launch Roblox once, then refresh")
         except Exception as error:
             self._global_settings_digest = None
             self._global_settings_path_var.set(f"Could not read: {path}  |  {error}")
@@ -201,7 +196,7 @@ class ClientMixin:
         try:
             backup, _ = _save_global_settings(self._global_settings_file, updates, self._global_settings_digest)
             self._global_settings_refresh()
-            messagebox.showinfo("Global Settings Modification", f"Settings saved. Restart Roblox or Sober to apply. Original backup: {backup}", parent=self)
+            messagebox.showinfo("Global Settings Modification", f"Settings saved. Restart Roblox to apply. Original backup: {backup}", parent=self)
         except Exception as error:
             messagebox.showerror("Global Settings Modification", str(error), parent=self)
 

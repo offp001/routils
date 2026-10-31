@@ -1,6 +1,7 @@
 import base64
 import ctypes
 import ctypes.wintypes
+from fflag.processes import list_roblox_clients
 if not hasattr(ctypes, "WINFUNCTYPE"):
     ctypes.WINFUNCTYPE = ctypes.CFUNCTYPE
 from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
@@ -7499,30 +7500,12 @@ def _get_process_exe_path(pid):
         pass
     return ''
 def _fflag_find_pid() -> int:
-    if sys.platform.startswith('linux'):
-        return sober_process_pid()
-    if os.name != 'nt':
-        return 0
     try:
-        class PROCESSENTRY32W(ctypes.Structure):
-            _fields_ = [('dwSize', ctypes.wintypes.DWORD), ('cntUsage', ctypes.wintypes.DWORD), ('th32ProcessID', ctypes.wintypes.DWORD), ('th32DefaultHeapID', ctypes.POINTER(ctypes.c_ulong)), ('th32ModuleID', ctypes.wintypes.DWORD), ('th32ParentProcessID', ctypes.wintypes.DWORD), ('pcPriClassBase', ctypes.c_long), ('dwFlags', ctypes.wintypes.DWORD), ('szExeFile', ctypes.wintypes.WCHAR * 260)]
-        snap = ctypes.windll.kernel32.CreateToolhelp32Snapshot(2, 0)
-        if snap in (0, -1):
-            return 0
-        pe = PROCESSENTRY32W()
-        pe.dwSize = ctypes.sizeof(pe)
-        try:
-            if ctypes.windll.kernel32.Process32FirstW(snap, ctypes.byref(pe)):
-                while True:
-                    if pe.szExeFile.lower() == 'robloxplayerbeta.exe':
-                        return int(pe.th32ProcessID)
-                    if not ctypes.windll.kernel32.Process32NextW(snap, ctypes.byref(pe)):
-                        break
-        finally:
-            ctypes.windll.kernel32.CloseHandle(snap)
+        clients = list_roblox_clients()
+        return int(clients[0]['pid']) if clients else 0
     except Exception:
-        pass
-    return 0
+        return 0
+
 _NATIVE_MESSAGEBOX = messagebox
 def _pady_pair(value):
     try:
@@ -8299,6 +8282,7 @@ def _apply_native_titlebar_theme(win):
                 pass
     except Exception:
         pass
+from autoupdate.autoupdate import AutoUpdateMixin
 from ai.ai import AIMixin
 from cache.cache import CacheMixin
 from client.client import ClientMixin
@@ -8314,7 +8298,7 @@ from settings.settings import SettingsMixin
 from subplace.subplace import SubplaceMixin
 from themes.themes import ThemesMixin
 from viewer.viewer import ViewerMixin
-class App(AIMixin, CacheMixin, ClientMixin, ConsoleMixin, EmoteManagerMixin, FFlagMixin, HistoryMixin, HomeMixin, PluginsMixin, ReleaseNotesMixin, ServerViewerMixin, SettingsMixin, SubplaceMixin, ThemesMixin, ViewerMixin, _TkAppBase):
+class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, EmoteManagerMixin, FFlagMixin, HistoryMixin, HomeMixin, PluginsMixin, ReleaseNotesMixin, ServerViewerMixin, SettingsMixin, SubplaceMixin, ThemesMixin, ViewerMixin, _TkAppBase):
     def after(self, ms, func=None, *args):
         ui_thread = getattr(self, '_ui_thread_id', None)
         if func is not None and ui_thread is not None and threading.get_ident() != ui_thread:
@@ -8901,7 +8885,6 @@ class App(AIMixin, CacheMixin, ClientMixin, ConsoleMixin, EmoteManagerMixin, FFl
         self.after_idle(self._lazy_tab_changed)
         self.after_idle(self._install_global_scroll_support)
         self._start_history_watcher()
-        self._detect_roblox_profile()
         self._start_profile_detection()
         self._start_version_check()
         self._install_startup_shortcut()
@@ -10704,20 +10687,27 @@ class App(AIMixin, CacheMixin, ClientMixin, ConsoleMixin, EmoteManagerMixin, FFl
     def _add_json_editor_value(self, txt, dlg):
         try:
             data = json.loads(txt.get('1.0', 'end'))
-            assert isinstance(data, (dict, list))
+            if not isinstance(data, (dict, list)):
+                raise ValueError('JSON must be an object or an array.')
         except Exception as e:
             messagebox.showerror(UI_TEXT['t10'], UI_TEXT['u10'].format(p0=e), parent=dlg)
             return
+        candidate = [dict(flag) for flag in self.fflag_flags if isinstance(flag, dict)]
         if isinstance(data, dict):
             for n, v in data.items():
-                self.fflag_flags.append({'name': fflag_strip_prefix(str(n)), 'value': str(v).lower() if isinstance(v, bool) else str(v), 'type': fflag_infer_type(v)})
+                candidate.append({'name': fflag_strip_prefix(str(n)), 'value': str(v).lower() if isinstance(v, bool) else str(v), 'type': fflag_infer_type(v)})
         else:
-            for x in data:
-                if isinstance(x, dict) and x.get('name') is not None:
-                    self.fflag_flags.append({'name': fflag_strip_prefix(str(x['name'])), 'value': str(x.get('value', '')), 'type': x.get('type') or fflag_infer_type(x.get('value', ''))})
+            for item in data:
+                if isinstance(item, dict) and item.get('name') is not None:
+                    candidate.append({'name': fflag_strip_prefix(str(item['name'])), 'value': str(item.get('value', '')), 'type': item.get('type') or fflag_infer_type(item.get('value', ''))})
+        if not self._fflag_confirm_large_values(candidate, dlg):
+            return
+        self.fflag_flags = candidate
         self._save_fflag_flags()
         self._refresh_fflag_list()
+        self._fflag_check_source_flags()
         dlg.destroy()
+
     def _refresh_json_list(self):
         if not hasattr(self, 'json_tree'):
             return
@@ -10737,17 +10727,21 @@ class App(AIMixin, CacheMixin, ClientMixin, ConsoleMixin, EmoteManagerMixin, FFl
                 data = json.load(f)
             flags = []
             if isinstance(data, dict):
-                flags = [{'name': fflag_strip_prefix(str(k)), 'value': str(v).lower() if isinstance(v, bool) else str(v), 'type': fflag_infer_type(v)} for k, v in data.items()]
+                flags = [{'name': fflag_strip_prefix(str(key)), 'value': str(value).lower() if isinstance(value, bool) else str(value), 'type': fflag_infer_type(value)} for key, value in data.items()]
             elif isinstance(data, list):
-                flags = [{'name': fflag_strip_prefix(str(x['name'])), 'value': str(x.get('value', '')), 'type': x.get('type') or fflag_infer_type(x.get('value', ''))} for x in data if isinstance(x, dict) and x.get('name') is not None]
+                flags = [{'name': fflag_strip_prefix(str(item['name'])), 'value': str(item.get('value', '')), 'type': item.get('type') or fflag_infer_type(item.get('value', ''))} for item in data if isinstance(item, dict) and item.get('name') is not None]
             else:
                 raise ValueError('JSON must be an object or array.')
+            if not self._fflag_confirm_large_values(flags, self):
+                return
             self.fflag_flags = flags
             self._save_fflag_flags()
             self._refresh_fflag_list()
+            self._fflag_check_source_flags()
             messagebox.showinfo(UI_TEXT['h5'], UI_TEXT['v10'].format(p0=len(flags), p1=os.path.basename(path)), parent=self)
         except Exception as e:
             messagebox.showerror(UI_TEXT['h5'], UI_TEXT['w10'].format(p0=e), parent=self)
+
     def _choose_roblox_path(self):
         path = filedialog.askopenfilename(parent=self, title=UI_TEXT['x10'], filetypes=[(UI_TEXT['y10'], 'RobloxPlayerBeta.exe'), (UI_TEXT['z10'], '*.exe')])
         if path and os.path.basename(path).lower() == 'robloxplayerbeta.exe':
@@ -11414,7 +11408,7 @@ def _routils_install_text_rules():
                 text = 'RoUtils could not complete this action\n\nTry again and check the error log if it keeps happening'
             return __original(title, text, *args, **kwargs)
         setattr(messagebox, name, wrapped_messagebox)
-_routils_shared_module_names = ('ai.ai', 'cache.cache', 'client.client', 'console.console', 'emote_manager.emote_manager', 'fflag.fflag', 'history.history', 'home.home', 'plugins.plugins', 'release_notes.release_notes', 'server_viewer.server_viewer', 'settings.settings', 'subplace.subplace', 'themes.themes', 'viewer.viewer')
+_routils_shared_module_names = ('autoupdate.autoupdate', 'ai.ai', 'cache.cache', 'client.client', 'console.console', 'emote_manager.emote_manager', 'fflag.fflag', 'history.history', 'home.home', 'plugins.plugins', 'release_notes.release_notes', 'server_viewer.server_viewer', 'settings.settings', 'subplace.subplace', 'themes.themes', 'viewer.viewer')
 for _routils_module_name in _routils_shared_module_names:
     _routils_module = sys.modules.get(_routils_module_name)
     if _routils_module is not None:

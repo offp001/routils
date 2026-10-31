@@ -28,14 +28,14 @@ if not exist "routils_rpc.png" (
     exit /b 1
 )
 
-"%PYTHON%" -m compileall -q main.pyw
+"%PYTHON%" -m compileall -q main.pyw autoupdate fflag home
 if errorlevel 1 (
     echo Syntax check failed.
     pause
     exit /b 1
 )
 
-"%PYTHON%" -m PyInstaller --noconfirm --clean --onefile --windowed --icon=routils.ico --add-data "routils.ico;." --add-data "routils_rpc.png;." --name=RoUtils main.pyw
+"%PYTHON%" -m PyInstaller --noconfirm --clean --onefile --windowed --icon=routils.ico --add-data "routils.ico;." --add-data "routils_rpc.png;." --add-data "src\presets;src\presets" --name=RoUtils main.pyw
 if errorlevel 1 (
     echo.
     echo Compiling failed
