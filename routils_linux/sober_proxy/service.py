@@ -354,6 +354,9 @@ class SoberProxyService:
                 "--listen-port", str(PROXY_PORT),
                 "--set", f"confdir={self.confdir}",
                 "--set", f"ignore_hosts={IGNORE_HOSTS}",
+                "--set", "connection_strategy=lazy",
+                "--set", "http2_ping_keepalive=30",
+                "--set", "tcp_timeout=600",
                 "-s", str(addon_path),
             ]
             environment = os.environ.copy()

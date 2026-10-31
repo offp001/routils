@@ -1,6 +1,8 @@
 import json
 import os
 import time
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -8,6 +10,48 @@ from pathlib import Path
 FFLAG_CATALOG_URL = "https://raw.githubusercontent.com/MaximumADHD/Roblox-FFlag-Tracker/refs/heads/main/PCDesktopClient.json"
 FFLAG_CATALOG_TTL = 900
 FFLAG_CATALOG_MAX_BYTES = 8 * 1024 * 1024
+
+
+def _retry_after_seconds(error):
+    headers = getattr(error, "headers", None)
+    if headers is None:
+        return None
+    value = headers.get("Retry-After", "")
+    try:
+        return max(0.0, float(value))
+    except (TypeError, ValueError):
+        try:
+            retry_at = parsedate_to_datetime(str(value))
+            if retry_at.tzinfo is None:
+                retry_at = retry_at.replace(tzinfo=timezone.utc)
+            return max(0.0, (retry_at - datetime.now(timezone.utc)).total_seconds())
+        except (TypeError, ValueError, OverflowError):
+            return None
+
+
+def _open_with_retries(request, timeout, attempts=4):
+    transient_statuses = {408, 425, 429, 500, 502, 503, 504}
+    method = str(request.get_method() or "GET").upper()
+    retryable = method in {"GET", "HEAD"} and getattr(request, "data", None) is None
+    total_attempts = max(1, min(5, int(attempts))) if retryable else 1
+    for attempt in range(total_attempts):
+        try:
+            return urllib.request.urlopen(request, timeout=timeout)
+        except urllib.error.HTTPError as error:
+            if not retryable or error.code not in transient_statuses or attempt + 1 >= total_attempts:
+                raise
+            retry_after = _retry_after_seconds(error)
+            try:
+                error.close()
+            except Exception:
+                pass
+            delay = min(6.0, max(0.5 * (2 ** attempt), retry_after or 0.0))
+            time.sleep(delay)
+        except (urllib.error.URLError, TimeoutError, ConnectionError, OSError) as error:
+            if not retryable or attempt + 1 >= total_attempts:
+                raise
+            time.sleep(min(4.0, 0.5 * (2 ** attempt)))
+    raise RuntimeError("The request could not be completed.")
 
 
 def _display_value(value):
@@ -64,7 +108,7 @@ def fetch_fflag_catalog(data_dir, force=False, timeout=15):
         method="GET",
     )
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
+        with _open_with_retries(request, timeout=timeout) as response:
             body = response.read(FFLAG_CATALOG_MAX_BYTES + 1)
         if len(body) > FFLAG_CATALOG_MAX_BYTES:
             raise ValueError("The FFlag source is larger than expected.")

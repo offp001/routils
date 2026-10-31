@@ -32,6 +32,7 @@ import threading
 import time
 import tkinter as tk
 import traceback
+import urllib.error
 import urllib.request
 import uuid
 import webbrowser
@@ -907,13 +908,35 @@ def _routils_is_network_error(error):
                 pass
     return False
 def _routils_urlopen(url, *args, **kwargs):
-    for attempt in range(2):
+    request = url if isinstance(url, urllib.request.Request) else None
+    request_data = getattr(request, 'data', None) if request is not None else (args[0] if args else kwargs.get('data'))
+    request_method = getattr(request, 'method', None) if request is not None else kwargs.get('method')
+    method = str(request_method or ('POST' if request_data is not None else 'GET')).upper()
+    retryable = method in {'GET', 'HEAD'} and request_data is None
+    attempts = 4 if retryable else 1
+    transient_statuses = {408, 425, 429, 500, 502, 503, 504}
+    for attempt in range(attempts):
         try:
             return _ROUTILS_ORIGINAL_URLOPEN(url, *args, **kwargs)
-        except Exception as error:
-            if attempt or not _routils_is_network_error(error):
+        except urllib.error.HTTPError as error:
+            retryable_error = retryable and error.code in transient_statuses
+            if not retryable_error or attempt + 1 >= attempts:
                 raise
-            time.sleep(0.08)
+            retry_after = None
+            try:
+                retry_after = float(error.headers.get('Retry-After', ''))
+            except (TypeError, ValueError, AttributeError):
+                retry_after = None
+            try:
+                error.close()
+            except Exception:
+                pass
+            delay = min(3.0, max(0.35 * (2 ** attempt), retry_after or 0.0))
+            time.sleep(delay)
+        except Exception as error:
+            if not retryable or attempt + 1 >= attempts or not _routils_is_network_error(error):
+                raise
+            time.sleep(min(2.5, 0.35 * (2 ** attempt)))
 UI_THEME = 'clam'
 THEMES = {'Midnight': {'bg_dark': '#1b1b1c', 'bg_medium': '#252526', 'bg_light': '#3a3a3c', 'bg_hover': '#464648', 'fg': '#dcdcdc', 'accent': '#7f8cff', 'border': '#444446'}, 'Ocean': {'bg_dark': '#0f2436', 'bg_medium': '#153248', 'bg_light': '#1f425e', 'bg_hover': '#2a5474', 'fg': '#d7e6f0', 'accent': '#3aa0ff', 'border': '#28506e'}, 'Hacker': {'bg_dark': '#0a0f0a', 'bg_medium': '#0f180f', 'bg_light': '#1a2a1a', 'bg_hover': '#223522', 'fg': '#b8ffb0', 'accent': '#2fff2f', 'border': '#2a4a2a'}, 'Amethyst': {'bg_dark': '#1a1423', 'bg_medium': '#241b31', 'bg_light': '#35284a', 'bg_hover': '#453665', 'fg': '#e0d6f0', 'accent': '#b06bff', 'border': '#4a3a63'}, 'Onyx': {'bg_dark': '#101010', 'bg_medium': '#171717', 'bg_light': '#262626', 'bg_hover': '#303030', 'fg': '#cfcfcf', 'accent': '#c0c0c0', 'border': '#333333'}}
 THEMES.update({'Nord': {'bg_dark': '#1e2430', 'bg_medium': '#252d3a', 'bg_light': '#303a4a', 'bg_hover': '#3a4658', 'fg': '#d8dee9', 'accent': '#88c0d0', 'border': '#414b5d'}, 'Dracula': {'bg_dark': '#282a36', 'bg_medium': '#303241', 'bg_light': '#44475a', 'bg_hover': '#565a70', 'fg': '#f8f8f2', 'accent': '#bd93f9', 'border': '#44475a'}, 'Monokai': {'bg_dark': '#272822', 'bg_medium': '#2e2f2a', 'bg_light': '#3e3d32', 'bg_hover': '#49483e', 'fg': '#f8f8f2', 'accent': '#a6e22e', 'border': '#49483e'}, 'Solarized': {'bg_dark': '#002b36', 'bg_medium': '#073642', 'bg_light': '#586e75', 'bg_hover': '#657b83', 'fg': '#eee8d5', 'accent': '#2aa198', 'border': '#586e75'}, 'Rose Pine': {'bg_dark': '#191724', 'bg_medium': '#1f1d2e', 'bg_light': '#26233a', 'bg_hover': '#403d52', 'fg': '#e0def4', 'accent': '#ebbcba', 'border': '#403d52'}, 'Catppuccin': {'bg_dark': '#1e1e2e', 'bg_medium': '#313244', 'bg_light': '#45475a', 'bg_hover': '#585b70', 'fg': '#cdd6f4', 'accent': '#cba6f7', 'border': '#45475a'}, 'Gruvbox': {'bg_dark': '#282828', 'bg_medium': '#3c3836', 'bg_light': '#504945', 'bg_hover': '#665c54', 'fg': '#ebdbb2', 'accent': '#fabd2f', 'border': '#504945'}, 'Tokyo Night': {'bg_dark': '#16161e', 'bg_medium': '#1f2335', 'bg_light': '#292e42', 'bg_hover': '#3b4261', 'fg': '#c0caf5', 'accent': '#7aa2f7', 'border': '#3b4261'}, 'Synthwave': {'bg_dark': '#241b2f', 'bg_medium': '#30233d', 'bg_light': '#45304f', 'bg_hover': '#5a3e64', 'fg': '#f5d7fe', 'accent': '#ff7edb', 'border': '#5a3e64'}, 'Forest': {'bg_dark': '#102018', 'bg_medium': '#183025', 'bg_light': '#254638', 'bg_hover': '#315a48', 'fg': '#d8f3dc', 'accent': '#74c69d', 'border': '#315a48'}, 'Ruby': {'bg_dark': '#241417', 'bg_medium': '#351b20', 'bg_light': '#4a252d', 'bg_hover': '#63323d', 'fg': '#f7dfe3', 'accent': '#ff6b81', 'border': '#63323d'}, 'Amber': {'bg_dark': '#211a0e', 'bg_medium': '#33270f', 'bg_light': '#4a3815', 'bg_hover': '#61491d', 'fg': '#fff0c2', 'accent': '#ffb84d', 'border': '#61491d'}, 'Arctic': {'bg_dark': '#17212b', 'bg_medium': '#21303d', 'bg_light': '#304554', 'bg_hover': '#405b6d', 'fg': '#e7f5ff', 'accent': '#66c7ff', 'border': '#405b6d'}, 'Lavender': {'bg_dark': '#211d2b', 'bg_medium': '#2d263b', 'bg_light': '#3c3350', 'bg_hover': '#514466', 'fg': '#eee7ff', 'accent': '#c4a7ff', 'border': '#514466'}, 'Coffee': {'bg_dark': '#211915', 'bg_medium': '#30231d', 'bg_light': '#45332a', 'bg_hover': '#5b4437', 'fg': '#f1dfd0', 'accent': '#d69e78', 'border': '#5b4437'}, 'Slate': {'bg_dark': '#181c20', 'bg_medium': '#232a30', 'bg_light': '#313a42', 'bg_hover': '#414c56', 'fg': '#d9e1e8', 'accent': '#8ab4c7', 'border': '#414c56'}, 'Cyber': {'bg_dark': '#080b12', 'bg_medium': '#101522', 'bg_light': '#182033', 'bg_hover': '#26334d', 'fg': '#d9f7ff', 'accent': '#00e5ff', 'border': '#26334d'}, 'Sunset': {'bg_dark': '#241516', 'bg_medium': '#35201e', 'bg_light': '#4a2b27', 'bg_hover': '#633b35', 'fg': '#ffe4d6', 'accent': '#ff8a65', 'border': '#633b35'}, 'Mint': {'bg_dark': '#10211e', 'bg_medium': '#17312c', 'bg_light': '#24473f', 'bg_hover': '#315d52', 'fg': '#dcfff5', 'accent': '#62e6c8', 'border': '#315d52'}, 'Deep Blue': {'bg_dark': '#0b1424', 'bg_medium': '#10213a', 'bg_light': '#193153', 'bg_hover': '#24446f', 'fg': '#dcecff', 'accent': '#5ca9ff', 'border': '#24446f'}, 'Obsidian': {'bg_dark': '#111318', 'bg_medium': '#1a1d24', 'bg_light': '#292e38', 'bg_hover': '#363d49', 'fg': '#e6e9ef', 'accent': '#8ab4f8', 'border': '#3b4351'}, 'Aurora': {'bg_dark': '#101820', 'bg_medium': '#172633', 'bg_light': '#234353', 'bg_hover': '#2d5c6d', 'fg': '#e4fbff', 'accent': '#66e3d4', 'border': '#376878'}, 'Plasma': {'bg_dark': '#160d24', 'bg_medium': '#24143b', 'bg_light': '#38215b', 'bg_hover': '#4d2b79', 'fg': '#f4eaff', 'accent': '#e38cff', 'border': '#5d3d83'}, 'Ember': {'bg_dark': '#20110d', 'bg_medium': '#321a14', 'bg_light': '#4a2820', 'bg_hover': '#63362a', 'fg': '#ffede5', 'accent': '#ff9d5c', 'border': '#714334'}, 'Meadow': {'bg_dark': '#0d1b16', 'bg_medium': '#142a20', 'bg_light': '#204433', 'bg_hover': '#2c5c43', 'fg': '#e4ffef', 'accent': '#8be28b', 'border': '#38694e'}})
@@ -4085,7 +4108,7 @@ _ensure_discord_rpc_logo()
 WEBVIEW2_URL_DEFAULTS = 'https://raw.githubusercontent.com/MaximumADHD/Roblox-FFlag-Tracker/refs/heads/main/PCDesktopClient.json'
 WEBVIEW2_URL_OFFSETS_ROOT = 'https://offsets.imtheo.lol/'
 WEBVIEW2_URL_OFFSETS_TEMPLATE = 'https://offsets.imtheo.lol/{version}/fflags.hpp'
-GITHUB_PRESETS_API = 'https://api.github.com/repos/offp001/routils/contents/src/presets'
+GITHUB_PRESETS_API = 'https://api.github.com/repos/offp001/routils/contents/routils_linux/src/presets?ref=main'
 class _WindowsTrayIcon:
     WM_USER = 1024
     WM_TRAYICON = WM_USER + 100
@@ -8558,17 +8581,6 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         self.settings['discord_application_id'] = configured_discord_id
         self.discord_application_id_var = tk.StringVar(value=configured_discord_id)
         self.discord_rpc_status_var = tk.StringVar(value='Starting Discord RPC...')
-        _saved_roblox = str(self.settings.get('roblox_path', '') or '').strip()
-        if _saved_roblox and os.path.isdir(_saved_roblox):
-            _candidate = os.path.join(_saved_roblox, 'RobloxPlayerBeta.exe')
-            if os.path.isfile(_candidate):
-                self.settings['roblox_path'] = _candidate
-        if not self.settings.get('roblox_path'):
-            _pid = _fflag_find_pid()
-            _exe = _get_process_exe_path(_pid)
-            if _exe and os.path.basename(_exe).lower() == 'robloxplayerbeta.exe':
-                self.settings['roblox_path'] = _exe
-                save_settings(self.settings)
         self.cconfigs_dir = os.path.join(DATA_DIR, 'cconfigs')
         self.jsons_dir = os.path.join(DATA_DIR, 'jsons')
         os.makedirs(self.cconfigs_dir, exist_ok=True)
@@ -8885,7 +8897,6 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         self.after_idle(self._lazy_tab_changed)
         self.after_idle(self._install_global_scroll_support)
         self._start_history_watcher()
-        self._start_profile_detection()
         self._start_version_check()
         self._install_startup_shortcut()
         if '--tray' in sys.argv:
@@ -10969,15 +10980,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                 tab_name = str(self.nb.tab(selected, 'text') or 'Home')
         except Exception:
             pass
-        try:
-            is_roblox_running = bool(self._client_roblox_pids())
-        except Exception:
-            try:
-                is_roblox_running = bool(_fflag_find_pid())
-            except Exception:
-                is_roblox_running = False
-        details = 'Playing Roblox with RoUtils' if is_roblox_running else 'Not playing Roblox'
-        rpc.set_activity(details, f'Tab: {tab_name}')
+        rpc.set_activity('Using RoUtils', f'Tab: {tab_name}')
     def _discord_rpc_poll_tick(self):
         try:
             if not self.winfo_exists():

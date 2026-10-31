@@ -50,7 +50,8 @@ class ServerViewerMixin:
         self.server_viewer_players.grid(row=1, column=0, sticky='nsew')
         _set_pane_minsize(body, left, 280)
         _set_pane_minsize(body, right, 280)
-        self.after_idle(lambda: self._center_server_viewer_pane(body))
+        self.after_idle(self._center_server_viewer_pane, body)
+    @staticmethod
     def _center_server_viewer_pane(body):
         try:
             width = body.winfo_width()
@@ -58,6 +59,7 @@ class ServerViewerMixin:
                 body.sashpos(0, width // 2)
         except Exception:
             pass
+    @staticmethod
     def _server_viewer_parse_deeplink(value):
         value = str(value or '').strip()
         if not value:

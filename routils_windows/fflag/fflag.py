@@ -221,13 +221,14 @@ class FFlagMixin:
         if tree is None:
             return
         candidates = []
-        roots = []
+        roots = [os.path.join(DATA_DIR, 'presets')]
         bundle = getattr(sys, '_MEIPASS', BASE_DIR)
         for base in (os.path.join(bundle, 'src', 'presets'), os.path.join(BASE_DIR, 'src', 'presets'), os.path.join(os.path.dirname(os.path.dirname(__file__)), 'src', 'presets')):
             resolved = os.path.realpath(base)
             if resolved not in roots:
                 roots.append(resolved)
         seen = set()
+        seen_names = set()
         for directory in roots:
             if not os.path.isdir(directory):
                 continue
@@ -235,9 +236,11 @@ class FFlagMixin:
                 if not filename.lower().endswith('.json'):
                     continue
                 path = os.path.join(directory, filename)
-                if path in seen:
+                name_key = filename.casefold()
+                if path in seen or name_key in seen_names:
                     continue
                 seen.add(path)
+                seen_names.add(name_key)
                 try:
                     with open(path, 'r', encoding='utf-8') as source:
                         flags = _normalize_fflag_json(json.load(source))
@@ -687,9 +690,9 @@ class FFlagMixin:
         self._fflag_reference_render_token = 0
         self._fflag_reference_load_started = False
         self._build_fflag_side_panels(favorite_tab, presets_tab, hotkeys_tab)
-        if os.name == 'nt' and hasattr(self, '_external_build_offsets_panel'):
+        if os.name == 'nt' and callable(getattr(self, '_external_build_offsets_panel', None)):
             external_tab = ttk.Frame(self.fflag_side_notebook, padding=8)
-            self.fflag_side_notebook.add(external_tab, text='External')
+            self.fflag_side_notebook.insert(1, external_tab, text='External')
             self._external_build_offsets_panel(external_tab)
         saved_tab.rowconfigure(1, weight=1)
         saved_tab.columnconfigure(0, weight=1)
@@ -952,26 +955,36 @@ class FFlagMixin:
         inner.bind('<Configure>', lambda _e: canvas.configure(scrollregion=canvas.bbox('all')))
         canvas.bind('<Configure>', lambda e: canvas.itemconfigure(window, width=e.width))
         state = {'files': []}
-        def load_preset(url, filename, add_to_current=False):
+        status = ttk.Label(dlg, text=UI_TEXT['u15'], foreground=_FFLAG_COLOR_MUTED)
+        status.pack(anchor='w', padx=12, pady=(0, 6))
+        def load_preset(url, filename, add_to_current=False, local_path=None):
             try:
-                with _routils_request(url, timeout=15) as r:
-                    data = json.loads(r.read().decode('utf-8'))
+                if local_path and os.path.isfile(local_path):
+                    with open(local_path, 'r', encoding='utf-8') as source:
+                        data = json.load(source)
+                else:
+                    with _routils_request(url, timeout=18, headers={'Accept': 'application/json'}, cache_bypass=True) as response:
+                        body = response.read(2 * 1024 * 1024 + 1)
+                    if len(body) > 2 * 1024 * 1024:
+                        raise ValueError('Preset JSON is larger than the allowed size.')
+                    data = json.loads(body.decode('utf-8-sig'))
                 flags = _normalize_fflag_json(data)
                 if not flags:
                     raise ValueError('Preset JSON did not contain any FFlags.')
                 if add_to_current:
                     candidate = [dict(item) for item in self.fflag_flags if isinstance(item, dict)]
-                    existing = {str(item.get('name', '')): i for i, item in enumerate(candidate)}
+                    existing = {str(item.get('name', '')).casefold(): i for i, item in enumerate(candidate)}
                     added = 0
                     updated = 0
                     for flag in flags:
                         name = str(flag.get('name', ''))
-                        if name in existing:
-                            candidate[existing[name]] = flag
+                        key = name.casefold()
+                        if key in existing:
+                            candidate[existing[key]] = flag
                             updated += 1
                         else:
                             candidate.append(flag)
-                            existing[name] = len(candidate) - 1
+                            existing[key] = len(candidate) - 1
                             added += 1
                     if not self._fflag_confirm_large_values(candidate, dlg):
                         return
@@ -979,7 +992,7 @@ class FFlagMixin:
                     self._save_fflag_flags()
                     self._refresh_fflag_list()
                     self._fflag_check_source_flags()
-                    if self.fflag_pid and self.fflag_engine.handle and self.fflag_auto_apply.get():
+                    if self.fflag_pid and getattr(self.fflag_engine, 'handle', None) and self.fflag_auto_apply.get():
                         self._fflag_apply(silent=True)
                     messagebox.showinfo(UI_TEXT['l15'], UI_TEXT['m15'].format(p0=added, p1=updated, p2=filename), parent=dlg)
                     self._console_log(UI_TEXT['n15'].format(p0=filename, p1=added, p2=updated))
@@ -990,44 +1003,83 @@ class FFlagMixin:
                     self._save_fflag_flags()
                     self._refresh_fflag_list()
                     self._fflag_check_source_flags()
-                    if self.fflag_pid and self.fflag_engine.handle and self.fflag_auto_apply.get():
+                    if self.fflag_pid and getattr(self.fflag_engine, 'handle', None) and self.fflag_auto_apply.get():
                         self._fflag_apply(silent=True)
                     messagebox.showinfo(UI_TEXT['l15'], UI_TEXT['o15'].format(p0=len(flags), p1=filename), parent=dlg)
                     self._console_log(UI_TEXT['p15'].format(p0=filename, p1=len(flags)))
                 dlg.destroy()
-            except Exception as e:
-                messagebox.showerror(UI_TEXT['l15'], UI_TEXT['q15'].format(p0=filename, p1=e), parent=dlg)
+            except Exception as error:
+                messagebox.showerror(UI_TEXT['l15'], UI_TEXT['q15'].format(p0=filename, p1=error), parent=dlg)
         def render(*_):
-            for w in inner.winfo_children():
-                w.destroy()
-            needle = search.get().strip().lower()
+            for widget in inner.winfo_children():
+                widget.destroy()
+            needle = search.get().strip().casefold()
             for item in state['files']:
                 name = item.get('name', '')
-                if needle and needle not in name.lower():
+                if needle and needle not in name.casefold():
                     continue
                 label = os.path.splitext(name)[0]
                 row = ttk.Frame(inner)
                 row.pack(fill='x', pady=3)
-                ttk.Button(row, text=label, command=lambda u=item['download_url'], n=label: load_preset(u, n, False)).pack(side='left', fill='x', expand=True, padx=(0, 4))
-                ttk.Button(row, text=UI_TEXT['r15'], command=lambda u=item['download_url'], n=label: load_preset(u, n, True)).pack(side='right')
+                local_path = item.get('_local_path')
+                ttk.Button(row, text=label, command=lambda u=item['download_url'], n=label, p=local_path: load_preset(u, n, False, p)).pack(side='left', fill='x', expand=True, padx=(0, 4))
+                ttk.Button(row, text=UI_TEXT['r15'], command=lambda u=item['download_url'], n=label, p=local_path: load_preset(u, n, True, p)).pack(side='right')
+        def cache_remote_preset(item):
+            filename = os.path.basename(str(item.get('name') or '')).strip()
+            url = str(item.get('download_url') or '').strip()
+            parsed = urlparse(url)
+            if not filename.lower().endswith('.json') or parsed.scheme != 'https' or parsed.hostname != 'raw.githubusercontent.com':
+                return False
+            try:
+                with _routils_request(url, timeout=20, headers={'Accept': 'application/json'}, cache_bypass=True) as response:
+                    body = response.read(2 * 1024 * 1024 + 1)
+                if not body or len(body) > 2 * 1024 * 1024:
+                    return False
+                payload = json.loads(body.decode('utf-8-sig'))
+                if not _normalize_fflag_json(payload):
+                    return False
+                safe_name = re.sub(r'[^A-Za-z0-9._ -]', '_', filename)
+                if safe_name in {'', '.', '..'}:
+                    return False
+                directory = os.path.join(DATA_DIR, 'presets')
+                os.makedirs(directory, exist_ok=True)
+                destination = os.path.join(directory, safe_name)
+                temporary = destination + '.download'
+                with open(temporary, 'wb') as output:
+                    output.write(body)
+                os.replace(temporary, destination)
+                item['_local_path'] = destination
+                return True
+            except Exception:
+                return False
         def worker():
             try:
-                with _routils_request(GITHUB_PRESETS_API, timeout=15, headers={'Accept': 'application/vnd.github+json'}) as r:
-                    items = json.loads(r.read().decode('utf-8'))
-                files = [x for x in items if x.get('type') == 'file' and str(x.get('name', '')).lower().endswith('.json')]
-                files.sort(key=lambda x: str(x.get('name', '')).lower())
+                with _routils_request(GITHUB_PRESETS_API, timeout=20, headers={'Accept': 'application/vnd.github+json'}, cache_bypass=True) as response:
+                    items = json.loads(response.read().decode('utf-8-sig'))
+                if not isinstance(items, list):
+                    raise ValueError('GitHub returned an unexpected preset listing.')
+                files = [item for item in items if isinstance(item, dict) and item.get('type') == 'file' and str(item.get('name', '')).lower().endswith('.json') and item.get('download_url')]
+                files.sort(key=lambda item: str(item.get('name', '')).casefold())
+                from concurrent.futures import ThreadPoolExecutor
+                with ThreadPoolExecutor(max_workers=5, thread_name_prefix='RoUtilsPreset') as executor:
+                    cached_count = sum(executor.map(cache_remote_preset, files))
                 def done():
+                    if not dlg.winfo_exists():
+                        return
                     state['files'] = files
                     render()
-                    if not files:
-                        ttk.Label(inner, text=UI_TEXT['s15'], foreground=_FFLAG_COLOR_MUTED).pack(pady=20)
+                    self._fflag_refresh_local_presets()
+                    if files:
+                        status.configure(text=f'Saved {cached_count} of {len(files)} online presets to the local Presets list.')
+                    else:
+                        status.configure(text=UI_TEXT['s15'])
                 self.after(0, done)
-            except Exception as e:
-                error_message = str(e)
-                self.after(0, lambda error=error_message: ttk.Label(inner, text=UI_TEXT['t15'].format(p0=error), foreground=_FFLAG_COLOR_ERROR).pack(pady=20))
+            except Exception as error:
+                message = str(error)
+                self.after(0, lambda detail=message: status.configure(text=UI_TEXT['t15'].format(p0=detail)))
         search.trace_add('write', render)
         ttk.Label(inner, text=UI_TEXT['u15'], foreground=_FFLAG_COLOR_MUTED).pack(pady=20)
-        threading.Thread(target=worker, daemon=True).start()
+        threading.Thread(target=worker, daemon=True, name='RoUtilsOnlinePresets').start()
 
     def _fflag_import(self):
         path = filedialog.askopenfilename(parent=self, title=UI_TEXT['x15'], filetypes=[(UI_TEXT['y15'], '*.json'), (UI_TEXT['z7'], '*.*')])
