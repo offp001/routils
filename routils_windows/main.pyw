@@ -8759,7 +8759,12 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, LuauInterpreterMixi
         self._global_hotkey_q = queue.Queue()
         self._hotkey_stop = threading.Event()
         self.fflag_hotkeys = list(self.settings.get('fflag_hotkeys', []))
-        self.settings.pop('external_property_hotkeys', None)
+        self.external_property_hotkeys = list(self.settings.get('external_property_hotkeys', []))
+        for binding in self.external_property_hotkeys:
+            if isinstance(binding, dict) and str(binding.get('value1', '')).strip() == '12' and str(binding.get('value2', '')).strip() == '32':
+                binding['value1'] = ''
+                binding['value2'] = ''
+        self.settings['external_property_hotkeys'] = self.external_property_hotkeys
         default_fps_hotkeys = {str(fps): '' for fps in (30, 60, 120, 144, 180, 200, 240)}
         saved_fps_hotkeys = self.settings.get('fps_hotkeys', {})
         if isinstance(saved_fps_hotkeys, dict):
@@ -9410,6 +9415,10 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, LuauInterpreterMixi
                         key = str(binding.get('key', '')).upper()
                         if key:
                             bindings.append(('fflag', key, binding.copy()))
+                    for binding in getattr(self, 'external_property_hotkeys', []):
+                        key = str(binding.get('key', '')).upper()
+                        if key:
+                            bindings.append(('external_property', key, binding.copy()))
                     for fps, key in self.fps_hotkeys.items():
                         key = str(key or '').upper()
                         if key:
@@ -9426,7 +9435,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, LuauInterpreterMixi
                         if self._emote_typing_active:
                             continue
                         if down and (not was_down):
-                            if kind in ('emote', 'emote_nav', 'fflag'):
+                            if kind in ('emote', 'emote_nav', 'fflag', 'external_property'):
                                 foreground = user32.GetForegroundWindow()
                                 foreground_pid = ctypes.wintypes.DWORD()
                                 if not foreground:
@@ -9457,6 +9466,8 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, LuauInterpreterMixi
                     self._toggle_emote_hotkeys()
                 elif kind == 'fps':
                     self._handle_fps_hotkey(binding)
+                elif kind == 'external_property':
+                    self._external_handle_property_hotkey(binding)
                 elif kind == 'emote':
                     if bool(getattr(self, '_emote_hotkeys_enabled', True)):
                         self._handle_emote_hotkey(binding)
