@@ -1669,7 +1669,7 @@ class FFlagMixin:
                         offsets = candidates['primary']
                     else:
                         offsets = candidates['mirror']
-                        offsets_error = 'Theo source did not contain a full offset list; loaded the mirror instead.'
+                        offsets_error = 'Offsets source did not contain a full offset list; loaded the mirror instead.'
                     break
             if not defaults_done:
                 default_future = next((future for future, (role, _) in future_roles.items() if role == 'defaults'), None)

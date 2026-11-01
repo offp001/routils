@@ -2,8 +2,8 @@ import struct
 import threading
 import time
 import tkinter as tk
-from tkinter import messagebox, ttk
-from external.properties import _ExternalPropertyContext, _read_property_value, _write_property_value, _parse_property_value, _property_address
+from tkinter import ttk
+from external.properties import _ExternalPropertyContext, _read_property_value, _property_address
 
 _FFLAG_COLOR_MUTED = '#9aa0a6'
 _FFLAG_COLOR_SUCCESS = '#65d98b'
@@ -44,14 +44,12 @@ class ExternalExplorerMixin:
         self._external_explorer_loaded = set()
         self._external_explorer_item_data = {}
         self._external_explorer_detail_vars = {key: tk.StringVar(value='—') for key in ('path', 'name', 'class', 'parent', 'address', 'children')}
-        self._external_explorer_hidden = set()
-        self._external_explorer_view_target = 0
-        self._external_explorer_action_active = False
+        self._external_explorer_workspace = 0
+        self._external_explorer_auto_refresh_job = None
+        self._external_explorer_auto_refresh_active = False
+        self._external_explorer_last_property_poll = 0.0
         self._external_explorer_property_generation = 0
         self._external_explorer_property_specs = dict(_EXPLORER_INSTANCE_PROPERTY_SPECS)
-        self._external_explorer_property_pending = {}
-        self._external_explorer_property_editor = None
-        self._external_explorer_property_editor_key = None
         parent.columnconfigure(0, weight=1)
         parent.rowconfigure(2, weight=1)
         header = ttk.Frame(parent)
@@ -102,7 +100,6 @@ class ExternalExplorerMixin:
         self.external_explorer_tree.column('class', width=110, minwidth=70, stretch=False)
         self.external_explorer_tree.column('children', width=48, minwidth=40, stretch=False, anchor='center')
         self.external_explorer_tree.tag_configure('search', foreground='#8be0a7')
-        self.external_explorer_tree.tag_configure('hidden', foreground='#858b96')
         self.external_explorer_tree.tag_configure('workspace', foreground='#d9e4ff')
         self.external_explorer_tree.tag_configure('model', foreground='#b8c8ff')
         self.external_explorer_tree.tag_configure('folder', foreground='#d8c69b')
@@ -118,9 +115,6 @@ class ExternalExplorerMixin:
         self.external_explorer_tree.bind('<Double-1>', self._external_explorer_on_double_click, add='+')
         self.external_explorer_tree.bind('<Button-3>', self._external_explorer_context_menu)
         self.external_explorer_tree.bind('<Button-2>', self._external_explorer_context_menu)
-        self.external_explorer_tree.bind('<Control-t>', lambda _event: self._external_explorer_run_action('teleport'))
-        self.external_explorer_tree.bind('<KeyPress-v>', lambda _event: self._external_explorer_run_action('view'))
-        self.external_explorer_tree.bind('<Delete>', lambda _event: self._external_explorer_run_action('delete'))
         self.external_explorer_notebook = ttk.Notebook(details_host)
         self.external_explorer_notebook.grid(row=0, column=0, sticky='nsew')
         properties_tab = ttk.Frame(self.external_explorer_notebook, padding=9)
@@ -151,7 +145,6 @@ class ExternalExplorerMixin:
         property_toolbar.grid(row=1, column=0, sticky='ew', pady=(0, 6))
         property_toolbar.columnconfigure(0, weight=1)
         ttk.Label(property_toolbar, textvariable=self.external_explorer_property_status_var, foreground=_FFLAG_COLOR_MUTED, wraplength=420).grid(row=0, column=0, sticky='ew')
-        ttk.Button(property_toolbar, text='Refresh', command=self._external_explorer_refresh_instance_properties).grid(row=0, column=1, padx=(7, 0))
         property_host = ttk.Frame(properties_tab)
         property_host.grid(row=2, column=0, sticky='nsew')
         property_host.columnconfigure(0, weight=1)
@@ -162,19 +155,13 @@ class ExternalExplorerMixin:
         self.external_explorer_property_tree.column('#0', width=140, minwidth=95, stretch=True)
         self.external_explorer_property_tree.column('value', width=150, minwidth=95, stretch=True)
         self.external_explorer_property_tree.tag_configure('property_group', foreground=explorer_muted)
-        self.external_explorer_property_tree.tag_configure('property_pending', foreground=palette.get('accent', '#8ab4f8'))
         property_scroll = ttk.Scrollbar(property_host, orient='vertical', command=self.external_explorer_property_tree.yview)
         self.external_explorer_property_tree.configure(yscrollcommand=property_scroll.set)
         self.external_explorer_property_tree.grid(row=0, column=0, sticky='nsew')
         property_scroll.grid(row=0, column=1, sticky='ns')
         self.external_explorer_property_tree.bind('<<TreeviewSelect>>', self._external_explorer_property_on_select)
-        self.external_explorer_property_tree.bind('<Double-1>', self._external_explorer_property_begin_edit)
-        property_footer = ttk.Frame(properties_tab)
-        property_footer.grid(row=3, column=0, sticky='ew', pady=(7, 0))
-        property_footer.columnconfigure(0, weight=1)
-        self.external_explorer_property_apply_button = ttk.Button(property_footer, text='Apply', command=self._external_explorer_apply_instance_property)
-        self.external_explorer_property_apply_button.grid(row=0, column=0, sticky='ew')
-        self._external_explorer_status('Attach a Roblox client in Clients, then refresh.')
+        self._external_explorer_status('Attach a Roblox client in Clients. Explorer refreshes when the game changes.')
+        self._external_explorer_schedule_auto_refresh()
 
     @staticmethod
     def _external_explorer_format_property_value(value):
@@ -194,20 +181,16 @@ class ExternalExplorerMixin:
                 tree.delete(item)
         if hasattr(self, 'external_explorer_property_status_var'):
             self.external_explorer_property_status_var.set(status)
-        self._external_explorer_property_finish_edit(cancel=True)
-        self._external_explorer_property_pending.clear()
 
     def _external_explorer_load_instance_properties(self, address):
         self._external_explorer_property_generation += 1
         generation = self._external_explorer_property_generation
         for item in self.external_explorer_property_tree.get_children(''):
             self.external_explorer_property_tree.delete(item)
-        self._external_explorer_property_finish_edit(cancel=True)
-        self._external_explorer_property_pending.clear()
         pid = int(getattr(self, 'fflag_pid', 0) or 0)
         cls = str(self._external_explorer_snapshot.get(int(address), {}).get('cls', ''))
         if not self._external_explorer_is_basepart_class(cls):
-            self.external_explorer_property_status_var.set('Properties are available for BasePart instances. Select a Part, MeshPart, UnionOperation or Seat.')
+            self.external_explorer_property_status_var.set('Select a BasePart instance to view its properties.')
             return
         if not pid or pid != int(getattr(self, '_external_explorer_pid', 0) or 0):
             self.external_explorer_property_status_var.set('Attach a client and refresh the Explorer first.')
@@ -217,10 +200,10 @@ class ExternalExplorerMixin:
             values = []
             error_text = ''
             try:
-                context = self._external_explorer_action_context(pid)
+                context = self._external_explorer_read_context(pid)
                 live_class = context.class_name(int(address))
                 if not self._external_explorer_is_basepart_class(live_class):
-                    raise RuntimeError('The selected instance is no longer a BasePart.')
+                    raise RuntimeError('The selected instance is not a BasePart.')
                 primitive = self._external_explorer_part_primitive(context, address)
                 if not primitive:
                     raise RuntimeError('The selected Part has no readable Primitive.')
@@ -244,7 +227,7 @@ class ExternalExplorerMixin:
     @staticmethod
     def _external_explorer_is_basepart_class(class_name):
         name = str(class_name or '')
-        return 'Part' in name or name in ('UnionOperation', 'Seat', 'VehicleSeat', 'SkateboardPlatform')
+        return name in {'Part', 'MeshPart', 'UnionOperation', 'WedgePart', 'CornerWedgePart', 'TrussPart', 'Seat', 'VehicleSeat', 'SpawnLocation', 'SkateboardPlatform'}
 
     def _external_explorer_instance_properties_loaded(self, generation, address, pid, values, error_text):
         if generation != self._external_explorer_property_generation:
@@ -258,7 +241,6 @@ class ExternalExplorerMixin:
         if error_text:
             self.external_explorer_property_status_var.set(error_text)
             return
-        self._external_explorer_property_pending.clear()
         groups = {'Transform': ('Position', 'Size'), 'Physics': ('AssemblyLinearVelocity', 'AssemblyAngularVelocity', 'Anchored', 'CanCollide', 'CanTouch', 'CanQuery', 'Massless', 'Locked'), 'Appearance': ('Transparency', 'Reflectance', 'Color', 'Material', 'CastShadow')}
         group_ids = {}
         for group_name in groups:
@@ -267,179 +249,18 @@ class ExternalExplorerMixin:
         group_for = {key: group_name for group_name, keys in groups.items() for key in keys}
         for key, value in values:
             tree.insert(group_ids.get(group_for.get(key, 'Physics')), 'end', iid=key, text=key, values=(value,))
-        self.external_explorer_property_status_var.set(f'{len(values)} properties · double-click a value to edit inline, then Apply.')
+        self.external_explorer_property_status_var.set(f'{len(values)} read-only properties loaded.')
 
     def _external_explorer_property_on_select(self, event=None):
         selection = self.external_explorer_property_tree.selection()
-        if selection and selection[0] in self._external_explorer_property_pending:
-            self.external_explorer_property_status_var.set(f'{selection[0]} has an unapplied value.')
-
-    def _external_explorer_property_begin_edit(self, event):
-        tree = self.external_explorer_property_tree
-        if tree.identify_region(event.x, event.y) != 'cell':
+        if not selection:
             return
-        if tree.identify_column(event.x) != '#1':
+        key = selection[0]
+        values = self.external_explorer_property_tree.item(key, 'values')
+        value = str(values[0]) if values else ''
+        if key.startswith('group_'):
             return
-        key = tree.identify_row(event.y)
-        if not key or key.startswith('group_') or key not in self._external_explorer_property_specs:
-            return
-        self._external_explorer_property_finish_edit(cancel=True)
-        bounds = tree.bbox(key, '#1')
-        if not bounds:
-            return
-        x, y, width, height = bounds
-        values = tree.item(key, 'values')
-        current = str(values[0]) if values else ''
-        editor = ttk.Entry(tree)
-        editor.insert(0, current)
-        editor.select_range(0, 'end')
-        editor.place(x=x, y=y, width=width, height=height)
-        editor.bind('<Return>', lambda _event: self._external_explorer_property_finish_edit())
-        editor.bind('<Escape>', lambda _event: self._external_explorer_property_finish_edit(cancel=True))
-        editor.bind('<FocusOut>', lambda _event: self._external_explorer_property_finish_edit())
-        self._external_explorer_property_editor = editor
-        self._external_explorer_property_editor_key = key
-        editor.focus_set()
-        return 'break'
-
-    def _external_explorer_property_finish_edit(self, cancel=False):
-        editor = getattr(self, '_external_explorer_property_editor', None)
-        key = getattr(self, '_external_explorer_property_editor_key', None)
-        self._external_explorer_property_editor = None
-        self._external_explorer_property_editor_key = None
-        if editor is None:
-            return
-        try:
-            value = editor.get()
-        except Exception:
-            value = ''
-        try:
-            editor.destroy()
-        except Exception:
-            pass
-        if cancel or not key:
-            return
-        try:
-            tree = self.external_explorer_property_tree
-            old = tree.item(key, 'values')
-            previous = str(old[0]) if old else ''
-            if value != previous:
-                tree.item(key, values=(value,), tags=('property_pending',))
-                self._external_explorer_property_pending[key] = value
-                self.external_explorer_property_status_var.set(f'{key} staged. Press Apply to write the change.')
-        except Exception:
-            pass
-
-    def _external_explorer_refresh_instance_properties(self):
-        selected = self._external_explorer_selected_info()
-        if not selected:
-            self._external_explorer_clear_instance_properties()
-            return
-        self._external_explorer_load_instance_properties(selected[0])
-
-    def _external_explorer_apply_instance_property(self):
-        self._external_explorer_property_finish_edit()
-        selected = self._external_explorer_selected_info()
-        if not selected:
-            self.external_explorer_property_status_var.set('Select a Part in the Explorer first.')
-            return
-        pending = dict(self._external_explorer_property_pending)
-        if not pending:
-            self.external_explorer_property_status_var.set('Double-click a property value to edit it first.')
-            return
-        changes = []
-        try:
-            for key, raw_value in pending.items():
-                spec = self._external_explorer_property_specs.get(key)
-                if not spec:
-                    continue
-                value = _parse_property_value(spec, raw_value)
-                if key in ('Transparency', 'Reflectance') and not 0.0 <= float(value) <= 1.0:
-                    raise ValueError(f'{key} must be between 0 and 1.')
-                if key == 'Size' and any(float(component) <= 0 for component in value):
-                    raise ValueError('Size components must be greater than zero.')
-                if key == 'Color' and any(float(component) != int(component) or int(component) < 0 or int(component) > 255 for component in value):
-                    raise ValueError('Color components must be whole numbers between 0 and 255.')
-                changes.append((key, spec, value))
-        except Exception as error:
-            self.external_explorer_property_status_var.set(str(error))
-            return
-        address = int(selected[0])
-        pid = int(getattr(self, 'fflag_pid', 0) or 0)
-        if not pid or pid != int(getattr(self, '_external_explorer_pid', 0) or 0):
-            self.external_explorer_property_status_var.set('Refresh the Explorer after attaching a client.')
-            return
-        if getattr(self, '_external_explorer_property_apply_active', False):
-            return
-        self._external_explorer_property_apply_active = True
-        self.external_explorer_property_apply_button.configure(state='disabled')
-        self.external_explorer_property_status_var.set(f'Applying {len(changes)} properties…')
-
-        def worker():
-            results = []
-            try:
-                context = self._external_explorer_action_context(pid)
-                live_class = context.class_name(address)
-                if not self._external_explorer_is_basepart_class(live_class):
-                    raise RuntimeError('The selected instance is no longer a BasePart.')
-                primitive = self._external_explorer_part_primitive(context, address)
-                if not primitive:
-                    raise RuntimeError('The selected Part has no Primitive.')
-                for key, spec, value in changes:
-                    try:
-                        owner = primitive if spec['scope'] == 'primitive' else address
-                        property_address = _property_address(spec, owner, context)
-                        _write_property_value(spec, property_address, value, context)
-                        verify = _read_property_value(spec, property_address, context)
-                        if spec['type'] == 'vec3':
-                            valid = all(abs(float(a) - float(b)) <= 0.02 for a, b in zip(value, verify))
-                        elif spec['type'] in ('bool', 'flag'):
-                            valid = bool(value) == bool(verify)
-                        elif spec['type'] == 'u8x3':
-                            valid = list(value) == list(verify)
-                        else:
-                            valid = abs(float(value) - float(verify)) <= 0.001
-                        if not valid:
-                            raise RuntimeError(f'{key} write could not be verified.')
-                        results.append((key, ''))
-                    except Exception as error:
-                        results.append((key, str(error)))
-            except Exception as error:
-                results = [(key, str(error)) for key, _spec, _value in changes]
-            try:
-                self.after(0, self._external_explorer_instance_properties_applied, address, pid, results)
-            except Exception:
-                self._external_explorer_property_apply_active = False
-
-        threading.Thread(target=worker, daemon=True, name='RoUtilsExplorerPropertyWrite').start()
-
-    def _external_explorer_instance_properties_applied(self, address, pid, results):
-        self._external_explorer_property_apply_active = False
-        try:
-            self.external_explorer_property_apply_button.configure(state='normal')
-        except Exception:
-            pass
-        selected = self._external_explorer_selected_info()
-        if not selected or int(selected[0]) != int(address) or int(getattr(self, 'fflag_pid', 0) or 0) != int(pid):
-            return
-        successful = []
-        failed = []
-        for key, error_text in results:
-            if error_text:
-                failed.append((key, error_text))
-            else:
-                successful.append(key)
-                self._external_explorer_property_pending.pop(key, None)
-                try:
-                    self.external_explorer_property_tree.item(key, tags=())
-                except Exception:
-                    pass
-        if failed:
-            summary = '; '.join(f'{key}: {error}' for key, error in failed)
-            self.external_explorer_property_status_var.set(f'Applied {len(successful)} · failed {len(failed)} — {summary}')
-            return
-        self.external_explorer_property_status_var.set(f'Applied and verified {len(successful)} properties.')
-        self._external_explorer_load_instance_properties(address)
+        self.external_explorer_property_status_var.set(f'{key}: {value} · Read only')
 
     def _external_explorer_status(self, text, color=None):
         label = getattr(self, 'external_explorer_status', None)
@@ -449,6 +270,70 @@ class ExternalExplorerMixin:
             label.configure(text=str(text), foreground=color or _FFLAG_COLOR_MUTED)
         except Exception:
             pass
+
+    def _external_explorer_schedule_auto_refresh(self):
+        try:
+            if self._external_explorer_auto_refresh_job:
+                self.after_cancel(self._external_explorer_auto_refresh_job)
+        except Exception:
+            pass
+        try:
+            self._external_explorer_auto_refresh_job = self.after(3000, self._external_explorer_auto_refresh_tick)
+        except Exception:
+            self._external_explorer_auto_refresh_job = None
+
+    def _external_explorer_auto_refresh_tick(self):
+        self._external_explorer_auto_refresh_job = None
+        engine = getattr(self, 'fflag_engine', None)
+        pid = int(getattr(self, 'fflag_pid', 0) or 0)
+        if not engine or not engine.handle or not pid or int(getattr(engine, 'pid', 0) or 0) != pid:
+            self._external_explorer_schedule_auto_refresh()
+            return
+        if pid != int(getattr(self, '_external_explorer_pid', 0) or 0):
+            self._external_explorer_refresh()
+            self._external_explorer_schedule_auto_refresh()
+            return
+        if not getattr(self, '_external_explorer_scan_active', False) and not self._external_explorer_auto_refresh_active:
+            self._external_explorer_auto_refresh_active = True
+            def worker():
+                root = 0
+                workspace = 0
+                error_text = ''
+                try:
+                    context = self._external_explorer_read_context(pid)
+                    root = context.target('dm')
+                    workspace = context.target('workspace')
+                except Exception as error:
+                    error_text = str(error)
+                try:
+                    self.after(0, self._external_explorer_auto_refresh_checked, pid, root, workspace, error_text)
+                except Exception:
+                    self._external_explorer_auto_refresh_active = False
+            threading.Thread(target=worker, daemon=True, name='RoUtilsExplorerGameWatch').start()
+        self._external_explorer_schedule_auto_refresh()
+
+    def _external_explorer_auto_refresh_checked(self, pid, root, workspace, error_text=''):
+        self._external_explorer_auto_refresh_active = False
+        current_pid = int(getattr(self, 'fflag_pid', 0) or 0)
+        if current_pid != int(pid):
+            if current_pid:
+                self._external_explorer_refresh()
+            else:
+                self._external_explorer_client_disconnected()
+            return
+        old_root = int(getattr(self, '_external_explorer_root', 0) or 0)
+        old_workspace = int(getattr(self, '_external_explorer_workspace', 0) or 0)
+        if root and workspace and (root != old_root or workspace != old_workspace):
+            self._external_explorer_status('Game changed · refreshing Explorer', _FFLAG_COLOR_SUCCESS)
+            self._external_explorer_refresh()
+            if hasattr(self, '_external_property_refresh_all'):
+                self._external_property_refresh_all(silent=True)
+            return
+        selected = self._external_explorer_selected_info()
+        now = time.monotonic()
+        if selected and now - float(getattr(self, '_external_explorer_last_property_poll', 0.0)) >= 6.0:
+            self._external_explorer_last_property_poll = now
+            self._external_explorer_load_instance_properties(selected[0])
 
     def _external_explorer_refresh(self, _retry=False):
         if getattr(self, 'external_explorer_tree', None) is None:
@@ -475,6 +360,7 @@ class ExternalExplorerMixin:
         def worker():
             snapshot = {}
             root = 0
+            workspace = 0
             partial = False
             error_text = ''
             try:
@@ -483,6 +369,7 @@ class ExternalExplorerMixin:
                 offsets_data = self._external_offsets_for_client(pid)
                 context = _ExternalPropertyContext(self, offsets_data)
                 root = context.target('dm')
+                workspace = context.target('workspace')
                 if not root:
                     raise RuntimeError('The Roblox DataModel is not available yet.')
                 try:
@@ -531,13 +418,13 @@ class ExternalExplorerMixin:
             except Exception as error:
                 error_text = str(error)
             try:
-                self.after(0, self._external_explorer_refresh_finished, pid, root, snapshot, partial, error_text)
+                self.after(0, self._external_explorer_refresh_finished, pid, root, workspace, snapshot, partial, error_text)
             except Exception:
                 self._external_explorer_scan_active = False
 
         threading.Thread(target=worker, daemon=True, name='RoUtilsExternalExplorer').start()
 
-    def _external_explorer_refresh_finished(self, pid, root, snapshot, partial, error_text=''):
+    def _external_explorer_refresh_finished(self, pid, root, workspace, snapshot, partial, error_text=''):
         self._external_explorer_scan_active = False
         try:
             self.external_explorer_refresh_button.configure(state='normal', text='Refresh')
@@ -553,6 +440,7 @@ class ExternalExplorerMixin:
         if error_text:
             self._external_explorer_snapshot = {}
             self._external_explorer_root = 0
+            self._external_explorer_workspace = 0
             waiting_for_game = 'DataModel is not available yet' in error_text or 'game session is loading' in error_text
             if waiting_for_game and self._external_explorer_retry_count < self._EXTERNAL_EXPLORER_RETRY_LIMIT:
                 self._external_explorer_retry_count += 1
@@ -565,6 +453,7 @@ class ExternalExplorerMixin:
         self._external_explorer_retry_count = 0
         self._external_explorer_snapshot = snapshot
         self._external_explorer_root = root
+        self._external_explorer_workspace = int(workspace or 0)
         self._external_explorer_pid = int(pid)
         self._external_explorer_loaded.clear()
         total = len(snapshot)
@@ -580,6 +469,7 @@ class ExternalExplorerMixin:
         self._external_explorer_pid = 0
         self._external_explorer_loaded.clear()
         self._external_explorer_item_data.clear()
+        self._external_explorer_workspace = 0
         tree = getattr(self, 'external_explorer_tree', None)
         if tree is not None:
             self._external_explorer_clear_tree()
@@ -605,8 +495,8 @@ class ExternalExplorerMixin:
         iid = self._external_explorer_iid(address)
         if self.external_explorer_tree.exists(iid):
             return
-        label = self._external_explorer_label(item['name'], item['cls'], address in self._external_explorer_hidden)
-        node_tags = tuple(tag) + (('hidden',) if address in self._external_explorer_hidden else ())
+        label = self._external_explorer_label(item['name'], item['cls'])
+        node_tags = tuple(tag)
         class_name = str(item.get('cls', ''))
         class_tag = 'workspace' if class_name == 'Workspace' else 'model' if class_name == 'Model' else 'folder' if class_name == 'Folder' else 'script' if 'Script' in class_name else 'part' if self._external_explorer_is_basepart_class(class_name) else 'remote' if class_name.startswith(('Remote', 'Bindable')) else ''
         if class_tag:
@@ -791,32 +681,7 @@ class ExternalExplorerMixin:
 
     @staticmethod
     def _external_explorer_label(name, class_name, hidden=False):
-        cls = str(class_name or '')
-        if hidden:
-            icon = '◌'
-            suffix = '  [Hidden]'
-        elif cls == 'Workspace':
-            icon = '▦'
-            suffix = ''
-        elif cls == 'Model':
-            icon = '▱'
-            suffix = ''
-        elif cls == 'Folder':
-            icon = '▰'
-            suffix = ''
-        elif 'Part' in cls or cls in ('UnionOperation', 'Seat', 'VehicleSeat', 'SpawnLocation'):
-            icon = '□'
-            suffix = ''
-        elif 'Script' in cls:
-            icon = '▧'
-            suffix = ''
-        elif cls in ('RemoteEvent', 'RemoteFunction', 'BindableEvent', 'BindableFunction'):
-            icon = '↔'
-            suffix = ''
-        else:
-            icon = '◦'
-            suffix = ''
-        return f'{icon}  {name}{suffix}'
+        return str(name or 'Unnamed')
 
     def _external_explorer_selected_info(self, event=None):
         tree = getattr(self, 'external_explorer_tree', None)
@@ -845,20 +710,11 @@ class ExternalExplorerMixin:
         if not selected:
             return 'break'
         address, item = selected
-        cls = str(item.get('cls', ''))
-        menu = tk.Menu(self.external_explorer_tree, tearoff=False)
-        menu.add_command(label='Teleport To\tCtrl+T', command=lambda: self._external_explorer_run_action('teleport'))
-        menu.add_command(label='View\tV', command=lambda: self._external_explorer_run_action('view'))
-        menu.add_command(label='Stop Viewing', command=lambda: self._external_explorer_run_action('stop_view'))
-        menu.add_separator()
         iid = self.external_explorer_tree.selection()[0]
         is_open = bool(self.external_explorer_tree.item(iid, 'open'))
+        menu = tk.Menu(self.external_explorer_tree, tearoff=False)
         menu.add_command(label='Collapse' if is_open else 'Expand', command=lambda: self.external_explorer_tree.item(iid, open=not is_open))
         menu.add_command(label='Refresh Explorer', command=self._external_explorer_refresh)
-        menu.add_separator()
-        can_edit = 'Part' in cls or cls in ('UnionOperation', 'Seat', 'VehicleSeat', 'SpawnLocation', 'Model')
-        menu.add_command(label='Delete Locally\tDel', command=lambda: self._external_explorer_run_action('delete'), state='normal' if can_edit else 'disabled')
-        menu.add_separator()
         menu.add_command(label='Properties', command=lambda: self.external_explorer_notebook.select(0))
         menu.add_separator()
         menu.add_command(label='Copy Path', command=lambda: self._external_explorer_copy('path'))
@@ -871,7 +727,7 @@ class ExternalExplorerMixin:
             menu.grab_release()
         return 'break'
 
-    def _external_explorer_action_context(self, pid):
+    def _external_explorer_read_context(self, pid):
         engine = getattr(self, 'fflag_engine', None)
         if not engine or not engine.handle or int(getattr(engine, 'pid', 0) or 0) != int(pid):
             raise RuntimeError('The selected Roblox client is no longer attached.')
@@ -890,155 +746,4 @@ class ExternalExplorerMixin:
         if not context.sane(primitive):
             return 0
         return primitive
-
-    def _external_explorer_find_parts(self, context, address, max_nodes=2500):
-        found = []
-        stack = [int(address)]
-        visited = set()
-        while stack and len(visited) < max_nodes:
-            current = stack.pop()
-            if current in visited or not context.sane(current):
-                continue
-            visited.add(current)
-            try:
-                primitive = self._external_explorer_part_primitive(context, current)
-                if primitive:
-                    found.append((current, primitive))
-                    continue
-            except Exception:
-                pass
-            try:
-                children = context.children(current)
-            except Exception:
-                children = []
-            stack.extend(reversed(children))
-        return found
-
-    def _external_explorer_write_vector(self, context, primitive, field, values):
-        offset = context.off('Primitive', field)
-        context.write_bytes(primitive + offset, struct.pack('<3f', *[float(value) for value in values]))
-
-    def _external_explorer_apply_action(self, action, address, pid):
-        context = self._external_explorer_action_context(pid)
-        if action in ('teleport', 'view'):
-            parts = self._external_explorer_find_parts(context, address, max_nodes=3500)
-            if not parts:
-                raise RuntimeError('No BasePart was found in the selected instance.')
-            target_part, target_primitive = parts[0]
-        if action == 'teleport':
-            position_offset = context.off('Primitive', 'Position')
-            target_position = struct.unpack('<3f', context.read_bytes(target_primitive + position_offset, 12))
-            local_part = context.target('part')
-            local_primitive = self._external_explorer_part_primitive(context, local_part)
-            if not local_primitive:
-                raise RuntimeError('The LocalPlayer HumanoidRootPart is unavailable.')
-            destination = (target_position[0], target_position[1] + 4.5, target_position[2])
-            self._external_explorer_write_vector(context, local_primitive, 'Position', destination)
-            try:
-                self._external_explorer_write_vector(context, local_primitive, 'AssemblyLinearVelocity', (0.0, 0.0, 0.0))
-            except Exception:
-                pass
-            return f'Teleported LocalPlayer near {self._external_explorer_snapshot.get(address, {}).get("name", "selected object")}.'
-        if action == 'view':
-            camera = context.target('camera')
-            subject_offset = context.off('Camera', 'CameraSubject')
-            type_offset = context.off('Camera', 'CameraType')
-            context.write_bytes(camera + subject_offset, struct.pack('<Q', target_part))
-            context.write_bytes(camera + type_offset, struct.pack('<i', 4))
-            self._external_explorer_view_target = int(address)
-            return f'Camera is now following {self._external_explorer_snapshot.get(address, {}).get("name", "selected object")}.'
-        if action == 'stop_view':
-            camera = context.target('camera')
-            humanoid = context.target('humanoid')
-            context.write_bytes(camera + context.off('Camera', 'CameraSubject'), struct.pack('<Q', humanoid))
-            context.write_bytes(camera + context.off('Camera', 'CameraType'), struct.pack('<i', 0))
-            self._external_explorer_view_target = 0
-            return 'Camera follow stopped.'
-        if action == 'delete':
-            parts = self._external_explorer_find_parts(context, address, max_nodes=5000)
-            if not parts:
-                raise RuntimeError('No BasePart objects were found. Delete Locally supports Parts and Models.')
-            transparency_offset = context.off('BasePart', 'Transparency')
-            changed = 0
-            for part, primitive in parts:
-                try:
-                    context.write_bytes(part + transparency_offset, struct.pack('<f', 1.0))
-                    try:
-                        local_transparency = context.off('BasePart', 'LocalTransparencyModifier')
-                        context.write_bytes(part + local_transparency, struct.pack('<f', 1.0))
-                    except Exception:
-                        pass
-                    try:
-                        flags_offset = context.off('Primitive', 'Flags')
-                        flags_address = primitive + flags_offset
-                        flags = context.read_bytes(flags_address, 1)[0]
-                        for flag_name in ('CanCollide', 'CanTouch', 'CanQuery'):
-                            try:
-                                mask = context.off('PrimitiveFlags', flag_name)
-                                flags &= (~mask) & 255
-                            except Exception:
-                                pass
-                        context.write_bytes(flags_address, bytes((flags,)))
-                    except Exception:
-                        pass
-                    changed += 1
-                except Exception:
-                    continue
-            if not changed:
-                raise RuntimeError('The selected instance could not be hidden locally.')
-            self._external_explorer_hidden.add(int(address))
-            self._external_explorer_hidden.update(part for part, _primitive in parts)
-            return f'Deleted locally: hidden {changed} part(s). The server may restore them.'
-        raise RuntimeError('Unknown Explorer action.')
-
-    def _external_explorer_action_finished(self, action, result, error_text):
-        self._external_explorer_action_active = False
-        if error_text:
-            self._external_explorer_status(error_text, _FFLAG_COLOR_WARNING)
-            try:
-                messagebox.showwarning('External Explorer', error_text, parent=self)
-            except Exception:
-                pass
-            return
-        self._external_explorer_status(result, _FFLAG_COLOR_SUCCESS)
-        if action == 'delete':
-            for address in self._external_explorer_hidden:
-                iid = self._external_explorer_iid(address)
-                if self.external_explorer_tree.exists(iid):
-                    item = self._external_explorer_snapshot.get(address, {})
-                    self.external_explorer_tree.item(iid, text=self._external_explorer_label(item.get('name', 'Instance'), item.get('cls', ''), True), tags=('hidden',))
-
-    def _external_explorer_run_action(self, action):
-        selected = self._external_explorer_selected_info()
-        if action not in ('stop_view',) and not selected:
-            self._external_explorer_status('Select an instance in the tree first.', _FFLAG_COLOR_WARNING)
-            return
-        if getattr(self, '_external_explorer_action_active', False):
-            return
-        if action == 'delete':
-            name = selected[1].get('name', 'selected instance')
-            confirmed = messagebox.askyesno('Delete Locally', f'Hide {name} on this client? This does not delete server data and the game may restore the object.', parent=self)
-            if not confirmed:
-                return
-        address = selected[0] if selected else 0
-        pid = int(getattr(self, 'fflag_pid', 0) or 0)
-        if not pid or pid != int(getattr(self, '_external_explorer_pid', 0) or 0):
-            self._external_explorer_status('Refresh the Explorer after attaching a Roblox client.', _FFLAG_COLOR_WARNING)
-            return
-        self._external_explorer_action_active = True
-        self._external_explorer_status('Applying action…')
-
-        def worker():
-            try:
-                result = self._external_explorer_apply_action(action, address, pid)
-                error_text = ''
-            except Exception as error:
-                result = ''
-                error_text = str(error)
-            try:
-                self.after(0, self._external_explorer_action_finished, action, result, error_text)
-            except Exception:
-                self._external_explorer_action_active = False
-
-        threading.Thread(target=worker, daemon=True, name='RoUtilsExplorerAction').start()
 

@@ -4021,6 +4021,121 @@ def _theme_open_windows(root) -> None:
                 theme_toplevel(child)
     except Exception:
         pass
+_NativeToplevel = tk.Toplevel
+class _RoUtilsCustomToplevel(_NativeToplevel):
+    def __init__(self, master=None, **kwargs):
+        super().__init__(master, **kwargs)
+        palette = globals().get('_CURRENT_PALETTE', {}) or {}
+        self._routils_custom_title = _NativeToplevel.title(self)
+        self._routils_custom_restore = None
+        self._routils_custom_resizable = (True, True)
+        self._routils_custom_drag = None
+        self._routils_custom_resize = None
+        self._routils_custom_close = self.destroy
+        self.overrideredirect(True)
+        try:
+            self.configure(bg=palette.get('bg_dark', '#1b1b1c'), highlightthickness=1, highlightbackground=palette.get('border', '#343840'))
+        except Exception:
+            pass
+        self._routils_custom_titlebar = tk.Frame(self, bg=palette.get('bg_dark', '#1b1b1c'), height=34, bd=0, highlightthickness=0)
+        self._routils_custom_titlebar.pack(side='top', fill='x')
+        self._routils_custom_titlebar.pack_propagate(False)
+        self._routils_custom_title_label = tk.Label(self._routils_custom_titlebar, text=self._routils_custom_title or 'RoUtils', bg=palette.get('bg_dark', '#1b1b1c'), fg=palette.get('fg', '#e6e9ef'), anchor='w', padx=12, font=('Segoe UI Semibold', 9))
+        self._routils_custom_title_label.pack(side='left', fill='both', expand=True)
+        self._routils_custom_max_button = tk.Label(self._routils_custom_titlebar, text='□', width=4, bg=palette.get('bg_dark', '#1b1b1c'), fg=palette.get('fg', '#e6e9ef'), cursor='hand2', font=('Segoe UI', 10))
+        self._routils_custom_max_button.pack(side='right', fill='y')
+        self._routils_custom_close_button = tk.Label(self._routils_custom_titlebar, text='×', width=4, bg=palette.get('bg_dark', '#1b1b1c'), fg=palette.get('fg', '#e6e9ef'), cursor='hand2', font=('Segoe UI', 13))
+        self._routils_custom_close_button.pack(side='right', fill='y')
+        self._routils_custom_close_button.bind('<Enter>', lambda _event: self._routils_custom_close_button.configure(bg='#c42b1c', fg='#ffffff'))
+        self._routils_custom_close_button.bind('<Leave>', lambda _event: self._routils_custom_close_button.configure(bg=palette.get('bg_dark', '#1b1b1c'), fg=palette.get('fg', '#e6e9ef')))
+        self._routils_custom_close_button.bind('<Button-1>', lambda _event: self._routils_custom_close())
+        self._routils_custom_max_button.bind('<Button-1>', lambda _event: self._routils_custom_toggle_maximize())
+        for widget in (self._routils_custom_titlebar, self._routils_custom_title_label):
+            widget.bind('<ButtonPress-1>', self._routils_custom_drag_start, add='+')
+            widget.bind('<B1-Motion>', self._routils_custom_drag_move, add='+')
+        self._routils_custom_grip = tk.Label(self, text='◢', bg=palette.get('bg_dark', '#1b1b1c'), fg=palette.get('fg_muted', '#9aa0a6'), cursor='bottom_right_corner', font=('Segoe UI', 8))
+        self._routils_custom_grip.place(relx=1.0, rely=1.0, anchor='se', width=15, height=15)
+        self._routils_custom_grip.bind('<ButtonPress-1>', self._routils_custom_resize_start)
+        self._routils_custom_grip.bind('<B1-Motion>', self._routils_custom_resize_move)
+        self.bind('<Configure>', self._routils_custom_keep_grip, add='+')
+        self.after_idle(lambda: theme_toplevel(self))
+
+    def title(self, string=None):
+        if string is None:
+            return _NativeToplevel.title(self)
+        result = _NativeToplevel.title(self, string)
+        self._routils_custom_title = str(string)
+        label = getattr(self, '_routils_custom_title_label', None)
+        if label is not None:
+            try:
+                label.configure(text=self._routils_custom_title or 'RoUtils')
+            except Exception:
+                pass
+        return result
+
+    def protocol(self, name=None, func=None):
+        if name == 'WM_DELETE_WINDOW' and func is not None:
+            self._routils_custom_close = func
+        return _NativeToplevel.protocol(self, name, func)
+
+    def resizable(self, width=None, height=None):
+        if width is None and height is None:
+            return _NativeToplevel.resizable(self)
+        self._routils_custom_resizable = (bool(width), bool(height))
+        result = _NativeToplevel.resizable(self, width, height)
+        grip = getattr(self, '_routils_custom_grip', None)
+        if grip is not None:
+            if width or height:
+                grip.place(relx=1.0, rely=1.0, anchor='se', width=15, height=15)
+            else:
+                grip.place_forget()
+        return result
+
+    def _routils_custom_drag_start(self, event):
+        self._routils_custom_drag = (event.x_root - self.winfo_x(), event.y_root - self.winfo_y())
+
+    def _routils_custom_drag_move(self, event):
+        if self._routils_custom_drag is None:
+            return
+        x = event.x_root - self._routils_custom_drag[0]
+        y = event.y_root - self._routils_custom_drag[1]
+        self.geometry(f'+{x}+{y}')
+
+    def _routils_custom_resize_start(self, event):
+        if not any(self._routils_custom_resizable):
+            return
+        self._routils_custom_resize = (event.x_root, event.y_root, self.winfo_width(), self.winfo_height())
+
+    def _routils_custom_resize_move(self, event):
+        if self._routils_custom_resize is None:
+            return
+        sx, sy, sw, sh = self._routils_custom_resize
+        width = max(240, sw + (event.x_root - sx)) if self._routils_custom_resizable[0] else sw
+        height = max(120, sh + (event.y_root - sy)) if self._routils_custom_resizable[1] else sh
+        self.geometry(f'{width}x{height}')
+
+    def _routils_custom_toggle_maximize(self):
+        if self._routils_custom_restore:
+            self.geometry(self._routils_custom_restore)
+            self._routils_custom_restore = None
+            self._routils_custom_max_button.configure(text='□')
+            return
+        self._routils_custom_restore = self.geometry()
+        width = self.winfo_screenwidth()
+        height = self.winfo_screenheight()
+        self.geometry(f'{width}x{height}+0+0')
+        self._routils_custom_max_button.configure(text='❐')
+
+    def _routils_custom_keep_grip(self, event=None):
+        grip = getattr(self, '_routils_custom_grip', None)
+        if grip is not None and grip.winfo_exists() and any(self._routils_custom_resizable):
+            try:
+                grip.lift()
+            except Exception:
+                pass
+
+tk.Toplevel = _RoUtilsCustomToplevel
+
 def default_paths():
     local = os.environ.get('LOCALAPPDATA') or os.path.expanduser('~')
     db = os.path.join(local, 'Roblox', 'rbx-storage.db')
@@ -8644,12 +8759,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, LuauInterpreterMixi
         self._global_hotkey_q = queue.Queue()
         self._hotkey_stop = threading.Event()
         self.fflag_hotkeys = list(self.settings.get('fflag_hotkeys', []))
-        self.external_property_hotkeys = list(self.settings.get('external_property_hotkeys', []))
-        for binding in self.external_property_hotkeys:
-            if isinstance(binding, dict) and str(binding.get('value1', '')).strip() == '12' and str(binding.get('value2', '')).strip() == '32':
-                binding['value1'] = ''
-                binding['value2'] = ''
-        self.settings['external_property_hotkeys'] = self.external_property_hotkeys
+        self.settings.pop('external_property_hotkeys', None)
         default_fps_hotkeys = {str(fps): '' for fps in (30, 60, 120, 144, 180, 200, 240)}
         saved_fps_hotkeys = self.settings.get('fps_hotkeys', {})
         if isinstance(saved_fps_hotkeys, dict):
@@ -9300,10 +9410,6 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, LuauInterpreterMixi
                         key = str(binding.get('key', '')).upper()
                         if key:
                             bindings.append(('fflag', key, binding.copy()))
-                    for binding in getattr(self, 'external_property_hotkeys', []):
-                        key = str(binding.get('key', '')).upper()
-                        if key:
-                            bindings.append(('external_property', key, binding.copy()))
                     for fps, key in self.fps_hotkeys.items():
                         key = str(key or '').upper()
                         if key:
@@ -9320,7 +9426,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, LuauInterpreterMixi
                         if self._emote_typing_active:
                             continue
                         if down and (not was_down):
-                            if kind in ('emote', 'emote_nav', 'fflag', 'external_property'):
+                            if kind in ('emote', 'emote_nav', 'fflag'):
                                 foreground = user32.GetForegroundWindow()
                                 foreground_pid = ctypes.wintypes.DWORD()
                                 if not foreground:
@@ -9351,8 +9457,6 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, LuauInterpreterMixi
                     self._toggle_emote_hotkeys()
                 elif kind == 'fps':
                     self._handle_fps_hotkey(binding)
-                elif kind == 'external_property':
-                    self._external_handle_property_hotkey(binding)
                 elif kind == 'emote':
                     if bool(getattr(self, '_emote_hotkeys_enabled', True)):
                         self._handle_emote_hotkey(binding)

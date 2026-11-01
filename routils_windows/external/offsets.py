@@ -119,7 +119,7 @@ class ExternalOffsetsMixin(ExternalPropertiesMixin):
         header = self._external_read_url(url, self._EXTERNAL_MAX_HEADER_SIZE).decode('utf-8-sig', errors='strict')
         parsed = self._external_parse_header(header)
         if parsed.get('version') and parsed['version'] != version:
-            raise ValueError('Theo returned offsets for a different Roblox build.')
+            raise ValueError('Offsets service returned data for a different Roblox build.')
         parsed.update({'version': version, 'display_version': version, 'url': url, 'loaded_at': time.time()})
         return parsed
 
@@ -157,7 +157,7 @@ class ExternalOffsetsMixin(ExternalPropertiesMixin):
             return
         self._external_offsets_loading = True
         if hasattr(self, 'external_property_status'):
-            self.external_property_status.configure(text='Loading latest property definitions…', foreground=_FFLAG_COLOR_MUTED)
+            self.external_property_status.configure(text='Loading offsets…', foreground=_FFLAG_COLOR_MUTED)
 
         def worker():
             try:
