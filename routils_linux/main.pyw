@@ -831,10 +831,7 @@ UI_TEXT = {
     'l30': 'Gemini 3.1 Flash-Lite',
     'm30': 'Gemini 3.1 Pro Preview',
     'n30': 'Gemini 3 Flash Preview',
-    'o30': 'Gemini 2.5 Flash',
-    'p30': 'Gemini 2.5 Pro',
-    'q30': 'Gemini 2.5 Flash-Lite',
-    'r30': 'Previous emote',
+                'r30': 'Previous emote',
     's30': 'Next emote',
     't30': 'Play current emote',
     'u30': 'Current emote: ',
@@ -945,7 +942,7 @@ DEFAULT_THEME = 'Midnight'
 DISCORD_APPLICATION_ID = '1563194941868351519'
 DISCORD_RPC_INTERVAL = 1.0
 _CURRENT_PALETTE = dict(THEMES[DEFAULT_THEME])
-STARTUP_GEOMETRY = '1400x800'
+STARTUP_GEOMETRY = '1500x900'
 PANED_TOP_FRACTION = 0.45
 HPANED_LEFT_FRACTION = 0.73
 VIEWER_MIN_WIDTH = 480
@@ -1090,7 +1087,7 @@ class _RoUtilsResponseCacheCapture:
 SPLASH_DIR = os.path.join(DATA_DIR, 'src')
 SPLASH_IMAGE_PATH = os.path.join(SPLASH_DIR, 'routils.png')
 SPLASH_IMAGE_URL = 'https://raw.githubusercontent.com/offp001/routils/refs/heads/main/src/routils.png'
-APP_VERSION = '5.2.8'
+APP_VERSION = '5.2.9'
 RELEASES_URL = 'https://github.com/offp001/routils/releases'
 RELEASES_API_URL = 'https://api.github.com/repos/offp001/routils/releases?per_page=30'
 def _routils_request(url, timeout=10, headers=None, data=None, method=None, cache_bypass=False):
@@ -8124,7 +8121,7 @@ class _RoUtilsDiscordRPC:
         self._thread = None
         self._enabled = True
         self._reconnect_requested = False
-        self._activity = ('Not playing Roblox', 'Sekme: Ana Sayfa')
+        self._activity = (f'Using RoUtils v{APP_VERSION}', 'Not Playing Roblox')
     def _status(self, text):
         callback = self.status_callback
         if callback is not None:
@@ -8309,6 +8306,7 @@ from autoupdate.autoupdate import AutoUpdateMixin
 from ai.ai import AIMixin
 from cache.cache import CacheMixin
 from client.client import ClientMixin
+from luau_interpreter.interpreter import LuauInterpreterMixin
 from console.console import ConsoleMixin
 from emote_manager.emote_manager import EmoteManagerMixin
 from fflag.fflag import FFlagMixin
@@ -8321,7 +8319,7 @@ from settings.settings import SettingsMixin
 from subplace.subplace import SubplaceMixin
 from themes.themes import ThemesMixin
 from viewer.viewer import ViewerMixin
-class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, EmoteManagerMixin, FFlagMixin, HistoryMixin, HomeMixin, PluginsMixin, ReleaseNotesMixin, ServerViewerMixin, SettingsMixin, SubplaceMixin, ThemesMixin, ViewerMixin, _TkAppBase):
+class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, LuauInterpreterMixin, ConsoleMixin, EmoteManagerMixin, FFlagMixin, HistoryMixin, HomeMixin, PluginsMixin, ReleaseNotesMixin, ServerViewerMixin, SettingsMixin, SubplaceMixin, ThemesMixin, ViewerMixin, _TkAppBase):
     def after(self, ms, func=None, *args):
         ui_thread = getattr(self, '_ui_thread_id', None)
         if func is not None and ui_thread is not None and threading.get_ident() != ui_thread:
@@ -8717,7 +8715,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         self._tab_nav = ttk.Frame(self)
         self._tab_nav.pack(fill='x', side='top', padx=8, pady=(6, 4))
         self._tab_nav_inner = ttk.Frame(self._tab_nav)
-        self._tab_nav_inner.pack(anchor='center')
+        self._tab_nav_inner.pack(fill='x', expand=True)
         self._tab_nav_refresh_job = None
         self._tab_nav_layout_signature = None
         self._tab_nav.bind('<Configure>', self._schedule_tab_nav_refresh, add='+')
@@ -8872,8 +8870,8 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         self._lazy_tab_ids = {}
         self.nb.bind('<<NotebookTabChanged>>', self._lazy_tab_changed, add='+')
         self._build_home_tab()
-        lazy_builders = {UI_TEXT['f5']: self._lazy_build_cache, UI_TEXT['h5']: self._build_fflag_tab, UI_TEXT['i5']: self._build_emote_manager_tab, UI_TEXT['j5']: self._build_ai_tab, UI_TEXT['k5']: self._build_utils_tab, UI_TEXT['l5']: self._build_cconfigs_tab, UI_TEXT['m5']: self._build_subplace_joiner_tab, UI_TEXT['n5']: self._build_server_viewer_tab, UI_TEXT['o5']: self._build_history_tab, UI_TEXT['p5']: self._build_client_tab, UI_TEXT['q5']: self._build_themes_tab, UI_TEXT['r5']: self._build_settings_tab, UI_TEXT['s5']: self._build_plugins_tab, UI_TEXT['t5']: self._build_release_notes_tab, UI_TEXT['u5']: self._build_console_tab}
-        for tab_name in (UI_TEXT['f5'], UI_TEXT['h5'], UI_TEXT['i5'], UI_TEXT['j5'], UI_TEXT['l5'], UI_TEXT['k5'], UI_TEXT['m5'], UI_TEXT['n5'], UI_TEXT['o5'], UI_TEXT['p5'], UI_TEXT['q5'], UI_TEXT['r5'], UI_TEXT['s5'], UI_TEXT['t5'], UI_TEXT['u5']):
+        lazy_builders = {UI_TEXT['f5']: self._lazy_build_cache, UI_TEXT['h5']: self._build_fflag_tab, UI_TEXT['i5']: self._build_emote_manager_tab, UI_TEXT['j5']: self._build_ai_tab, UI_TEXT['k5']: self._build_utils_tab, UI_TEXT['l5']: self._build_cconfigs_tab, UI_TEXT['m5']: self._build_subplace_joiner_tab, UI_TEXT['n5']: self._build_server_viewer_tab, UI_TEXT['o5']: self._build_history_tab, UI_TEXT['p5']: self._build_client_tab, 'Luau Interpreter': self._build_luau_interpreter_tab, UI_TEXT['q5']: self._build_themes_tab, UI_TEXT['r5']: self._build_settings_tab, UI_TEXT['s5']: self._build_plugins_tab, UI_TEXT['t5']: self._build_release_notes_tab, UI_TEXT['u5']: self._build_console_tab}
+        for tab_name in (UI_TEXT['f5'], UI_TEXT['h5'], UI_TEXT['i5'], UI_TEXT['j5'], UI_TEXT['l5'], UI_TEXT['k5'], UI_TEXT['m5'], UI_TEXT['n5'], UI_TEXT['o5'], UI_TEXT['p5'], 'Luau Interpreter', UI_TEXT['q5'], UI_TEXT['r5'], UI_TEXT['s5'], UI_TEXT['t5'], UI_TEXT['u5']):
             if tab_name == UI_TEXT['f5']:
                 tab = self.tab_viewer
             else:
@@ -9329,7 +9327,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                         normalized = aliases.get(str(configured_key).upper(), str(configured_key).upper())
                         if token != normalized:
                             continue
-                        if kind in ('emote', 'emote_nav') and not sober_is_focused(self.fflag_pid or _fflag_find_pid()):
+                        if kind in ('emote', 'emote_nav', 'fflag') and not sober_is_focused(self.fflag_pid or _fflag_find_pid()):
                             continue
                         self._global_hotkey_q.put((kind, binding))
                         break
@@ -10466,15 +10464,21 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                     grip.configure(bg=_CURRENT_PALETTE.get('bg_dark', '#111318'))
             self._tab_nav_buttons = buttons
             self._tab_grips = grips
-            signature = tuple(display_rows)
+            columns = max(3, min(12, int(max(1, nav_width) // 118)))
+            signature = (tuple(display_rows), columns)
             if signature != getattr(self, '_tab_nav_layout_signature', None):
-                for tab_id, _display_name in display_rows:
+                for column in range(columns * 2):
+                    self._tab_nav_inner.columnconfigure(column, weight=0)
+                for index, (tab_id, _display_name) in enumerate(display_rows):
                     grip = grips[tab_id]
                     button = buttons[tab_id]
                     grip.pack_forget()
                     button.pack_forget()
-                    grip.pack(side='left', padx=(3, 0), pady=0)
-                    button.pack(side='left', padx=(0, 2), pady=0)
+                    row = index // columns
+                    column = (index % columns) * 2
+                    grip.grid(row=row, column=column, sticky='w', padx=(3, 0), pady=(0, 2))
+                    button.grid(row=row, column=column + 1, sticky='w', padx=(0, 4), pady=(0, 2))
+                self._tab_nav_inner.grid_anchor('center')
                 self._tab_nav_layout_signature = signature
             for tab_id in current_tabs:
                 button = buttons[tab_id]
@@ -10973,14 +10977,11 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         if rpc is None:
             return
         rpc.set_enabled(True)
-        tab_name = 'Home'
         try:
-            selected = self.nb.select()
-            if selected:
-                tab_name = str(self.nb.tab(selected, 'text') or 'Home')
+            playing = bool(_fflag_find_pid())
         except Exception:
-            pass
-        rpc.set_activity('Using RoUtils', f'Tab: {tab_name}')
+            playing = False
+        rpc.set_activity(f'Using RoUtils v{APP_VERSION}', 'Playing Roblox' if playing else 'Not Playing Roblox')
     def _discord_rpc_poll_tick(self):
         try:
             if not self.winfo_exists():
@@ -11411,7 +11412,7 @@ def _routils_install_text_rules():
                 text = 'RoUtils could not complete this action\n\nTry again and check the error log if it keeps happening'
             return __original(title, text, *args, **kwargs)
         setattr(messagebox, name, wrapped_messagebox)
-_routils_shared_module_names = ('autoupdate.autoupdate', 'ai.ai', 'cache.cache', 'client.client', 'console.console', 'emote_manager.emote_manager', 'fflag.fflag', 'history.history', 'home.home', 'plugins.plugins', 'release_notes.release_notes', 'server_viewer.server_viewer', 'settings.settings', 'subplace.subplace', 'themes.themes', 'viewer.viewer')
+_routils_shared_module_names = ('autoupdate.autoupdate', 'ai.ai', 'cache.cache', 'client.client', 'luau_interpreter.interpreter', 'console.console', 'emote_manager.emote_manager', 'fflag.fflag', 'history.history', 'home.home', 'plugins.plugins', 'release_notes.release_notes', 'server_viewer.server_viewer', 'settings.settings', 'subplace.subplace', 'themes.themes', 'viewer.viewer')
 for _routils_module_name in _routils_shared_module_names:
     _routils_module = sys.modules.get(_routils_module_name)
     if _routils_module is not None:

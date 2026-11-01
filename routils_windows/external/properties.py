@@ -442,7 +442,9 @@ class ExternalPropertiesMixin:
             page = ttk.Frame(self.external_property_notebook, padding=7)
             page.rowconfigure(0, weight=1)
             page.columnconfigure(0, weight=1)
-            tree = ttk.Treeview(page, columns=('property', 'value', 'type'), show='headings', selectmode='browse')
+            tree = ttk.Treeview(page, columns=('property', 'value', 'type'), show='tree headings', selectmode='browse')
+            tree.heading('#0', text='Hotkey')
+            tree.column('#0', width=72, minwidth=72, stretch=False, anchor='center')
             tree.heading('property', text='Property')
             tree.heading('value', text='Current Value')
             tree.heading('type', text='Type')
@@ -456,12 +458,14 @@ class ExternalPropertiesMixin:
             tree.grid(row=0, column=0, sticky='nsew')
             scrollbar.grid(row=0, column=1, sticky='ns')
             tree.bind('<<TreeviewSelect>>', lambda event, selected_group=group: self._external_property_select(event, selected_group))
+            tree.bind('<Button-1>', lambda event, selected_group=group: self._external_property_hotkey_click(event, selected_group), add='+')
             self.external_property_notebook.add(page, text=group)
             self._external_property_trees[group] = tree
             for prop in (item for item in PROPERTY_DEFINITIONS if item['group'] == group):
                 initial = '192.6' if prop['key'] == 'world.World.Gravity' else '—'
                 tags = ('readonly',) if prop.get('ro') else ('default',) if prop['key'] == 'world.World.Gravity' else ()
-                tree.insert('', 'end', iid=prop['key'], values=(prop['label'], initial, prop['type']), tags=tags)
+                hotkey = next((str(item.get('key', '')).upper() for item in self.external_property_hotkeys if item.get('property') == prop['key']), '')
+                tree.insert('', 'end', iid=prop['key'], text=hotkey or ('—' if prop.get('ro') else 'Hotkey'), values=(prop['label'], initial, prop['type']), tags=tags)
         editor = ttk.LabelFrame(tab, text='Selected Property', padding=10)
         editor.grid(row=2, column=0, sticky='ew', pady=(8, 0))
         editor.columnconfigure(1, weight=1)
@@ -490,6 +494,194 @@ class ExternalPropertiesMixin:
             gravity_tree.selection_set('world.World.Gravity')
             gravity_tree.focus('world.World.Gravity')
             self._external_property_select(None, 'Physics')
+
+    def _external_property_hotkey_click(self, event, group):
+        tree = self._external_property_trees.get(group)
+        if tree is None or tree.identify_region(event.x, event.y) != 'tree':
+            return None
+        key = tree.identify_row(event.y)
+        if not key:
+            return None
+        prop = PROPERTY_BY_KEY.get(key)
+        if not prop or prop.get('ro'):
+            return 'break'
+        self._external_property_hotkey_editor(key)
+        return 'break'
+
+    def _external_property_hotkey_editor(self, property_key):
+        prop = PROPERTY_BY_KEY.get(property_key)
+        if not prop or prop.get('ro'):
+            return
+        existing = next((item for item in self.external_property_hotkeys if item.get('property') == property_key), {})
+        dialog = tk.Toplevel(self)
+        dialog.title('External Property Hotkey')
+        dialog.transient(self)
+        dialog.resizable(False, False)
+        dialog.grab_set()
+        theme_toplevel(dialog)
+        frame = ttk.Frame(dialog, padding=14)
+        frame.pack(fill='both', expand=True)
+        ttk.Label(frame, text=f"{prop['title']} · {prop['label']}", font=('Segoe UI Semibold', 10)).pack(anchor='w', pady=(0, 10))
+        value_defaults = {'bool': ('false', 'true'), 'flag': ('false', 'true'), 'vec2': ('0, 0', '1, 1'), 'range': ('0, 0', '1, 1'), 'vec3': ('0, 0, 0', '1, 1, 1'), 'color3': ('0, 0, 0', '1, 1, 1'), 'u8x3': ('0, 0, 0', '255, 255, 255')}
+        default_value1, default_value2 = value_defaults.get(prop['type'], ('12', '32'))
+        ttk.Label(frame, text='1. Value').pack(anchor='w')
+        value1 = tk.StringVar(value=str(existing.get('value1', default_value1)))
+        ttk.Entry(frame, textvariable=value1, width=34).pack(fill='x', pady=(3, 9))
+        ttk.Label(frame, text='2. Value').pack(anchor='w')
+        value2 = tk.StringVar(value=str(existing.get('value2', default_value2)))
+        ttk.Entry(frame, textvariable=value2, width=34).pack(fill='x', pady=(3, 9))
+        ttk.Label(frame, text='Hotkey').pack(anchor='w')
+        key_var = tk.StringVar(value=str(existing.get('key', '')))
+        capture_state = {'armed': False, 'after_id': None}
+        key_row = ttk.Frame(frame)
+        key_row.pack(fill='x', pady=(3, 5))
+        key_entry = ttk.Entry(key_row, textvariable=key_var, width=25, state='readonly')
+        key_entry.pack(side='left', fill='x', expand=True)
+        status_label = ttk.Label(key_row, text='')
+        status_label.pack(side='right', padx=(6, 0))
+        def stop_capture():
+            capture_state['armed'] = False
+            if capture_state['after_id'] is not None:
+                try:
+                    dialog.after_cancel(capture_state['after_id'])
+                except Exception:
+                    pass
+                capture_state['after_id'] = None
+            try:
+                dialog.unbind('<KeyPress>')
+                for button_number in range(1, 6):
+                    dialog.unbind(f'<ButtonPress-{button_number}>')
+            except Exception:
+                pass
+            status_label.configure(text='')
+        def capture(event):
+            if not capture_state['armed']:
+                return None
+            keysym = str(getattr(event, 'keysym', '') or '').upper()
+            if keysym in ('SHIFT_L', 'SHIFT_R', 'CONTROL_L', 'CONTROL_R', 'ALT_L', 'ALT_R', 'SUPER_L', 'SUPER_R'):
+                return 'break'
+            if getattr(event, 'num', None) is not None:
+                token = {1: 'MOUSE1', 2: 'MOUSE2', 3: 'MOUSE3', 4: 'MOUSE4', 5: 'MOUSE5'}.get(event.num, f'MOUSE{event.num}')
+            else:
+                token = 'ESC' if keysym == 'ESCAPE' else keysym
+            if token and fflag_key_to_vk(token):
+                key_var.set(token)
+                stop_capture()
+            return 'break'
+        def arm_capture():
+            stop_capture()
+            capture_state['armed'] = False
+            status_label.configure(text='Press a key…')
+            try:
+                key_entry.focus_set()
+                dialog.bind('<KeyPress>', capture, add='+')
+                for button_number in range(1, 6):
+                    dialog.bind(f'<ButtonPress-{button_number}>', capture, add='+')
+                capture_state['after_id'] = dialog.after(250, lambda: capture_state.update(armed=True, after_id=None))
+            except Exception:
+                stop_capture()
+        ttk.Button(key_row, text='Record', command=arm_capture).pack(side='right', padx=(6, 0))
+        ttk.Label(frame, text='Select Record, then press your key or mouse button.', foreground=_FFLAG_COLOR_MUTED).pack(anchor='w')
+        def save():
+            token = str(key_var.get() or '').strip().upper()
+            if not token or not fflag_key_to_vk(token):
+                messagebox.showerror('External Property Hotkey', 'Choose a supported keyboard or mouse key.', parent=dialog)
+                return
+            occupied = {'F7'}
+            occupied.update(str(item.get('key', '')).upper() for item in self.external_property_hotkeys if item.get('property') != property_key)
+            occupied.update(str(item.get('key', '')).upper() for item in self.fflag_hotkeys)
+            occupied.update(str(value or '').upper() for value in getattr(self, 'fps_hotkeys', {}).values())
+            occupied.update(str(value or '').upper() for value in getattr(self, 'emote_binds', {}).values())
+            occupied.update(str(value or '').upper() for value in getattr(self, '_emote_nav_binds', {}).values())
+            occupied.add(str(getattr(self, '_emote_hotkeys_toggle_key', '') or '').upper())
+            if token in occupied:
+                messagebox.showerror('External Property Hotkey', 'This hotkey is already assigned. Choose a different key.', parent=dialog)
+                return
+            first = str(value1.get()).strip()
+            second = str(value2.get()).strip()
+            try:
+                _parse_property_value(prop, first)
+                _parse_property_value(prop, second)
+            except Exception as error:
+                messagebox.showerror('External Property Hotkey', str(error), parent=dialog)
+                return
+            updated = {'property': property_key, 'key': token, 'value1': first, 'value2': second, 'state': bool(existing.get('state', False))}
+            self.external_property_hotkeys = [item for item in self.external_property_hotkeys if item.get('property') != property_key]
+            self.external_property_hotkeys.append(updated)
+            self.settings['external_property_hotkeys'] = self.external_property_hotkeys
+            self._save_settings()
+            tree = self._external_property_trees.get(prop['group'])
+            if tree is not None and tree.exists(property_key):
+                tree.item(property_key, text=token)
+            dialog.destroy()
+        buttons = ttk.Frame(frame)
+        buttons.pack(fill='x', pady=(12, 0))
+        ttk.Button(buttons, text='Save', command=save).pack(side='left')
+        ttk.Button(buttons, text='Remove', command=lambda: remove()).pack(side='left', padx=(6, 0))
+        ttk.Button(buttons, text='Cancel', command=dialog.destroy).pack(side='right')
+        def remove():
+            self.external_property_hotkeys = [item for item in self.external_property_hotkeys if item.get('property') != property_key]
+            self.settings['external_property_hotkeys'] = self.external_property_hotkeys
+            self._save_settings()
+            tree = self._external_property_trees.get(prop['group'])
+            if tree is not None and tree.exists(property_key):
+                tree.item(property_key, text='Hotkey')
+            dialog.destroy()
+        dialog.update_idletasks()
+        dialog.geometry(f"+{max(0, self.winfo_rootx() + (self.winfo_width() - dialog.winfo_width()) // 2)}+{max(0, self.winfo_rooty() + (self.winfo_height() - dialog.winfo_height()) // 2)}")
+        key_entry.focus_set()
+
+    def _external_handle_property_hotkey(self, binding):
+        property_key = str(binding.get('property', ''))
+        current = next((item for item in self.external_property_hotkeys if item.get('property') == property_key and str(item.get('key', '')).upper() == str(binding.get('key', '')).upper()), None)
+        prop = PROPERTY_BY_KEY.get(property_key)
+        if not current or not prop or prop.get('ro'):
+            return
+        value_slot = 'value2' if bool(current.get('state', False)) else 'value1'
+        current['state'] = not bool(current.get('state', False))
+        value_text = str(current.get(value_slot, ''))
+        self.settings['external_property_hotkeys'] = self.external_property_hotkeys
+        self._save_settings()
+        try:
+            value = _parse_property_value(prop, value_text)
+        except Exception as error:
+            self._console_log(f'External hotkey value rejected: {error}')
+            return
+        engine = getattr(self, 'fflag_engine', None)
+        pid = int(getattr(self, 'fflag_pid', 0) or 0)
+        if not engine or not engine.handle or not pid:
+            return
+        def worker():
+            try:
+                if int(getattr(engine, 'pid', 0)) != pid:
+                    raise RuntimeError('The selected Roblox client changed.')
+                offsets_data = self._external_offsets_for_client(pid)
+                context = _ExternalPropertyContext(self, offsets_data)
+                count = _write_property(prop, value, context)
+                result = {'ok': True, 'count': count, 'value': value_text}
+            except Exception as error:
+                result = {'ok': False, 'error': str(error)}
+            try:
+                self.after(0, self._external_property_hotkey_finished, property_key, result)
+            except Exception:
+                pass
+        threading.Thread(target=worker, name='RoUtilsExternalPropertyHotkey', daemon=True).start()
+
+    def _external_property_hotkey_finished(self, property_key, result):
+        if not result.get('ok'):
+            self._console_log('External property hotkey failed: ' + str(result.get('error', 'unknown error')))
+            return
+        prop = PROPERTY_BY_KEY.get(property_key)
+        if prop:
+            tree = self._external_property_trees.get(prop['group'])
+            if tree is not None and tree.exists(property_key):
+                tree.set(property_key, 'value', str(result.get('value', '')))
+            self._external_property_values[property_key] = result.get('value')
+        if (getattr(self, '_external_property_selected', None) or {}).get('key') == property_key:
+            self._external_property_trace_suspended = True
+            self.external_property_value_var.set(str(result.get('value', '')))
+            self._external_property_trace_suspended = False
+        self.external_property_status_detail.configure(text=f"Hotkey applied to {result.get('count', 1)} object(s).", foreground=_FFLAG_COLOR_SUCCESS)
 
     def _external_properties_offsets_ready(self):
         engine = getattr(self, 'fflag_engine', None)

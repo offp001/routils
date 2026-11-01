@@ -208,6 +208,12 @@ class ExternalOffsetsMixin(ExternalPropertiesMixin):
         self.external_property_status.configure(text=f'{state} · {display_version}', foreground=_FFLAG_COLOR_SUCCESS if not result.get('refresh_error') else _FFLAG_COLOR_WARNING)
         self._external_properties_offsets_ready()
 
+
+    def _build_external_tab(self):
+        tab = ttk.Frame(self.nb, padding=10)
+        self.nb.add(tab, text='External')
+        self._external_build_offsets_panel(tab)
+
     def _external_build_offsets_panel(self, tab):
         self._external_offsets_data = None
         self._external_offsets_loading = False

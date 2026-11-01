@@ -697,10 +697,6 @@ class FFlagMixin:
         self._fflag_reference_render_token = 0
         self._fflag_reference_load_started = False
         self._build_fflag_side_panels(favorite_tab, presets_tab, hotkeys_tab)
-        if os.name == 'nt' and callable(getattr(self, '_external_build_offsets_panel', None)):
-            external_tab = ttk.Frame(self.fflag_side_notebook, padding=8)
-            self.fflag_side_notebook.insert(1, external_tab, text='External')
-            self._external_build_offsets_panel(external_tab)
         saved_tab.rowconfigure(1, weight=1)
         saved_tab.columnconfigure(0, weight=1)
         ttk.Label(saved_tab, text=UI_TEXT['o14'], font=('Segoe UI Semibold', 10)).grid(row=0, column=0, sticky='w', pady=(0, 6))

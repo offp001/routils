@@ -82,7 +82,6 @@ class HomeMixin:
         self.home_download_label.pack(anchor='w')
         self.home_download_progress = ttk.Progressbar(self.home_download_frame, orient='horizontal', mode='determinate', length=320)
         self.home_download_progress.pack(anchor='w', fill='x', pady=(3, 0))
-    @staticmethod
     def _initial_tab_order_post_map(self, attempts=0):
         try:
             if not self.winfo_exists():
@@ -106,7 +105,7 @@ class HomeMixin:
                 except Exception:
                     pass
     def _reorder_tabs(self):
-        defaults = [UI_TEXT['w5'], UI_TEXT['f5'], UI_TEXT['h5'], UI_TEXT['i5'], UI_TEXT['j5'], UI_TEXT['l5'], UI_TEXT['k5'], UI_TEXT['m5'], UI_TEXT['n5'], UI_TEXT['o5'], UI_TEXT['p5'], UI_TEXT['q5'], UI_TEXT['s5'], UI_TEXT['t5'], UI_TEXT['u5'], UI_TEXT['r5']]
+        defaults = [UI_TEXT['w5'], UI_TEXT['f5'], UI_TEXT['h5'], 'External', UI_TEXT['i5'], UI_TEXT['j5'], UI_TEXT['l5'], UI_TEXT['k5'], UI_TEXT['m5'], UI_TEXT['n5'], UI_TEXT['o5'], UI_TEXT['p5'], UI_TEXT['q5'], UI_TEXT['s5'], UI_TEXT['t5'], UI_TEXT['u5'], UI_TEXT['r5']]
         current_tabs = list(self.nb.tabs())
         remaining = list(current_tabs)
         ordered_tabs = []

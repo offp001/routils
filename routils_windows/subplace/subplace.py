@@ -98,7 +98,10 @@ class SubplaceMixin:
             return
         pid = self.subplace_tree.item(sel[0], 'values')[0]
         try:
-            os.startfile(f'roblox://placeId={pid}')
+            if os.name == 'nt':
+                os.startfile(f'roblox://placeId={pid}')
+            else:
+                open_path(f'roblox://placeId={pid}')
             self._console_log(UI_TEXT['f13'].format(p0=pid))
         except Exception as e:
             messagebox.showerror(UI_TEXT['m5'], UI_TEXT['g13'].format(p0=e), parent=self)

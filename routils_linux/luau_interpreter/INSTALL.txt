@@ -1,0 +1,8 @@
+Install the official Luau command-line interpreter on Arch Linux:
+
+sudo pacman -S --needed luau
+
+Restart RoUtils after installation. The Luau Interpreter tab runs scripts locally and does not attach to Roblox.
+
+Documentation:
+https://luau.org/getting-started/

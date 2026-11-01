@@ -46,7 +46,7 @@ class AIMixin:
         header.columnconfigure(1, weight=1)
         tk.Label(header, text=UI_TEXT['a22'], bg=palette.get('bg_medium', '#252526'), fg=palette.get('fg', '#e6e6e6'), font=('Segoe UI Semibold', 16)).grid(row=0, column=0, sticky='w')
         tk.Label(header, text=UI_TEXT['b22'], bg=palette.get('bg_medium', '#252526'), fg='#a6abb4', font=('Segoe UI', 9)).grid(row=1, column=0, sticky='w', pady=(3, 0))
-        model_names = {UI_TEXT['g30']: 'gemini-3.8-flash', UI_TEXT['h30']: 'gemini-3.7-flash', UI_TEXT['i30']: 'gemini-3.6-flash', UI_TEXT['j30']: 'gemini-3.5-flash', UI_TEXT['k30']: 'gemini-3.5-flash-lite', UI_TEXT['l30']: 'gemini-3.1-flash-lite', UI_TEXT['m30']: 'gemini-3.1-pro-preview', UI_TEXT['n30']: 'gemini-3-flash-preview', UI_TEXT['o30']: 'gemini-2.5-flash', UI_TEXT['p30']: 'gemini-2.5-pro', UI_TEXT['q30']: 'gemini-2.5-flash-lite'}
+        model_names = {UI_TEXT['g30']: 'gemini-3.8-flash', UI_TEXT['h30']: 'gemini-3.7-flash', UI_TEXT['i30']: 'gemini-3.6-flash', UI_TEXT['j30']: 'gemini-3.5-flash', UI_TEXT['k30']: 'gemini-3.5-flash-lite', UI_TEXT['l30']: 'gemini-3.1-flash-lite', UI_TEXT['m30']: 'gemini-3.1-pro-preview', UI_TEXT['n30']: 'gemini-3-flash-preview'}
         saved_model = self.settings.get('ai_model', UI_TEXT['g30'])
         if saved_model not in model_names:
             saved_model = UI_TEXT['g30']
