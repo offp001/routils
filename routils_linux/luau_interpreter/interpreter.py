@@ -4,7 +4,7 @@ import subprocess
 import tempfile
 import threading
 import tkinter as tk
-import webbrowser
+import sys
 from tkinter import ttk
 
 _host = __import__('sys').modules.get('main') or __import__('sys').modules.get('__main__')
@@ -43,7 +43,6 @@ class LuauInterpreterMixin:
         self.luau_run_button.pack(side='left')
         ttk.Button(controls, text='Clear Console', command=self._luau_clear_console).pack(side='left', padx=(6, 0))
         ttk.Button(controls, text='Example', command=self._luau_load_example).pack(side='left', padx=(6, 0))
-        ttk.Button(controls, text='Install Guide', command=lambda: webbrowser.open('https://luau.org/getting-started/')).pack(side='right')
         console_frame = ttk.LabelFrame(tab, text='Console', padding=7)
         console_frame.grid(row=3, column=0, sticky='nsew')
         console_frame.rowconfigure(0, weight=1)
@@ -58,17 +57,20 @@ class LuauInterpreterMixin:
         self._luau_console_write('Luau runs locally in a separate process. It does not attach to or inject into Roblox.\n')
 
     def _luau_find_runtime(self):
-        runtime = shutil.which('luau')
-        if runtime:
-            return runtime
-        candidates = (
-            os.path.join(os.path.dirname(__file__), 'bin', 'luau'),
+        bundle_root = getattr(sys, '_MEIPASS', '')
+        source_root = os.path.dirname(os.path.abspath(__file__))
+        candidates = []
+        if bundle_root:
+            candidates.append(os.path.join(bundle_root, 'bin', 'luau'))
+        candidates.extend((
+            os.path.join(source_root, 'bin', 'luau'),
+            shutil.which('luau') or '',
             os.path.expanduser('~/.local/bin/luau'),
             '/usr/local/bin/luau',
             '/usr/bin/luau',
-        )
+        ))
         for candidate in candidates:
-            if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+            if candidate and os.path.isfile(candidate) and os.access(candidate, os.X_OK):
                 return candidate
         return None
 
@@ -103,7 +105,7 @@ class LuauInterpreterMixin:
         runtime = self._luau_find_runtime()
         if not runtime:
             self.luau_status_var.set('Luau CLI not found')
-            self._luau_console_write('Luau CLI was not found. On Arch Linux install it with:\nsudo pacman -S --needed luau\n\nThen restart RoUtils.\n')
+            self._luau_console_write('The bundled Luau CLI is missing. Rebuild RoUtils with the Linux compile script or GitHub Actions workflow.\n')
             return
         self._luau_running = True
         self._luau_run_token += 1

@@ -117,7 +117,7 @@ class HomeMixin:
         remaining = list(current_tabs)
         ordered_tabs = []
         for name in defaults:
-            tab_id = next((candidate for candidate in remaining if str(self.nb.tab(candidate, 'text')) == name), None)
+            tab_id = next((candidate for candidate in remaining if str(self.nb.tab(candidate, 'text')).casefold() == str(name).casefold()), None)
             if tab_id is not None:
                 ordered_tabs.append(tab_id)
                 remaining.remove(tab_id)

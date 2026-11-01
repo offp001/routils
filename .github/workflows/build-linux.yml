@@ -24,10 +24,10 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt -r routils_linux/requirements.txt -r requirements-build.txt
+          python -m pip install -r routils_linux/requirements.txt
 
       - name: Download Luau CLI
-        run: python routils_linux/luau_interpreter/download_cli.py routils_linux/bin/luau
+        run: python routils_linux/tools/download_luau.py --output routils_linux/bin/luau
 
       - name: Build Linux executable
         shell: bash
@@ -45,7 +45,7 @@ jobs:
             find . -maxdepth 2 -type f
             exit 1
           fi
-          python -m PyInstaller --noconfirm --clean --onefile --name RoUtils-Linux --paths . --add-binary "bin/luau:bin" --add-data "routils.ico:." --add-data "routils_rpc.png:." --add-data "src/presets:src/presets" "$ENTRY"
+          python -m PyInstaller --noconfirm --clean --onefile --name RoUtils-Linux --paths . --add-binary "bin/luau:bin" "$ENTRY"
           mkdir -p ../dist
           cp "dist/RoUtils-Linux" ../dist/RoUtils-Linux
           chmod +x ../dist/RoUtils-Linux
