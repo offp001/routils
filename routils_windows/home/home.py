@@ -105,7 +105,8 @@ class HomeMixin:
                 except Exception:
                     pass
     def _reorder_tabs(self):
-        defaults = [UI_TEXT['w5'], UI_TEXT['f5'], UI_TEXT['h5'], 'External', UI_TEXT['i5'], UI_TEXT['j5'], UI_TEXT['l5'], UI_TEXT['k5'], UI_TEXT['m5'], UI_TEXT['n5'], UI_TEXT['o5'], UI_TEXT['p5'], UI_TEXT['q5'], UI_TEXT['s5'], UI_TEXT['t5'], UI_TEXT['u5'], UI_TEXT['r5']]
+        selected_tab = self.nb.select() if self.nb.tabs() else None
+        defaults = [UI_TEXT['w5'], UI_TEXT['f5'], UI_TEXT['h5'], 'External', UI_TEXT['i5'], UI_TEXT['j5'], UI_TEXT['l5'], UI_TEXT['k5'], UI_TEXT['m5'], UI_TEXT['n5'], UI_TEXT['o5'], UI_TEXT['p5'], 'Luau Interpreter', UI_TEXT['q5'], UI_TEXT['s5'], UI_TEXT['t5'], UI_TEXT['u5'], UI_TEXT['r5']]
         current_tabs = list(self.nb.tabs())
         remaining = list(current_tabs)
         ordered_tabs = []
@@ -117,6 +118,11 @@ class HomeMixin:
         ordered_tabs.extend(remaining)
         for index, tab_id in enumerate(ordered_tabs):
             self.nb.insert(index, tab_id)
+        if selected_tab:
+            try:
+                self.nb.select(selected_tab)
+            except Exception:
+                pass
         if hasattr(self, 'settings'):
             self.settings['tab_order'] = [str(self.nb.tab(tab_id, 'text')) for tab_id in self.nb.tabs()]
         self._tab_nav_layout_signature = None

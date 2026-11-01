@@ -8716,15 +8716,15 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, LuauInterpreterMixi
         if self._tab_bar_position not in ('Left', 'Right', 'Top'):
             self._tab_bar_position = 'Left'
         try:
-            if not self.settings.get('tab_nav_width_halved_v2', False):
-                previous_width = int(self.settings.get('tab_nav_width', 96) or 96)
-                self._tab_nav_width = max(48, min(240, previous_width // 2))
-                self.settings['tab_nav_width_halved_v2'] = True
+            if not self.settings.get('tab_nav_width_slightly_wider_v4', False):
+                previous_width = int(self.settings.get('tab_nav_width', 48) or 48)
+                self._tab_nav_width = max(56, min(260, previous_width + 8))
+                self.settings['tab_nav_width_slightly_wider_v4'] = True
                 self.settings['tab_nav_width'] = self._tab_nav_width
             else:
-                self._tab_nav_width = max(48, min(240, int(self.settings.get('tab_nav_width', 48) or 48)))
+                self._tab_nav_width = max(56, min(260, int(self.settings.get('tab_nav_width', 56) or 56)))
         except Exception:
-            self._tab_nav_width = 48
+            self._tab_nav_width = 56
         self._tab_nav_sash = None
         self._tab_nav_resize_start = None
         self._main_paned = ttk.Frame(self)
@@ -10415,7 +10415,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, LuauInterpreterMixi
         horizontal = self._tab_bar_position == 'Top'
         nav_width = 154 if horizontal else self._tab_nav_width
         self._tab_nav = ttk.Frame(self._main_paned, width=nav_width, height=54 if horizontal else 154)
-        self._tab_nav.pack_propagate(False)
+        self._tab_nav.grid_propagate(False)
         self._tab_nav_canvas = tk.Canvas(self._tab_nav, highlightthickness=0, borderwidth=0, takefocus=0, bg=_CURRENT_PALETTE.get('bg_dark', '#111318'))
         self._tab_nav_scrollbar = ttk.Scrollbar(self._tab_nav, orient='horizontal' if horizontal else 'vertical', command=self._tab_nav_canvas.xview if horizontal else self._tab_nav_canvas.yview)
         if horizontal:
@@ -10458,8 +10458,9 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, LuauInterpreterMixi
                 self._main_paned.grid_columnconfigure(index, weight=0, minsize=0)
             if self._tab_bar_position == 'Top':
                 self._tab_nav_sash.grid_forget()
-                self._main_paned.grid_rowconfigure(1, weight=1)
-                self._main_paned.grid_columnconfigure(0, weight=1)
+                self._main_paned.grid_rowconfigure(0, minsize=54, weight=0)
+                self._main_paned.grid_rowconfigure(1, minsize=0, weight=1)
+                self._main_paned.grid_columnconfigure(0, minsize=0, weight=1)
                 self._tab_nav.configure(width=154, height=54)
                 self._tab_nav.grid(row=0, column=0, sticky='ew')
                 self.nb.grid(row=1, column=0, sticky='nsew')
@@ -10522,9 +10523,9 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, LuauInterpreterMixi
 
     def _set_tab_nav_width(self, width, save=False):
         try:
-            width = max(48, min(240, int(width)))
+            width = max(56, min(260, int(width)))
         except Exception:
-            width = 48
+            width = 56
         if self._tab_bar_position == 'Top':
             return
         self._tab_nav_width = width

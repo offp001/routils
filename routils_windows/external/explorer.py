@@ -49,6 +49,9 @@ class ExternalExplorerMixin:
         self._external_explorer_action_active = False
         self._external_explorer_property_generation = 0
         self._external_explorer_property_specs = dict(_EXPLORER_INSTANCE_PROPERTY_SPECS)
+        self._external_explorer_property_pending = {}
+        self._external_explorer_property_editor = None
+        self._external_explorer_property_editor_key = None
         parent.columnconfigure(0, weight=1)
         parent.rowconfigure(2, weight=1)
         header = ttk.Frame(parent)
@@ -81,12 +84,17 @@ class ExternalExplorerMixin:
         body.add(tree_host, weight=3)
         body.add(details_host, weight=2)
         explorer_style = ttk.Style(parent)
+        palette = globals().get('_CURRENT_PALETTE', {}) or {}
+        explorer_bg = palette.get('bg_medium', palette.get('bg_dark', '#252526'))
+        explorer_fg = palette.get('fg', '#dcdcdc')
+        explorer_selected = palette.get('accent', '#365b88')
+        explorer_muted = palette.get('fg_muted', '#9aa0a6')
         try:
-            explorer_style.configure('RoUtils.Explorer.Treeview', rowheight=25, borderwidth=0, relief='flat', font=('Segoe UI', 9), background='#171a21', fieldbackground='#171a21', foreground='#e6e9ef')
-            explorer_style.map('RoUtils.Explorer.Treeview', background=[('selected', '#34415f')], foreground=[('selected', '#ffffff')])
+            explorer_style.configure('RoUtils.Explorer.Treeview', rowheight=25, borderwidth=0, relief='flat', font=('Segoe UI', 9), background=explorer_bg, fieldbackground=explorer_bg, foreground=explorer_fg)
+            explorer_style.map('RoUtils.Explorer.Treeview', background=[('selected', explorer_selected)], foreground=[('selected', '#ffffff')])
             explorer_style.configure('RoUtils.Explorer.Heading', font=('Segoe UI Semibold', 9), padding=(7, 5))
-            explorer_style.configure('RoUtils.Properties.Treeview', rowheight=24, borderwidth=0, relief='flat', font=('Segoe UI', 9), background='#171a21', fieldbackground='#171a21', foreground='#e6e9ef')
-            explorer_style.map('RoUtils.Properties.Treeview', background=[('selected', '#34415f')], foreground=[('selected', '#ffffff')])
+            explorer_style.configure('RoUtils.Properties.Treeview', rowheight=24, borderwidth=0, relief='flat', font=('Segoe UI', 9), background=explorer_bg, fieldbackground=explorer_bg, foreground=explorer_fg)
+            explorer_style.map('RoUtils.Properties.Treeview', background=[('selected', explorer_selected)], foreground=[('selected', '#ffffff')])
         except Exception:
             pass
         self.external_explorer_tree = ttk.Treeview(tree_host, columns=('class', 'children'), show='tree', selectmode='browse', style='RoUtils.Explorer.Treeview')
@@ -139,7 +147,11 @@ class ExternalExplorerMixin:
         ttk.Label(property_selection, text='Address', foreground=_FFLAG_COLOR_MUTED).grid(row=3, column=0, sticky='w', padx=(2, 7), pady=3)
         ttk.Label(property_selection, textvariable=self._external_explorer_detail_vars['address']).grid(row=3, column=1, columnspan=3, sticky='ew', pady=3)
         self.external_explorer_property_status_var = tk.StringVar(value='Select an instance to inspect its properties.')
-        ttk.Label(properties_tab, textvariable=self.external_explorer_property_status_var, foreground=_FFLAG_COLOR_MUTED, wraplength=420).grid(row=1, column=0, sticky='ew', pady=(0, 6))
+        property_toolbar = ttk.Frame(properties_tab)
+        property_toolbar.grid(row=1, column=0, sticky='ew', pady=(0, 6))
+        property_toolbar.columnconfigure(0, weight=1)
+        ttk.Label(property_toolbar, textvariable=self.external_explorer_property_status_var, foreground=_FFLAG_COLOR_MUTED, wraplength=420).grid(row=0, column=0, sticky='ew')
+        ttk.Button(property_toolbar, text='Refresh', command=self._external_explorer_refresh_instance_properties).grid(row=0, column=1, padx=(7, 0))
         property_host = ttk.Frame(properties_tab)
         property_host.grid(row=2, column=0, sticky='nsew')
         property_host.columnconfigure(0, weight=1)
@@ -149,27 +161,19 @@ class ExternalExplorerMixin:
         self.external_explorer_property_tree.heading('value', text='Value')
         self.external_explorer_property_tree.column('#0', width=140, minwidth=95, stretch=True)
         self.external_explorer_property_tree.column('value', width=150, minwidth=95, stretch=True)
-        self.external_explorer_property_tree.tag_configure('property_group', foreground='#aab7d3')
+        self.external_explorer_property_tree.tag_configure('property_group', foreground=explorer_muted)
+        self.external_explorer_property_tree.tag_configure('property_pending', foreground=palette.get('accent', '#8ab4f8'))
         property_scroll = ttk.Scrollbar(property_host, orient='vertical', command=self.external_explorer_property_tree.yview)
         self.external_explorer_property_tree.configure(yscrollcommand=property_scroll.set)
         self.external_explorer_property_tree.grid(row=0, column=0, sticky='nsew')
         property_scroll.grid(row=0, column=1, sticky='ns')
         self.external_explorer_property_tree.bind('<<TreeviewSelect>>', self._external_explorer_property_on_select)
-        self.external_explorer_property_tree.bind('<Double-1>', lambda _event: self.external_explorer_property_entry.focus_set())
-        editor = ttk.LabelFrame(properties_tab, text='Edit Property', padding=8)
-        editor.grid(row=3, column=0, sticky='ew', pady=(7, 0))
-        editor.columnconfigure(0, weight=1)
-        self.external_explorer_property_value_var = tk.StringVar(value='')
-        self.external_explorer_property_entry = ttk.Entry(editor, textvariable=self.external_explorer_property_value_var)
-        self.external_explorer_property_entry.grid(row=0, column=0, sticky='ew', pady=(0, 7))
-        self.external_explorer_property_entry.bind('<Return>', lambda _event: self._external_explorer_apply_instance_property())
-        property_buttons = ttk.Frame(editor)
-        property_buttons.grid(row=1, column=0, sticky='ew')
-        property_buttons.columnconfigure(0, weight=1)
-        property_buttons.columnconfigure(1, weight=1)
-        self.external_explorer_property_apply_button = ttk.Button(property_buttons, text='Apply', command=self._external_explorer_apply_instance_property)
-        self.external_explorer_property_apply_button.grid(row=0, column=0, sticky='ew', padx=(0, 4))
-        ttk.Button(property_buttons, text='Refresh', command=self._external_explorer_refresh_instance_properties).grid(row=0, column=1, sticky='ew', padx=(4, 0))
+        self.external_explorer_property_tree.bind('<Double-1>', self._external_explorer_property_begin_edit)
+        property_footer = ttk.Frame(properties_tab)
+        property_footer.grid(row=3, column=0, sticky='ew', pady=(7, 0))
+        property_footer.columnconfigure(0, weight=1)
+        self.external_explorer_property_apply_button = ttk.Button(property_footer, text='Apply', command=self._external_explorer_apply_instance_property)
+        self.external_explorer_property_apply_button.grid(row=0, column=0, sticky='ew')
         self._external_explorer_status('Attach a Roblox client in Clients, then refresh.')
 
     @staticmethod
@@ -190,15 +194,16 @@ class ExternalExplorerMixin:
                 tree.delete(item)
         if hasattr(self, 'external_explorer_property_status_var'):
             self.external_explorer_property_status_var.set(status)
-        if hasattr(self, 'external_explorer_property_value_var'):
-            self.external_explorer_property_value_var.set('')
+        self._external_explorer_property_finish_edit(cancel=True)
+        self._external_explorer_property_pending.clear()
 
     def _external_explorer_load_instance_properties(self, address):
         self._external_explorer_property_generation += 1
         generation = self._external_explorer_property_generation
         for item in self.external_explorer_property_tree.get_children(''):
             self.external_explorer_property_tree.delete(item)
-        self.external_explorer_property_value_var.set('')
+        self._external_explorer_property_finish_edit(cancel=True)
+        self._external_explorer_property_pending.clear()
         pid = int(getattr(self, 'fflag_pid', 0) or 0)
         cls = str(self._external_explorer_snapshot.get(int(address), {}).get('cls', ''))
         if not self._external_explorer_is_basepart_class(cls):
@@ -253,7 +258,7 @@ class ExternalExplorerMixin:
         if error_text:
             self.external_explorer_property_status_var.set(error_text)
             return
-        self.external_explorer_property_value_var.set('')
+        self._external_explorer_property_pending.clear()
         groups = {'Transform': ('Position', 'Size'), 'Physics': ('AssemblyLinearVelocity', 'AssemblyAngularVelocity', 'Anchored', 'CanCollide', 'CanTouch', 'CanQuery', 'Massless', 'Locked'), 'Appearance': ('Transparency', 'Reflectance', 'Color', 'Material', 'CastShadow')}
         group_ids = {}
         for group_name in groups:
@@ -262,17 +267,68 @@ class ExternalExplorerMixin:
         group_for = {key: group_name for group_name, keys in groups.items() for key in keys}
         for key, value in values:
             tree.insert(group_ids.get(group_for.get(key, 'Physics')), 'end', iid=key, text=key, values=(value,))
-        self.external_explorer_property_status_var.set(f'{len(values)} properties · select a property, edit its value and Apply.')
+        self.external_explorer_property_status_var.set(f'{len(values)} properties · double-click a value to edit inline, then Apply.')
 
     def _external_explorer_property_on_select(self, event=None):
         selection = self.external_explorer_property_tree.selection()
-        if not selection:
-            self.external_explorer_property_value_var.set('')
+        if selection and selection[0] in self._external_explorer_property_pending:
+            self.external_explorer_property_status_var.set(f'{selection[0]} has an unapplied value.')
+
+    def _external_explorer_property_begin_edit(self, event):
+        tree = self.external_explorer_property_tree
+        if tree.identify_region(event.x, event.y) != 'cell':
             return
-        key = selection[0]
-        item = self.external_explorer_property_tree.item(key)
-        values = item.get('values', ())
-        self.external_explorer_property_value_var.set(str(values[0]) if values else '')
+        if tree.identify_column(event.x) != '#1':
+            return
+        key = tree.identify_row(event.y)
+        if not key or key.startswith('group_') or key not in self._external_explorer_property_specs:
+            return
+        self._external_explorer_property_finish_edit(cancel=True)
+        bounds = tree.bbox(key, '#1')
+        if not bounds:
+            return
+        x, y, width, height = bounds
+        values = tree.item(key, 'values')
+        current = str(values[0]) if values else ''
+        editor = ttk.Entry(tree)
+        editor.insert(0, current)
+        editor.select_range(0, 'end')
+        editor.place(x=x, y=y, width=width, height=height)
+        editor.bind('<Return>', lambda _event: self._external_explorer_property_finish_edit())
+        editor.bind('<Escape>', lambda _event: self._external_explorer_property_finish_edit(cancel=True))
+        editor.bind('<FocusOut>', lambda _event: self._external_explorer_property_finish_edit())
+        self._external_explorer_property_editor = editor
+        self._external_explorer_property_editor_key = key
+        editor.focus_set()
+        return 'break'
+
+    def _external_explorer_property_finish_edit(self, cancel=False):
+        editor = getattr(self, '_external_explorer_property_editor', None)
+        key = getattr(self, '_external_explorer_property_editor_key', None)
+        self._external_explorer_property_editor = None
+        self._external_explorer_property_editor_key = None
+        if editor is None:
+            return
+        try:
+            value = editor.get()
+        except Exception:
+            value = ''
+        try:
+            editor.destroy()
+        except Exception:
+            pass
+        if cancel or not key:
+            return
+        try:
+            tree = self.external_explorer_property_tree
+            old = tree.item(key, 'values')
+            previous = str(old[0]) if old else ''
+            if value != previous:
+                tree.item(key, values=(value,), tags=('property_pending',))
+                self._external_explorer_property_pending[key] = value
+                self.external_explorer_property_status_var.set(f'{key} staged. Press Apply to write the change.')
+        except Exception:
+            pass
 
     def _external_explorer_refresh_instance_properties(self):
         selected = self._external_explorer_selected_info()
@@ -282,27 +338,29 @@ class ExternalExplorerMixin:
         self._external_explorer_load_instance_properties(selected[0])
 
     def _external_explorer_apply_instance_property(self):
+        self._external_explorer_property_finish_edit()
         selected = self._external_explorer_selected_info()
         if not selected:
             self.external_explorer_property_status_var.set('Select a Part in the Explorer first.')
             return
-        selection = self.external_explorer_property_tree.selection()
-        if not selection:
-            self.external_explorer_property_status_var.set('Select a property row first.')
+        pending = dict(self._external_explorer_property_pending)
+        if not pending:
+            self.external_explorer_property_status_var.set('Double-click a property value to edit it first.')
             return
-        key = selection[0]
-        spec = self._external_explorer_property_specs.get(key)
-        if not spec:
-            return
-        raw_value = self.external_explorer_property_value_var.get()
+        changes = []
         try:
-            value = _parse_property_value(spec, raw_value)
-            if key in ('Transparency', 'Reflectance') and not 0.0 <= float(value) <= 1.0:
-                raise ValueError(f'{key} must be between 0 and 1.')
-            if key == 'Size' and any(float(component) <= 0 for component in value):
-                raise ValueError('Size components must be greater than zero.')
-            if key == 'Color' and any(float(component) != int(component) or int(component) < 0 or int(component) > 255 for component in value):
-                raise ValueError('Color components must be whole numbers between 0 and 255.')
+            for key, raw_value in pending.items():
+                spec = self._external_explorer_property_specs.get(key)
+                if not spec:
+                    continue
+                value = _parse_property_value(spec, raw_value)
+                if key in ('Transparency', 'Reflectance') and not 0.0 <= float(value) <= 1.0:
+                    raise ValueError(f'{key} must be between 0 and 1.')
+                if key == 'Size' and any(float(component) <= 0 for component in value):
+                    raise ValueError('Size components must be greater than zero.')
+                if key == 'Color' and any(float(component) != int(component) or int(component) < 0 or int(component) > 255 for component in value):
+                    raise ValueError('Color components must be whole numbers between 0 and 255.')
+                changes.append((key, spec, value))
         except Exception as error:
             self.external_explorer_property_status_var.set(str(error))
             return
@@ -315,9 +373,10 @@ class ExternalExplorerMixin:
             return
         self._external_explorer_property_apply_active = True
         self.external_explorer_property_apply_button.configure(state='disabled')
-        self.external_explorer_property_status_var.set(f'Applying {key}…')
+        self.external_explorer_property_status_var.set(f'Applying {len(changes)} properties…')
+
         def worker():
-            error_text = ''
+            results = []
             try:
                 context = self._external_explorer_action_context(pid)
                 live_class = context.class_name(address)
@@ -326,38 +385,60 @@ class ExternalExplorerMixin:
                 primitive = self._external_explorer_part_primitive(context, address)
                 if not primitive:
                     raise RuntimeError('The selected Part has no Primitive.')
-                owner = primitive if spec['scope'] == 'primitive' else address
-                _write_property_value(spec, _property_address(spec, owner, context), value, context)
-                verify = _read_property_value(spec, _property_address(spec, owner, context), context)
-                if spec['type'] == 'vec3':
-                    if any(abs(float(a) - float(b)) > 0.02 for a, b in zip(value, verify)):
-                        raise RuntimeError(f'{key} write could not be verified.')
-                elif spec['type'] in ('bool', 'flag'):
-                    if bool(value) != bool(verify):
-                        raise RuntimeError(f'{key} write could not be verified.')
-                elif spec['type'] == 'u8x3':
-                    if list(value) != list(verify):
-                        raise RuntimeError(f'{key} write could not be verified.')
-                elif abs(float(value) - float(verify)) > 0.001:
-                    raise RuntimeError(f'{key} write could not be verified.')
+                for key, spec, value in changes:
+                    try:
+                        owner = primitive if spec['scope'] == 'primitive' else address
+                        property_address = _property_address(spec, owner, context)
+                        _write_property_value(spec, property_address, value, context)
+                        verify = _read_property_value(spec, property_address, context)
+                        if spec['type'] == 'vec3':
+                            valid = all(abs(float(a) - float(b)) <= 0.02 for a, b in zip(value, verify))
+                        elif spec['type'] in ('bool', 'flag'):
+                            valid = bool(value) == bool(verify)
+                        elif spec['type'] == 'u8x3':
+                            valid = list(value) == list(verify)
+                        else:
+                            valid = abs(float(value) - float(verify)) <= 0.001
+                        if not valid:
+                            raise RuntimeError(f'{key} write could not be verified.')
+                        results.append((key, ''))
+                    except Exception as error:
+                        results.append((key, str(error)))
             except Exception as error:
-                error_text = str(error)
+                results = [(key, str(error)) for key, _spec, _value in changes]
             try:
-                self.after(0, self._external_explorer_instance_property_applied, address, pid, key, error_text)
+                self.after(0, self._external_explorer_instance_properties_applied, address, pid, results)
             except Exception:
                 self._external_explorer_property_apply_active = False
+
         threading.Thread(target=worker, daemon=True, name='RoUtilsExplorerPropertyWrite').start()
 
-    def _external_explorer_instance_property_applied(self, address, pid, key, error_text):
+    def _external_explorer_instance_properties_applied(self, address, pid, results):
         self._external_explorer_property_apply_active = False
         try:
             self.external_explorer_property_apply_button.configure(state='normal')
         except Exception:
             pass
-        if error_text:
-            self.external_explorer_property_status_var.set(error_text)
+        selected = self._external_explorer_selected_info()
+        if not selected or int(selected[0]) != int(address) or int(getattr(self, 'fflag_pid', 0) or 0) != int(pid):
             return
-        self.external_explorer_property_status_var.set(f'{key} applied successfully.')
+        successful = []
+        failed = []
+        for key, error_text in results:
+            if error_text:
+                failed.append((key, error_text))
+            else:
+                successful.append(key)
+                self._external_explorer_property_pending.pop(key, None)
+                try:
+                    self.external_explorer_property_tree.item(key, tags=())
+                except Exception:
+                    pass
+        if failed:
+            summary = '; '.join(f'{key}: {error}' for key, error in failed)
+            self.external_explorer_property_status_var.set(f'Applied {len(successful)} · failed {len(failed)} — {summary}')
+            return
+        self.external_explorer_property_status_var.set(f'Applied and verified {len(successful)} properties.')
         self._external_explorer_load_instance_properties(address)
 
     def _external_explorer_status(self, text, color=None):
