@@ -4,7 +4,7 @@ import subprocess
 import tempfile
 import threading
 import tkinter as tk
-import webbrowser
+import sys
 from tkinter import ttk
 _host = __import__('sys').modules.get('main') or __import__('sys').modules.get('__main__')
 if _host is not None:
@@ -42,7 +42,6 @@ class LuauInterpreterMixin:
         self.luau_run_button.pack(side='left')
         ttk.Button(controls, text='clear console', command=self._luau_clear_console).pack(side='left', padx=(6, 0))
         ttk.Button(controls, text='example', command=self._luau_load_example).pack(side='left', padx=(6, 0))
-        ttk.Button(controls, text='install guide', command=lambda: webbrowser.open('https://luau.org/getting-started/')).pack(side='right')
         console_frame = ttk.LabelFrame(tab, text='console', padding=7)
         console_frame.grid(row=3, column=0, sticky='nsew')
         console_frame.rowconfigure(0, weight=1)
@@ -60,7 +59,10 @@ class LuauInterpreterMixin:
         runtime = shutil.which('luau')
         if runtime:
             return runtime
-        candidates = (os.path.join(os.path.dirname(__file__), 'bin', 'luau'), os.path.expanduser('~/.local/bin/luau'), '/usr/local/bin/luau', '/usr/bin/luau')
+        bundle_root = getattr(sys, '_MEIPASS', '')
+        project_root = os.path.dirname(os.path.dirname(__file__))
+        executable_root = os.path.dirname(os.path.abspath(sys.executable))
+        candidates = (os.path.join(bundle_root, 'bin', 'luau'), os.path.join(project_root, 'bin', 'luau'), os.path.join(executable_root, 'bin', 'luau'), os.path.expanduser('~/.local/bin/luau'), '/usr/local/bin/luau', '/usr/bin/luau')
         for candidate in candidates:
             if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
                 return candidate
@@ -97,7 +99,7 @@ class LuauInterpreterMixin:
         runtime = self._luau_find_runtime()
         if not runtime:
             self.luau_status_var.set('Luau CLI not found')
-            self._luau_console_write('Luau CLI was not found. On Arch Linux install it with:\nsudo pacman -S --needed luau\n\nThen restart RoUtils.\n')
+            self._luau_console_write('Luau CLI is missing. Run the Linux compile script to download and bundle it.\n')
             return
         self._luau_running = True
         self._luau_run_token += 1
