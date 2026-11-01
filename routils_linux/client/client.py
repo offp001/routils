@@ -3,9 +3,7 @@ from client.global_settings import default_global_settings_path as _default_glob
 _host = sys.modules.get('main') or sys.modules.get('__main__')
 if _host is not None:
     globals().update({k: v for k, v in vars(_host).items() if not k.startswith('__') and k not in {'_host'}})
-
 class ClientMixin:
-
     def _build_client_tab(self):
         self._client_tab_active = True
         tab_outer = _ScrollableTab(self.nb, padding=0)
@@ -40,7 +38,6 @@ class ClientMixin:
         self.fps_value_label.pack(anchor='w')
         self.fps_pid_label = ttk.Label(fps_box, text=UI_TEXT['r12'], foreground='#9aa0a6')
         self.fps_pid_label.pack(anchor='w', pady=(0, 4))
-
         def _fps_ui(value=None):
             fps = int(round(float(self.fps_limit.get() if value is None else value)))
             fps = max(0, min(240, fps))
@@ -49,7 +46,6 @@ class ClientMixin:
             self.fps_value_label.config(text=UI_TEXT['z5'] if fps == 0 else UI_TEXT['a6'].format(p0=fps))
             if hasattr(self, '_fps_text_var') and self._fps_text_var.get() != str(fps):
                 self._fps_text_var.set(str(fps))
-
         def _fps_slider_released(_event=None):
             if getattr(self, '_fps_release_job', None):
                 try:
@@ -63,7 +59,6 @@ class ClientMixin:
         self._fps_text_var = tk.StringVar(value=str(self.fps_limit.get()))
         self._fps_text_entry = ttk.Entry(fps_box, textvariable=self._fps_text_var, width=12)
         self._fps_text_entry.pack(anchor='w', pady=(6, 0))
-
         def _fps_text_apply(_event=None):
             try:
                 fps = int(self._fps_text_var.get().strip())
@@ -90,36 +85,35 @@ class ClientMixin:
         self._client_system_prev = None
         self._client_refresh()
         self.after(UI_CLIENT_INTERVAL_MS, self._client_live_update)
-        self._global_settings_path_var = tk.StringVar(value='Detecting GlobalBasicSettings_13.xml...')
+        self._global_settings_path_var = tk.StringVar(value="Detecting GlobalBasicSettings_13.xml...")
         self._build_global_settings_editor(tab)
-
     def _build_global_settings_editor(self, tab):
-        box = ttk.LabelFrame(tab, text='global settings modification', padding=(10, 8))
-        box.grid(row=5, column=0, sticky='nsew', pady=(12, 8))
+        box = ttk.LabelFrame(tab, text="Global Settings Modification", padding=(10, 8))
+        box.grid(row=5, column=0, sticky="nsew", pady=(12, 8))
         box.columnconfigure(0, weight=1)
-        ttk.Label(box, textvariable=self._global_settings_path_var).grid(row=0, column=0, sticky='w')
-        ttk.Label(box, text='close roblox or sober before saving. a running client may overwrite this file.', foreground='#9aa0a6').grid(row=1, column=0, sticky='w', pady=(3, 8))
+        ttk.Label(box, textvariable=self._global_settings_path_var).grid(row=0, column=0, sticky="w")
+        ttk.Label(box, text="Close Roblox or Sober before saving. A running client may overwrite this file.", foreground="#9aa0a6").grid(row=1, column=0, sticky="w", pady=(3, 8))
         actions = ttk.Frame(box)
-        actions.grid(row=2, column=0, sticky='w', pady=(0, 8))
-        ttk.Button(actions, text='refresh', command=self._global_settings_refresh).pack(side='left', padx=(0, 6))
-        ttk.Button(actions, text='browse...', command=self._global_settings_browse).pack(side='left', padx=(0, 6))
-        ttk.Button(actions, text='save changes', command=self._global_settings_save).pack(side='left')
+        actions.grid(row=2, column=0, sticky="w", pady=(0, 8))
+        ttk.Button(actions, text="Refresh", command=self._global_settings_refresh).pack(side="left", padx=(0, 6))
+        ttk.Button(actions, text="Browse...", command=self._global_settings_browse).pack(side="left", padx=(0, 6))
+        ttk.Button(actions, text="Save Changes", command=self._global_settings_save).pack(side="left")
         table_frame = ttk.Frame(box)
-        table_frame.grid(row=3, column=0, sticky='nsew')
+        table_frame.grid(row=3, column=0, sticky="nsew")
         table_frame.columnconfigure(0, weight=1)
         table_frame.rowconfigure(0, weight=1)
-        self.global_settings_tree = ttk.Treeview(table_frame, columns=('type', 'value'), show='tree headings', selectmode='browse', height=12)
-        self.global_settings_tree.heading('#0', text='setting')
-        self.global_settings_tree.heading('type', text='type')
-        self.global_settings_tree.heading('value', text='value')
-        self.global_settings_tree.column('#0', width=260, minwidth=150, stretch=True)
-        self.global_settings_tree.column('type', width=90, minwidth=70, stretch=False)
-        self.global_settings_tree.column('value', width=320, minwidth=160, stretch=True)
-        scrollbar = ttk.Scrollbar(table_frame, orient='vertical', command=self.global_settings_tree.yview)
+        self.global_settings_tree = ttk.Treeview(table_frame, columns=("type", "value"), show="tree headings", selectmode="browse", height=12)
+        self.global_settings_tree.heading("#0", text="Setting")
+        self.global_settings_tree.heading("type", text="Type")
+        self.global_settings_tree.heading("value", text="Value")
+        self.global_settings_tree.column("#0", width=260, minwidth=150, stretch=True)
+        self.global_settings_tree.column("type", width=90, minwidth=70, stretch=False)
+        self.global_settings_tree.column("value", width=320, minwidth=160, stretch=True)
+        scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=self.global_settings_tree.yview)
         self.global_settings_tree.configure(yscrollcommand=scrollbar.set)
-        self.global_settings_tree.grid(row=0, column=0, sticky='nsew')
-        scrollbar.grid(row=0, column=1, sticky='ns')
-        self.global_settings_tree.bind('<Double-1>', self._global_settings_edit)
+        self.global_settings_tree.grid(row=0, column=0, sticky="nsew")
+        scrollbar.grid(row=0, column=1, sticky="ns")
+        self.global_settings_tree.bind("<Double-1>", self._global_settings_edit)
         self._global_settings_pending = {}
         self._global_settings_rows = {}
         self._global_settings_custom_path = None
@@ -128,12 +122,12 @@ class ClientMixin:
         self._global_settings_refresh()
 
     def _global_settings_default_path(self):
-        if os.name == 'nt':
-            return _default_global_settings_path('nt', local_app_data=os.environ.get('LOCALAPPDATA'))
+        if os.name == "nt":
+            return _default_global_settings_path("nt", local_app_data=os.environ.get("LOCALAPPDATA"))
         try:
-            return _default_global_settings_path('posix', sober_appdata=sober_appdata_root())
+            return _default_global_settings_path("posix", sober_appdata=sober_appdata_root())
         except Exception:
-            return _default_global_settings_path('posix')
+            return _default_global_settings_path("posix")
 
     def _global_settings_refresh(self):
         from pathlib import Path
@@ -147,64 +141,76 @@ class ClientMixin:
             rows, digest = _read_global_settings(path)
             self._global_settings_digest = digest
             for index, row in enumerate(rows):
-                item_id = f'gs{index}'
+                item_id = f"gs{index}"
                 self._global_settings_rows[item_id] = row
-                self.global_settings_tree.insert('', 'end', iid=item_id, text=row['name'], values=(row['type'], row['value']))
-            self._global_settings_path_var.set(f'{path}  |  {len(rows)} settings')
+                self.global_settings_tree.insert("", "end", iid=item_id, text=row["name"], values=(row["type"], row["value"]))
+            self._global_settings_path_var.set(f"{path}  |  {len(rows)} settings")
             if not rows:
-                self._global_settings_path_var.set(f'{path}  |  No editable settings found')
+                self._global_settings_path_var.set(f"{path}  |  No editable settings found")
         except FileNotFoundError:
             self._global_settings_digest = None
-            self._global_settings_path_var.set(f'Not found: {path}  |  Launch Roblox or Sober once, then refresh')
+            self._global_settings_path_var.set(f"Not found: {path}  |  Launch Roblox or Sober once, then refresh")
         except Exception as error:
             self._global_settings_digest = None
-            self._global_settings_path_var.set(f'Could not read: {path}  |  {error}')
+            self._global_settings_path_var.set(f"Could not read: {path}  |  {error}")
 
     def _global_settings_browse(self):
-        selected = filedialog.askopenfilename(parent=self, title='select globalbasicsettings_13.xml', filetypes=(('Roblox XML settings', '*.xml'), ('All files', '*.*')))
+        selected = filedialog.askopenfilename(
+            parent=self,
+            title="Select GlobalBasicSettings_13.xml",
+            filetypes=(("Roblox XML settings", "*.xml"), ("All files", "*.*")),
+        )
         if selected:
             self._global_settings_custom_path = selected
             self._global_settings_refresh()
 
     def _global_settings_edit(self, event):
         tree = self.global_settings_tree
-        if tree.identify_region(event.x, event.y) != 'cell' or tree.identify_column(event.x) != '#2':
+        if tree.identify_region(event.x, event.y) != "cell" or tree.identify_column(event.x) != "#2":
             return
         item_id = tree.identify_row(event.y)
         row = self._global_settings_rows.get(item_id)
         if row is None:
             return
-        current = tree.set(item_id, 'value')
-        value = simpledialog.askstring('Edit Global Setting', f"{row['name']} ({row['type']})", initialvalue=current, parent=self)
+        current = tree.set(item_id, "value")
+        value = simpledialog.askstring(
+            "Edit Global Setting",
+            f"{row['name']} ({row['type']})",
+            initialvalue=current,
+            parent=self,
+        )
         if value is None:
             return
-        self.global_settings_tree.set(item_id, 'value', value)
-        if value == row['value']:
+        self.global_settings_tree.set(item_id, "value", value)
+        if value == row["value"]:
             self._global_settings_pending.pop(item_id, None)
         else:
             self._global_settings_pending[item_id] = value
 
     def _global_settings_save(self):
         if not self._global_settings_pending:
-            messagebox.showinfo('global settings modification', 'there are no unsaved changes.', parent=self)
+            messagebox.showinfo("Global Settings Modification", "There are no unsaved changes.", parent=self)
             return
         if self._global_settings_file is None or self._global_settings_digest is None:
-            messagebox.showwarning('global settings modification', 'the settings file is not available. refresh or select an xml file first.', parent=self)
+            messagebox.showwarning("Global Settings Modification", "The settings file is not available. Refresh or select an XML file first.", parent=self)
             return
-        updates = {tuple(self._global_settings_rows[item_id]['path']): value for item_id, value in self._global_settings_pending.items()}
+        updates = {
+            tuple(self._global_settings_rows[item_id]["path"]): value
+            for item_id, value in self._global_settings_pending.items()
+        }
         try:
             backup, _ = _save_global_settings(self._global_settings_file, updates, self._global_settings_digest)
             self._global_settings_refresh()
-            messagebox.showinfo('global settings modification', f'settings saved. restart roblox or sober to apply. original backup: {backup}', parent=self)
+            messagebox.showinfo("Global Settings Modification", f"Settings saved. Restart Roblox or Sober to apply. Original backup: {backup}", parent=self)
         except Exception as error:
-            messagebox.showerror('global settings modification', str(error), parent=self)
+            messagebox.showerror("Global Settings Modification", str(error), parent=self)
 
     def _client_roblox_pids(self):
         if sys.platform.startswith('linux'):
             try:
                 detected = sober_process_pids()
                 if detected:
-                    return sorted(set((int(pid) for pid in detected if int(pid) > 0)))
+                    return sorted(set(int(pid) for pid in detected if int(pid) > 0))
             except Exception:
                 pass
         if os.name != 'nt':
@@ -223,7 +229,6 @@ class ClientMixin:
             except Exception:
                 return []
         try:
-
             class PROCESSENTRY32W(ctypes.Structure):
                 _fields_ = [('dwSize', ctypes.wintypes.DWORD), ('cntUsage', ctypes.wintypes.DWORD), ('th32ProcessID', ctypes.wintypes.DWORD), ('th32DefaultHeapID', ctypes.POINTER(ctypes.c_ulong)), ('th32ModuleID', ctypes.wintypes.DWORD), ('cntThreads', ctypes.wintypes.DWORD), ('th32ParentProcessID', ctypes.wintypes.DWORD), ('pcPriClassBase', ctypes.c_long), ('dwFlags', ctypes.wintypes.DWORD), ('szExeFile', ctypes.wintypes.WCHAR * 260)]
             snap = ctypes.windll.kernel32.CreateToolhelp32Snapshot(2, 0)
@@ -254,7 +259,6 @@ class ClientMixin:
             return list(pids)
         except Exception:
             return []
-
     def _client_process_stats(self, pids):
         if not pids:
             return (None, None)
@@ -279,7 +283,7 @@ class ClientMixin:
                     except (psutil.NoSuchProcess, psutil.AccessDenied):
                         continue
                 system_times = psutil.cpu_times()
-                system_total = sum((float(getattr(system_times, field, 0.0)) for field in system_times._fields))
+                system_total = sum(float(getattr(system_times, field, 0.0)) for field in system_times._fields)
                 system_idle = float(getattr(system_times, 'idle', 0.0))
                 return ((total_cpu, (system_total, system_idle)), total_memory)
             except Exception:
@@ -288,7 +292,6 @@ class ClientMixin:
             wt = ctypes.wintypes
             PROCESS_QUERY_LIMITED_INFORMATION = 4096
             PROCESS_VM_READ = 16
-
             class PMC(ctypes.Structure):
                 _fields_ = [('cb', wt.DWORD), ('PageFaultCount', wt.DWORD), ('PeakWorkingSetSize', ctypes.c_size_t), ('WorkingSetSize', ctypes.c_size_t), ('QuotaPeakPagedPoolUsage', ctypes.c_size_t), ('QuotaPagedPoolUsage', ctypes.c_size_t), ('QuotaPeakNonPagedPoolUsage', ctypes.c_size_t), ('QuotaNonPagedPoolUsage', ctypes.c_size_t), ('PagefileUsage', ctypes.c_size_t), ('PeakPagefileUsage', ctypes.c_size_t)]
             total_cpu = 0
@@ -330,7 +333,6 @@ class ClientMixin:
             return (cpu_data, total_ram if any_ram else None)
         except Exception:
             return (None, None)
-
     def _client_game_refresh(self, place_id, job_id):
         place_id = str(place_id or '').strip()
         self.client_place_var.set(place_id or '—')
@@ -339,7 +341,6 @@ class ClientMixin:
             self.client_game_var.set(UI_TEXT['y29'])
             return
         self.client_game_var.set(UI_TEXT['n28'])
-
         def worker():
             name = None
             try:
@@ -349,7 +350,6 @@ class ClientMixin:
             if not name:
                 name = f'Place {place_id}'
             try:
-
                 def update():
                     self.client_game_var.set(name)
                     self.client_place_var.set(f'{place_id} — {name}')
@@ -357,7 +357,6 @@ class ClientMixin:
             except Exception:
                 pass
         threading.Thread(target=worker, daemon=True).start()
-
     def _client_live_update(self):
         if getattr(self, '_resize_active', False):
             try:
@@ -404,11 +403,10 @@ class ClientMixin:
             self.after(UI_CLIENT_INTERVAL_MS, self._client_live_update)
         except Exception:
             pass
-
     def _client_refresh(self):
         pids = self._client_roblox_pids()
         pid = pids[0] if pids else _fflag_find_pid()
-        path = _get_process_exe_path(pid) if pid and os.name == 'nt' else str(sober_appdata_root()) if pid and os.name != 'nt' else ''
+        path = _get_process_exe_path(pid) if pid and os.name == 'nt' else (str(sober_appdata_root()) if pid and os.name != 'nt' else '')
         if not path:
             saved = str(self.settings.get('roblox_path', '') or '')
             if saved and os.path.isfile(saved):

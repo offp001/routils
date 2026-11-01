@@ -1,2 +1,3 @@
 from .service import SoberProxyService
-__all__ = ['SoberProxyService']
+
+__all__ = ["SoberProxyService"]

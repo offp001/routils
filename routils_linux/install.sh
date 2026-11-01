@@ -5,12 +5,12 @@ ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PYTHON="$(command -v python3 || command -v python || true)"
 
 if [[ -z "$PYTHON" ]]; then
-    printf '%s\n' 'error: Python 3.12 or newer is required.' >&2
+    printf '%s\n' 'Error: Python 3.12 or newer is required.' >&2
     exit 1
 fi
 
 if ! "$PYTHON" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 12) else 1)'; then
-    printf '%s\n' 'error: Python 3.12 or newer is required.' >&2
+    printf '%s\n' 'Error: Python 3.12 or newer is required.' >&2
     exit 1
 fi
 
@@ -18,4 +18,4 @@ fi
 "$ROOT/venv/bin/python" -m pip install --upgrade pip
 "$ROOT/venv/bin/python" -m pip install -r "$ROOT/requirements.txt"
 
-printf '%s\n' 'installation complete. run ./run.sh to start routils.'
+printf '%s\n' 'Installation complete. Run ./run.sh to start RoUtils.'

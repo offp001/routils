@@ -2,9 +2,7 @@ import sys
 _host = sys.modules.get('main') or sys.modules.get('__main__')
 if _host is not None:
     globals().update({k: v for k, v in vars(_host).items() if not k.startswith('__') and k not in {'_host'}})
-
 class HistoryMixin:
-
     def _history_load(self):
         try:
             if not os.path.exists(HISTORY_PATH):
@@ -14,7 +12,6 @@ class HistoryMixin:
             return data if isinstance(data, list) else []
         except Exception:
             return []
-
     def _history_save(self, data):
         try:
             tmp = HISTORY_PATH + '.tmp'
@@ -23,7 +20,6 @@ class HistoryMixin:
             os.replace(tmp, HISTORY_PATH)
         except Exception:
             pass
-
     def _history_add(self, place_id, job_id):
         place_id = str(place_id or '').strip()
         job_id = str(job_id or '').strip()
@@ -33,7 +29,6 @@ class HistoryMixin:
         if self._history_last_game == key:
             return
         self._history_last_game = key
-
         def worker():
             name = self._resolve_history_game_name(place_id) or place_id
             now = datetime.now()
@@ -48,7 +43,6 @@ class HistoryMixin:
             except Exception:
                 pass
         threading.Thread(target=worker, daemon=True).start()
-
     def _detect_current_game(self, silent=True):
         logs_dir = sober_logs_dir() if os.name != 'nt' else os.path.join(os.environ.get('LOCALAPPDATA', ''), 'Roblox', 'logs')
         uuid_re = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'
@@ -85,9 +79,7 @@ class HistoryMixin:
             if place_id and job_id:
                 return (place_id, job_id)
         return (None, None)
-
     def _start_history_watcher(self):
-
         def worker():
             while True:
                 try:
@@ -98,7 +90,6 @@ class HistoryMixin:
                     pass
                 time.sleep(2.5)
         threading.Thread(target=worker, daemon=True).start()
-
     def _build_history_tab(self):
         tab = ttk.Frame(self.nb, padding=12)
         self.nb.add(tab, text=UI_TEXT['o5'])
@@ -124,11 +115,9 @@ class HistoryMixin:
         self.history_inner.bind('<Configure>', lambda _e: self._schedule_ui('history_region', 30, lambda: self.history_canvas.configure(scrollregion=self.history_canvas.bbox('all'))))
         self.history_canvas.bind('<Configure>', lambda e: self._history_resize_canvas(e))
         self._history_refresh()
-
     def _history_resize_canvas(self, event):
         width = int(getattr(event, 'width', 0) or 0)
         self._apply_or_defer_canvas_window_width(self.history_canvas, self.history_window, width, '_history_canvas_width')
-
     def _history_refresh(self):
         if not hasattr(self, 'history_inner'):
             return
@@ -164,21 +153,18 @@ class HistoryMixin:
             ttk.Label(row, text=dt).grid(row=0, column=3, sticky='w', padx=6)
             ttk.Button(row, text=UI_TEXT['g12'], command=lambda link=link: self._history_copy(link)).grid(row=0, column=4, padx=4)
             ttk.Button(row, text=UI_TEXT['h12'], command=lambda link=link: self._history_join(link)).grid(row=0, column=5, padx=(2, 6))
-
     def _history_copy(self, link):
         try:
             self.clipboard_clear()
             self.clipboard_append(link)
         except Exception as e:
             messagebox.showerror(UI_TEXT['o5'], UI_TEXT['i12'].format(p0=e), parent=self)
-
     def _history_join(self, link):
         try:
             os.startfile(link)
             self._console_log(UI_TEXT['j12'].format(p0=link))
         except Exception as e:
             messagebox.showerror(UI_TEXT['o5'], UI_TEXT['k12'].format(p0=e), parent=self)
-
     def _history_clear(self):
         if not messagebox.askyesno(UI_TEXT['o5'], UI_TEXT['l12'], parent=self):
             return

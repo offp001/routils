@@ -2,9 +2,7 @@ import sys
 _host = sys.modules.get('main') or sys.modules.get('__main__')
 if _host is not None:
     globals().update({k: v for k, v in vars(_host).items() if not k.startswith('__') and k not in {'_host'}})
-
 class AIMixin:
-
     def _save_gemini_api_key(self):
         key = self.gemini_api_key.get().strip()
         if not key:
@@ -13,25 +11,21 @@ class AIMixin:
         self.settings['gemini_api_key'] = key
         self._save_settings()
         messagebox.showinfo(UI_TEXT['i18'], UI_TEXT['y21'], parent=self)
-
     def _ai_canvas_resize(self, canvas, window_id, event):
         width = int(getattr(event, 'width', 0) or 0)
         key = f'_ai_canvas_width_{id(canvas)}'
         self._apply_or_defer_canvas_window_width(canvas, window_id, width, key)
-
     def _build_ai_tab(self):
         tab = ttk.Frame(self.nb, padding=0)
         self.nb.add(tab, text=UI_TEXT['j5'])
         self.ai_tab = tab
         self._construct_ai_chat(tab)
-
     def _open_ai_chat(self, prompt=None):
         ai_id = next((tid for tid in self.nb.tabs() if self.nb.tab(tid, 'text') == UI_TEXT['j5']), None)
         if ai_id is not None:
             self.nb.select(ai_id)
             self._lazy_tab_changed()
         if prompt and str(prompt).strip():
-
             def submit_when_ready(attempt=0):
                 callback = getattr(self, '_ai_send_callback', None)
                 input_box = getattr(self, '_ai_input_box', None)
@@ -43,7 +37,6 @@ class AIMixin:
                     self.after(100, lambda: submit_when_ready(attempt + 1))
             self.after(150, submit_when_ready)
         self._console_log(UI_TEXT['z21'])
-
     def _construct_ai_chat(self, win):
         palette = _CURRENT_PALETTE
         win.columnconfigure(0, weight=1)
@@ -81,7 +74,6 @@ class AIMixin:
         thinking = {'row': None, 'bubble': None, 'started': 0.0}
         bubble_bg = '#ded8cd'
         bubble_fg = '#242424'
-
         def scroll_bottom():
             try:
                 canvas.update_idletasks()
@@ -89,14 +81,12 @@ class AIMixin:
                 canvas.yview_moveto(1.0)
             except Exception:
                 pass
-
         def copy_code(code):
             try:
                 win.clipboard_clear()
                 win.clipboard_append(code)
             except Exception:
                 pass
-
         def save_generated_file(content, language=''):
             extensions = {'python': '.py', 'py': '.py', 'json': '.json', 'javascript': '.js', 'js': '.js', 'html': '.html', 'css': '.css', 'xml': '.xml', 'yaml': '.yaml', 'yml': '.yml', 'csv': '.csv', 'markdown': '.md', 'md': '.md', 'text': '.txt', 'txt': '.txt', 'powershell': '.ps1', 'ps1': '.ps1', 'lua': '.lua', 'sql': '.sql', 'bat': '.bat', 'bash': '.sh', 'sh': '.sh'}
             ext = extensions.get((language or '').strip().lower(), '.txt')
@@ -109,7 +99,6 @@ class AIMixin:
                 messagebox.showinfo(UI_TEXT['f22'], UI_TEXT['g22'], parent=self)
             except Exception as exc:
                 messagebox.showerror(UI_TEXT['f22'], UI_TEXT['h22'].format(p0=exc), parent=self)
-
         def add_code_block(parent, code, language=''):
             box = tk.Frame(parent, bg='#cfc8bc', highlightthickness=1, highlightbackground='#b6ad9f')
             box.pack(fill='x', pady=(6, 5))
@@ -123,7 +112,6 @@ class AIMixin:
             txt.insert('1.0', code)
             txt.configure(state='disabled')
             txt.pack(fill='x')
-
         def add_rich_line(parent, text, pady=2):
             visible_text = re.sub('\\*\\*|__|`', '', str(text))
             line_font = tkfont.Font(family='Segoe UI', size=10)
@@ -144,7 +132,6 @@ class AIMixin:
                 value = token[2:-2] if bold else token[1:-1] if inline else token
                 line.insert('end', value, 'bold' if bold else 'inline' if inline else '')
             line.configure(state='disabled')
-
             def sync_display_height(widget=line):
                 try:
                     if not widget.winfo_exists() or widget.winfo_width() < 8:
@@ -159,7 +146,6 @@ class AIMixin:
             line.after_idle(lambda w=line: sync_display_height(w))
             line.bind('<Button-1>', lambda _e, w=line: (w.configure(state='normal'), w.focus_set()), add='+')
             return line
-
         def add_markdown_message(parent, text):
             lines = str(text).replace('\r\n', '\n').replace('\r', '\n').split('\n')
             i = 0
@@ -210,13 +196,11 @@ class AIMixin:
                 else:
                     tk.Frame(parent, bg=bubble_bg, height=4).pack(fill='x')
                 i += 1
-
         def bubble_max_width():
             canvas_width = canvas.winfo_width()
             if canvas_width <= 1:
                 canvas_width = 760
             return max(180, int((canvas_width - 42) * 0.72))
-
         def measured_bubble_width(text, font, include_markdown=False):
             available = bubble_max_width()
             lines = str(text).replace('\r\n', '\n').replace('\r', '\n').split('\n')
@@ -230,7 +214,6 @@ class AIMixin:
                 widths.append(font.measure(candidate))
             natural = max(widths, default=font.measure('Thinking...'))
             return max(72, min(available, natural + 34))
-
         def make_rounded_bubble(parent, color, border, width, side, padx=10, pady=7):
             max_width = bubble_max_width()
             size_state = {'width': max(72, min(max_width, int(width)))}
@@ -238,7 +221,6 @@ class AIMixin:
             outer.pack(side=side, anchor='e' if side == 'right' else 'w', padx=(35, 0) if side == 'right' else (0, 35))
             inner = tk.Frame(outer, bg=color, bd=0, padx=padx, pady=pady)
             window_id = outer.create_window(7, 7, window=inner, anchor='nw', width=max(58, size_state['width'] - 14))
-
             def redraw(_event=None):
                 try:
                     max_width_now = bubble_max_width()
@@ -258,7 +240,6 @@ class AIMixin:
                     outer.tag_lower('bubble-shape', window_id)
                 except Exception:
                     pass
-
             def set_bubble_width(new_width):
                 try:
                     size_state['width'] = max(72, min(bubble_max_width(), int(new_width)))
@@ -271,7 +252,6 @@ class AIMixin:
             outer.bind('<Configure>', redraw, add='+')
             outer.after_idle(redraw)
             return (inner, outer)
-
         def make_row(role, text, meta=''):
             row = tk.Frame(messages, bg=palette.get('bg_dark', '#1b1b1c'))
             row.pack(fill='x', padx=7, pady=6)
@@ -296,7 +276,6 @@ class AIMixin:
             else:
                 add_markdown_message(bubble, text)
             return (row, bubble, title_label)
-
         def update_thinking(elapsed):
             row = thinking.get('row')
             if row is None:
@@ -310,7 +289,6 @@ class AIMixin:
                 win.after(1000, lambda: update_thinking(time.monotonic() - thinking['started']))
             except Exception:
                 pass
-
         def choose_file():
             path = filedialog.askopenfilename(parent=self, title=UI_TEXT['n22'], filetypes=[(UI_TEXT['o22'], '*.txt *.md *.py *.json *.csv *.log *.yaml *.yml *.xml *.html *.css *.js *.png *.jpg *.jpeg *.webp *.gif *.bmp *.pdf'), (UI_TEXT['z7'], '*.*')])
             if not path:
@@ -338,7 +316,6 @@ class AIMixin:
             attach_row.grid()
             input_box.configure(height=5)
             scroll_bottom()
-
         def clear_file():
             attachment['path'] = None
             attachment.pop('preview_photo', None)
@@ -346,7 +323,6 @@ class AIMixin:
                 child.destroy()
             attach_row.grid_remove()
             input_box.configure(height=3)
-
         def send():
             if busy['value']:
                 return
@@ -401,7 +377,6 @@ class AIMixin:
             history_snapshot = [dict(item) for item in history]
             for item in history_snapshot:
                 item['parts'] = list(item.get('parts', []))
-
             def worker():
                 try:
                     parts = [{'text': user_display}]
@@ -440,7 +415,6 @@ class AIMixin:
                     except Exception:
                         pass
             threading.Thread(target=worker, daemon=True, name='RoUtilsGeminiRequest').start()
-
         def finish(answer):
             try:
                 elapsed = max(0, int(time.monotonic() - thinking['started']))
@@ -488,14 +462,12 @@ class AIMixin:
         attach_preview.grid(row=2, column=1, sticky='ew')
         attach_preview.grid_remove()
         original_choose_file = choose_file
-
         def choose_file_with_preview_layout():
             original_choose_file()
             if attachment.get('path'):
                 attach_preview.grid()
         choose_file = choose_file_with_preview_layout
         original_clear_file = clear_file
-
         def clear_file_with_preview_layout():
             original_clear_file()
             attach_preview.grid_remove()

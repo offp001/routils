@@ -6,24 +6,25 @@ import threading
 import tkinter as tk
 import webbrowser
 from tkinter import ttk
+
 _host = __import__('sys').modules.get('main') or __import__('sys').modules.get('__main__')
 if _host is not None:
     globals().update({k: v for k, v in vars(_host).items() if not k.startswith('__') and k not in {'_host'}})
 
-class LuauInterpreterMixin:
 
+class LuauInterpreterMixin:
     def _build_luau_interpreter_tab(self):
         tab = ttk.Frame(self.nb, padding=12)
-        self.nb.add(tab, text='luau interpreter')
+        self.nb.add(tab, text='Luau Interpreter')
         tab.columnconfigure(0, weight=1)
         tab.rowconfigure(1, weight=3)
         tab.rowconfigure(3, weight=2)
         header = ttk.Frame(tab)
         header.grid(row=0, column=0, sticky='ew', pady=(0, 8))
-        ttk.Label(header, text='luau interpreter', font=('Segoe UI Semibold', 15)).pack(side='left')
+        ttk.Label(header, text='Luau Interpreter', font=('Segoe UI Semibold', 15)).pack(side='left')
         self.luau_status_var = tk.StringVar(value='Ready')
         ttk.Label(header, textvariable=self.luau_status_var, foreground='#9aa0a6').pack(side='right')
-        editor_frame = ttk.LabelFrame(tab, text='code', padding=7)
+        editor_frame = ttk.LabelFrame(tab, text='Code', padding=7)
         editor_frame.grid(row=1, column=0, sticky='nsew')
         editor_frame.rowconfigure(0, weight=1)
         editor_frame.columnconfigure(0, weight=1)
@@ -38,12 +39,12 @@ class LuauInterpreterMixin:
         self.luau_editor.insert('1.0', 'print("hello")\n')
         controls = ttk.Frame(tab)
         controls.grid(row=2, column=0, sticky='ew', pady=8)
-        self.luau_run_button = ttk.Button(controls, text='run', command=self._luau_run_code)
+        self.luau_run_button = ttk.Button(controls, text='Run', command=self._luau_run_code)
         self.luau_run_button.pack(side='left')
-        ttk.Button(controls, text='clear console', command=self._luau_clear_console).pack(side='left', padx=(6, 0))
-        ttk.Button(controls, text='example', command=self._luau_load_example).pack(side='left', padx=(6, 0))
-        ttk.Button(controls, text='install guide', command=lambda: webbrowser.open('https://luau.org/getting-started/')).pack(side='right')
-        console_frame = ttk.LabelFrame(tab, text='console', padding=7)
+        ttk.Button(controls, text='Clear Console', command=self._luau_clear_console).pack(side='left', padx=(6, 0))
+        ttk.Button(controls, text='Example', command=self._luau_load_example).pack(side='left', padx=(6, 0))
+        ttk.Button(controls, text='Install Guide', command=lambda: webbrowser.open('https://luau.org/getting-started/')).pack(side='right')
+        console_frame = ttk.LabelFrame(tab, text='Console', padding=7)
         console_frame.grid(row=3, column=0, sticky='nsew')
         console_frame.rowconfigure(0, weight=1)
         console_frame.columnconfigure(0, weight=1)
@@ -60,7 +61,12 @@ class LuauInterpreterMixin:
         runtime = shutil.which('luau')
         if runtime:
             return runtime
-        candidates = (os.path.join(os.path.dirname(__file__), 'bin', 'luau'), os.path.expanduser('~/.local/bin/luau'), '/usr/local/bin/luau', '/usr/bin/luau')
+        candidates = (
+            os.path.join(os.path.dirname(__file__), 'bin', 'luau'),
+            os.path.expanduser('~/.local/bin/luau'),
+            '/usr/local/bin/luau',
+            '/usr/bin/luau',
+        )
         for candidate in candidates:
             if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
                 return candidate
@@ -132,6 +138,7 @@ class LuauInterpreterMixin:
                 self.after(0, self._luau_run_finished, token, output, exit_code)
             except Exception:
                 pass
+
         threading.Thread(target=worker, name='RoUtilsLuauInterpreter', daemon=True).start()
 
     def _luau_run_finished(self, token, output, exit_code):

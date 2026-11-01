@@ -14,7 +14,6 @@ if _host is not None:
     globals().update({k: v for k, v in vars(_host).items() if not k.startswith('__') and k not in {'_host'}})
 
 class AutoUpdateMixin:
-
     def _version_path(self):
         return os.path.join(DATA_DIR, 'version.txt')
 
@@ -77,7 +76,7 @@ class AutoUpdateMixin:
         self._outdated_dialog_shown = True
         try:
             dlg = tk.Toplevel(self)
-            dlg.title('routils is outdated')
+            dlg.title('RoUtils is Outdated')
             dlg.resizable(False, False)
             dlg.transient(self)
             dlg.grab_set()
@@ -93,7 +92,6 @@ class AutoUpdateMixin:
             ttk.Label(outer, text=UI_TEXT['j10'].format(p0=latest), font=('Segoe UI', 11)).pack(pady=(0, 20))
             buttons = ttk.Frame(outer)
             buttons.pack()
-
             def download():
                 try:
                     dlg.grab_release()
@@ -104,7 +102,6 @@ class AutoUpdateMixin:
                 except Exception:
                     pass
                 webbrowser.open(f'https://github.com/offp001/routils/releases/tag/{latest}')
-
             def later():
                 try:
                     dlg.grab_release()
@@ -127,7 +124,6 @@ class AutoUpdateMixin:
         if self._auto_update_in_progress:
             return
         self._auto_update_in_progress = True
-
         def worker():
             temp_path = None
             target_dir = None
@@ -140,7 +136,7 @@ class AutoUpdateMixin:
                 archive_name = 'RoUtils-Windows.zip' if is_windows else 'RoUtils-Linux.zip'
                 executable_name = 'RoUtils.exe' if is_windows else 'RoUtils-Linux'
                 download_url = f'https://github.com/offp001/routils/releases/download/{latest}/{archive_name}'
-                safe_version = re.sub('[^A-Za-z0-9._-]', '_', str(latest))
+                safe_version = re.sub(r'[^A-Za-z0-9._-]', '_', str(latest))
                 updates_root = os.path.join(DATA_DIR, 'updates')
                 target_dir = os.path.join(updates_root, safe_version)
                 temp_path = os.path.join(tempfile.gettempdir(), f'{archive_name}.{safe_version}.download')
@@ -181,7 +177,7 @@ class AutoUpdateMixin:
                 if not executable_path or not os.path.isfile(executable_path):
                     raise RuntimeError(f'{executable_name} was not found in {archive_name}.')
                 if not is_windows:
-                    os.chmod(executable_path, os.stat(executable_path).st_mode | 73)
+                    os.chmod(executable_path, os.stat(executable_path).st_mode | 0o111)
                 self.after(0, lambda p=executable_path: self._console_log(UI_TEXT['n10'].format(p0=p)))
                 launch_options = {'cwd': os.path.dirname(executable_path), 'close_fds': True}
                 if is_windows:
@@ -226,16 +222,18 @@ class AutoUpdateMixin:
         current = self._local_version()
         try:
             self.home_version_value.configure(text=current)
-            self.home_version_state.configure(text='checking...', foreground='#f2c94c')
+            self.home_version_state.configure(text='Checking...', foreground='#f2c94c')
             self.home_version_var.set(UI_TEXT['r10'].format(p0=current, p1='Checking...'))
         except Exception:
             pass
-
         def worker():
             current_version = current
             errors = []
             latest = ''
-            endpoints = (('https://api.github.com/repos/offp001/routils/releases/latest', 'single'), ('https://api.github.com/repos/offp001/routils/releases?per_page=1', 'list'))
+            endpoints = (
+                ('https://api.github.com/repos/offp001/routils/releases/latest', 'single'),
+                ('https://api.github.com/repos/offp001/routils/releases?per_page=1', 'list'),
+            )
             for url, response_kind in endpoints:
                 try:
                     with _routils_request(url, timeout=2.5, headers={'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28'}) as response:
@@ -307,7 +305,7 @@ class AutoUpdateMixin:
         if result.get('retry'):
             try:
                 self.home_version_value.configure(text=current)
-                self.home_version_state.configure(text='checking...', foreground='#f2c94c')
+                self.home_version_state.configure(text='Checking...', foreground='#f2c94c')
                 self.home_version_var.set(UI_TEXT['r10'].format(p0=current, p1='Checking...'))
             except Exception:
                 pass

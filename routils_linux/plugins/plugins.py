@@ -2,15 +2,12 @@ import sys
 _host = sys.modules.get('main') or sys.modules.get('__main__')
 if _host is not None:
     globals().update({k: v for k, v in vars(_host).items() if not k.startswith('__') and k not in {'_host'}})
-
 class PluginsMixin:
-
     def _plugin_files(self):
         try:
             return sorted((os.path.join(self.plugins_dir, name) for name in os.listdir(self.plugins_dir) if name.lower().endswith('.py')))
         except Exception:
             return []
-
     def _plugin_load_python(self, path):
         module_name = 'routils_plugin_' + re.sub('[^a-zA-Z0-9_]', '_', os.path.splitext(os.path.basename(path))[0]) + '_' + uuid.uuid4().hex[:8]
         spec = importlib.util.spec_from_file_location(module_name, path)
@@ -21,7 +18,6 @@ class PluginsMixin:
         if not callable(getattr(module, 'register', None)):
             raise ValueError(UI_TEXT['c29'])
         return module
-
     def _plugin_forget_tabs(self, name):
         tabs = list(self._plugin_tabs.pop(name, []) or [])
         module = self._plugin_modules.get(name)
@@ -41,7 +37,6 @@ class PluginsMixin:
                     self.nb.forget(tab)
                 except Exception:
                     pass
-
     def _plugin_enable(self, path, enabled=True):
         name = os.path.basename(path)
         enabled = bool(enabled)
@@ -94,7 +89,6 @@ class PluginsMixin:
             self._plugin_enabled[name] = False
             self._save_settings()
             messagebox.showerror(UI_TEXT['y16'], UI_TEXT['z16'].format(p0=name, p1=exc), parent=self)
-
     def _restore_enabled_plugins(self):
         if getattr(self, '_restoring_enabled_plugins', False):
             return
@@ -109,7 +103,6 @@ class PluginsMixin:
                     self._plugin_enable(path, True)
         finally:
             self._restoring_enabled_plugins = False
-
     def _plugin_open_guide(self, path):
         try:
             with open(path, 'r', encoding='utf-8') as f:
@@ -124,7 +117,6 @@ class PluginsMixin:
             txt.configure(state='disabled')
         except Exception as exc:
             messagebox.showerror(UI_TEXT['y16'], UI_TEXT['a17'].format(p0=exc), parent=self)
-
     def _build_plugins_tab(self, tab=None):
         if tab is None:
             tab = ttk.Frame(self.nb, padding=14)
@@ -162,7 +154,6 @@ class PluginsMixin:
                 ttk.Checkbutton(row, text=UI_TEXT['g17'], variable=enabled, command=lambda p=path, v=enabled: self._plugin_enable(p, v.get())).pack(side='left')
                 if self._plugin_enabled.get(name, False) and name not in self._plugin_modules:
                     self._plugin_enable(path, True)
-
     def _import_plugin_file(self):
         path = filedialog.askopenfilename(parent=self, title=UI_TEXT['h17'], filetypes=[(UI_TEXT['i17'], '*.py')])
         if not path:
@@ -177,7 +168,6 @@ class PluginsMixin:
             messagebox.showinfo(UI_TEXT['y16'], UI_TEXT['j17'].format(p0=os.path.basename(path)), parent=self)
         except Exception as exc:
             messagebox.showerror(UI_TEXT['y16'], UI_TEXT['k17'].format(p0=exc), parent=self)
-
     def _reload_lazy_tab(self, tab_name):
         for tab_id in list(self.nb.tabs()):
             if str(self.nb.tab(tab_id, 'text')) == tab_name:
@@ -189,7 +179,6 @@ class PluginsMixin:
         self._lazy_tabs = {k: v for k, v in self._lazy_tabs.items() if v[0] != tab_name}
         self._lazy_tab_ids.pop(tab_name, None)
         self._recreate_special_tab(tab_name)
-
     def _recreate_special_tab(self, tab_name):
         builder = {UI_TEXT['s5']: self._build_plugins_tab, UI_TEXT['t5']: self._build_release_notes_tab}.get(tab_name)
         if builder:
