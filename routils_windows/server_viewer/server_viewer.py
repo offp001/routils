@@ -2,7 +2,9 @@ import sys
 _host = sys.modules.get('main') or sys.modules.get('__main__')
 if _host is not None:
     globals().update({k: v for k, v in vars(_host).items() if not k.startswith('__') and k not in {'_host'}})
+
 class ServerViewerMixin:
+
     def _build_server_viewer_tab(self):
         tab = ttk.Frame(self.nb, padding=12)
         self.nb.add(tab, text=UI_TEXT['n5'])
@@ -51,6 +53,7 @@ class ServerViewerMixin:
         _set_pane_minsize(body, left, 280)
         _set_pane_minsize(body, right, 280)
         self.after_idle(self._center_server_viewer_pane, body)
+
     @staticmethod
     def _center_server_viewer_pane(body):
         try:
@@ -59,6 +62,7 @@ class ServerViewerMixin:
                 body.sashpos(0, width // 2)
         except Exception:
             pass
+
     @staticmethod
     def _server_viewer_parse_deeplink(value):
         value = str(value or '').strip()
@@ -87,12 +91,14 @@ class ServerViewerMixin:
         if not place_id or not job_id:
             raise ValueError(UI_TEXT['v28'])
         return (str(place_id), str(job_id))
+
     def _server_viewer_clear(self):
         self.server_viewer_link.set('')
         for var in self.server_viewer_vars.values():
             var.set('—')
         self.server_viewer_players.delete(0, tk.END)
         self.server_viewer_status.config(text=UI_TEXT['h13'], foreground='#9aa0a6')
+
     def _server_viewer_load(self):
         try:
             place_id, job_id = self._server_viewer_parse_deeplink(self.server_viewer_link.get())
@@ -105,6 +111,7 @@ class ServerViewerMixin:
         for var in self.server_viewer_vars.values():
             var.set('—')
         threading.Thread(target=self._server_viewer_worker, args=(place_id, job_id), daemon=True, name='RoUtils-ServerViewer').start()
+
     def _server_viewer_worker(self, place_id, job_id):
         try:
             cursor = None
@@ -139,6 +146,7 @@ class ServerViewerMixin:
             self.after(0, lambda result=result: self._server_viewer_show(result))
         except Exception as e:
             self.after(0, lambda msg=str(e): self._server_viewer_error(msg))
+
     def _server_viewer_show(self, result):
         for key in ('place_id', 'job_id', 'players', 'max_players', 'ping', 'fps'):
             self.server_viewer_vars[key].set(result[key])
@@ -158,6 +166,7 @@ class ServerViewerMixin:
         else:
             self.server_viewer_players.insert(tk.END, '')
         self.server_viewer_status.config(text=UI_TEXT['n13'], foreground='#65d98b')
+
     def _server_viewer_error(self, message):
         self.server_viewer_status.config(text=UI_TEXT['o13'], foreground='#ff6b6b')
         messagebox.showerror(UI_TEXT['n5'], UI_TEXT['p13'].format(p0=message), parent=self)

@@ -59,818 +59,15 @@ try:
     import ttkbootstrap as ttkbootstrap
 except Exception:
     ttkbootstrap = None
-UI_TEXT = {
-    'a1': 'While refreshing a item changed, so the previous selection was skipped.',
-    'b1': 'The issue happend again. The duplicate was skipped',
-    'c1': 'Unexpected issue occurred, Details were saved to error folder',
-    'd1': 'RoUtils could not complete this action\n\nA report was saved in the error folder\n\nTry again and check the Console if it keeps happening',
-    'e1': 'RoUtils ran into a problem',
-    'f1': 'WebView2',
-    'g1': 'WebView2 support requires pywebview.\n\nInstall pywebview with: pip install pywebview\n\n',
-    'h1': 'Could not open WebView2 window:\n{p0}',
-    'i1': 'Could not start WebView2 window:\n{p0}',
-    'j1': 'Preview',
-    'k1': '✕',
-    'l1': '▶ Play',
-    'm1': '',
-    'n1': 'Wireframe lines',
-    'o1': 'Optimize vertices',
-    'p1': 'Audio',
-    'q1': 'Could not open audio:\n{p0}',
-    'r1': '⏸ Pause',
-    's1': 'Press ▶ to play Audio',
-    't1': 'Animation: no keyframes to draw a skeleton (No keyframe)',
-    'u1': 'No pose position data in skeleton (keyframe count shown above)',
-    'v1': 'Source:',
-    'w1': 'Filter:',
-    'x1': 'Create Cache',
-    'y1': 'Apply',
-    'z1': 'Save Hash',
-    'a2': 'Save File',
-    'b2': 'Delete',
-    'c2': 'Rename',
-    'd2': 'Create group',
-    'e2': 'Delete group',
-    'f2': 'Ungroup',
-    'g2': 'Hash saves:',
-    'h2': 'Custom Hash',
-    'i2': 'Enter custom hash value (hex):',
-    'j2': 'Info',
-    'k2': 'Using custom hash: {p0}',
-    'l2': 'Input Custom Hash',
-    'm2': 'File saves:',
-    'n2': 'Choose source file',
-    'o2': 'Selected file:\n{p0}',
-    'p2': 'Input Custom File',
-    'q2': 'Enter display name:',
-    'r2': 'Please choose a hash (or input a custom one).',
-    's2': 'Invalid hash.',
-    't2': 'Please choose a file (or input a custom one).',
-    'u2': 'Selected file is missing.',
-    'v2': 'Display name is required.',
-    'w2': 'Failed to create cache:\n{p0}',
-    'x2': 'Success',
-    'y2': 'Created cache:\n{p0}',
-    'z2': 'Created cache: {p0}',
-    'a3': 'OK',
-    'b3': 'Cancel',
-    'c3': 'Loading…',
-    'd3': 'No saved hashes found',
-    'e3': 'No saved files found',
-    'f3': 'Hash:',
-    'g3': 'Name:',
-    'h3': 'Error',
-    'i3': 'Both Hash and Name are required.',
-    'j3': 'Resulting file name is empty after sanitization.',
-    'k3': 'Failed to save: {p0}',
-    'l3': "Saved '{p0}'.",
-    'm3': 'Saved hash file: {p0}',
-    'n3': 'Choose file to save',
-    'o3': 'File:',
-    'p3': 'Browse…',
-    'q3': 'No file selected',
-    'r3': 'Please choose a file.',
-    's3': 'Please enter a Name.',
-    't3': 'Failed to save file: {p0}',
-    'u3': "{p0}: '{p1}'.",
-    'v3': '{p0}: {p1}',
-    'w3': 'No database path is set in the viewer.',
-    'x3': 'Select one or more cache items.',
-    'y3': 'Apply File',
-    'z3': 'Enter the target Roblox cache hash/asset ID:',
-    'a4': 'No valid cache items found to import.',
-    'b4': 'DB error:\n{p0}',
-    'c4': 'Imported {p0} of {p1} blob(s).',
-    'd4': 'Applied {p0}/{p1} selected cache blob(s)',
-    'e4': 'Enter new name:',
-    'f4': 'Rename failed: {p0}',
-    'g4': 'No item selected.',
-    'h4': "Are you sure you want to delete '{p0}'?",
-    'i4': 'Are you sure you want to delete {p0} items?',
-    'j4': 'Confirm',
-    'k4': 'Failed to delete group: {p0}',
-    'l4': 'Failed to delete file: {p0}',
-    'm4': 'Deleted {p0} item(s).',
-    'n4': 'Deleted {p0} cache item(s)',
-    'o4': "Are you sure you want to delete group '{p0}'?",
-    'p4': 'Are you sure you want to delete {p0} groups?',
-    'q4': 'Deleted {p0} group(s).',
-    'r4': 'Deleted {p0} cache group(s)',
-    's4': "Remove group '{p0}' and move its files back?",
-    't4': 'Remove {p0} groups and move their files back?',
-    'u4': 'Failed to ungroup: {p0}',
-    'v4': 'Ungrouped {p0} group(s), restored {p1} file(s).',
-    'w4': 'Ungrouped {p0} group(s), restored {p1} cache file(s)',
-    'x4': 'Items must share the same parent folder.',
-    'y4': 'Group name:',
-    'z4': 'A group with that name already exists.',
-    'a5': 'Failed to create group folder: {p0}',
-    'b5': "Created group '{p0}' with {p1} item(s).",
-    'c5': "Created empty group '{p0}'.",
-    'd5': "Created cache group '{p0}' with {p1} item(s)",
-    'e5': '×',
-    'f5': 'Cache',
-    'g5': '◀',
-    'h5': 'FFlags',
-    'i5': 'Emote Manager',
-    'j5': 'AI',
-    'k5': 'Modifications',
-    'l5': 'Configs',
-    'm5': 'Subplace Joiner',
-    'n5': 'Server Viewer',
-    'o5': 'History',
-    'p5': 'Client',
-    'q5': 'Customize',
-    'r5': 'Settings',
-    's5': 'Plugins',
-    't5': 'Release Notes',
-    'u5': 'Console',
-    'v5': 'Loading...',
-    'w5': 'Home',
-    'x5': 'RoUtils',
-    'y5': 'Could not load {p0}: {p1}',
-    'z5': 'FPS: Uncap',
-    'a6': 'FPS: {p0}',
-    'b6': 'FPS value (1-240):',
-    'c6': 'Press any keyboard or mouse button:',
-    'd6': 'Examples: F7, Insert, Mouse1, Mouse4, A, ;',
-    'e6': 'FPS Hotkey',
-    'f6': 'FPS must be a whole number from 1 to 240.',
-    'g6': 'Enter FPS 1-240 and a supported key.',
-    'h6': 'That key is already assigned.',
-    'i6': 'Save',
-    'j6': 'Clear',
-    'k6': '{p0} FPS [{p1}]',
-    'l6': 'Empty',
-    'm6': '+',
-    'n6': 'Global FFlag Hotkeys',
-    'o6': '+ Add Hotkey',
-    'p6': 'Edit',
-    'q6': 'Remove',
-    'r6': 'Close',
-    's6': 'Key:',
-    't6': 'FFlag:',
-    'u6': 'Action:',
-    'v6': 'Toggle 1 value:',
-    'w6': 'Toggle 2 value:',
-    'x6': 'Example: K + DebugDrawBroadPhaseAABBs + true/false toggles the value globally.',
-    'y6': 'FFlag Hotkeys',
-    'z6': 'Enter a supported keyboard key.',
-    'a7': 'Enter an FFlag name.',
-    'b7': '⌕ Search - (Ctrl + K)',
-    'c7': '🔔',
-    'd7': 'Notifications',
-    'e7': 'Search failed: {p0}',
-    'f7': 'Kill RoUtils',
-    'g7': '⠿',
-    'h7': 'Tab move failed: {p0}',
-    'i7': 'Customize App',
-    'j7': 'Choose a theme and personalize the app colors.',
-    'k7': 'Appearance',
-    'l7': 'Appearance colors',
-    'm7': '    ',
-    'n7': 'Choose…',
-    'o7': 'Reset color',
-    'p7': 'Apply Appearance Colors',
-    'q7': 'Save Custom Theme',
-    'r7': 'Topbar button colors',
-    's7': 'Choose {p0} color',
-    't7': 'Your custom appearance has been saved.',
-    'u7': 'Choose {p0} button color',
-    'v7': 'Theme update failed: {p0}',
-    'w7': 'Failed to save flags:\n{p0}',
-    'x7': 'R6 Animation → R15',
-    'y7': 'Roblox Animation',
-    'z7': 'All files',
-    'a8': 'Save R15 Animation',
-    'b8': 'RBXMX Animation',
-    'c8': 'R6 → R15',
-    'd8': 'R6 animation retargeted to R15.\n\n{p0}',
-    'e8': 'Converted R6 animation to R15: {p0}',
-    'f8': 'Could not convert animation:\n{p0}',
-    'g8': 'Current applied caches: {p0}',
-    'h8': 'Save DB',
-    'i8': 'Enter a name for this CConfigs DB:',
-    'j8': 'CConfigs',
-    'k8': 'Failed to save DB:\n{p0}',
-    'l8': "DB saved as '{p0}'.\n\nRecorded applied caches: {p1}",
-    'm8': 'Upload DB',
-    'n8': 'Database files',
-    'o8': 'SQLite DB',
-    'p8': 'CConfigs DB',
-    'q8': 'Failed to upload DB:\n{p0}',
-    'r8': "Uploaded '{p0}'.",
-    's8': 'Select a saved DB first.',
-    't8': 'Apply DB',
-    'u8': "Apply '{p0}' to Roblox?\n\nThis will delete rbx-storage.db, rbx-storage.db-shm, rbx-storage.db-wal and rbx-storage.id, then install only rbx-storage.db.",
-    'v8': 'Failed to apply DB.\n\n{p0}\n\nClose Roblox and try again. No force-delete was used.',
-    'w8': "Applied '{p0}'.\nRecorded caches: {p1}\n\nInstalled only rbx-storage.db.",
-    'x8': 'Export DB as normal .db',
-    'y8': 'Failed to export DB:\n{p0}',
-    'z8': 'Normal .db exported:\n{p0}',
-    'a9': 'Delete DB',
-    'b9': "Delete saved DB '{p0}'?",
-    'c9': 'Failed to delete DB:\n{p0}',
-    'd9': 'CONFIG',
-    'e9': 'CREATED',
-    'f9': 'APPLIED',
-    'g9': 'FILE',
-    'h9': 'Saved DB details',
-    'i9': 'Please select a valid RobloxPlayerBeta.exe first.',
-    'j9': 'Opened Roblox: {p0}',
-    'k9': 'Could not open Roblox:\n{p0}',
-    'l9': 'Roblox Modifications',
-    'm9': 'Converters',
-    'n9': 'Roblox File Converter (.rbxm / .rbxh / .rbxmx)',
-    'o9': 'Mesh to OBJ',
-    'p9': 'Default Mesh Changer',
-    'q9': 'It allows you to change the default R6 Meshes.',
-    'r9': 'Choose',
-    's9': 'Open Selected Roblox',
-    't9': 'Skybox Changer',
-    'u9': 'Replace Roblox skybox texture files from PlatformContent\\pc\\textures\\sky.',
-    'v9': 'Sounds',
-    'w9': 'Replace Roblox sound files from content\\sounds.',
-    'x9': 'Others',
-    'y9': 'Replace additional Roblox texture and font files.',
-    'z9': 'Studs (replaces plastic\nnormal.dds)',
-    'a10': 'Diffuse (diffuse.dds)',
-    'b10': 'Font (CustomFont.ttf)',
-    'c10': 'Welcome to RoUtils',
-    'd10': 'Support with me: offp001 on discord',
-    'e10': 'Version: ',
-    'f10': 'Checking',
-    'g10': 'Downloading update…',
-    'h10': 'Downloading update… {p0:.0f}%',
-    'i10': 'RoUtils is Outdated',
-    'j10': 'Download New Version ({p0})',
-    'k10': 'Download',
-    'l10': 'Later',
-    'm10': 'Update {p0} download started.',
-    'n10': 'Update downloaded to {p0}; launching from RoUtils folder.',
-    'o10': 'Update error: {p0}',
-    'p10': 'RoUtils Update',
-    'q10': 'Automatic update failed:\n{p0}',
-    'r10': 'Version: {p0} ({p1})',
-    's10': 'Add',
-    't10': 'JSON Editor',
-    'u10': 'Invalid JSON:\n{p0}',
-    'v10': 'Applied {p0} flags from {p1}.',
-    'w10': 'Failed to apply JSON:\n{p0}',
-    'x10': 'Select RobloxPlayerBeta.exe',
-    'y10': 'Roblox Player',
-    'z10': 'Executable',
-    'a11': 'Choose RobloxPlayerBeta.exe first.',
-    'b11': 'Choose replacement for {p0}',
-    'c11': 'Mesh files',
-    'd11': 'Failed:\n{p0}',
-    'e11': 'Texture files',
-    'f11': 'Skybox texture replaced: {p0}',
-    'g11': 'Skybox texture deleted: {p0}',
-    'h11': 'Audio files',
-    'i11': 'Sound replaced: {p0}',
-    'j11': 'Sound deleted: {p0}',
-    'k11': 'Other file replaced: {p0}',
-    'l11': 'Other file deleted: {p0}',
-    'm11': 'Select Roblox Mesh',
-    'n11': 'Roblox Mesh',
-    'o11': 'Selected Mesh Version "{p0}"',
-    'p11': 'Converting',
-    'q11': 'Converted: {p0}',
-    'r11': 'Conversion failed:\n{p0}',
-    's11': 'Select Roblox File',
-    't11': 'Roblox Files',
-    'u11': 'RBXM',
-    'v11': 'RBXH',
-    'w11': 'RBXMX',
-    'x11': 'Roblox File Converter',
-    'y11': 'Please select an .rbxm, .rbxh or .rbxmx file.',
-    'z11': 'Converted successfully.\n\n{p0}\nSize: {p1}',
-    'a12': 'Converted Roblox file: {p0}',
-    'b12': 'Game History',
-    'c12': 'Refresh',
-    'd12': 'Clear History',
-    'e12': 'Game History.',
-    'f12': 'No games recorded yet.',
-    'g12': 'Copy Deeplink',
-    'h12': 'Join',
-    'i12': 'Could not copy deeplink:{p0}',
-    'j12': 'Joined from history: {p0}',
-    'k12': 'Could not launch Roblox:{p0}',
-    'l12': 'Clear all saved game history?',
-    'm12': 'Roblox Client',
-    'n12': 'Live Roblox client information and current game details.',
-    'o12': 'Client Information',
-    'p12': 'Open Roblox',
-    'q12': 'FPS',
-    'r12': 'PID: Waiting for Roblox...',
-    's12': 'Reset Hotkeys',
-    't12': 'FPS Changer',
-    'u12': 'Running',
-    'v12': 'Not running',
-    'w12': 'Search',
-    'x12': 'PLACE ID',
-    'y12': 'NAME',
-    'z12': 'Join Selected',
-    'a13': 'Search failed:\n{p0}',
-    'b13': 'Could not read Roblox logs:\n{p0}',
-    'c13': 'Could not detect the current Roblox server. Make sure you are inside a game, then try again.',
-    'd13': "Current game's deeplink copied to clipboard.",
-    'e13': 'Could not copy deeplink:\n{p0}',
-    'f13': 'Joined subplace {p0}',
-    'g13': 'Could not launch Roblox:\n{p0}',
-    'h13': 'Paste a Roblox server deeplink',
-    'i13': 'View Server',
-    'j13': 'Server Information',
-    'k13': '\n',
-    'l13': 'Loading server...',
-    'm13': 'Loading server deeplink: {p0}',
-    'n13': 'Server loaded',
-    'o13': 'Failed to load server',
-    'p13': 'Could not load server:\n{p0}',
-    'q13': 'Waiting for Roblox...',
-    'r13': 'Remove Bind',
-    's13': 'Add Bind',
-    't13': 'Hotkey',
-    'u13': 'Dance',
-    'v13': 'Last hotkey: none',
-    'w13': 'Hotkeys: ON',
-    'x13': 'Emote Controls',
-    'y13': 'Select a dance from the list first.',
-    'z13': 'Press any key for {p0}',
-    'a14': '{p0} is already assigned to {p1}. Choose a different key.',
-    'b14': 'Binds saved',
-    'c14': 'Hotkeys: {p0}',
-    'd14': 'Close Controls',
-    'e14': 'Choose a key...',
-    'f14': '<\n{p0}',
-    'g14': '>\n{p0}',
-    'h14': '{p0}\n{p1}',
-    'i14': 'Emote Manager - Hide: Ctrl + F3',
-    'j14': 'Roblox attached  PID {p0}',
-    'k14': 'Search:',
-    'l14': 'TYPE',
-    'm14': 'VALUE',
-    'n14': 'Latest FFlags',
-    'o14': 'Saved JSONs',
-    'p14': 'Loading offsets…',
-    'q14': 'FFLAG',
-    'r14': 'OFFSET',
-    's14': 'DEFAULT VALUE',
-    't14': 'Apply Selected',
-    'u14': 'Auto Apply: ON',
-    'v14': 'Auto Apply: OFF',
-    'w14': 'Apply to Roblox',
-    'x14': 'Save Flags',
-    'y14': 'Could not load flags',
-    'z14': 'FFlag reference load failed: {p0}',
-    'a15': '{p0:,} flags',
-    'b15': 'Removed FFlag',
-    'c15': 'FFlag name',
-    'd15': 'Value:',
-    'e15': 'Added FFlag {p0} = {p1}',
-    'f15': 'Add Flag',
-    'g15': 'Removed FFlag {p0}',
-    'h15': 'Remove all flags?',
-    'i15': 'Removed all FFlags',
-    'j15': 'FFlag Presets',
-    'k15': 'Select a preset, then choose whether to replace or add its FFlags to the current list.',
-    'l15': 'FFlag Preset',
-    'm15': 'Added {p0} FFlags and updated {p1} existing FFlags from {p2}.',
-    'n15': 'Preset {p0}: added {p1}, updated {p2} FFlags',
-    'o15': 'Applied {p0} FFlags from {p1}.',
-    'p15': 'Applied FFlag preset {p0}: {p1} flags',
-    'q15': 'Failed to load {p0}:\n{p1}',
-    'r15': 'Add to Current FFlags',
-    's15': 'No JSON presets found.',
-    't15': 'Could not load presets: {p0}',
-    'u15': 'Loading presets...',
-    'v15': 'Copied to clipboard.',
-    'w15': 'FFlag copy failed: {p0}',
-    'x15': 'Import FFlags',
-    'y15': 'JSON files',
-    'z15': 'Imported {p0} flag(s).',
-    'a16': 'Imported {p0} FFlag(s) from {p1}',
-    'b16': 'Import failed:\n{p0}',
-    'c16': 'Export name',
-    'd16': 'Exported {p0} FFlag(s) to {p1}: {p2}',
-    'e16': 'Export failed:\n{p0}',
-    'f16': 'JSONs (FFlags Saves)',
-    'g16': 'Choose FFlag export location',
-    'h16': 'Choose...',
-    'i16': 'Roblox Detected: PID {p0}',
-    'j16': 'PID: {p0} selected',
-    'k16': 'Roblox found, attach failed',
-    'l16': 'Roblox Detected but attach failed: PID {p0}',
-    'm16': 'Roblox process closed; FFlag attachment removed',
-    'n16': 'FFlag conflict: duplicate names detected: ',
-    'o16': 'FFlags conflict.',
-    'p16': 'FFlag injection skipped: Roblox is not attached',
-    'q16': 'Roblox is not attached.',
-    'r16': 'Offset data is being refreshed. Apply again after it loads.',
-    's16': 'Applied {p0}/{p1}',
-    't16': 'FFlag {p0} apply complete: {p1}/{p2} flags applied, {p3} failed for PID {p4}',
-    'u16': 'No flags were applied using {p0}. Check the current offsets and Roblox version.',
-    'v16': 'Unapplied {p0} flag(s)',
-    'w16': ', {p0} failed',
-    'x16': 'FFlag restore complete: {p0} restored, {p1} failed',
-    'y16': 'Plugin',
-    'z16': 'Could not enable {p0}:\n{p1}',
-    'a17': 'Could not open guide:\n{p0}',
-    'b17': 'Import Python',
-    'c17': 'Only install plugins you trust. Python plugins can access the same files and processes as RoUtils.',
-    'd17': 'No plugins yet.\nImport a Python plugin to get started.',
-    'e17': 'Documentation / development guide',
-    'f17': 'Open Guide',
-    'g17': 'Enable',
-    'h17': 'Import RoUtils Python Plugin',
-    'i17': 'Python plugin',
-    'j17': 'Imported {p0}.\nEnable it from the Plugins tab to load Python code.',
-    'k17': 'Could not import plugin:\n{p0}',
-    'l17': 'Settings & Options',
-    'm17': 'General options.',
-    'n17': 'Interface Scale',
-    'o17': 'DPI Scale',
-    'p17': 'Window size stays the same; only the interface scales.',
-    'q17': 'You Should Restart it to Apply DPI Scale',
-    'r17': 'Cache Viewer',
-    's17': 'Start watching for new assets on launch',
-    't17': 'Auto-scroll to newest row',
-    'u17': 'Hide ticket assets',
-    'v17': 'Show lines (wireframe) for the Preview',
-    'w17': 'Wireframe lines on',
-    'x17': 'Optimize Mesh Preview Vertices (>500)',
-    'y17': 'Startup',
-    'z17': 'Launch on Tray',
-    'a18': 'Launch on Boot',
-    'b18': 'Hide to Tray when Close (F7 to Hide/Show)',
-    'c18': 'Streamer Mode',
-    'd18': 'Hide RoUtils from screen sharing and recording',
-    'e18': 'RoUtils does not appear in screen shares. (Only you can see it.)',
-    'f18': 'Updates',
-    'g18': 'Auto Update',
-    'h18': 'Updates RoUtils on Background',
-    'i18': 'Gemini AI',
-    'j18': 'Gemini API Key',
-    'k18': 'Tutorial',
-    'l18': 'Add Key',
-    'm18': 'Database',
-    'n18': 'Choose DB File…',
-    'o18': 'Choose Shard Root…',
-    'p18': 'Config Backup',
-    'q18': 'Include CConfigs',
-    'r18': 'Include Cache Dumps',
-    's18': 'Export Config…',
-    't18': 'Import Config…',
-    'u18': 'DPI setting error: {p0}',
-    'v18': 'Export RoUtils Config',
-    'w18': 'RoUtils Config',
-    'x18': 'ZIP archive',
-    'y18': 'JSON settings',
-    'z18': 'Exported RoUtils config to {p0}',
-    'a19': 'Config exported successfully.',
-    'b19': 'Could not export config:\n{p0}',
-    'c19': 'Import RoUtils Config',
-    'd19': 'Imported RoUtils config from {p0}',
-    'e19': 'Config imported successfully. Restart RoUtils to apply every saved setting.',
-    'f19': 'Could not import config:\n{p0}',
-    'g19': 'Nothing to undo.',
-    'h19': 'Undid the last FFlag change.',
-    'i19': 'Restored cache {p0}.',
-    'j19': 'Restored config {p0}.',
-    'k19': 'Cache search:\n',
-    'l19': '(no matches)',
-    'm19': 'Created backup: {p0}',
-    'n19': 'Restored backup: {p0}',
-    'o19': '$> ',
-    'p19': 'Please enter Y or N.',
-    'q19': 'Do you want to dump videos? (Y)es or (N)o:',
-    'r19': 'Commands:\n  cache "blob file path" "hash"  Apply a blob file to Roblox.\n  cache delete "hash"  Delete one cache by hash.\n  cache list [filter]  List visible caches.\n  cache search [text]  Search loaded caches by name, hash or type.\n  fflag "name" "value"  Add and apply one FastFlag.\n  fflag delete "name"  Remove one FastFlag.\n  fflag clear  Remove all saved FastFlags.\n  fflag list  List saved FastFlags.\n  fflag apply  Inject all saved FastFlags into Roblox.\n  fflag unapply  Restore the original FastFlag values.\n  fflag defaults  Open Default FFlag Values.\n  fflag latest  Open Latest FFlag List.\n  undo  Undo the last reversible console change.\n  history  Show saved console history from console_history.json.\n  config "name/prefix"  Apply a saved CConfig.\n  config save "name"  Save the current Roblox database as a CConfig.\n  config list  List saved CConfigs.\n  config delete "name/prefix"  Delete one saved CConfig.\n  modif meshtoobj "mesh file path"  Convert that mesh file to OBJ.\n  modif "head" "replacement mesh path" ["RobloxPlayerBeta.exe path"]  Replace R6 body mesh (head, torso, left arm, right arm, left leg, right leg).\n  join "place id"  Open a Roblox subplace.\n  viewserver "deeplink"  Load a server deeplink.\n  information  Open the live Client information.\n  theme "theme name"  Apply a saved theme.\n  theme list  List available themes.\n  watch start|stop  Start or stop cache watching.\n  fps "number"  Set and apply the FPS limit.\n  export all  Dump all caches; progress is shown in Console.\n  dump-folder  Open the folder where dumped caches are saved.\n  backup create "name"  Back up settings and File/Hash Saves.\n  backup restore "zip path"  Restore a RoUtils backup ZIP.\n  ai  Open RoUtils AI.\n  open "tab name"  Open a RoUtils tab.\n  status  Show Roblox PID, watcher and database status.\n  clear  Clear the Console.',
-    's19': 'Applied FFlag {p0} = {p1}',
-    't19': 'Cleared all saved FFlags',
-    'u19': 'FFlag injection requested',
-    'v19': 'FFlag values restored',
-    'w19': 'Opened Default FFlag Values',
-    'x19': 'Opened Latest FFlag List',
-    'y19': "Saved current DB as config '{p0}'.",
-    'z19': 'Opened subplace {p0}',
-    'a20': 'Opened Client information',
-    'b20': 'Themes: ',
-    'c20': 'Cache watching started',
-    'd20': 'Cache watching could not start: database file was not found.',
-    'e20': 'Cache watching stopped',
-    'f20': 'FPS limit set to {p0}',
-    'g20': 'Opened dump folder: {p0}',
-    'h20': 'Started full cache dump; progress is shown in Console.',
-    'i20': 'Opened tab {p0}',
-    'j20': 'Roblox PID: {p0}\nCache watcher: {p1}\nDatabase: {p2}',
-    'k20': 'Saved history:\n',
-    'l20': '(empty)',
-    'm20': 'Invalid command or arguments. Type help for command descriptions.',
-    'n20': 'Error: ',
-    'o20': 'Applied cache {p0} from {p1}',
-    'p20': 'Deleted cache {p0}',
-    'q20': 'Cache not found: {p0}',
-    'r20': 'Caches:\n',
-    's20': '(none loaded)',
-    't20': 'Deleted FFlag {p0}',
-    'u20': 'FFlags:\n',
-    'v20': '(none)',
-    'w20': 'Configs:\n',
-    'x20': 'Deleted config {p0}',
-    'y20': 'Applying config {p0}',
-    'z20': 'Converted mesh to {p0}',
-    'a21': 'Replaced {p0}',
-    'b21': 'Applied theme {p0}',
-    'c21': 'ROUTILS  /  RELEASE NOTES',
-    'd21': 'RoUtils Release History',
-    'e21': 'Open GitHub ↗',
-    'f21': 'Connecting to GitHub…',
-    'g21': 'Fetching official GitHub releases…',
-    'h21': 'Could not reach GitHub. Check the connection and try Refresh.',
-    'i21': 'Release notes are temporarily unavailable',
-    'j21': 'Open release page in browser',
-    'k21': 'Preview unavailable · {p0}',
-    'l21': 'No published releases were found.',
-    'm21': '{p0} Releases loaded',
-    'n21': '  {p0}  ',
-    'o21': 'Loading image · {p0}',
-    'p21': 'Open image on browser ↗',
-    'q21': 'Open release ↗',
-    'r21': '{p0} asset',
-    's21': 's',
-    't21': '+{p0} more',
-    'u21': 'No published releases to show.',
-    'v21': '$>',
-    'w21': 'RoUtils Console ready. Type help for commands.',
-    'x21': 'Please enter a Gemini API Key.',
-    'y21': 'Gemini API Key added successfully.',
-    'z21': 'Opened RoUtils AI',
-    'a22': '✦ RoUtils AI',
-    'b22': 'RoUtils AI · Powered by Gemini',
-    'c22': 'MODEL',
-    'd22': 'Save AI generated file',
-    'e22': 'Generated file',
-    'f22': 'RoUtils AI',
-    'g22': 'File saved successfully.',
-    'h22': 'Could not save file:\n{p0}',
-    'i22': 'Download / Save as…',
-    'j22': 'Copy',
-    'k22': ' · {p0}',
-    'l22': 'Thinking...',
-    'm22': 'RoUtils AI · Thinking... {p0}s',
-    'n22': 'Attach a file',
-    'o22': 'Supported files',
-    'p22': '📎  {p0}  ·  {p1}',
-    'q22': 'Image preview · {p0} × {p1}',
-    'r22': 'Preview unavailable: {p0}',
-    's22': 'PDF attached · content will be sent to Gemini',
-    't22': 'Add your Gemini API key in Settings before sending a message.',
-    'u22': 'you are routils ai a helper inside the windows app routils made by offp001\nuse simple words and short helpful replies\nwrite like a real person and do not repeat greetings\nuse normal sentence case and do not capitalize every word\navoid full stops at the end of short messages unless using an ellipsis\nuse commas only when they help\ndo not show raw tracebacks or long technical errors to the user\n\nwhen the user only says hello hi or hey say hey need a hand with routils\ndo not bring up settings or api keys unless the user asks\nwhen they ask about settings explain the right option in simple steps\n\nuse the real features and tab names in this guide\nfflags are in the fflags tab and can be edited in the list or json editor\nuse apply to roblox when available and do not promise every flag works\ncache is used to inspect cached files with search and filters\nstart watching turns cache watching on or off\nback up cache data before changing or removing it\nconfigs can be saved imported selected applied exported or deleted\nthemes are in customize\nthe gemini api key is in settings under gemini ai\nconsole commands include help fflag list fflag apply fflag unapply config list watch start watch stop theme list status and ai\nofficial github https://github.com/offp001/routils\nofficial discord https://discord.gg/849VtrYhm2\nnever make up a feature setting result or link\nanswer general questions directly and do not add unrelated offers to help with settings\nif unsure say so and tell the user where to check',
-    'v22': 'RoUtils AI · {p0}s',
-    'w22': 'Send  ➤',
-    'x22': 'Auto-scroll',
-    'y22': 'Hide tickets',
-    'z22': 'Stay on top',
-    'a23': 'Show lines',
-    'b23': 'Clear rbx-storage',
-    'c23': 'Delete Cache Type',
-    'd23': 'Start Watching',
-    'e23': 'Dump Caches',
-    'f23': 'Type:',
-    'g23': 'TIME',
-    'h23': 'HASH',
-    'i23': 'SIZE',
-    'j23': 'SOURCE',
-    'k23': 'Export ▸ Full Blob…',
-    'l23': 'Export ▸ RBXM…',
-    'm23': 'Export as OBJ',
-    'n23': 'Export ▸ Image…',
-    'o23': 'Export ▸ Video…',
-    'p23': 'Copy Hash',
-    'q23': 'Save Hash…',
-    'r23': 'Save Blob…',
-    's23': 'Asset Description',
-    't23': '▶',
-    'u23': 'Delete all caches of this type:',
-    'v23': 'Delete all {p0} {p1} cache(s)?\n\nThis cannot be undone.',
-    'w23': 'No caches of the selected type were found.',
-    'x23': 'A cache dump is already running.',
-    'y23': '=== Dump Caches ===',
-    'z23': 'Database: {p0}',
-    'a24': 'Dump folder: {p0}',
-    'b24': 'Video export enabled. Matching cached tickets may take a while.',
-    'c24': 'Video dumping skipped.',
-    'd24': 'Scanning cache...',
-    'e24': 'ERROR: rbx-storage.db was not found.',
-    'f24': 'RoUtils - Dump Caches',
-    'g24': 'ERROR while scanning: {p0}',
-    'h24': 'Found {p0} cache(s), including {p1} video cache(s).',
-    'i24': 'Skipping {p0} video cache(s).',
-    'j24': 'Failed {p0}: {p1}',
-    'k24': 'Processed {p0}/{p1} | dumped={p2} failed={p3}',
-    'l24': 'Finished. Dumped: {p0} | Failed: {p1}',
-    'm24': 'Output: {p0}',
-    'n24': 'Cleared rbx-storage: {p0} shard(s), DB={p1}',
-    'o24': 'Deleted shards: {p0}\nDeleted DB: {p1}',
-    'p24': 'Select rbx-storage.db',
-    'q24': 'All Files',
-    'r24': 'Choose DB File',
-    's24': 'Could not replace Roblox storage files.\n\n{p0}\n\nClose Roblox and try again. No force-delete was used.',
-    't24': 'Installed selected DB successfully.\n\nDeleted: rbx-storage.db, rbx-storage.db-shm, rbx-storage.db-wal, rbx-storage.id\nInstalled: rbx-storage.db only.',
-    'u24': 'Select shard root folder (rbx-storage)',
-    'v24': 'Cache watching failed: {p0}',
-    'w24': 'Stop Watching',
-    'x24': 'Cache scan error: {p0}',
-    'y24': 'Cache view refresh was retried: {p0}',
-    'z24': 'Copied',
-    'a25': 'Copied {p0} hash(es) to clipboard.',
-    'b25': 'Export Blob',
-    'c25': 'Select a row first.',
-    'd25': 'Export Full Blobs to folder',
-    'e25': 'Exported {p0} of {p1} blobs to:\n{p2}',
-    'f25': 'Unable to read blob (DB/shard).',
-    'g25': 'Export Full Blob',
-    'h25': 'RBXH blob',
-    'i25': 'Binary',
-    'j25': 'Saved full blob:\n{p0}',
-    'k25': 'Failed to save file:\n{p0}',
-    'l25': 'Export RBXM',
-    'm25': 'Export RBXM models to folder',
-    'n25': 'Exported {p0} of {p1} models to:\n{p2}',
-    'o25': 'Roblox model',
-    'p25': 'Saved model:\n{p0}',
-    'q25': 'Select a Mesh cache first.',
-    'r25': 'Export meshes as OBJ',
-    's25': 'Export Mesh as OBJ',
-    't25': 'Wavefront OBJ',
-    'u25': 'Exported Mesh as OBJ: {p0}',
-    'v25': 'Some meshes failed:\n',
-    'w25': 'Exported {p0} mesh(es).',
-    'x25': 'A video export is already running.',
-    'y25': 'Export Video',
-    'z25': 'The selected cache does not contain a detected video.',
-    'a26': 'Export videos to folder',
-    'b26': 'Video files',
-    'c26': 'Exporting {p0} video(s) in the background...',
-    'd26': 'Video export: {p0}/{p1} · {p2}',
-    'e26': 'Video export: {p0}/{p1} · failed',
-    'f26': 'Video export finished. Saved: {p0}/{p1} | Failed: {p2}',
-    'g26': 'Exported {p0} of {p1} video(s) to:\n{p2}',
-    'h26': 'Saved video:\n{p0}\n\nSize: {p1}',
-    'i26': 'No videos could be exported.',
-    'j26': 'Export Image',
-    'k26': 'Export images to folder',
-    'l26': 'Exported {p0} of {p1} images to:\n{p2}',
-    'm26': 'Blob does not contain a valid image.',
-    'n26': '{p0} image',
-    'o26': 'Saved image:\n{p0}',
-    'p26': 'Change Hash',
-    'q26': 'Enter new {p0}-hex hash for this blob:',
-    'r26': 'Invalid Hash',
-    's26': 'Confirm Change Hash',
-    't26': 'Update DB id and rename shard?\n\nOld: {p0}\nNew: {p1}',
-    'u26': 'Shard Rename',
-    'v26': 'DB updated, but shard rename failed:\n{p0}',
-    'w26': 'Hash updated successfully.',
-    'x26': 'Failed to change hash:\n{p0}',
-    'y26': 'Delete Blob',
-    'z26': 'Confirm Delete',
-    'a27': 'Delete {p0} blob(s) from DB and remove shard files?\n\n{p1}',
-    'b27': 'Deleted {p0} blob(s).',
-    'c27': 'Failed to delete blob:\n{p0}',
-    'd27': 'Name to show in Hash saves:',
-    'e27': 'Name cannot be empty.',
-    'f27': 'Hash saves folder not available.',
-    'g27': 'Saved {p0} hash(es).',
-    'h27': 'Save Blob',
-    'i27': 'File name to save in File saves:',
-    'j27': 'File saves folder not available.',
-    'k27': 'Failed to save blob: {p0}',
-    'l27': 'Saved {p0} blob(s).',
-    'm27': 'Status: {p0}   Visible: {p1}   Total seen: {p2}   Interval: {p3:.1f}s',
-    'n27': 'Could not update startup setting: {p0}',
-    'o27': 'Could not update Start with system:\n{p0}',
-    'p27': 'ERROR: {p0}',
-    'q27': 'FFlag Hotkey',
-    'r27': 'Search RoUtils',
-    's27': 'Select a saved DB to view its details.',
-    't27': 'No notifications yet. RoUtils will keep recent updates here.',
-    'u27': '✦ Ask to AI',
-    'v27': 'Emote hotkeys require Windows.',
-    'w27': 'Change Hash…',
-    'x27': 'Delete Blob',
-    'y27': 'TIME',
-    'z27': 'NAME',
-    'a28': 'TYPE',
-    'b28': 'SOURCE',
-    'c28': 'Do you want to dump videos? (Y)es or (N)o: ',
-    'd28': '\\nPress Enter',
-    'e28': 'Hey! Need a hand with RoUtils?',
-    'f28': 'Please analyze the attached file.',
-    'g28': 'Open RoUtils',
-    'h28': 'Exit RoUtils',
-    'i28': 'RoUtils Tray',
-    'j28': '3D Viewport',
-    'k28': 'Choose replacement for studs.dds (target: plastic\\normal.dds)',
-    'l28': 'Choose replacement for diffuse.dds',
-    'm28': 'Choose replacement for CustomFont.ttf',
-    'n28': 'Resolving game name...',
-    'o28': 'Place ID',
-    'p28': 'Job ID',
-    'q28': 'File Version',
-    'r28': 'CPU Usage',
-    's28': 'RAM Usage',
-    't28': 'Roblox Game Client not found',
-    'u28': 'Paste a Roblox deeplink first.',
-    'v28': 'The deeplink must contain both placeId and gameInstanceId/jobId.',
-    'w28': 'Waiting for key...',
-    'x28': 'Emote hotkeys are on.',
-    'y28': 'Emote hotkeys are off.',
-    'z28': 'Auto Apply enabled (every 15 seconds)',
-    'a29': 'Auto Apply disabled',
-    'b29': 'Could not create a Python plugin loader.',
-    'c29': 'Python plugin must define register(app).',
-    'd29': 'Backup ZIP file was not found.',
-    'e29': 'Cache file or hash is invalid.',
-    'f29': 'Cache hash is invalid.',
-    'g29': 'FFlag was not found or is ambiguous.',
-    'h29': 'Config was not found or the prefix is ambiguous.',
-    'i29': 'Choose RobloxPlayerBeta.exe first or pass its path.',
-    'j29': 'Theme not found or prefix is ambiguous.',
-    'k29': 'Date unavailable',
-    'l29': 'LATEST STABLE',
-    'm29': 'No description was provided for this release.',
-    'n29': 'No signed ticket URL was found in the cache.',
-    'o29': 'Official Github Link: https://github.com/offp001/routils',
-    'p29': 'Join Discord server: https://discord.gg/849VtrYhm2',
-    'q29': 'Model present, but no parts found to render',
-    'r29': 'Mesh present, but this variant isn’t supported by the converter',
-    's29': 'No Keyframe data found in the selected animation.',
-    't29': 'The current rbx-storage.db does not exist.',
-    'v29': 'Config name cannot be empty.',
-    'w29': 'Save Current DB',
-    'x29': 'Export DB',
-    'y29': 'Not in a game',
-    'a30': 'Max Capacity',
-    'b30': 'Server FPS',
-    'c30': 'No usable offset list was found.',
-    'd30': 'Checking...',
-    'e30': 'Detecting...',
-    'g30': 'Gemini 3.8 Flash',
-    'h30': 'Gemini 3.7 Flash',
-    'i30': 'Gemini 3.6 Flash',
-    'j30': 'Gemini 3.5 Flash',
-    'k30': 'Gemini 3.5 Flash-Lite',
-    'l30': 'Gemini 3.1 Flash-Lite',
-    'm30': 'Gemini 3.1 Pro Preview',
-    'n30': 'Gemini 3 Flash Preview',
-                'r30': 'Previous emote',
-    's30': 'Next emote',
-    't30': 'Play current emote',
-    'u30': 'Current emote: ',
-    'v30': 'Emote error: ',
-    'd31': 'Players',
-    'e31': 'Ping',
-    'f31': 'Status',
-    'g31': 'PID',
-    'h31': 'Path',
-    'i31': 'Game',
-    'j31': 'JOB ID',
-    'k31': 'DATE / TIME',
-    'y31': 'Add FFlag',
-    'z31': 'Export FFlags',
-    'f32': 'Release image',
-    'g32': 'Ticket (signed URL)',
-    'h32': 'Settings file must contain a JSON object.',
-    'i32': 'DracoPy not installed. v6/v7 mesh conversion will not work.',
-    'j32': 'DracoPy not available - cannot process v6/v7 meshes',
-    'k32': 'Invalid mesh data: file too small',
-    'l32': 'Data is not a valid RBXM/RBXMX document',
-    'm32': 'Unsupported Roblox conversion target: ',
-    'n32': 'XML root is not a Roblox document',
-    'o32': 'RBXM deserializer is unavailable.',
-    'p32': 'FPS Hotkey ',
-    'q32': '+ Add',
-    'r32': 'Remove All',
-    's32': 'Model: ',
-    't32': ' video cache(s).',
-    'u32': 'LOD parsing failed: ',
-    'v32': 'RBXM contains a ZSTD-compressed chunk; install zstandard to read it',
-    'w32': 'Invalid RBXM header: ',
-    'x32': 'No COREMESH chunk found in v6/v7 mesh',
-    'y32': 'Detected mesh version: ',
-    'z32': 'RBXM/RBXMX converted to RBXH blob and saved',
-    'a33': 'Hotkey ',
-    'b33': ': starting...',
-    'c33': ' key set to ',
-}
+UI_TEXT = {'a1': 'While refreshing a item changed, so the previous selection was skipped.', 'b1': 'The issue happend again. The duplicate was skipped', 'c1': 'Unexpected issue occurred, Details were saved to error folder', 'd1': 'RoUtils could not complete this action\n\nA report was saved in the error folder\n\nTry again and check the Console if it keeps happening', 'e1': 'RoUtils ran into a problem', 'f1': 'WebView2', 'g1': 'WebView2 support requires pywebview.\n\nInstall pywebview with: pip install pywebview\n\n', 'h1': 'Could not open WebView2 window:\n{p0}', 'i1': 'Could not start WebView2 window:\n{p0}', 'j1': 'Preview', 'k1': '✕', 'l1': '▶ Play', 'm1': '', 'n1': 'Wireframe lines', 'o1': 'Optimize vertices', 'p1': 'Audio', 'q1': 'Could not open audio:\n{p0}', 'r1': '⏸ Pause', 's1': 'Press ▶ to play Audio', 't1': 'Animation: no keyframes to draw a skeleton (No keyframe)', 'u1': 'No pose position data in skeleton (keyframe count shown above)', 'v1': 'Source:', 'w1': 'Filter:', 'x1': 'Create Cache', 'y1': 'Apply', 'z1': 'Save Hash', 'a2': 'Save File', 'b2': 'Delete', 'c2': 'Rename', 'd2': 'Create group', 'e2': 'Delete group', 'f2': 'Ungroup', 'g2': 'Hash saves:', 'h2': 'Custom Hash', 'i2': 'Enter custom hash value (hex):', 'j2': 'Info', 'k2': 'Using custom hash: {p0}', 'l2': 'Input Custom Hash', 'm2': 'File saves:', 'n2': 'Choose source file', 'o2': 'Selected file:\n{p0}', 'p2': 'Input Custom File', 'q2': 'Enter display name:', 'r2': 'Please choose a hash (or input a custom one).', 's2': 'Invalid hash.', 't2': 'Please choose a file (or input a custom one).', 'u2': 'Selected file is missing.', 'v2': 'Display name is required.', 'w2': 'Failed to create cache:\n{p0}', 'x2': 'Success', 'y2': 'Created cache:\n{p0}', 'z2': 'Created cache: {p0}', 'a3': 'OK', 'b3': 'Cancel', 'c3': 'Loading…', 'd3': 'No saved hashes found', 'e3': 'No saved files found', 'f3': 'Hash:', 'g3': 'Name:', 'h3': 'Error', 'i3': 'Both Hash and Name are required.', 'j3': 'Resulting file name is empty after sanitization.', 'k3': 'Failed to save: {p0}', 'l3': "Saved '{p0}'.", 'm3': 'Saved hash file: {p0}', 'n3': 'Choose file to save', 'o3': 'File:', 'p3': 'Browse…', 'q3': 'No file selected', 'r3': 'Please choose a file.', 's3': 'Please enter a Name.', 't3': 'Failed to save file: {p0}', 'u3': "{p0}: '{p1}'.", 'v3': '{p0}: {p1}', 'w3': 'No database path is set in the viewer.', 'x3': 'Select one or more cache items.', 'y3': 'Apply File', 'z3': 'Enter the target Roblox cache hash/asset ID:', 'a4': 'No valid cache items found to import.', 'b4': 'DB error:\n{p0}', 'c4': 'Imported {p0} of {p1} blob(s).', 'd4': 'Applied {p0}/{p1} selected cache blob(s)', 'e4': 'Enter new name:', 'f4': 'Rename failed: {p0}', 'g4': 'No item selected.', 'h4': "Are you sure you want to delete '{p0}'?", 'i4': 'Are you sure you want to delete {p0} items?', 'j4': 'Confirm', 'k4': 'Failed to delete group: {p0}', 'l4': 'Failed to delete file: {p0}', 'm4': 'Deleted {p0} item(s).', 'n4': 'Deleted {p0} cache item(s)', 'o4': "Are you sure you want to delete group '{p0}'?", 'p4': 'Are you sure you want to delete {p0} groups?', 'q4': 'Deleted {p0} group(s).', 'r4': 'Deleted {p0} cache group(s)', 's4': "Remove group '{p0}' and move its files back?", 't4': 'Remove {p0} groups and move their files back?', 'u4': 'Failed to ungroup: {p0}', 'v4': 'Ungrouped {p0} group(s), restored {p1} file(s).', 'w4': 'Ungrouped {p0} group(s), restored {p1} cache file(s)', 'x4': 'Items must share the same parent folder.', 'y4': 'Group name:', 'z4': 'A group with that name already exists.', 'a5': 'Failed to create group folder: {p0}', 'b5': "Created group '{p0}' with {p1} item(s).", 'c5': "Created empty group '{p0}'.", 'd5': "Created cache group '{p0}' with {p1} item(s)", 'e5': '×', 'f5': 'Cache', 'g5': '◀', 'h5': 'FFlags', 'i5': 'Emote Manager', 'j5': 'AI', 'k5': 'Modifications', 'l5': 'Configs', 'm5': 'Subplace Joiner', 'n5': 'Server Viewer', 'o5': 'History', 'p5': 'Client', 'q5': 'Customize', 'r5': 'Settings', 's5': 'Plugins', 't5': 'Release Notes', 'u5': 'Console', 'v5': 'Loading...', 'w5': 'Home', 'x5': 'RoUtils', 'y5': 'Could not load {p0}: {p1}', 'z5': 'FPS: Uncap', 'a6': 'FPS: {p0}', 'b6': 'FPS value (1-240):', 'c6': 'Press any keyboard or mouse button:', 'd6': 'Examples: F7, Insert, Mouse1, Mouse4, A, ;', 'e6': 'FPS Hotkey', 'f6': 'FPS must be a whole number from 1 to 240.', 'g6': 'Enter FPS 1-240 and a supported key.', 'h6': 'That key is already assigned.', 'i6': 'Save', 'j6': 'Clear', 'k6': '{p0} FPS [{p1}]', 'l6': 'Empty', 'm6': '+', 'n6': 'Global FFlag Hotkeys', 'o6': '+ Add Hotkey', 'p6': 'Edit', 'q6': 'Remove', 'r6': 'Close', 's6': 'Key:', 't6': 'FFlag:', 'u6': 'Action:', 'v6': 'Toggle 1 value:', 'w6': 'Toggle 2 value:', 'x6': 'Example: K + DebugDrawBroadPhaseAABBs + true/false toggles the value globally.', 'y6': 'FFlag Hotkeys', 'z6': 'Enter a supported keyboard key.', 'a7': 'Enter an FFlag name.', 'b7': '⌕ Search - (Ctrl + K)', 'c7': '🔔', 'd7': 'Notifications', 'e7': 'Search failed: {p0}', 'f7': 'Kill RoUtils', 'g7': '⠿', 'h7': 'Tab move failed: {p0}', 'i7': 'Customize App', 'j7': 'Choose a theme and personalize the app colors.', 'k7': 'Appearance', 'l7': 'Appearance colors', 'm7': '    ', 'n7': 'Choose…', 'o7': 'Reset color', 'p7': 'Apply Appearance Colors', 'q7': 'Save Custom Theme', 'r7': 'Topbar button colors', 's7': 'Choose {p0} color', 't7': 'Your custom appearance has been saved.', 'u7': 'Choose {p0} button color', 'v7': 'Theme update failed: {p0}', 'w7': 'Failed to save flags:\n{p0}', 'x7': 'R6 Animation → R15', 'y7': 'Roblox Animation', 'z7': 'All files', 'a8': 'Save R15 Animation', 'b8': 'RBXMX Animation', 'c8': 'R6 → R15', 'd8': 'R6 animation retargeted to R15.\n\n{p0}', 'e8': 'Converted R6 animation to R15: {p0}', 'f8': 'Could not convert animation:\n{p0}', 'g8': 'Current applied caches: {p0}', 'h8': 'Save DB', 'i8': 'Enter a name for this CConfigs DB:', 'j8': 'CConfigs', 'k8': 'Failed to save DB:\n{p0}', 'l8': "DB saved as '{p0}'.\n\nRecorded applied caches: {p1}", 'm8': 'Upload DB', 'n8': 'Database files', 'o8': 'SQLite DB', 'p8': 'CConfigs DB', 'q8': 'Failed to upload DB:\n{p0}', 'r8': "Uploaded '{p0}'.", 's8': 'Select a saved DB first.', 't8': 'Apply DB', 'u8': "Apply '{p0}' to Roblox?\n\nThis will delete rbx-storage.db, rbx-storage.db-shm, rbx-storage.db-wal and rbx-storage.id, then install only rbx-storage.db.", 'v8': 'Failed to apply DB.\n\n{p0}\n\nClose Roblox and try again. No force-delete was used.', 'w8': "Applied '{p0}'.\nRecorded caches: {p1}\n\nInstalled only rbx-storage.db.", 'x8': 'Export DB as normal .db', 'y8': 'Failed to export DB:\n{p0}', 'z8': 'Normal .db exported:\n{p0}', 'a9': 'Delete DB', 'b9': "Delete saved DB '{p0}'?", 'c9': 'Failed to delete DB:\n{p0}', 'd9': 'CONFIG', 'e9': 'CREATED', 'f9': 'APPLIED', 'g9': 'FILE', 'h9': 'Saved DB details', 'i9': 'Please select a valid RobloxPlayerBeta.exe first.', 'j9': 'Opened Roblox: {p0}', 'k9': 'Could not open Roblox:\n{p0}', 'l9': 'Roblox Modifications', 'm9': 'Converters', 'n9': 'Roblox File Converter (.rbxm / .rbxh / .rbxmx)', 'o9': 'Mesh to OBJ', 'p9': 'Default Mesh Changer', 'q9': 'It allows you to change the default R6 Meshes.', 'r9': 'Choose', 's9': 'Open Selected Roblox', 't9': 'Skybox Changer', 'u9': 'Replace Roblox skybox texture files from PlatformContent\\pc\\textures\\sky.', 'v9': 'Sounds', 'w9': 'Replace Roblox sound files from content\\sounds.', 'x9': 'Others', 'y9': 'Replace additional Roblox texture and font files.', 'z9': 'Studs (replaces plastic\nnormal.dds)', 'a10': 'Diffuse (diffuse.dds)', 'b10': 'Font (CustomFont.ttf)', 'c10': 'Welcome to RoUtils', 'd10': 'Support with me: offp001 on discord', 'e10': 'Version: ', 'f10': 'Checking', 'g10': 'Downloading update…', 'h10': 'Downloading update… {p0:.0f}%', 'i10': 'RoUtils is Outdated', 'j10': 'Download New Version ({p0})', 'k10': 'Download', 'l10': 'Later', 'm10': 'Update {p0} download started.', 'n10': 'Update downloaded to {p0}; launching from RoUtils folder.', 'o10': 'Update error: {p0}', 'p10': 'RoUtils Update', 'q10': 'Automatic update failed:\n{p0}', 'r10': 'Version: {p0} ({p1})', 's10': 'Add', 't10': 'JSON Editor', 'u10': 'Invalid JSON:\n{p0}', 'v10': 'Applied {p0} flags from {p1}.', 'w10': 'Failed to apply JSON:\n{p0}', 'x10': 'Select RobloxPlayerBeta.exe', 'y10': 'Roblox Player', 'z10': 'Executable', 'a11': 'Choose RobloxPlayerBeta.exe first.', 'b11': 'Choose replacement for {p0}', 'c11': 'Mesh files', 'd11': 'Failed:\n{p0}', 'e11': 'Texture files', 'f11': 'Skybox texture replaced: {p0}', 'g11': 'Skybox texture deleted: {p0}', 'h11': 'Audio files', 'i11': 'Sound replaced: {p0}', 'j11': 'Sound deleted: {p0}', 'k11': 'Other file replaced: {p0}', 'l11': 'Other file deleted: {p0}', 'm11': 'Select Roblox Mesh', 'n11': 'Roblox Mesh', 'o11': 'Selected Mesh Version "{p0}"', 'p11': 'Converting', 'q11': 'Converted: {p0}', 'r11': 'Conversion failed:\n{p0}', 's11': 'Select Roblox File', 't11': 'Roblox Files', 'u11': 'RBXM', 'v11': 'RBXH', 'w11': 'RBXMX', 'x11': 'Roblox File Converter', 'y11': 'Please select an .rbxm, .rbxh or .rbxmx file.', 'z11': 'Converted successfully.\n\n{p0}\nSize: {p1}', 'a12': 'Converted Roblox file: {p0}', 'b12': 'Game History', 'c12': 'Refresh', 'd12': 'Clear History', 'e12': 'Game History.', 'f12': 'No games recorded yet.', 'g12': 'Copy Deeplink', 'h12': 'Join', 'i12': 'Could not copy deeplink:{p0}', 'j12': 'Joined from history: {p0}', 'k12': 'Could not launch Roblox:{p0}', 'l12': 'Clear all saved game history?', 'm12': 'Roblox Client', 'n12': 'Live Roblox client information and current game details.', 'o12': 'Client Information', 'p12': 'Open Roblox', 'q12': 'FPS', 'r12': 'PID: Waiting for Roblox...', 's12': 'Reset Hotkeys', 't12': 'FPS Changer', 'u12': 'Running', 'v12': 'Not running', 'w12': 'Search', 'x12': 'PLACE ID', 'y12': 'NAME', 'z12': 'Join Selected', 'a13': 'Search failed:\n{p0}', 'b13': 'Could not read Roblox logs:\n{p0}', 'c13': 'Could not detect the current Roblox server. Make sure you are inside a game, then try again.', 'd13': "Current game's deeplink copied to clipboard.", 'e13': 'Could not copy deeplink:\n{p0}', 'f13': 'Joined subplace {p0}', 'g13': 'Could not launch Roblox:\n{p0}', 'h13': 'Paste a Roblox server deeplink', 'i13': 'View Server', 'j13': 'Server Information', 'k13': '\n', 'l13': 'Loading server...', 'm13': 'Loading server deeplink: {p0}', 'n13': 'Server loaded', 'o13': 'Failed to load server', 'p13': 'Could not load server:\n{p0}', 'q13': 'Waiting for Roblox...', 'r13': 'Remove Bind', 's13': 'Add Bind', 't13': 'Hotkey', 'u13': 'Dance', 'v13': 'Last hotkey: none', 'w13': 'Hotkeys: ON', 'x13': 'Emote Controls', 'y13': 'Select a dance from the list first.', 'z13': 'Press any key for {p0}', 'a14': '{p0} is already assigned to {p1}. Choose a different key.', 'b14': 'Binds saved', 'c14': 'Hotkeys: {p0}', 'd14': 'Close Controls', 'e14': 'Choose a key...', 'f14': '<\n{p0}', 'g14': '>\n{p0}', 'h14': '{p0}\n{p1}', 'i14': 'Emote Manager - Hide: Ctrl + F3', 'j14': 'Roblox attached  PID {p0}', 'k14': 'Search:', 'l14': 'TYPE', 'm14': 'VALUE', 'n14': 'Latest FFlags', 'o14': 'Saved JSONs', 'p14': 'Loading offsets…', 'q14': 'FFLAG', 'r14': 'OFFSET', 's14': 'DEFAULT VALUE', 't14': 'Apply Selected', 'u14': 'Auto Apply: ON', 'v14': 'Auto Apply: OFF', 'w14': 'Apply to Roblox', 'x14': 'Save Flags', 'y14': 'Could not load flags', 'z14': 'FFlag reference load failed: {p0}', 'a15': '{p0:,} flags', 'b15': 'Removed FFlag', 'c15': 'FFlag name', 'd15': 'Value:', 'e15': 'Added FFlag {p0} = {p1}', 'f15': 'Add Flag', 'g15': 'Removed FFlag {p0}', 'h15': 'Remove all flags?', 'i15': 'Removed all FFlags', 'j15': 'FFlag Presets', 'k15': 'Select a preset, then choose whether to replace or add its FFlags to the current list.', 'l15': 'FFlag Preset', 'm15': 'Added {p0} FFlags and updated {p1} existing FFlags from {p2}.', 'n15': 'Preset {p0}: added {p1}, updated {p2} FFlags', 'o15': 'Applied {p0} FFlags from {p1}.', 'p15': 'Applied FFlag preset {p0}: {p1} flags', 'q15': 'Failed to load {p0}:\n{p1}', 'r15': 'Add to Current FFlags', 's15': 'No JSON presets found.', 't15': 'Could not load presets: {p0}', 'u15': 'Loading presets...', 'v15': 'Copied to clipboard.', 'w15': 'FFlag copy failed: {p0}', 'x15': 'Import FFlags', 'y15': 'JSON files', 'z15': 'Imported {p0} flag(s).', 'a16': 'Imported {p0} FFlag(s) from {p1}', 'b16': 'Import failed:\n{p0}', 'c16': 'Export name', 'd16': 'Exported {p0} FFlag(s) to {p1}: {p2}', 'e16': 'Export failed:\n{p0}', 'f16': 'JSONs (FFlags Saves)', 'g16': 'Choose FFlag export location', 'h16': 'Choose...', 'i16': 'Roblox Detected: PID {p0}', 'j16': 'PID: {p0} selected', 'k16': 'Roblox found, attach failed', 'l16': 'Roblox Detected but attach failed: PID {p0}', 'm16': 'Roblox process closed; FFlag attachment removed', 'n16': 'FFlag conflict: duplicate names detected: ', 'o16': 'FFlags conflict.', 'p16': 'FFlag injection skipped: Roblox is not attached', 'q16': 'Roblox is not attached.', 'r16': 'Offset data is being refreshed. Apply again after it loads.', 's16': 'Applied {p0}/{p1}', 't16': 'FFlag {p0} apply complete: {p1}/{p2} flags applied, {p3} failed for PID {p4}', 'u16': 'No flags were applied using {p0}. Check the current offsets and Roblox version.', 'v16': 'Unapplied {p0} flag(s)', 'w16': ', {p0} failed', 'x16': 'FFlag restore complete: {p0} restored, {p1} failed', 'y16': 'Plugin', 'z16': 'Could not enable {p0}:\n{p1}', 'a17': 'Could not open guide:\n{p0}', 'b17': 'Import Python', 'c17': 'Only install plugins you trust. Python plugins can access the same files and processes as RoUtils.', 'd17': 'No plugins yet.\nImport a Python plugin to get started.', 'e17': 'Documentation / development guide', 'f17': 'Open Guide', 'g17': 'Enable', 'h17': 'Import RoUtils Python Plugin', 'i17': 'Python plugin', 'j17': 'Imported {p0}.\nEnable it from the Plugins tab to load Python code.', 'k17': 'Could not import plugin:\n{p0}', 'l17': 'Settings & Options', 'm17': 'General options.', 'n17': 'Interface Scale', 'o17': 'DPI Scale', 'p17': 'Window size stays the same; only the interface scales.', 'q17': 'You Should Restart it to Apply DPI Scale', 'r17': 'Cache Viewer', 's17': 'Start watching for new assets on launch', 't17': 'Auto-scroll to newest row', 'u17': 'Hide ticket assets', 'v17': 'Show lines (wireframe) for the Preview', 'w17': 'Wireframe lines on', 'x17': 'Optimize Mesh Preview Vertices (>500)', 'y17': 'Startup', 'z17': 'Launch on Tray', 'a18': 'Launch on Boot', 'b18': 'Hide to Tray when Close (F7 to Hide/Show)', 'c18': 'Streamer Mode', 'd18': 'Hide RoUtils from screen sharing and recording', 'e18': 'RoUtils does not appear in screen shares. (Only you can see it.)', 'f18': 'Updates', 'g18': 'Auto Update', 'h18': 'Updates RoUtils on Background', 'i18': 'Gemini AI', 'j18': 'Gemini API Key', 'k18': 'Tutorial', 'l18': 'Add Key', 'm18': 'Database', 'n18': 'Choose DB File…', 'o18': 'Choose Shard Root…', 'p18': 'Config Backup', 'q18': 'Include CConfigs', 'r18': 'Include Cache Dumps', 's18': 'Export Config…', 't18': 'Import Config…', 'u18': 'DPI setting error: {p0}', 'v18': 'Export RoUtils Config', 'w18': 'RoUtils Config', 'x18': 'ZIP archive', 'y18': 'JSON settings', 'z18': 'Exported RoUtils config to {p0}', 'a19': 'Config exported successfully.', 'b19': 'Could not export config:\n{p0}', 'c19': 'Import RoUtils Config', 'd19': 'Imported RoUtils config from {p0}', 'e19': 'Config imported successfully. Restart RoUtils to apply every saved setting.', 'f19': 'Could not import config:\n{p0}', 'g19': 'Nothing to undo.', 'h19': 'Undid the last FFlag change.', 'i19': 'Restored cache {p0}.', 'j19': 'Restored config {p0}.', 'k19': 'Cache search:\n', 'l19': '(no matches)', 'm19': 'Created backup: {p0}', 'n19': 'Restored backup: {p0}', 'o19': '$> ', 'p19': 'Please enter Y or N.', 'q19': 'Do you want to dump videos? (Y)es or (N)o:', 'r19': 'Commands:\n  cache "blob file path" "hash"  Apply a blob file to Roblox.\n  cache delete "hash"  Delete one cache by hash.\n  cache list [filter]  List visible caches.\n  cache search [text]  Search loaded caches by name, hash or type.\n  fflag "name" "value"  Add and apply one FastFlag.\n  fflag delete "name"  Remove one FastFlag.\n  fflag clear  Remove all saved FastFlags.\n  fflag list  List saved FastFlags.\n  fflag apply  Inject all saved FastFlags into Roblox.\n  fflag unapply  Restore the original FastFlag values.\n  fflag defaults  Open Default FFlag Values.\n  fflag latest  Open Latest FFlag List.\n  undo  Undo the last reversible console change.\n  history  Show saved console history from console_history.json.\n  config "name/prefix"  Apply a saved CConfig.\n  config save "name"  Save the current Roblox database as a CConfig.\n  config list  List saved CConfigs.\n  config delete "name/prefix"  Delete one saved CConfig.\n  modif meshtoobj "mesh file path"  Convert that mesh file to OBJ.\n  modif "head" "replacement mesh path" ["RobloxPlayerBeta.exe path"]  Replace R6 body mesh (head, torso, left arm, right arm, left leg, right leg).\n  join "place id"  Open a Roblox subplace.\n  viewserver "deeplink"  Load a server deeplink.\n  information  Open the live Client information.\n  theme "theme name"  Apply a saved theme.\n  theme list  List available themes.\n  watch start|stop  Start or stop cache watching.\n  fps "number"  Set and apply the FPS limit.\n  export all  Dump all caches; progress is shown in Console.\n  dump-folder  Open the folder where dumped caches are saved.\n  backup create "name"  Back up settings and File/Hash Saves.\n  backup restore "zip path"  Restore a RoUtils backup ZIP.\n  ai  Open RoUtils AI.\n  open "tab name"  Open a RoUtils tab.\n  status  Show Roblox PID, watcher and database status.\n  clear  Clear the Console.', 's19': 'Applied FFlag {p0} = {p1}', 't19': 'Cleared all saved FFlags', 'u19': 'FFlag injection requested', 'v19': 'FFlag values restored', 'w19': 'Opened Default FFlag Values', 'x19': 'Opened Latest FFlag List', 'y19': "Saved current DB as config '{p0}'.", 'z19': 'Opened subplace {p0}', 'a20': 'Opened Client information', 'b20': 'Themes: ', 'c20': 'Cache watching started', 'd20': 'Cache watching could not start: database file was not found.', 'e20': 'Cache watching stopped', 'f20': 'FPS limit set to {p0}', 'g20': 'Opened dump folder: {p0}', 'h20': 'Started full cache dump; progress is shown in Console.', 'i20': 'Opened tab {p0}', 'j20': 'Roblox PID: {p0}\nCache watcher: {p1}\nDatabase: {p2}', 'k20': 'Saved history:\n', 'l20': '(empty)', 'm20': 'Invalid command or arguments. Type help for command descriptions.', 'n20': 'Error: ', 'o20': 'Applied cache {p0} from {p1}', 'p20': 'Deleted cache {p0}', 'q20': 'Cache not found: {p0}', 'r20': 'Caches:\n', 's20': '(none loaded)', 't20': 'Deleted FFlag {p0}', 'u20': 'FFlags:\n', 'v20': '(none)', 'w20': 'Configs:\n', 'x20': 'Deleted config {p0}', 'y20': 'Applying config {p0}', 'z20': 'Converted mesh to {p0}', 'a21': 'Replaced {p0}', 'b21': 'Applied theme {p0}', 'c21': 'ROUTILS  /  RELEASE NOTES', 'd21': 'RoUtils Release History', 'e21': 'Open GitHub ↗', 'f21': 'Connecting to GitHub…', 'g21': 'Fetching official GitHub releases…', 'h21': 'Could not reach GitHub. Check the connection and try Refresh.', 'i21': 'Release notes are temporarily unavailable', 'j21': 'Open release page in browser', 'k21': 'Preview unavailable · {p0}', 'l21': 'No published releases were found.', 'm21': '{p0} Releases loaded', 'n21': '  {p0}  ', 'o21': 'Loading image · {p0}', 'p21': 'Open image on browser ↗', 'q21': 'Open release ↗', 'r21': '{p0} asset', 's21': 's', 't21': '+{p0} more', 'u21': 'No published releases to show.', 'v21': '$>', 'w21': 'RoUtils Console ready. Type help for commands.', 'x21': 'Please enter a Gemini API Key.', 'y21': 'Gemini API Key added successfully.', 'z21': 'Opened RoUtils AI', 'a22': '✦ RoUtils AI', 'b22': 'RoUtils AI · Powered by Gemini', 'c22': 'MODEL', 'd22': 'Save AI generated file', 'e22': 'Generated file', 'f22': 'RoUtils AI', 'g22': 'File saved successfully.', 'h22': 'Could not save file:\n{p0}', 'i22': 'Download / Save as…', 'j22': 'Copy', 'k22': ' · {p0}', 'l22': 'Thinking...', 'm22': 'RoUtils AI · Thinking... {p0}s', 'n22': 'Attach a file', 'o22': 'Supported files', 'p22': '📎  {p0}  ·  {p1}', 'q22': 'Image preview · {p0} × {p1}', 'r22': 'Preview unavailable: {p0}', 's22': 'PDF attached · content will be sent to Gemini', 't22': 'Add your Gemini API key in Settings before sending a message.', 'u22': 'you are routils ai a helper inside the windows app routils made by offp001\nuse simple words and short helpful replies\nwrite like a real person and do not repeat greetings\nuse normal sentence case and do not capitalize every word\navoid full stops at the end of short messages unless using an ellipsis\nuse commas only when they help\ndo not show raw tracebacks or long technical errors to the user\n\nwhen the user only says hello hi or hey say hey need a hand with routils\ndo not bring up settings or api keys unless the user asks\nwhen they ask about settings explain the right option in simple steps\n\nuse the real features and tab names in this guide\nfflags are in the fflags tab and can be edited in the list or json editor\nuse apply to roblox when available and do not promise every flag works\ncache is used to inspect cached files with search and filters\nstart watching turns cache watching on or off\nback up cache data before changing or removing it\nconfigs can be saved imported selected applied exported or deleted\nthemes are in customize\nthe gemini api key is in settings under gemini ai\nconsole commands include help fflag list fflag apply fflag unapply config list watch start watch stop theme list status and ai\nofficial github https://github.com/offp001/routils\nofficial discord https://discord.gg/849VtrYhm2\nnever make up a feature setting result or link\nanswer general questions directly and do not add unrelated offers to help with settings\nif unsure say so and tell the user where to check', 'v22': 'RoUtils AI · {p0}s', 'w22': 'Send  ➤', 'x22': 'Auto-scroll', 'y22': 'Hide tickets', 'z22': 'Stay on top', 'a23': 'Show lines', 'b23': 'Clear rbx-storage', 'c23': 'Delete Cache Type', 'd23': 'Start Watching', 'e23': 'Dump Caches', 'f23': 'Type:', 'g23': 'TIME', 'h23': 'HASH', 'i23': 'SIZE', 'j23': 'SOURCE', 'k23': 'Export ▸ Full Blob…', 'l23': 'Export ▸ RBXM…', 'm23': 'Export as OBJ', 'n23': 'Export ▸ Image…', 'o23': 'Export ▸ Video…', 'p23': 'Copy Hash', 'q23': 'Save Hash…', 'r23': 'Save Blob…', 's23': 'Asset Description', 't23': '▶', 'u23': 'Delete all caches of this type:', 'v23': 'Delete all {p0} {p1} cache(s)?\n\nThis cannot be undone.', 'w23': 'No caches of the selected type were found.', 'x23': 'A cache dump is already running.', 'y23': '=== Dump Caches ===', 'z23': 'Database: {p0}', 'a24': 'Dump folder: {p0}', 'b24': 'Video export enabled. Matching cached tickets may take a while.', 'c24': 'Video dumping skipped.', 'd24': 'Scanning cache...', 'e24': 'ERROR: rbx-storage.db was not found.', 'f24': 'RoUtils - Dump Caches', 'g24': 'ERROR while scanning: {p0}', 'h24': 'Found {p0} cache(s), including {p1} video cache(s).', 'i24': 'Skipping {p0} video cache(s).', 'j24': 'Failed {p0}: {p1}', 'k24': 'Processed {p0}/{p1} | dumped={p2} failed={p3}', 'l24': 'Finished. Dumped: {p0} | Failed: {p1}', 'm24': 'Output: {p0}', 'n24': 'Cleared rbx-storage: {p0} shard(s), DB={p1}', 'o24': 'Deleted shards: {p0}\nDeleted DB: {p1}', 'p24': 'Select rbx-storage.db', 'q24': 'All Files', 'r24': 'Choose DB File', 's24': 'Could not replace Roblox storage files.\n\n{p0}\n\nClose Roblox and try again. No force-delete was used.', 't24': 'Installed selected DB successfully.\n\nDeleted: rbx-storage.db, rbx-storage.db-shm, rbx-storage.db-wal, rbx-storage.id\nInstalled: rbx-storage.db only.', 'u24': 'Select shard root folder (rbx-storage)', 'v24': 'Cache watching failed: {p0}', 'w24': 'Stop Watching', 'x24': 'Cache scan error: {p0}', 'y24': 'Cache view refresh was retried: {p0}', 'z24': 'Copied', 'a25': 'Copied {p0} hash(es) to clipboard.', 'b25': 'Export Blob', 'c25': 'Select a row first.', 'd25': 'Export Full Blobs to folder', 'e25': 'Exported {p0} of {p1} blobs to:\n{p2}', 'f25': 'Unable to read blob (DB/shard).', 'g25': 'Export Full Blob', 'h25': 'RBXH blob', 'i25': 'Binary', 'j25': 'Saved full blob:\n{p0}', 'k25': 'Failed to save file:\n{p0}', 'l25': 'Export RBXM', 'm25': 'Export RBXM models to folder', 'n25': 'Exported {p0} of {p1} models to:\n{p2}', 'o25': 'Roblox model', 'p25': 'Saved model:\n{p0}', 'q25': 'Select a Mesh cache first.', 'r25': 'Export meshes as OBJ', 's25': 'Export Mesh as OBJ', 't25': 'Wavefront OBJ', 'u25': 'Exported Mesh as OBJ: {p0}', 'v25': 'Some meshes failed:\n', 'w25': 'Exported {p0} mesh(es).', 'x25': 'A video export is already running.', 'y25': 'Export Video', 'z25': 'The selected cache does not contain a detected video.', 'a26': 'Export videos to folder', 'b26': 'Video files', 'c26': 'Exporting {p0} video(s) in the background...', 'd26': 'Video export: {p0}/{p1} · {p2}', 'e26': 'Video export: {p0}/{p1} · failed', 'f26': 'Video export finished. Saved: {p0}/{p1} | Failed: {p2}', 'g26': 'Exported {p0} of {p1} video(s) to:\n{p2}', 'h26': 'Saved video:\n{p0}\n\nSize: {p1}', 'i26': 'No videos could be exported.', 'j26': 'Export Image', 'k26': 'Export images to folder', 'l26': 'Exported {p0} of {p1} images to:\n{p2}', 'm26': 'Blob does not contain a valid image.', 'n26': '{p0} image', 'o26': 'Saved image:\n{p0}', 'p26': 'Change Hash', 'q26': 'Enter new {p0}-hex hash for this blob:', 'r26': 'Invalid Hash', 's26': 'Confirm Change Hash', 't26': 'Update DB id and rename shard?\n\nOld: {p0}\nNew: {p1}', 'u26': 'Shard Rename', 'v26': 'DB updated, but shard rename failed:\n{p0}', 'w26': 'Hash updated successfully.', 'x26': 'Failed to change hash:\n{p0}', 'y26': 'Delete Blob', 'z26': 'Confirm Delete', 'a27': 'Delete {p0} blob(s) from DB and remove shard files?\n\n{p1}', 'b27': 'Deleted {p0} blob(s).', 'c27': 'Failed to delete blob:\n{p0}', 'd27': 'Name to show in Hash saves:', 'e27': 'Name cannot be empty.', 'f27': 'Hash saves folder not available.', 'g27': 'Saved {p0} hash(es).', 'h27': 'Save Blob', 'i27': 'File name to save in File saves:', 'j27': 'File saves folder not available.', 'k27': 'Failed to save blob: {p0}', 'l27': 'Saved {p0} blob(s).', 'm27': 'Status: {p0}   Visible: {p1}   Total seen: {p2}   Interval: {p3:.1f}s', 'n27': 'Could not update startup setting: {p0}', 'o27': 'Could not update Start with system:\n{p0}', 'p27': 'ERROR: {p0}', 'q27': 'FFlag Hotkey', 'r27': 'Search RoUtils', 's27': 'Select a saved DB to view its details.', 't27': 'No notifications yet. RoUtils will keep recent updates here.', 'u27': '✦ Ask to AI', 'v27': 'Emote hotkeys require Windows.', 'w27': 'Change Hash…', 'x27': 'Delete Blob', 'y27': 'TIME', 'z27': 'NAME', 'a28': 'TYPE', 'b28': 'SOURCE', 'c28': 'Do you want to dump videos? (Y)es or (N)o: ', 'd28': '\\nPress Enter', 'e28': 'Hey! Need a hand with RoUtils?', 'f28': 'Please analyze the attached file.', 'g28': 'Open RoUtils', 'h28': 'Exit RoUtils', 'i28': 'RoUtils Tray', 'j28': '3D Viewport', 'k28': 'Choose replacement for studs.dds (target: plastic\\normal.dds)', 'l28': 'Choose replacement for diffuse.dds', 'm28': 'Choose replacement for CustomFont.ttf', 'n28': 'Resolving game name...', 'o28': 'Place ID', 'p28': 'Job ID', 'q28': 'File Version', 'r28': 'CPU Usage', 's28': 'RAM Usage', 't28': 'Roblox Game Client not found', 'u28': 'Paste a Roblox deeplink first.', 'v28': 'The deeplink must contain both placeId and gameInstanceId/jobId.', 'w28': 'Waiting for key...', 'x28': 'Emote hotkeys are on.', 'y28': 'Emote hotkeys are off.', 'z28': 'Auto Apply enabled (every 15 seconds)', 'a29': 'Auto Apply disabled', 'b29': 'Could not create a Python plugin loader.', 'c29': 'Python plugin must define register(app).', 'd29': 'Backup ZIP file was not found.', 'e29': 'Cache file or hash is invalid.', 'f29': 'Cache hash is invalid.', 'g29': 'FFlag was not found or is ambiguous.', 'h29': 'Config was not found or the prefix is ambiguous.', 'i29': 'Choose RobloxPlayerBeta.exe first or pass its path.', 'j29': 'Theme not found or prefix is ambiguous.', 'k29': 'Date unavailable', 'l29': 'LATEST STABLE', 'm29': 'No description was provided for this release.', 'n29': 'No signed ticket URL was found in the cache.', 'o29': 'Official Github Link: https://github.com/offp001/routils', 'p29': 'Join Discord server: https://discord.gg/849VtrYhm2', 'q29': 'Model present, but no parts found to render', 'r29': 'Mesh present, but this variant isn’t supported by the converter', 's29': 'No Keyframe data found in the selected animation.', 't29': 'The current rbx-storage.db does not exist.', 'v29': 'Config name cannot be empty.', 'w29': 'Save Current DB', 'x29': 'Export DB', 'y29': 'Not in a game', 'a30': 'Max Capacity', 'b30': 'Server FPS', 'c30': 'No usable offset list was found.', 'd30': 'Checking...', 'e30': 'Detecting...', 'g30': 'Gemini 3.8 Flash', 'h30': 'Gemini 3.7 Flash', 'i30': 'Gemini 3.6 Flash', 'j30': 'Gemini 3.5 Flash', 'k30': 'Gemini 3.5 Flash-Lite', 'l30': 'Gemini 3.1 Flash-Lite', 'm30': 'Gemini 3.1 Pro Preview', 'n30': 'Gemini 3 Flash Preview', 'r30': 'Previous emote', 's30': 'Next emote', 't30': 'Play current emote', 'u30': 'Current emote: ', 'v30': 'Emote error: ', 'd31': 'Players', 'e31': 'Ping', 'f31': 'Status', 'g31': 'PID', 'h31': 'Path', 'i31': 'Game', 'j31': 'JOB ID', 'k31': 'DATE / TIME', 'y31': 'Add FFlag', 'z31': 'Export FFlags', 'f32': 'Release image', 'g32': 'Ticket (signed URL)', 'h32': 'Settings file must contain a JSON object.', 'i32': 'DracoPy not installed. v6/v7 mesh conversion will not work.', 'j32': 'DracoPy not available - cannot process v6/v7 meshes', 'k32': 'Invalid mesh data: file too small', 'l32': 'Data is not a valid RBXM/RBXMX document', 'm32': 'Unsupported Roblox conversion target: ', 'n32': 'XML root is not a Roblox document', 'o32': 'RBXM deserializer is unavailable.', 'p32': 'FPS Hotkey ', 'q32': '+ Add', 'r32': 'Remove All', 's32': 'Model: ', 't32': ' video cache(s).', 'u32': 'LOD parsing failed: ', 'v32': 'RBXM contains a ZSTD-compressed chunk; install zstandard to read it', 'w32': 'Invalid RBXM header: ', 'x32': 'No COREMESH chunk found in v6/v7 mesh', 'y32': 'Detected mesh version: ', 'z32': 'RBXM/RBXMX converted to RBXH blob and saved', 'a33': 'Hotkey ', 'b33': ': starting...', 'c33': ' key set to '}
+UI_TEXT = {key: value.lower() if isinstance(value, str) else value for key, value in UI_TEXT.items()}
 _TkAppBase = tk.Tk
 UI_HOTKEY_INTERVAL_MS = 75
-UI_QUICK_PANEL_INTERVAL_MS = 50
-UI_QUEUE_INTERVAL_MS = 25
+UI_QUICK_PANEL_INTERVAL_MS = 80
+UI_QUEUE_INTERVAL_MS = 30
 UI_CLIENT_INTERVAL_MS = 250
 _ROUTILS_ORIGINAL_URLOPEN = urllib.request.urlopen
+
 def _routils_is_network_error(error):
     markers = ('getaddrinfo failed', 'urlopen error', '[errno 11001]', 'name or service not known', 'temporary failure in name resolution', 'nodename nor servname provided', 'connection timed out', 'timed out', 'network is unreachable', 'connection refused', 'connection reset', 'failed to establish a new connection')
     pending = [error]
@@ -884,7 +81,7 @@ def _routils_is_network_error(error):
             detail = str(current).lower()
         except Exception:
             detail = ''
-        if any(marker in detail for marker in markers):
+        if any((marker in detail for marker in markers)):
             return True
         for name in ('reason', '__cause__', '__context__'):
             try:
@@ -894,9 +91,10 @@ def _routils_is_network_error(error):
             except Exception:
                 pass
     return False
+
 def _routils_urlopen(url, *args, **kwargs):
     request = url if isinstance(url, urllib.request.Request) else None
-    request_data = getattr(request, 'data', None) if request is not None else (args[0] if args else kwargs.get('data'))
+    request_data = getattr(request, 'data', None) if request is not None else args[0] if args else kwargs.get('data')
     request_method = getattr(request, 'method', None) if request is not None else kwargs.get('method')
     method = str(request_method or ('POST' if request_data is not None else 'GET')).upper()
     retryable = method in {'GET', 'HEAD'} and request_data is None
@@ -918,14 +116,14 @@ def _routils_urlopen(url, *args, **kwargs):
                 error.close()
             except Exception:
                 pass
-            delay = min(3.0, max(0.35 * (2 ** attempt), retry_after or 0.0))
+            delay = min(3.0, max(0.35 * 2 ** attempt, retry_after or 0.0))
             time.sleep(delay)
         except Exception as error:
-            if not retryable or attempt + 1 >= attempts or not _routils_is_network_error(error):
+            if not retryable or attempt + 1 >= attempts or (not _routils_is_network_error(error)):
                 raise
-            time.sleep(min(2.5, 0.35 * (2 ** attempt)))
+            time.sleep(min(2.5, 0.35 * 2 ** attempt))
 UI_THEME = 'clam'
-THEMES = {'Midnight': {'bg_dark': '#1b1b1c', 'bg_medium': '#252526', 'bg_light': '#3a3a3c', 'bg_hover': '#464648', 'fg': '#dcdcdc', 'accent': '#7f8cff', 'border': '#444446'}, 'Ocean': {'bg_dark': '#0f2436', 'bg_medium': '#153248', 'bg_light': '#1f425e', 'bg_hover': '#2a5474', 'fg': '#d7e6f0', 'accent': '#3aa0ff', 'border': '#28506e'}, 'Hacker': {'bg_dark': '#0a0f0a', 'bg_medium': '#0f180f', 'bg_light': '#1a2a1a', 'bg_hover': '#223522', 'fg': '#b8ffb0', 'accent': '#2fff2f', 'border': '#2a4a2a'}, 'Amethyst': {'bg_dark': '#1a1423', 'bg_medium': '#241b31', 'bg_light': '#35284a', 'bg_hover': '#453665', 'fg': '#e0d6f0', 'accent': '#b06bff', 'border': '#4a3a63'}, 'Onyx': {'bg_dark': '#101010', 'bg_medium': '#171717', 'bg_light': '#262626', 'bg_hover': '#303030', 'fg': '#cfcfcf', 'accent': '#c0c0c0', 'border': '#333333'}}
+THEMES = {'Midnight': {'bg_dark': '#0b1220', 'bg_medium': '#111c2e', 'bg_light': '#1c2940', 'bg_hover': '#253653', 'fg': '#e5edf7', 'accent': '#72a7ff', 'border': '#293750'}, 'Ocean': {'bg_dark': '#0f2436', 'bg_medium': '#153248', 'bg_light': '#1f425e', 'bg_hover': '#2a5474', 'fg': '#d7e6f0', 'accent': '#3aa0ff', 'border': '#28506e'}, 'Hacker': {'bg_dark': '#0a0f0a', 'bg_medium': '#0f180f', 'bg_light': '#1a2a1a', 'bg_hover': '#223522', 'fg': '#b8ffb0', 'accent': '#2fff2f', 'border': '#2a4a2a'}, 'Amethyst': {'bg_dark': '#1a1423', 'bg_medium': '#241b31', 'bg_light': '#35284a', 'bg_hover': '#453665', 'fg': '#e0d6f0', 'accent': '#b06bff', 'border': '#4a3a63'}, 'Onyx': {'bg_dark': '#101010', 'bg_medium': '#171717', 'bg_light': '#262626', 'bg_hover': '#303030', 'fg': '#cfcfcf', 'accent': '#c0c0c0', 'border': '#333333'}}
 THEMES.update({'Nord': {'bg_dark': '#1e2430', 'bg_medium': '#252d3a', 'bg_light': '#303a4a', 'bg_hover': '#3a4658', 'fg': '#d8dee9', 'accent': '#88c0d0', 'border': '#414b5d'}, 'Dracula': {'bg_dark': '#282a36', 'bg_medium': '#303241', 'bg_light': '#44475a', 'bg_hover': '#565a70', 'fg': '#f8f8f2', 'accent': '#bd93f9', 'border': '#44475a'}, 'Monokai': {'bg_dark': '#272822', 'bg_medium': '#2e2f2a', 'bg_light': '#3e3d32', 'bg_hover': '#49483e', 'fg': '#f8f8f2', 'accent': '#a6e22e', 'border': '#49483e'}, 'Solarized': {'bg_dark': '#002b36', 'bg_medium': '#073642', 'bg_light': '#586e75', 'bg_hover': '#657b83', 'fg': '#eee8d5', 'accent': '#2aa198', 'border': '#586e75'}, 'Rose Pine': {'bg_dark': '#191724', 'bg_medium': '#1f1d2e', 'bg_light': '#26233a', 'bg_hover': '#403d52', 'fg': '#e0def4', 'accent': '#ebbcba', 'border': '#403d52'}, 'Catppuccin': {'bg_dark': '#1e1e2e', 'bg_medium': '#313244', 'bg_light': '#45475a', 'bg_hover': '#585b70', 'fg': '#cdd6f4', 'accent': '#cba6f7', 'border': '#45475a'}, 'Gruvbox': {'bg_dark': '#282828', 'bg_medium': '#3c3836', 'bg_light': '#504945', 'bg_hover': '#665c54', 'fg': '#ebdbb2', 'accent': '#fabd2f', 'border': '#504945'}, 'Tokyo Night': {'bg_dark': '#16161e', 'bg_medium': '#1f2335', 'bg_light': '#292e42', 'bg_hover': '#3b4261', 'fg': '#c0caf5', 'accent': '#7aa2f7', 'border': '#3b4261'}, 'Synthwave': {'bg_dark': '#241b2f', 'bg_medium': '#30233d', 'bg_light': '#45304f', 'bg_hover': '#5a3e64', 'fg': '#f5d7fe', 'accent': '#ff7edb', 'border': '#5a3e64'}, 'Forest': {'bg_dark': '#102018', 'bg_medium': '#183025', 'bg_light': '#254638', 'bg_hover': '#315a48', 'fg': '#d8f3dc', 'accent': '#74c69d', 'border': '#315a48'}, 'Ruby': {'bg_dark': '#241417', 'bg_medium': '#351b20', 'bg_light': '#4a252d', 'bg_hover': '#63323d', 'fg': '#f7dfe3', 'accent': '#ff6b81', 'border': '#63323d'}, 'Amber': {'bg_dark': '#211a0e', 'bg_medium': '#33270f', 'bg_light': '#4a3815', 'bg_hover': '#61491d', 'fg': '#fff0c2', 'accent': '#ffb84d', 'border': '#61491d'}, 'Arctic': {'bg_dark': '#17212b', 'bg_medium': '#21303d', 'bg_light': '#304554', 'bg_hover': '#405b6d', 'fg': '#e7f5ff', 'accent': '#66c7ff', 'border': '#405b6d'}, 'Lavender': {'bg_dark': '#211d2b', 'bg_medium': '#2d263b', 'bg_light': '#3c3350', 'bg_hover': '#514466', 'fg': '#eee7ff', 'accent': '#c4a7ff', 'border': '#514466'}, 'Coffee': {'bg_dark': '#211915', 'bg_medium': '#30231d', 'bg_light': '#45332a', 'bg_hover': '#5b4437', 'fg': '#f1dfd0', 'accent': '#d69e78', 'border': '#5b4437'}, 'Slate': {'bg_dark': '#181c20', 'bg_medium': '#232a30', 'bg_light': '#313a42', 'bg_hover': '#414c56', 'fg': '#d9e1e8', 'accent': '#8ab4c7', 'border': '#414c56'}, 'Cyber': {'bg_dark': '#080b12', 'bg_medium': '#101522', 'bg_light': '#182033', 'bg_hover': '#26334d', 'fg': '#d9f7ff', 'accent': '#00e5ff', 'border': '#26334d'}, 'Sunset': {'bg_dark': '#241516', 'bg_medium': '#35201e', 'bg_light': '#4a2b27', 'bg_hover': '#633b35', 'fg': '#ffe4d6', 'accent': '#ff8a65', 'border': '#633b35'}, 'Mint': {'bg_dark': '#10211e', 'bg_medium': '#17312c', 'bg_light': '#24473f', 'bg_hover': '#315d52', 'fg': '#dcfff5', 'accent': '#62e6c8', 'border': '#315d52'}, 'Deep Blue': {'bg_dark': '#0b1424', 'bg_medium': '#10213a', 'bg_light': '#193153', 'bg_hover': '#24446f', 'fg': '#dcecff', 'accent': '#5ca9ff', 'border': '#24446f'}, 'Obsidian': {'bg_dark': '#111318', 'bg_medium': '#1a1d24', 'bg_light': '#292e38', 'bg_hover': '#363d49', 'fg': '#e6e9ef', 'accent': '#8ab4f8', 'border': '#3b4351'}, 'Aurora': {'bg_dark': '#101820', 'bg_medium': '#172633', 'bg_light': '#234353', 'bg_hover': '#2d5c6d', 'fg': '#e4fbff', 'accent': '#66e3d4', 'border': '#376878'}, 'Plasma': {'bg_dark': '#160d24', 'bg_medium': '#24143b', 'bg_light': '#38215b', 'bg_hover': '#4d2b79', 'fg': '#f4eaff', 'accent': '#e38cff', 'border': '#5d3d83'}, 'Ember': {'bg_dark': '#20110d', 'bg_medium': '#321a14', 'bg_light': '#4a2820', 'bg_hover': '#63362a', 'fg': '#ffede5', 'accent': '#ff9d5c', 'border': '#714334'}, 'Meadow': {'bg_dark': '#0d1b16', 'bg_medium': '#142a20', 'bg_light': '#204433', 'bg_hover': '#2c5c43', 'fg': '#e4ffef', 'accent': '#8be28b', 'border': '#38694e'}})
 THEME_NAMES = list(THEMES.keys())
 DEFAULT_THEME = 'Midnight'
@@ -937,7 +135,7 @@ PANED_TOP_FRACTION = 0.45
 HPANED_LEFT_FRACTION = 0.73
 VIEWER_MIN_WIDTH = 480
 REPLACER_MIN_WIDTH = 220
-WATCH_INTERVAL_SEC = 0.5
+WATCH_INTERVAL_SEC = 0.65
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 _LOCAL_APPDATA = os.environ.get('LOCALAPPDATA') or os.path.expanduser('~')
 DATA_DIR = os.path.join(_LOCAL_APPDATA, 'RoUtils')
@@ -947,6 +145,7 @@ FFLAG_REFERENCE_CACHE_PATH = os.path.join(DATA_DIR, 'fflag_reference_cache.json'
 HTTP_RESPONSE_CACHE_MAX_BYTES = 6 * 1024 * 1024
 _HTTP_RESPONSE_CACHE = {}
 _HTTP_RESPONSE_CACHE_LOCK = threading.RLock()
+
 def _routils_request_cache_ttl(request):
     if request.get_method().upper() != 'GET' or getattr(request, 'data', None) is not None:
         return 0
@@ -963,18 +162,20 @@ def _routils_request_cache_ttl(request):
         return 600
     if 'games.roblox.com/v1/games/' in url and '/servers/Public?' in url:
         return 5
-    if ('apis.roblox.com/universes/v1/places/' in url or 'develop.roblox.com/v1/places/' in url or 'games.roblox.com/v1/games/multiget-place-details?' in url or 'games.roblox.com/v1/games?universeIds=' in url or 'develop.roblox.com/v1/universes/' in url):
+    if 'apis.roblox.com/universes/v1/places/' in url or 'develop.roblox.com/v1/places/' in url or 'games.roblox.com/v1/games/multiget-place-details?' in url or ('games.roblox.com/v1/games?universeIds=' in url) or ('develop.roblox.com/v1/universes/' in url):
         return 1800
     return 0
+
 def _routils_http_cache_path(url):
     return os.path.join(HTTP_CACHE_DIR, hashlib.sha256(str(url).encode('utf-8', 'replace')).hexdigest() + '.json')
+
 def _routils_load_http_cache(url, ttl, allow_stale=False):
     now = time.time()
     key = str(url)
     with _HTTP_RESPONSE_CACHE_LOCK:
         item = _HTTP_RESPONSE_CACHE.get(key)
         if item and (allow_stale or now - item[0] <= ttl):
-            return item[1], item[2]
+            return (item[1], item[2])
     path = _routils_http_cache_path(key)
     try:
         with open(path, 'r', encoding='utf-8') as source:
@@ -988,10 +189,12 @@ def _routils_load_http_cache(url, ttl, allow_stale=False):
             return None
         with _HTTP_RESPONSE_CACHE_LOCK:
             _HTTP_RESPONSE_CACHE[key] = (saved_at, body, response_headers)
-        return body, response_headers
+        return (body, response_headers)
     except Exception:
         return None
+
 class _RoUtilsCachedResponse(io.BytesIO):
+
     def __init__(self, body, url, headers=None):
         super().__init__(body)
         self.url = str(url)
@@ -999,18 +202,25 @@ class _RoUtilsCachedResponse(io.BytesIO):
         self.status = 200
         self.code = 200
         self.reason = 'OK'
+
     def __enter__(self):
         return self
+
     def __exit__(self, exc_type, exc_value, exc_traceback):
         self.close()
         return False
+
     def getcode(self):
         return self.status
+
     def geturl(self):
         return self.url
+
     def info(self):
         return self.headers
+
 class _RoUtilsResponseCacheCapture:
+
     def __init__(self, response, url, ttl):
         self._response = response
         self._url = str(url)
@@ -1021,8 +231,10 @@ class _RoUtilsResponseCacheCapture:
             self._expected = int(response.headers.get('Content-Length', 0) or 0)
         except Exception:
             self._expected = 0
+
     def __getattr__(self, name):
         return getattr(self._response, name)
+
     def __enter__(self):
         try:
             enter = getattr(self._response, '__enter__', None)
@@ -1031,6 +243,7 @@ class _RoUtilsResponseCacheCapture:
         except Exception:
             pass
         return self
+
     def __exit__(self, exc_type, exc_value, exc_traceback):
         exit_method = getattr(self._response, '__exit__', None)
         if callable(exit_method):
@@ -1040,6 +253,7 @@ class _RoUtilsResponseCacheCapture:
         except Exception:
             pass
         return False
+
     def read(self, size=-1):
         chunk = self._response.read(size)
         if not chunk or self._saved:
@@ -1076,6 +290,7 @@ SPLASH_IMAGE_URL = 'https://raw.githubusercontent.com/offp001/routils/refs/heads
 APP_VERSION = '5.2.9'
 RELEASES_URL = 'https://github.com/offp001/routils/releases'
 RELEASES_API_URL = 'https://api.github.com/repos/offp001/routils/releases?per_page=30'
+
 def _routils_request(url, timeout=10, headers=None, data=None, method=None, cache_bypass=False):
     request_headers = {'User-Agent': f'RoUtils/{APP_VERSION}', 'Accept': 'application/json, */*'}
     if headers:
@@ -1085,7 +300,7 @@ def _routils_request(url, timeout=10, headers=None, data=None, method=None, cach
         ttl = _routils_request_cache_ttl(request)
     except Exception:
         ttl = 0
-    if ttl and not cache_bypass:
+    if ttl and (not cache_bypass):
         try:
             cached = _routils_load_http_cache(request.full_url, ttl)
             if cached is not None:
@@ -1103,18 +318,20 @@ SETTINGS_PATH = os.path.join(DATA_DIR, 'routils_settings.json')
 ERROR_REPORT_DIR = os.path.join(DATA_DIR, 'errors')
 _ACTIVE_APP = None
 _ERROR_REPORTING = False
+
 def _routils_darken_color(color, amount=0.2):
     try:
         value = str(color).lstrip('#')
         if len(value) == 3:
-            value = ''.join(char * 2 for char in value)
+            value = ''.join((char * 2 for char in value))
         if len(value) != 6:
             return color
         channels = [int(value[index:index + 2], 16) for index in (0, 2, 4)]
         factor = max(0.0, min(1.0, 1.0 - float(amount)))
-        return '#%02x%02x%02x' % tuple(round(channel * factor) for channel in channels)
+        return '#%02x%02x%02x' % tuple((round(channel * factor) for channel in channels))
     except Exception:
         return color
+
 def _ensure_splash_image_file():
     os.makedirs(SPLASH_DIR, exist_ok=True)
     if os.path.isfile(SPLASH_IMAGE_PATH):
@@ -1150,6 +367,7 @@ _NOTIFICATION_HISTORY_PATH = os.path.join(DATA_DIR, 'notifications.json')
 _NOTIFICATION_HISTORY = []
 _NOTIFICATION_HISTORY_LOCK = threading.Lock()
 _ERROR_DEDUPE = {}
+
 def _load_notification_history():
     global _NOTIFICATION_HISTORY
     try:
@@ -1159,6 +377,7 @@ def _load_notification_history():
             _NOTIFICATION_HISTORY = [x for x in data if isinstance(x, dict)][-200:]
     except Exception:
         _NOTIFICATION_HISTORY = []
+
 def _save_notification_history():
     try:
         os.makedirs(DATA_DIR, exist_ok=True)
@@ -1168,6 +387,7 @@ def _save_notification_history():
         os.replace(temporary, _NOTIFICATION_HISTORY_PATH)
     except Exception:
         pass
+
 def _record_notification(title, message, kind='info'):
     entry = {'time': datetime.now().strftime('%H:%M:%S'), 'date': datetime.now().strftime('%Y-%m-%d'), 'title': _routils_visible_text(str(title)), 'message': _routils_visible_text(str(message)), 'kind': str(kind)}
     with _NOTIFICATION_HISTORY_LOCK:
@@ -1182,13 +402,14 @@ def _record_notification(title, message, kind='info'):
         pass
     return entry
 _load_notification_history()
+
 def _report_rotools_error(exc_type, exc_value, exc_tb, app=None):
     global _ERROR_REPORTING
     if _ERROR_REPORTING:
         return
     short = str(exc_value).strip().splitlines()[0] if str(exc_value).strip() else exc_type.__name__
     target = app or _ACTIVE_APP
-    if isinstance(exc_value, tk.TclError) and re.search(r"Item .+ not found", short, re.IGNORECASE):
+    if isinstance(exc_value, tk.TclError) and re.search('Item .+ not found', short, re.IGNORECASE):
         try:
             if target is not None:
                 target._console_log(UI_TEXT['a1'])
@@ -1232,7 +453,9 @@ def _report_rotools_error(exc_type, exc_value, exc_tb, app=None):
             pass
     finally:
         _ERROR_REPORTING = False
+
 def _install_error_hooks():
+
     def hook(exc_type, exc_value, exc_tb):
         _report_rotools_error(exc_type, exc_value, exc_tb)
     sys.excepthook = hook
@@ -1241,6 +464,7 @@ def _install_error_hooks():
 CONSOLE_HISTORY_PATH = os.path.join(DATA_DIR, 'console_history.json')
 TEMP_EMU_DIR = os.path.join(tempfile.gettempdir(), 'RobloxStudio_TempView')
 os.makedirs(TEMP_EMU_DIR, exist_ok=True)
+
 class PropertyFormat(enum.IntEnum):
     UNKNOWN = 0
     STRING = 1
@@ -1278,11 +502,13 @@ class PropertyFormat(enum.IntEnum):
     SECURITY_CAPABILITIES = 33
     CONTENT = 34
 PROPERTY_FORMAT_TO_XML_TAG: dict[PropertyFormat, str] = {PropertyFormat.STRING: 'string', PropertyFormat.BOOL: 'bool', PropertyFormat.INT: 'int', PropertyFormat.FLOAT: 'float', PropertyFormat.DOUBLE: 'double', PropertyFormat.UDIM: 'UDim', PropertyFormat.UDIM2: 'UDim2', PropertyFormat.RAY: 'Ray', PropertyFormat.FACES: 'Faces', PropertyFormat.AXES: 'Axes', PropertyFormat.BRICK_COLOR: 'BrickColor', PropertyFormat.COLOR3: 'Color3', PropertyFormat.VECTOR2: 'Vector2', PropertyFormat.VECTOR3: 'Vector3', PropertyFormat.VECTOR2INT16: 'Vector2int16', PropertyFormat.CFRAME_MATRIX: 'CoordinateFrame', PropertyFormat.CFRAME_QUAT: 'CoordinateFrame', PropertyFormat.ENUM: 'token', PropertyFormat.REF: 'Ref', PropertyFormat.VECTOR3INT16: 'Vector3int16', PropertyFormat.NUMBER_SEQUENCE: 'NumberSequence', PropertyFormat.COLOR_SEQUENCE: 'ColorSequence', PropertyFormat.NUMBER_RANGE: 'NumberRange', PropertyFormat.RECT2D: 'Rect2D', PropertyFormat.PHYSICAL_PROPERTIES: 'PhysicalProperties', PropertyFormat.COLOR3UINT8: 'Color3uint8', PropertyFormat.INT64: 'int64', PropertyFormat.SHARED_STRING: 'SharedString', PropertyFormat.BYTECODE: 'BinaryString', PropertyFormat.OPTIONAL_CFRAME: 'OptionalCoordinateFrame', PropertyFormat.UNIQUE_ID: 'UniqueId', PropertyFormat.FONT: 'Font', PropertyFormat.SECURITY_CAPABILITIES: 'SecurityCapabilities', PropertyFormat.CONTENT: 'Content'}
+
 @dataclass
 class RbxProperty:
     name: str
     fmt: PropertyFormat
     value: Any
+
 @dataclass
 class RbxInstance:
     class_name: str
@@ -1290,15 +516,18 @@ class RbxInstance:
     properties: dict[str, RbxProperty] = field(default_factory=dict[str, RbxProperty])
     children: list['RbxInstance'] = field(default_factory=list['RbxInstance'])
     is_service: bool = False
+
 @dataclass
 class RbxMetadata:
     entries: dict[str, str] = field(default_factory=dict[str, str])
+
 @dataclass
 class RbxTypeInfo:
     type_index: int
     class_name: str
     is_service: bool
     instance_ids: list[int]
+
 @dataclass
 class RbxRawPropertyChunk:
     class_name: str
@@ -1306,10 +535,12 @@ class RbxRawPropertyChunk:
     fmt_byte: int
     value_data: bytes
     instance_count: int
+
 @dataclass
 class RbxRawChunk:
     name: str
     data: bytes
+
 @dataclass
 class RbxDocument:
     version: int
@@ -1323,29 +554,38 @@ class RbxDocument:
     raw_chunks: list[RbxRawChunk] = field(default_factory=list[RbxRawChunk])
 if TYPE_CHECKING:
     pass
+
 def read_u8(data: bytes, offset: int) -> tuple[int, int]:
     return (data[offset], offset + 1)
+
 def read_u32(data: bytes, offset: int) -> tuple[int, int]:
     val = struct.unpack_from('<I', data, offset)[0]
     return (val, offset + 4)
+
 def read_f32(data: bytes, offset: int) -> tuple[float, int]:
     val = struct.unpack_from('<f', data, offset)[0]
     return (val, offset + 4)
+
 def read_f64(data: bytes, offset: int) -> tuple[float, int]:
     val = struct.unpack_from('<d', data, offset)[0]
     return (val, offset + 8)
+
 def read_bytes(data: bytes, offset: int, length: int) -> tuple[bytes, int]:
     return (data[offset:offset + length], offset + length)
+
 def read_string(data: bytes, offset: int) -> tuple[str, int]:
     length, offset = read_u32(data, offset)
     raw, offset = read_bytes(data, offset, length)
     return (raw.decode('utf-8', errors='replace'), offset)
+
 def read_binary_string(data: bytes, offset: int) -> tuple[bytes, int]:
     length, offset = read_u32(data, offset)
     raw, offset = read_bytes(data, offset, length)
     return (raw, offset)
+
 def decode_zigzag(value: int) -> int:
     return value >> 1 ^ -(value & 1)
+
 def deinterleave_u32(data: bytes, offset: int, count: int) -> list[int]:
     values: list[int] = []
     total = count * 4
@@ -1357,9 +597,11 @@ def deinterleave_u32(data: bytes, offset: int, count: int) -> list[int]:
         b3 = block[3 * count + i]
         values.append(b0 << 24 | b1 << 16 | b2 << 8 | b3)
     return values
+
 def deinterleave_i32(data: bytes, offset: int, count: int) -> list[int]:
     raw = deinterleave_u32(data, offset, count)
     return [decode_zigzag(v) for v in raw]
+
 def deinterleave_f32(data: bytes, offset: int, count: int) -> list[float]:
     raw = deinterleave_u32(data, offset, count)
     result: list[float] = []
@@ -1367,6 +609,7 @@ def deinterleave_f32(data: bytes, offset: int, count: int) -> list[float]:
         bits = v >> 1 | (v & 1) << 31
         result.append(struct.unpack('<f', struct.pack('<I', bits))[0])
     return result
+
 def deinterleave_i64(data: bytes, offset: int, count: int) -> list[int]:
     values: list[int] = []
     total = count * 8
@@ -1377,6 +620,7 @@ def deinterleave_i64(data: bytes, offset: int, count: int) -> list[int]:
             val = val << 8 | block[byte_idx * count + i]
         values.append(val >> 1 ^ -(val & 1))
     return values
+
 def deinterleave_u64(data: bytes, offset: int, count: int) -> list[int]:
     values: list[int] = []
     total = count * 8
@@ -1387,9 +631,11 @@ def deinterleave_u64(data: bytes, offset: int, count: int) -> list[int]:
             val = val << 8 | block[byte_idx * count + i]
         values.append(val)
     return values
+
 def deinterleave_bytes(data: bytes, offset: int, count: int, width: int) -> list[bytes]:
     block = data[offset:offset + count * width]
     return [bytes((block[byte_idx * count + i] for byte_idx in range(width))) for i in range(count)]
+
 def decode_ids(data: bytes, offset: int, count: int) -> tuple[list[int], int]:
     deltas = deinterleave_i32(data, offset, count)
     ids: list[int] = []
@@ -1398,25 +644,35 @@ def decode_ids(data: bytes, offset: int, count: int) -> tuple[list[int], int]:
         acc += d
         ids.append(acc)
     return (ids, offset + count * 4)
+
 def write_u8(value: int) -> bytes:
     return bytes([value & 255])
+
 def write_u16(value: int) -> bytes:
     return struct.pack('<H', value)
+
 def write_u32(value: int) -> bytes:
     return struct.pack('<I', value)
+
 def write_f32(value: float) -> bytes:
     return struct.pack('<f', value)
+
 def write_f64(value: float) -> bytes:
     return struct.pack('<d', value)
+
 def write_string(value: str) -> bytes:
     encoded = value.encode('utf-8')
     return write_u32(len(encoded)) + encoded
+
 def write_binary_string(value: bytes) -> bytes:
     return write_u32(len(value)) + value
+
 def encode_zigzag32(value: int) -> int:
     return (value << 1 ^ value >> 31) & 4294967295
+
 def encode_zigzag64(value: int) -> int:
     return (value << 1 ^ value >> 63) & 18446744073709551615
+
 def interleave_u32(values: list[int]) -> bytes:
     count = len(values)
     out = bytearray(count * 4)
@@ -1426,8 +682,10 @@ def interleave_u32(values: list[int]) -> bytes:
         out[2 * count + i] = v >> 8 & 255
         out[3 * count + i] = v & 255
     return bytes(out)
+
 def interleave_i32(values: list[int]) -> bytes:
     return interleave_u32([encode_zigzag32(v) for v in values])
+
 def interleave_f32(values: list[float]) -> bytes:
     raw_ints: list[int] = []
     for v in values:
@@ -1435,6 +693,7 @@ def interleave_f32(values: list[float]) -> bytes:
         rotated = ((bits & 2147483647) << 1 | bits >> 31) & 4294967295
         raw_ints.append(rotated)
     return interleave_u32(raw_ints)
+
 def interleave_i64(values: list[int]) -> bytes:
     count = len(values)
     out = bytearray(count * 8)
@@ -1443,6 +702,7 @@ def interleave_i64(values: list[int]) -> bytes:
         for byte_idx in range(8):
             out[byte_idx * count + i] = zz >> 56 - byte_idx * 8 & 255
     return bytes(out)
+
 def interleave_u64(values: list[int]) -> bytes:
     count = len(values)
     out = bytearray(count * 8)
@@ -1451,6 +711,7 @@ def interleave_u64(values: list[int]) -> bytes:
         for byte_idx in range(8):
             out[byte_idx * count + i] = v >> 56 - byte_idx * 8 & 255
     return bytes(out)
+
 def interleave_bytes(values: list[bytes], width: int) -> bytes:
     count = len(values)
     out = bytearray(count * width)
@@ -1461,6 +722,7 @@ def interleave_bytes(values: list[bytes], width: int) -> bytes:
         for byte_idx, byte in enumerate(value):
             out[byte_idx * count + i] = byte
     return bytes(out)
+
 def encode_ids(ids: list[int]) -> bytes:
     deltas: list[int] = []
     prev = 0
@@ -1470,10 +732,13 @@ def encode_ids(ids: list[int]) -> bytes:
     return interleave_i32(deltas)
 MAGIC_HEADER = b'<roblox!\x89\xff\r\n\x1a\n'
 FILE_VERSION = 0
+
 def write_rbxm(doc: RbxDocument) -> bytes:
     s = RbxmSerializer(doc)
     return s.serialize()
+
 class RbxmSerializer:
+
     def __init__(self, doc: RbxDocument) -> None:
         self._doc = doc
         self._type_index: dict[str, int] = {}
@@ -1483,6 +748,7 @@ class RbxmSerializer:
         self._shared_string_index: dict[bytes, int] = {}
         self._assign_types()
         self._collect_shared_strings()
+
     def _walk(self) -> list[RbxInstance]:
         result: list[RbxInstance] = []
         queue = list(self._doc.roots)
@@ -1491,6 +757,7 @@ class RbxmSerializer:
             result.append(inst)
             queue.extend(inst.children)
         return result
+
     def _assign_types(self) -> None:
         self._all_instances = self._walk()
         for inst in self._all_instances:
@@ -1498,6 +765,7 @@ class RbxmSerializer:
                 idx = len(self._type_index)
                 self._type_index[inst.class_name] = idx
             self._type_instances[self._type_index[inst.class_name]].append(inst)
+
     def _collect_shared_strings(self) -> None:
         for inst in self._all_instances:
             for prop in inst.properties.values():
@@ -1505,6 +773,7 @@ class RbxmSerializer:
                     if prop.value not in self._shared_string_index:
                         self._shared_string_index[prop.value] = len(self._shared_strings)
                         self._shared_strings.append(prop.value)
+
     def serialize(self) -> bytes:
         type_count = len(self._type_index)
         object_count = len(self._all_instances)
@@ -1528,6 +797,7 @@ class RbxmSerializer:
         chunks.extend(self._build_chunk('END\x00', b'</roblox>'))
         header = MAGIC_HEADER + struct.pack('<H', FILE_VERSION) + struct.pack('<I', type_count) + struct.pack('<I', object_count) + b'\x00' * 8
         return header + bytes(chunks)
+
     @staticmethod
     def _build_chunk(name: str, data: bytes) -> bytes:
         name_b = name.encode('ascii')[:4].ljust(4, b'\x00')
@@ -1539,6 +809,7 @@ class RbxmSerializer:
             return name_b + struct.pack('<III', len(compressed), uncompressed_size, 0) + compressed
         else:
             return name_b + struct.pack('<III', 0, uncompressed_size, 0) + data
+
     def _build_meta(self) -> bytes:
         buf = bytearray()
         entries = self._doc.metadata.entries
@@ -1547,6 +818,7 @@ class RbxmSerializer:
             buf.extend(write_string(key))
             buf.extend(write_string(value))
         return bytes(buf)
+
     def _build_sstr(self) -> bytes:
         buf = bytearray()
         buf.extend(write_u32(0))
@@ -1556,6 +828,7 @@ class RbxmSerializer:
             buf.extend(md5)
             buf.extend(write_binary_string(blob))
         return bytes(buf)
+
     def _build_inst(self, type_idx: int, class_name: str) -> bytes:
         instances = self._type_instances[type_idx]
         ids = [inst.referent for inst in instances]
@@ -1570,12 +843,14 @@ class RbxmSerializer:
             for inst in instances:
                 buf.extend(write_u8(1 if inst.is_service else 0))
         return bytes(buf)
+
     @staticmethod
     def _collect_prop_names(instances: list[RbxInstance]) -> list[str]:
         names: set[str] = set()
         for inst in instances:
             names.update(inst.properties.keys())
         return sorted(names)
+
     def _build_prop(self, type_idx: int, prop_name: str, instances: list[RbxInstance]) -> bytes | None:
         fmt: PropertyFormat | None = None
         values: list[Any] = []
@@ -1599,6 +874,7 @@ class RbxmSerializer:
         buf.extend(write_u8(int(fmt)))
         buf.extend(encoded)
         return bytes(buf)
+
     @staticmethod
     def _default_value(fmt: PropertyFormat) -> Any:
         match fmt:
@@ -1662,6 +938,7 @@ class RbxmSerializer:
                 return None
             case _:
                 return None
+
     def _encode_prop_values(self, fmt: PropertyFormat, values: list[Any]) -> bytes | None:
         match fmt:
             case PropertyFormat.STRING:
@@ -1743,6 +1020,7 @@ class RbxmSerializer:
                 return self._enc_contents(values)
             case _:
                 return None
+
     @staticmethod
     def _enc_strings(values: list[Any]) -> bytes:
         buf = bytearray()
@@ -1754,6 +1032,7 @@ class RbxmSerializer:
                 buf.extend(write_u32(len(raw)))
                 buf.extend(raw)
         return bytes(buf)
+
     @staticmethod
     def _enc_cframes(values: list[Any]) -> bytes:
         buf = bytearray()
@@ -1776,10 +1055,12 @@ class RbxmSerializer:
         buf.extend(interleave_f32(ys))
         buf.extend(interleave_f32(zs))
         return bytes(buf)
+
     @staticmethod
     def _enc_refs(values: list[Any]) -> bytes:
         ids = [-1 if v is None else int(v) for v in values]
         return encode_ids(ids)
+
     @staticmethod
     def _enc_number_sequences(values: list[Any]) -> bytes:
         buf = bytearray()
@@ -1790,6 +1071,7 @@ class RbxmSerializer:
                 buf.extend(write_f32(float(key['Value'])))
                 buf.extend(write_f32(float(key['Envelope'])))
         return bytes(buf)
+
     @staticmethod
     def _enc_color_sequences(values: list[Any]) -> bytes:
         buf = bytearray()
@@ -1802,6 +1084,7 @@ class RbxmSerializer:
                 buf.extend(write_f32(float(key['B'])))
                 buf.extend(write_f32(0.0))
         return bytes(buf)
+
     @staticmethod
     def _enc_physical_properties(values: list[Any]) -> bytes:
         buf = bytearray()
@@ -1821,6 +1104,7 @@ class RbxmSerializer:
                 if has_acoustic_absorption:
                     buf.extend(write_f32(float(v['AcousticAbsorption'])))
         return bytes(buf)
+
     def _enc_shared_strings(self, values: list[Any]) -> bytes:
         indices = []
         for v in values:
@@ -1829,6 +1113,7 @@ class RbxmSerializer:
             else:
                 indices.append(0)
         return interleave_u32(indices)
+
     @staticmethod
     def _enc_bytecodes(values: list[Any]) -> bytes:
         buf = bytearray()
@@ -1838,12 +1123,14 @@ class RbxmSerializer:
             else:
                 buf.extend(write_binary_string(str(value).encode('utf-8')))
         return bytes(buf)
+
     @staticmethod
     def _enc_optional_cframes(values: list[Any]) -> bytes:
         default = RbxmSerializer._default_value(PropertyFormat.CFRAME_MATRIX)
         cframes = [default if value is None else value for value in values]
         present = [value is not None for value in values]
         return write_u8(int(PropertyFormat.CFRAME_MATRIX)) + RbxmSerializer._enc_cframes(cframes) + write_u8(int(PropertyFormat.BOOL)) + bytes([1 if value else 0 for value in present])
+
     @staticmethod
     def _enc_unique_ids(values: list[Any]) -> bytes:
         records: list[bytes] = []
@@ -1853,6 +1140,7 @@ class RbxmSerializer:
                 continue
             records.append(struct.pack('>IIQ', int(value.get('Index', 0)) & 4294967295, int(value.get('Time', 0)) & 4294967295, int(value.get('Random', 0)) & 18446744073709551615))
         return interleave_bytes(records, 16)
+
     @staticmethod
     def _enc_fonts(values: list[Any]) -> bytes:
         style_names = {'Normal': 0, 'Italic': 1}
@@ -1868,6 +1156,7 @@ class RbxmSerializer:
             buf.extend(write_u8(int(style)))
             buf.extend(write_binary_string(cached_face_id))
         return bytes(buf)
+
     @staticmethod
     def _enc_contents(values: list[Any]) -> bytes:
         source_types: list[int] = []
@@ -1905,6 +1194,7 @@ class RbxmSerializer:
         buf.extend(write_u32(len(external_object_refs)))
         buf.extend(encode_ids(external_object_refs))
         return bytes(buf)
+
     def _build_raw_props(self) -> list[bytes]:
         props: list[bytes] = []
         for raw in self._doc.raw_property_chunks:
@@ -1912,6 +1202,7 @@ class RbxmSerializer:
             if prop is not None:
                 props.append(prop)
         return props
+
     def _build_raw_prop(self, raw: RbxRawPropertyChunk) -> bytes | None:
         type_idx = self._type_index.get(raw.class_name)
         if type_idx is None:
@@ -1924,6 +1215,7 @@ class RbxmSerializer:
         buf.extend(write_u8(raw.fmt_byte))
         buf.extend(raw.value_data)
         return bytes(buf)
+
     def _build_prnt(self) -> bytes:
         child_to_parent: dict[int, int] = {}
         for inst in self._all_instances:
@@ -1942,6 +1234,7 @@ class RbxmSerializer:
         return bytes(buf)
 log = logging.getLogger(__name__)
 _shared_string_registry: dict[str, str] = {}
+
 def write_rbxmx(doc: RbxDocument) -> bytes:
     _shared_string_registry.clear()
     root = Element('roblox')
@@ -1969,6 +1262,7 @@ def write_rbxmx(doc: RbxDocument) -> bytes:
     xml_bytes = tostring(root, encoding='unicode', xml_declaration=False)
     header = '<?xml version="1.0" encoding="utf-8"?>\n'
     return (header + xml_bytes).encode('utf-8')
+
 def _write_instance(parent_el: Element, inst: RbxInstance, doc: RbxDocument) -> None:
     item = SubElement(parent_el, 'Item')
     item.set('class', inst.class_name)
@@ -1978,6 +1272,7 @@ def _write_instance(parent_el: Element, inst: RbxInstance, doc: RbxDocument) -> 
         _write_property(props_el, prop, doc)
     for child in inst.children:
         _write_instance(item, child, doc)
+
 def _write_property(props_el: Element, prop: RbxProperty, doc: RbxDocument) -> None:
     xml_tag = PROPERTY_FORMAT_TO_XML_TAG.get(prop.fmt, 'string')
     match prop.fmt:
@@ -2062,6 +1357,7 @@ def _write_property(props_el: Element, prop: RbxProperty, doc: RbxDocument) -> N
             _write_shared_string(props_el, prop)
         case _:
             log.warning('Skipping unhandled property format: %s', prop.fmt)
+
 def _has_invalid_xml_chars(s: str) -> bool:
     for ch in s:
         codepoint = ord(ch)
@@ -2072,6 +1368,7 @@ def _has_invalid_xml_chars(s: str) -> bool:
         if codepoint in (65534, 65535):
             return True
     return False
+
 def _write_string_prop(parent: Element, tag: str, prop: RbxProperty) -> None:
     val = prop.value
     if isinstance(val, bytes):
@@ -2102,16 +1399,19 @@ def _write_string_prop(parent: Element, tag: str, prop: RbxProperty) -> None:
         el = SubElement(parent, tag)
         el.set('name', prop.name)
         el.text = val
+
 def _is_content_url(value: str, prop_name: str) -> bool:
     content_props = {'AssetId', 'MeshId', 'TextureId', 'SoundId', 'Texture', 'LinkedSource', 'Image', 'Animation'}
     if prop_name in content_props:
         return True
     return value.startswith(('http://', 'https://', 'rbxassetid://', 'rbxasset://'))
+
 def _write_udim(parent: Element, prop: RbxProperty) -> None:
     el = SubElement(parent, 'UDim')
     el.set('name', prop.name)
     SubElement(el, 'S').text = _fmt_float(prop.value['S'])
     SubElement(el, 'O').text = str(prop.value['O'])
+
 def _write_udim2(parent: Element, prop: RbxProperty) -> None:
     el = SubElement(parent, 'UDim2')
     el.set('name', prop.name)
@@ -2119,6 +1419,7 @@ def _write_udim2(parent: Element, prop: RbxProperty) -> None:
     SubElement(el, 'XO').text = str(prop.value['XO'])
     SubElement(el, 'YS').text = _fmt_float(prop.value['YS'])
     SubElement(el, 'YO').text = str(prop.value['YO'])
+
 def _write_ray(parent: Element, prop: RbxProperty) -> None:
     el = SubElement(parent, 'Ray')
     el.set('name', prop.name)
@@ -2130,6 +1431,7 @@ def _write_ray(parent: Element, prop: RbxProperty) -> None:
     SubElement(direction, 'X').text = _fmt_float(prop.value['direction']['X'])
     SubElement(direction, 'Y').text = _fmt_float(prop.value['direction']['Y'])
     SubElement(direction, 'Z').text = _fmt_float(prop.value['direction']['Z'])
+
 def _write_faces(parent: Element, prop: RbxProperty) -> None:
     el = SubElement(parent, 'Faces')
     el.set('name', prop.name)
@@ -2140,6 +1442,7 @@ def _write_faces(parent: Element, prop: RbxProperty) -> None:
         if mask & 1 << i:
             faces.append(name)
     el.text = ', '.join(faces) if faces else ''
+
 def _write_axes(parent: Element, prop: RbxProperty) -> None:
     el = SubElement(parent, 'Axes')
     el.set('name', prop.name)
@@ -2150,28 +1453,33 @@ def _write_axes(parent: Element, prop: RbxProperty) -> None:
         if mask & 1 << i:
             axes.append(name)
     el.text = ', '.join(axes) if axes else ''
+
 def _write_color3(parent: Element, tag: str, prop: RbxProperty) -> None:
     el = SubElement(parent, tag)
     el.set('name', prop.name)
     SubElement(el, 'R').text = _fmt_float(prop.value['R'])
     SubElement(el, 'G').text = _fmt_float(prop.value['G'])
     SubElement(el, 'B').text = _fmt_float(prop.value['B'])
+
 def _write_vector2(parent: Element, prop: RbxProperty) -> None:
     el = SubElement(parent, 'Vector2')
     el.set('name', prop.name)
     SubElement(el, 'X').text = _fmt_float(prop.value['X'])
     SubElement(el, 'Y').text = _fmt_float(prop.value['Y'])
+
 def _write_vector3(parent: Element, tag: str, prop: RbxProperty) -> None:
     el = SubElement(parent, tag)
     el.set('name', prop.name)
     SubElement(el, 'X').text = _fmt_float(prop.value['X'])
     SubElement(el, 'Y').text = _fmt_float(prop.value['Y'])
     SubElement(el, 'Z').text = _fmt_float(prop.value['Z'])
+
 def _write_vector_int(parent: Element, tag: str, prop: RbxProperty, axes: tuple[str, ...]) -> None:
     el = SubElement(parent, tag)
     el.set('name', prop.name)
     for axis in axes:
         SubElement(el, axis).text = str(prop.value[axis])
+
 def _write_cframe(parent: Element, prop: RbxProperty) -> None:
     el = SubElement(parent, 'CoordinateFrame')
     el.set('name', prop.name)
@@ -2183,6 +1491,7 @@ def _write_cframe(parent: Element, prop: RbxProperty) -> None:
         for col in range(3):
             key = f'R{row}{col}'
             SubElement(el, key).text = _fmt_float(cf[key])
+
 def _write_cframe_fields(parent: Element, cf: dict[str, float]) -> None:
     SubElement(parent, 'X').text = _fmt_float(cf['X'])
     SubElement(parent, 'Y').text = _fmt_float(cf['Y'])
@@ -2191,6 +1500,7 @@ def _write_cframe_fields(parent: Element, cf: dict[str, float]) -> None:
         for col in range(3):
             key = f'R{row}{col}'
             SubElement(parent, key).text = _fmt_float(cf[key])
+
 def _write_optional_cframe(parent: Element, prop: RbxProperty) -> None:
     el = SubElement(parent, 'OptionalCoordinateFrame')
     el.set('name', prop.name)
@@ -2198,6 +1508,7 @@ def _write_optional_cframe(parent: Element, prop: RbxProperty) -> None:
         return
     cf_el = SubElement(el, 'CFrame')
     _write_cframe_fields(cf_el, prop.value)
+
 def _write_ref(parent: Element, prop: RbxProperty) -> None:
     el = SubElement(parent, 'Ref')
     el.set('name', prop.name)
@@ -2205,20 +1516,24 @@ def _write_ref(parent: Element, prop: RbxProperty) -> None:
         el.text = 'null'
     else:
         el.text = f'RBX{prop.value:032X}'
+
 def _write_number_sequence(parent: Element, prop: RbxProperty) -> None:
     el = SubElement(parent, 'NumberSequence')
     el.set('name', prop.name)
     parts: list[str] = [f"{_fmt_float(key['Time'])} {_fmt_float(key['Value'])} {_fmt_float(key['Envelope'])}" for key in prop.value]
     el.text = ' '.join(parts)
+
 def _write_color_sequence(parent: Element, prop: RbxProperty) -> None:
     el = SubElement(parent, 'ColorSequence')
     el.set('name', prop.name)
     parts: list[str] = [f"{_fmt_float(key['Time'])} {_fmt_float(key['R'])} {_fmt_float(key['G'])} {_fmt_float(key['B'])} 0" for key in prop.value]
     el.text = ' '.join(parts)
+
 def _write_number_range(parent: Element, prop: RbxProperty) -> None:
     el = SubElement(parent, 'NumberRange')
     el.set('name', prop.name)
     el.text = f"{_fmt_float(prop.value['Min'])} {_fmt_float(prop.value['Max'])}"
+
 def _write_rect2d(parent: Element, prop: RbxProperty) -> None:
     el = SubElement(parent, 'Rect2D')
     el.set('name', prop.name)
@@ -2230,6 +1545,7 @@ def _write_rect2d(parent: Element, prop: RbxProperty) -> None:
     max_el = SubElement(el, 'max')
     SubElement(max_el, 'X').text = _fmt_float(mx['X'])
     SubElement(max_el, 'Y').text = _fmt_float(mx['Y'])
+
 def _write_physical_properties(parent: Element, prop: RbxProperty) -> None:
     el = SubElement(parent, 'PhysicalProperties')
     el.set('name', prop.name)
@@ -2243,6 +1559,7 @@ def _write_physical_properties(parent: Element, prop: RbxProperty) -> None:
         SubElement(el, 'FrictionWeight').text = _fmt_float(prop.value['FrictionWeight'])
         SubElement(el, 'ElasticityWeight').text = _fmt_float(prop.value['ElasticityWeight'])
         SubElement(el, 'AcousticAbsorption').text = _fmt_float(prop.value.get('AcousticAbsorption', 1.0))
+
 def _write_color3uint8(parent: Element, prop: RbxProperty) -> None:
     el = SubElement(parent, 'Color3uint8')
     el.set('name', prop.name)
@@ -2251,6 +1568,7 @@ def _write_color3uint8(parent: Element, prop: RbxProperty) -> None:
     b = prop.value['B']
     packed = 4278190080 | r << 16 | g << 8 | b
     el.text = str(packed)
+
 def _write_shared_string(parent: Element, prop: RbxProperty) -> None:
     el = SubElement(parent, 'SharedString')
     el.set('name', prop.name)
@@ -2261,6 +1579,7 @@ def _write_shared_string(parent: Element, prop: RbxProperty) -> None:
         el.text = md5_b64
     else:
         el.text = str(prop.value)
+
 def _write_unique_id(parent: Element, prop: RbxProperty) -> None:
     el = SubElement(parent, 'UniqueId')
     el.set('name', prop.name)
@@ -2272,6 +1591,7 @@ def _write_unique_id(parent: Element, prop: RbxProperty) -> None:
     time = int(prop.value.get('Time', 0)) & 4294967295
     index = int(prop.value.get('Index', 0)) & 4294967295
     el.text = f'{xml_random:016x}{time:08x}{index:08x}'
+
 def _write_font(parent: Element, prop: RbxProperty) -> None:
     style_names = {0: 'Normal', 1: 'Italic'}
     el = SubElement(parent, 'Font')
@@ -2285,10 +1605,12 @@ def _write_font(parent: Element, prop: RbxProperty) -> None:
     if cached_face_id:
         cached = SubElement(el, 'CachedFaceId')
         _write_content_value(cached, cached_face_id)
+
 def _write_content(parent: Element, prop: RbxProperty) -> None:
     el = SubElement(parent, 'Content')
     el.set('name', prop.name)
     _write_content_value(el, prop.value)
+
 def _write_content_value(parent: Element, value: Any) -> None:
     if value is None:
         SubElement(parent, 'null')
@@ -2307,6 +1629,7 @@ def _write_content_value(parent: Element, value: Any) -> None:
         ref.text = 'null' if ref_value is None else f'RBX{int(ref_value):032X}'
     else:
         SubElement(parent, 'null')
+
 def _fmt_float(value: Any) -> str:
     if isinstance(value, float):
         if value.is_integer() and abs(value) < 1000000000000000.0:
@@ -2317,6 +1640,7 @@ log = logging.getLogger(__name__)
 MAGIC_HEADER = b'<roblox!\x89\xff\r\n\x1a\n'
 FILE_HEADER_SIZE = 32
 ZSTD_MAGIC = b'(\xb5/\xfd'
+
 def _decompress_chunk(raw: bytes, uncompressed_size: int) -> bytes:
     if raw.startswith(ZSTD_MAGIC):
         try:
@@ -2327,7 +1651,9 @@ def _decompress_chunk(raw: bytes, uncompressed_size: int) -> bytes:
         return zstandard.ZstdDecompressor().decompress(raw, max_output_size=uncompressed_size)
     return lz4.block.decompress(raw, uncompressed_size=uncompressed_size)
 _ORIENTATION_MATRICES: dict[int, tuple[float, ...]] = {0: (1, 0, 0, 0, 1, 0, 0, 0, 1), 1: (1, 0, 0, 0, 0, -1, 0, 1, 0), 2: (1, 0, 0, 0, -1, 0, 0, 0, -1), 3: (1, 0, 0, 0, 0, 1, 0, -1, 0), 4: (0, 1, 0, 1, 0, 0, 0, 0, -1), 5: (0, 0, 1, 1, 0, 0, 0, 1, 0), 6: (0, -1, 0, 1, 0, 0, 0, 0, 1), 7: (0, 0, -1, 1, 0, 0, 0, -1, 0), 8: (0, 1, 0, 0, 0, 1, 1, 0, 0), 9: (0, 0, -1, 0, 1, 0, 1, 0, 0), 10: (0, -1, 0, 0, 0, -1, 1, 0, 0), 11: (0, 0, 1, 0, -1, 0, 1, 0, 0), 12: (-1, 0, 0, 0, 1, 0, 0, 0, -1), 13: (-1, 0, 0, 0, 0, 1, 0, 1, 0), 14: (-1, 0, 0, 0, -1, 0, 0, 0, 1), 15: (-1, 0, 0, 0, 0, -1, 0, -1, 0), 16: (0, 1, 0, -1, 0, 0, 0, 0, 1), 17: (0, 0, -1, -1, 0, 0, 0, 1, 0), 18: (0, -1, 0, -1, 0, 0, 0, 0, -1), 19: (0, 0, 1, -1, 0, 0, 0, -1, 0), 20: (0, 1, 0, 0, 0, -1, -1, 0, 0), 21: (0, 0, 1, 0, 1, 0, -1, 0, 0), 22: (0, -1, 0, 0, 0, 1, -1, 0, 0), 23: (0, 0, -1, 0, -1, 0, -1, 0, 0)}
+
 class RbxmDeserializer:
+
     def __init__(self) -> None:
         self._type_infos: list[RbxTypeInfo] = []
         self._instances: dict[int, RbxInstance] = {}
@@ -2338,11 +1664,13 @@ class RbxmDeserializer:
         self._version: int = 0
         self._type_count: int = 0
         self._object_count: int = 0
+
     def deserialize(self, data: bytes) -> RbxDocument:
         offset = self._read_file_header(data)
         offset = self._read_chunks(data, offset)
         roots = self._build_tree()
         return RbxDocument(version=self._version, type_count=self._type_count, object_count=self._object_count, metadata=self._metadata, instances=self._instances, roots=roots, shared_strings=self._shared_strings, raw_property_chunks=self._raw_property_chunks, raw_chunks=self._raw_chunks)
+
     def _read_file_header(self, data: bytes) -> int:
         magic = data[:14]
         if magic != MAGIC_HEADER:
@@ -2353,6 +1681,7 @@ class RbxmDeserializer:
         self._object_count = struct.unpack_from('<I', data, 20)[0]
         log.info('RBXM v%d: %d types, %d objects', self._version, self._type_count, self._object_count)
         return FILE_HEADER_SIZE
+
     def _read_chunks(self, data: bytes, offset: int) -> int:
         while offset < len(data):
             chunk_name = data[offset:offset + 4].decode('ascii')
@@ -2371,6 +1700,7 @@ class RbxmDeserializer:
             if chunk_name == 'END\x00':
                 break
         return offset
+
     def _process_chunk(self, name: str, data: bytes) -> None:
         handler = {'META': self._handle_meta, 'SSTR': self._handle_sstr, 'INST': self._handle_inst, 'PROP': self._handle_prop, 'PRNT': self._handle_prnt}.get(name)
         if handler is not None:
@@ -2380,6 +1710,7 @@ class RbxmDeserializer:
         else:
             self._raw_chunks.append(RbxRawChunk(name=name, data=data))
             log.warning('Unknown chunk type: %r', name)
+
     def _handle_meta(self, data: bytes) -> None:
         offset = 0
         count, offset = read_u32(data, offset)
@@ -2388,6 +1719,7 @@ class RbxmDeserializer:
             value, offset = read_string(data, offset)
             self._metadata.entries[key] = value
             log.debug('META: %s = %s', key, value)
+
     def _handle_sstr(self, data: bytes) -> None:
         offset = 0
         _version, offset = read_u32(data, offset)
@@ -2396,6 +1728,7 @@ class RbxmDeserializer:
             _md5, offset = read_bytes(data, offset, 16)
             blob, offset = read_binary_string(data, offset)
             self._shared_strings.append(blob)
+
     def _handle_inst(self, data: bytes) -> None:
         offset = 0
         type_index, offset = read_u32(data, offset)
@@ -2417,6 +1750,7 @@ class RbxmDeserializer:
             inst = RbxInstance(class_name=class_name, referent=inst_id, is_service=is_service and i < len(service_flags) and service_flags[i])
             self._instances[inst_id] = inst
         log.debug('INST[%d]: %s x%d (service=%s)', type_index, class_name, id_count, is_service)
+
     def _handle_prop(self, data: bytes) -> None:
         offset = 0
         type_index, offset = read_u32(data, offset)
@@ -2440,6 +1774,7 @@ class RbxmDeserializer:
             if inst_id in self._instances and i < len(values):
                 self._instances[inst_id].properties[prop_name] = RbxProperty(name=prop_name, fmt=fmt, value=values[i])
         log.debug('PROP[%d].%s: fmt=%s, %d values', type_index, prop_name, fmt.name, len(values))
+
     def _preserve_raw_property(self, type_index: int, prop_name: str, fmt_byte: int, value_data: bytes) -> None:
         if type_index >= len(self._type_infos):
             log.warning('PROP references unknown type index %d', type_index)
@@ -2447,6 +1782,7 @@ class RbxmDeserializer:
         info = self._type_infos[type_index]
         self._raw_property_chunks.append(RbxRawPropertyChunk(class_name=info.class_name, prop_name=prop_name, fmt_byte=fmt_byte, value_data=value_data, instance_count=len(info.instance_ids)))
         log.warning('Unknown property format %d for %s, preserving raw payload', fmt_byte, prop_name)
+
     def _read_property_values(self, fmt: PropertyFormat, data: bytes, offset: int, count: int) -> list[Any]:
         match fmt:
             case PropertyFormat.STRING:
@@ -2518,6 +1854,7 @@ class RbxmDeserializer:
             case _:
                 log.warning('Unhandled property format: %s', fmt)
                 return [None] * count
+
     def _read_strings(self, data: bytes, offset: int, count: int) -> list[str | bytes]:
         results: list[str | bytes] = []
         for _ in range(count):
@@ -2527,28 +1864,35 @@ class RbxmDeserializer:
             except UnicodeDecodeError:
                 results.append(raw)
         return results
+
     def _read_bools(self, data: bytes, offset: int, count: int) -> list[bool]:
         return [data[offset + i] != 0 for i in range(count)]
+
     def _read_ints(self, data: bytes, offset: int, count: int) -> list[int]:
         return deinterleave_i32(data, offset, count)
+
     def _read_floats(self, data: bytes, offset: int, count: int) -> list[float]:
         return deinterleave_f32(data, offset, count)
+
     def _read_doubles(self, data: bytes, offset: int, count: int) -> list[float]:
         results: list[float] = []
         for i in range(count):
             val, _ = read_f64(data, offset + i * 8)
             results.append(val)
         return results
+
     def _read_udims(self, data: bytes, offset: int, count: int) -> list[dict[str, float | int]]:
         scales = deinterleave_f32(data, offset, count)
         offsets = deinterleave_i32(data, offset + count * 4, count)
         return [{'S': scales[i], 'O': offsets[i]} for i in range(count)]
+
     def _read_udim2s(self, data: bytes, offset: int, count: int) -> list[dict[str, float | int]]:
         xs = deinterleave_f32(data, offset, count)
         ys = deinterleave_f32(data, offset + count * 4, count)
         xo = deinterleave_i32(data, offset + count * 8, count)
         yo = deinterleave_i32(data, offset + count * 12, count)
         return [{'XS': xs[i], 'XO': xo[i], 'YS': ys[i], 'YO': yo[i]} for i in range(count)]
+
     def _read_rays(self, data: bytes, offset: int, count: int) -> list[dict[str, dict[str, float]]]:
         results: list[dict[str, dict[str, float]]] = []
         for _ in range(count):
@@ -2560,26 +1904,33 @@ class RbxmDeserializer:
             dz, offset = read_f32(data, offset)
             results.append({'origin': {'X': ox, 'Y': oy, 'Z': oz}, 'direction': {'X': dx, 'Y': dy, 'Z': dz}})
         return results
+
     def _read_faces(self, data: bytes, offset: int, count: int) -> list[int]:
         return [data[offset + i] for i in range(count)]
+
     def _read_axes(self, data: bytes, offset: int, count: int) -> list[int]:
         return [data[offset + i] for i in range(count)]
+
     def _read_brick_colors(self, data: bytes, offset: int, count: int) -> list[int]:
         return deinterleave_u32(data, offset, count)
+
     def _read_color3s(self, data: bytes, offset: int, count: int) -> list[dict[str, float]]:
         rs = deinterleave_f32(data, offset, count)
         gs = deinterleave_f32(data, offset + count * 4, count)
         bs = deinterleave_f32(data, offset + count * 8, count)
         return [{'R': rs[i], 'G': gs[i], 'B': bs[i]} for i in range(count)]
+
     def _read_vector2s(self, data: bytes, offset: int, count: int) -> list[dict[str, float]]:
         xs = deinterleave_f32(data, offset, count)
         ys = deinterleave_f32(data, offset + count * 4, count)
         return [{'X': xs[i], 'Y': ys[i]} for i in range(count)]
+
     def _read_vector3s(self, data: bytes, offset: int, count: int) -> list[dict[str, float]]:
         xs = deinterleave_f32(data, offset, count)
         ys = deinterleave_f32(data, offset + count * 4, count)
         zs = deinterleave_f32(data, offset + count * 8, count)
         return [{'X': xs[i], 'Y': ys[i], 'Z': zs[i]} for i in range(count)]
+
     def _read_vector2int16s(self, data: bytes, offset: int, count: int) -> list[dict[str, int]]:
         results: list[dict[str, int]] = []
         for _ in range(count):
@@ -2588,6 +1939,7 @@ class RbxmDeserializer:
             offset += 4
             results.append({'X': x, 'Y': y})
         return results
+
     def _read_vector3int16s(self, data: bytes, offset: int, count: int) -> list[dict[str, int]]:
         results: list[dict[str, int]] = []
         for _ in range(count):
@@ -2597,9 +1949,11 @@ class RbxmDeserializer:
             offset += 6
             results.append({'X': x, 'Y': y, 'Z': z})
         return results
+
     def _read_cframes(self, data: bytes, offset: int, count: int, fmt: PropertyFormat) -> list[dict[str, float]]:
         results, _offset = self._read_cframes_with_offset(data, offset, count, fmt)
         return results
+
     def _read_cframes_with_offset(self, data: bytes, offset: int, count: int, fmt: PropertyFormat) -> tuple[list[dict[str, float]], int]:
         rotations: list[tuple[float, ...]] = []
         for _ in range(count):
@@ -2629,11 +1983,14 @@ class RbxmDeserializer:
             r = rotations[i]
             results.append({'X': xs[i], 'Y': ys[i], 'Z': zs[i], 'R00': r[0], 'R01': r[1], 'R02': r[2], 'R10': r[3], 'R11': r[4], 'R12': r[5], 'R20': r[6], 'R21': r[7], 'R22': r[8]})
         return (results, offset)
+
     def _read_enums(self, data: bytes, offset: int, count: int) -> list[int]:
         return deinterleave_u32(data, offset, count)
+
     def _read_refs(self, data: bytes, offset: int, count: int) -> list[int | None]:
         ids, _ = decode_ids(data, offset, count)
         return [None if v == -1 else v for v in ids]
+
     def _read_number_sequences(self, data: bytes, offset: int, count: int) -> list[list[dict[str, float]]]:
         results: list[list[dict[str, float]]] = []
         for _ in range(count):
@@ -2646,6 +2003,7 @@ class RbxmDeserializer:
                 keys.append({'Time': time, 'Value': value, 'Envelope': envelope})
             results.append(keys)
         return results
+
     def _read_color_sequences(self, data: bytes, offset: int, count: int) -> list[list[dict[str, float]]]:
         results: list[list[dict[str, float]]] = []
         for _ in range(count):
@@ -2660,6 +2018,7 @@ class RbxmDeserializer:
                 keys.append({'Time': time, 'R': r, 'G': g, 'B': b})
             results.append(keys)
         return results
+
     def _read_number_ranges(self, data: bytes, offset: int, count: int) -> list[dict[str, float]]:
         results: list[dict[str, float]] = []
         for _ in range(count):
@@ -2667,12 +2026,14 @@ class RbxmDeserializer:
             high, offset = read_f32(data, offset)
             results.append({'Min': low, 'Max': high})
         return results
+
     def _read_rect2ds(self, data: bytes, offset: int, count: int) -> list[dict[str, dict[str, float]]]:
         x0s = deinterleave_f32(data, offset, count)
         y0s = deinterleave_f32(data, offset + count * 4, count)
         x1s = deinterleave_f32(data, offset + count * 8, count)
         y1s = deinterleave_f32(data, offset + count * 12, count)
         return [{'min': {'X': x0s[i], 'Y': y0s[i]}, 'max': {'X': x1s[i], 'Y': y1s[i]}} for i in range(count)]
+
     def _read_physical_properties(self, data: bytes, offset: int, count: int) -> list[dict[str, Any] | None]:
         results: list[dict[str, Any] | None] = []
         for _ in range(count):
@@ -2695,22 +2056,27 @@ class RbxmDeserializer:
             else:
                 results.append(None)
         return results
+
     def _read_color3uint8s(self, data: bytes, offset: int, count: int) -> list[dict[str, int]]:
         rs = data[offset:offset + count]
         gs = data[offset + count:offset + 2 * count]
         bs = data[offset + 2 * count:offset + 3 * count]
         return [{'R': rs[i], 'G': gs[i], 'B': bs[i]} for i in range(count)]
+
     def _read_int64s(self, data: bytes, offset: int, count: int) -> list[int]:
         return deinterleave_i64(data, offset, count)
+
     def _read_shared_strings(self, data: bytes, offset: int, count: int) -> list[bytes]:
         indices = deinterleave_u32(data, offset, count)
         return [self._shared_strings[idx] if idx < len(self._shared_strings) else b'' for idx in indices]
+
     def _read_bytecodes(self, data: bytes, offset: int, count: int) -> list[bytes]:
         results: list[bytes] = []
         for _ in range(count):
             raw, offset = read_binary_string(data, offset)
             results.append(raw)
         return results
+
     def _read_optional_cframes(self, data: bytes, offset: int, count: int) -> list[dict[str, float] | None]:
         cframe_fmt_byte, offset = read_u8(data, offset)
         if cframe_fmt_byte != int(PropertyFormat.CFRAME_MATRIX):
@@ -2721,6 +2087,7 @@ class RbxmDeserializer:
             log.warning('OptionalCoordinateFrame contained unexpected presence format %d', bool_fmt_byte)
         present = self._read_bools(data, offset, count)
         return [cframes[i] if present[i] else None for i in range(count)]
+
     def _read_unique_ids(self, data: bytes, offset: int, count: int) -> list[dict[str, int]]:
         records = deinterleave_bytes(data, offset, count, 16)
         results: list[dict[str, int]] = []
@@ -2728,6 +2095,7 @@ class RbxmDeserializer:
             index, time, random = struct.unpack('>IIQ', record)
             results.append({'Index': index, 'Time': time, 'Random': random})
         return results
+
     def _read_fonts(self, data: bytes, offset: int, count: int) -> list[dict[str, Any]]:
         results: list[dict[str, Any]] = []
         for _ in range(count):
@@ -2738,8 +2106,10 @@ class RbxmDeserializer:
             cached_face_raw, offset = read_binary_string(data, offset)
             results.append({'Family': family_raw.decode('utf-8', errors='replace'), 'Weight': weight, 'Style': style, 'CachedFaceId': cached_face_raw.decode('utf-8', errors='replace')})
         return results
+
     def _read_security_capabilities(self, data: bytes, offset: int, count: int) -> list[int]:
         return deinterleave_u64(data, offset, count)
+
     def _read_contents(self, data: bytes, offset: int, count: int) -> list[dict[str, Any] | None]:
         source_types = deinterleave_u32(data, offset, count)
         offset += count * 4
@@ -2775,6 +2145,7 @@ class RbxmDeserializer:
             else:
                 results.append({'SourceType': source_type})
         return results
+
     def _handle_prnt(self, data: bytes) -> None:
         offset = 0
         _fmt, offset = read_u8(data, offset)
@@ -2787,12 +2158,14 @@ class RbxmDeserializer:
             if child is not None and parent is not None:
                 parent.children.append(child)
         log.debug('PRNT: %d links', link_count)
+
     def _build_tree(self) -> list[RbxInstance]:
         parented: set[int] = set()
         for inst in self._instances.values():
             for child in inst.children:
                 parented.add(child.referent)
         return [inst for inst in self._instances.values() if inst.referent not in parented]
+
 def _quat_to_matrix(x: float, y: float, z: float, w: float) -> tuple[float, ...]:
     xx, yy, zz = (x * x, y * y, z * z)
     xy, xz, yz = (x * y, x * z, y * z)
@@ -2800,6 +2173,7 @@ def _quat_to_matrix(x: float, y: float, z: float, w: float) -> tuple[float, ...]
     return (1 - 2 * (yy + zz), 2 * (xy - wz), 2 * (xz + wy), 2 * (xy + wz), 1 - 2 * (xx + zz), 2 * (yz - wx), 2 * (xz - wy), 2 * (yz + wx), 1 - 2 * (xx + yy))
 RBXM_MAGIC = b'<roblox!'
 RBXM_SIGNATURE = bytes([137, 255, 13, 10, 26, 10])
+
 @dataclass
 class RbxmInstance:
     class_name: str
@@ -2807,6 +2181,7 @@ class RbxmInstance:
     properties: Dict[str, Any] = field(default_factory=dict)
     children: List['RbxmInstance'] = field(default_factory=list)
     parent: Optional['RbxmInstance'] = None
+
 def decode_interleaved_i32(data: bytes, count: int) -> List[int]:
     if len(data) < count * 4:
         return []
@@ -2823,6 +2198,7 @@ def decode_interleaved_i32(data: bytes, count: int) -> List[int]:
             value = value >> 1
         result.append(value)
     return result
+
 def decode_interleaved_f32(data: bytes, count: int) -> List[float]:
     if len(data) < count * 4:
         return []
@@ -2836,11 +2212,13 @@ def decode_interleaved_f32(data: bytes, count: int) -> List[float]:
         ieee = (raw >> 1 | (raw & 1) << 31) & 4294967295
         result.append(struct.unpack('<f', struct.pack('<I', ieee))[0])
     return result
+
 def read_string(data: bytes, offset: int) -> Tuple[str, int]:
     length = struct.unpack_from('<I', data, offset)[0]
     offset += 4
     value = data[offset:offset + length].decode('utf-8', errors='replace')
     return (value, offset + length)
+
 def decompress_chunk(data: bytes, compressed_size: int, uncompressed_size: int) -> bytes:
     if compressed_size == 0:
         return data[:uncompressed_size]
@@ -2852,6 +2230,7 @@ def decompress_chunk(data: bytes, compressed_size: int, uncompressed_size: int) 
         except Exception:
             return data[:compressed_size]
 CFRAME_ROTATIONS = {2: [1, 0, 0, 0, 1, 0, 0, 0, 1], 3: [1, 0, 0, 0, 0, -1, 0, 1, 0], 4: [1, 0, 0, 0, -1, 0, 0, 0, -1], 5: [1, 0, 0, 0, 0, 1, 0, -1, 0], 6: [0, 1, 0, 1, 0, 0, 0, 0, -1], 7: [0, 0, 1, 1, 0, 0, 0, 1, 0], 8: [0, -1, 0, 1, 0, 0, 0, 0, 1], 9: [0, 0, -1, 1, 0, 0, 0, -1, 0], 10: [0, 1, 0, 0, 0, 1, 1, 0, 0], 11: [0, 0, -1, 0, 1, 0, 1, 0, 0], 12: [0, -1, 0, 0, 0, -1, 1, 0, 0], 13: [0, 0, 1, 0, -1, 0, 1, 0, 0], 14: [-1, 0, 0, 0, 1, 0, 0, 0, -1], 15: [-1, 0, 0, 0, 0, 1, 0, 1, 0], 16: [-1, 0, 0, 0, -1, 0, 0, 0, 1], 17: [-1, 0, 0, 0, 0, -1, 0, -1, 0], 18: [0, 1, 0, -1, 0, 0, 0, 0, 1], 19: [0, 0, -1, -1, 0, 0, 0, 1, 0], 20: [0, -1, 0, -1, 0, 0, 0, 0, -1], 21: [0, 0, 1, -1, 0, 0, 0, -1, 0], 22: [0, 1, 0, 0, 0, -1, -1, 0, 0], 23: [0, 0, 1, 0, 1, 0, -1, 0, 0], 24: [0, -1, 0, 0, 0, 1, -1, 0, 0], 25: [0, 0, -1, 0, -1, 0, -1, 0, 0]}
+
 def parse_rbxm(data: bytes) -> Dict[int, RbxmInstance]:
     if len(data) < 32:
         raise ValueError('File too small to be valid RBXM')
@@ -2903,6 +2282,7 @@ def parse_rbxm(data: bytes) -> Dict[int, RbxmInstance]:
                 parent.children.append(child)
                 child.parent = parent
     return instances
+
 def _parse_inst_chunk(data: bytes, class_info: Dict, instances: Dict):
     offset = 0
     class_id = struct.unpack_from('<I', data, offset)[0]
@@ -2922,6 +2302,7 @@ def _parse_inst_chunk(data: bytes, class_info: Dict, instances: Dict):
     class_info[class_id] = (class_name, referents)
     for ref in referents:
         instances[ref] = RbxmInstance(class_name=class_name, referent=ref)
+
 def _parse_prop_chunk(data: bytes, class_info: Dict, instances: Dict):
     offset = 0
     class_id = struct.unpack_from('<I', data, offset)[0]
@@ -2939,6 +2320,7 @@ def _parse_prop_chunk(data: bytes, class_info: Dict, instances: Dict):
     for i, ref in enumerate(referents):
         if ref in instances and i < len(values):
             instances[ref].properties[prop_name] = values[i]
+
 def _parse_prop_values(data: bytes, type_id: int, count: int) -> List[Any]:
     values = []
     if type_id == 1:
@@ -2971,6 +2353,7 @@ def _parse_prop_values(data: bytes, type_id: int, count: int) -> List[Any]:
     else:
         values = [None] * count
     return values
+
 def _parse_cframes(data: bytes, count: int) -> List[Dict]:
     offset = 0
     cframes = []
@@ -3003,6 +2386,7 @@ def _parse_cframes(data: bytes, count: int) -> List[Dict]:
         z = positions_z[i] if i < len(positions_z) else 0.0
         cframes.append({'position': (x, y, z), 'rotation': rot})
     return cframes
+
 def _parse_prnt_chunk(data: bytes, instances: Dict, parent_refs: Dict):
     offset = 0
     offset += 1
@@ -3022,10 +2406,13 @@ def _parse_prnt_chunk(data: bytes, instances: Dict, parent_refs: Dict):
         parent_ref_list.append(parent_current)
     for i in range(len(child_refs)):
         parent_refs[child_refs[i]] = parent_ref_list[i]
+
 class _EmbeddedLogBuffer:
+
     def __init__(self):
         self._lock = threading.Lock()
         self.buffer = []
+
     def log(self, tag, msg):
         try:
             with self._lock:
@@ -3034,6 +2421,7 @@ class _EmbeddedLogBuffer:
                     del self.buffer[:1000]
         except Exception:
             pass
+
     def clear(self):
         try:
             with self._lock:
@@ -3047,18 +2435,24 @@ try:
 except ImportError:
     DRACO_AVAILABLE = False
     log_buffer.log('Mesh', UI_TEXT['i32'])
+
 class Vertex:
+
     def __init__(self):
         self.px = self.py = self.pz = 0.0
         self.nx = self.ny = self.nz = 0.0
         self.tu = self.tv = self.tw = 0.0
         self.tx = self.ty = self.tz = self.ts = 0
         self.r = self.g = self.b = self.a = 255
+
 class Face:
+
     def __init__(self, a=0, b=0, c=0):
         self.a, self.b, self.c = (a, b, c)
+
 def fix_float(s: str) -> str:
     return s.replace(',', '.')
+
 def read_vertices(data: bytes, offset: int, count: int, vsize: int) -> tuple[list[Vertex], int]:
     verts = []
     pos = offset
@@ -3100,6 +2494,7 @@ def read_vertices(data: bytes, offset: int, count: int, vsize: int) -> tuple[lis
             pos += 1
         verts.append(v)
     return (verts, pos)
+
 def write_obj_data(v_lines: list[str], n_lines: list[str], t_lines: list[str], f_lines: list[str]) -> str:
     lines = ['# Converted from Roblox mesh format\n']
     lines.append(f'# Vertices: {len(v_lines)}, Faces: {len(f_lines)}\n\n')
@@ -3111,6 +2506,7 @@ def write_obj_data(v_lines: list[str], n_lines: list[str], t_lines: list[str], f
     lines.append('\n')
     lines.extend((line + '\n' for line in f_lines))
     return ''.join(lines)
+
 def process_v1(data: bytes) -> str:
     try:
         lines = data.decode('utf-8', errors='replace').splitlines()
@@ -3154,6 +2550,7 @@ def process_v1(data: bytes) -> str:
     except Exception as e:
         log_buffer.log('Mesh', f'Error processing v1 mesh: {e}')
         return None
+
 def process_v2_to_v5(data: bytes, version_num: str) -> str:
     try:
         offset = 13
@@ -3228,6 +2625,7 @@ def process_v2_to_v5(data: bytes, version_num: str) -> str:
     except Exception as e:
         log_buffer.log('Mesh', f'Error processing v{version_num} mesh: {e}')
         return None
+
 def process_v6_v7(data: bytes) -> str:
     if not DRACO_AVAILABLE:
         log_buffer.log('Mesh', UI_TEXT['j32'])
@@ -3378,6 +2776,7 @@ def process_v6_v7(data: bytes) -> str:
         traceback.print_exc()
         return None
 SUPPORTED_MESH_HEADERS = ('version 1.', 'version 2.00', 'version 3.00', 'version 3.01', 'version 4.00', 'version 4.01', 'version 5.00', 'version 6.00', 'version 7.00')
+
 def _mesh_header(data: bytes) -> str:
     if data.startswith(b'\x1f\x8b'):
         try:
@@ -3385,6 +2784,7 @@ def _mesh_header(data: bytes) -> str:
         except Exception:
             return ''
     return data[:12].decode('utf-8', errors='ignore').strip()
+
 def convert(data: bytes, output_path: str=None) -> str:
     if not data or len(data) < 12:
         log_buffer.log('Mesh', UI_TEXT['k32'])
@@ -3417,10 +2817,12 @@ def convert(data: bytes, output_path: str=None) -> str:
             log_buffer.log('Mesh', f'Failed to write OBJ file: {e}')
     return obj_content
 RBXM_MAGIC = b'<roblox!\x89\xff\r\n\x1a\n'
+
 def decompress_if_needed(data: bytes) -> bytes:
     if data.startswith(b'\x1f\x8b'):
         return gzip.decompress(data)
     return data
+
 def classify_roblox_document(data: bytes) -> str | None:
     try:
         data = decompress_if_needed(data)
@@ -3434,6 +2836,7 @@ def classify_roblox_document(data: bytes) -> str | None:
             return None
         return 'rbxl' if _xml_contains_datamodel(root) else 'rbxmx'
     return None
+
 def _to_binary_document(data: bytes) -> bytes:
     data = _extract_document_body(data)
     if data.startswith(RBXM_MAGIC):
@@ -3442,6 +2845,7 @@ def _to_binary_document(data: bytes) -> bytes:
     if _parse_roblox_xml(data) is None:
         raise ValueError(UI_TEXT['l32'])
     return write_rbxm(_xml_to_document(data))
+
 def _extract_rbxh_document(data: bytes) -> bytes:
     raw = data or b''
     if raw[:4] != RBXH_MAGIC:
@@ -3450,6 +2854,7 @@ def _extract_rbxh_document(data: bytes) -> bytes:
     body = meta.get('body') or b''
     body = _maybe_gunzip(body, meta.get('headers') or {})
     return _extract_document_body(decompress_if_needed(body))
+
 def convert_roblox_file(data: bytes, source_ext: str, target_ext: str, template_data: bytes=b'') -> bytes:
     source_ext = (source_ext or '').lower()
     target_ext = (target_ext or '').lower()
@@ -3465,6 +2870,7 @@ def convert_roblox_file(data: bytes, source_ext: str, target_ext: str, template_
         binary = _to_binary_document(document)
         return write_rbxmx(RbxmDeserializer().deserialize(binary))
     raise ValueError(f"{UI_TEXT['m32']}{target_ext}")
+
 def _wrap_rbxm_bytes(data: bytes, content_type: str='application/octet-stream', template_data: bytes=b'') -> bytes:
     raw = _to_binary_document(data)
     reserved = b'\x00' * 8
@@ -3473,8 +2879,10 @@ def _wrap_rbxm_bytes(data: bytes, content_type: str='application/octet-stream', 
         if template_body == raw and len(template_data) >= 37:
             reserved = template_data[29:37]
     return RBXH_MAGIC + struct.pack('<II', 2, 0) + b'\x00' + struct.pack('<I', 200) + struct.pack('<I', 0) + b'\x00' * 4 + struct.pack('<I', len(raw)) + reserved + raw
+
 def _document_contains_datamodel(doc: RbxDocument) -> bool:
     return any((inst.class_name == 'DataModel' for inst in doc.instances.values()))
+
 def _binary_contains_class(data: bytes, class_name: str) -> bool:
     offset = 32
     target = class_name
@@ -3508,10 +2916,13 @@ def _binary_contains_class(data: bytes, class_name: str) -> bool:
         except Exception:
             return False
     return False
+
 def _xml_contains_datamodel(root: ET.Element) -> bool:
     return any((_tag_name(elem) == 'Item' and elem.get('class') == 'DataModel' for elem in root.iter()))
+
 def _xml_contains_item(root: ET.Element) -> bool:
     return any((_tag_name(elem) == 'Item' for elem in root.iter()))
+
 def _parse_roblox_xml(data: bytes) -> ET.Element | None:
     stripped = data.lstrip()
     if stripped.startswith(b'\xef\xbb\xbf'):
@@ -3525,6 +2936,7 @@ def _parse_roblox_xml(data: bytes) -> ET.Element | None:
     if _tag_name(root) != 'roblox':
         return None
     return root
+
 def _xml_to_document(data: bytes) -> RbxDocument:
     root = ET.fromstring(data)
     if _tag_name(root) != 'roblox':
@@ -3547,6 +2959,7 @@ def _xml_to_document(data: bytes) -> RbxDocument:
             shared_strings.append(blob)
     ref_map: dict[str, int] = {}
     next_ref = 1
+
     def mapped_ref(ref: str) -> int:
         nonlocal next_ref
         if ref in ref_map:
@@ -3561,6 +2974,7 @@ def _xml_to_document(data: bytes) -> RbxDocument:
         ref_map[ref] = value
         return value
     instances: dict[int, RbxInstance] = {}
+
     def parse_item(item: ET.Element) -> RbxInstance:
         referent_text = item.get('referent') or ''
         referent = mapped_ref(referent_text)
@@ -3583,6 +2997,7 @@ def _xml_to_document(data: bytes) -> RbxDocument:
     roots = [parse_item(item) for item in _children_named(root, 'Item')]
     metadata = {elem.get('name') or _tag_name(elem): (elem.text or '').strip() for elem in list(root) if _tag_name(elem) == 'Meta'}
     return RbxDocument(version=0, type_count=0, object_count=len(instances), metadata=RbxMetadata(entries=metadata), instances=instances, roots=roots, shared_strings=shared_strings)
+
 def _xml_property_value(elem: ET.Element, type_name: str, shared_by_md5: dict[str, bytes]) -> Any:
     text = elem.text or ''
     if type_name == 'SharedString':
@@ -3600,6 +3015,7 @@ def _xml_property_value(elem: ET.Element, type_name: str, shared_by_md5: dict[st
     if list(elem):
         return {_tag_name(child): (child.text or '').strip() for child in elem}
     return text.strip()
+
 def _property_format_from_type_name(type_name: str) -> PropertyFormat | None:
     normalized = type_name.strip()
     if not normalized:
@@ -3613,6 +3029,7 @@ def _property_format_from_type_name(type_name: str) -> PropertyFormat | None:
     if key in aliases:
         return aliases[key]
     return tag_to_format.get(key, PropertyFormat.STRING)
+
 def _value_for_format(value: Any, fmt: PropertyFormat, ref_mapper) -> Any:
     if fmt in {PropertyFormat.INT, PropertyFormat.ENUM, PropertyFormat.BRICK_COLOR, PropertyFormat.SECURITY_CAPABILITIES}:
         return _safe_int(value)
@@ -3689,30 +3106,35 @@ def _value_for_format(value: Any, fmt: PropertyFormat, ref_mapper) -> Any:
     if fmt == PropertyFormat.FONT:
         return _parse_font_value(value)
     return value
+
 def _parse_udim_value(value: Any) -> dict[str, float | int]:
     pairs = {str(k): v for k, v in value.items()} if isinstance(value, dict) else _parse_key_values(str(value))
     if pairs:
         return {'S': _safe_float(pairs.get('S', 0.0)), 'O': _safe_int(pairs.get('O', 0))}
     numbers = _parse_numbers(str(value))
     return {'S': numbers[0] if len(numbers) > 0 else 0.0, 'O': int(numbers[1]) if len(numbers) > 1 else 0}
+
 def _parse_udim2_value(value: Any) -> dict[str, float | int]:
     pairs = {str(k): v for k, v in value.items()} if isinstance(value, dict) else _parse_key_values(str(value))
     if pairs:
         return {'XS': _safe_float(pairs.get('XS', 0.0)), 'XO': _safe_int(pairs.get('XO', 0)), 'YS': _safe_float(pairs.get('YS', 0.0)), 'YO': _safe_int(pairs.get('YO', 0))}
     numbers = _parse_numbers(str(value))
     return {'XS': numbers[0] if len(numbers) > 0 else 0.0, 'XO': int(numbers[1]) if len(numbers) > 1 else 0, 'YS': numbers[2] if len(numbers) > 2 else 0.0, 'YO': int(numbers[3]) if len(numbers) > 3 else 0}
+
 def _parse_vector_value(value: Any, keys: tuple[str, ...], caster) -> dict[str, Any]:
     pairs = {str(k): v for k, v in value.items()} if isinstance(value, dict) else _parse_key_values(str(value))
     if pairs:
         return {key: _cast_number(pairs.get(key, 0), caster) for key in keys}
     numbers = _parse_numbers(str(value))
     return {key: _cast_number(numbers[index] if index < len(numbers) else 0, caster) for index, key in enumerate(keys)}
+
 def _parse_ray_value(value: Any) -> dict[str, dict[str, float]]:
     if isinstance(value, dict):
         return {'origin': _parse_vector_value(value.get('origin', {}), ('X', 'Y', 'Z'), float), 'direction': _parse_vector_value(value.get('direction', {}), ('X', 'Y', 'Z'), float)}
     numbers = _parse_numbers(str(value))
     padded = numbers + [0.0] * max(0, 6 - len(numbers))
     return {'origin': {'X': padded[0], 'Y': padded[1], 'Z': padded[2]}, 'direction': {'X': padded[3], 'Y': padded[4], 'Z': padded[5]}}
+
 def _parse_cframe_value(value: Any) -> dict[str, float] | None:
     text = str(value).strip()
     if value is None or text.lower() in {'', 'none', 'null'}:
@@ -3734,6 +3156,7 @@ def _parse_cframe_value(value: Any) -> dict[str, float] | None:
     elif len(numbers) >= 3:
         result['X'], result['Y'], result['Z'] = numbers[:3]
     return result
+
 def _parse_number_range_value(value: Any) -> dict[str, float]:
     if isinstance(value, dict):
         return {'Min': _safe_float(value.get('Min', 0.0)), 'Max': _safe_float(value.get('Max', 0.0))}
@@ -3742,12 +3165,14 @@ def _parse_number_range_value(value: Any) -> dict[str, float]:
         return {'Min': _safe_float(pairs.get('Min', 0.0)), 'Max': _safe_float(pairs.get('Max', 0.0))}
     numbers = _parse_numbers(str(value))
     return {'Min': numbers[0] if len(numbers) > 0 else 0.0, 'Max': numbers[1] if len(numbers) > 1 else 0.0}
+
 def _parse_rect2d_value(value: Any) -> dict[str, dict[str, float]]:
     if isinstance(value, dict):
         return {'min': _parse_vector_value(value.get('min', {}), ('X', 'Y'), float), 'max': _parse_vector_value(value.get('max', {}), ('X', 'Y'), float)}
     numbers = _parse_numbers(str(value))
     padded = numbers + [0.0] * max(0, 4 - len(numbers))
     return {'min': {'X': padded[0], 'Y': padded[1]}, 'max': {'X': padded[2], 'Y': padded[3]}}
+
 def _parse_physical_properties_value(value: Any) -> dict[str, Any] | None:
     text = str(value).strip()
     if value is None or text.lower() in {'', 'none', 'null', 'default'}:
@@ -3764,6 +3189,7 @@ def _parse_physical_properties_value(value: Any) -> dict[str, Any] | None:
     if len(numbers) > 5:
         result['AcousticAbsorption'] = numbers[5]
     return result
+
 def _parse_font_value(value: Any) -> dict[str, Any]:
     if isinstance(value, dict):
         return {'Family': str(value.get('Family', '')), 'Weight': _safe_int(value.get('Weight', 400)), 'Style': _safe_int(value.get('Style', 0)), 'CachedFaceId': str(value.get('CachedFaceId', ''))}
@@ -3772,6 +3198,7 @@ def _parse_font_value(value: Any) -> dict[str, Any]:
         return _parse_font_value(pairs)
     parts = [part.strip() for part in str(value).split(',')]
     return {'Family': parts[0] if len(parts) > 0 else '', 'Weight': _safe_int(parts[1] if len(parts) > 1 else 400), 'Style': _safe_int(parts[2] if len(parts) > 2 else 0), 'CachedFaceId': parts[3] if len(parts) > 3 else ''}
+
 def _parse_key_values(text: str) -> dict[str, str]:
     result: dict[str, str] = {}
     for part in re.split('[,;]\\s*', text.strip().strip('[]{}()')):
@@ -3786,33 +3213,41 @@ def _parse_key_values(text: str) -> dict[str, str]:
         if key:
             result[key] = raw_value
     return result
+
 def _parse_numbers(text: str) -> list[float]:
     return [float(match.group(0)) for match in re.finditer('[-+]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][-+]?\\d+)?', text)]
+
 def _cast_number(value: Any, caster):
     if caster is int:
         return int(round(float(value)))
     return caster(value)
+
 def _safe_int(value: Any) -> int:
     try:
         return int(str(value).strip(), 0)
     except (TypeError, ValueError):
         return 0
+
 def _safe_float(value: Any) -> float:
     try:
         return float(value)
     except (TypeError, ValueError):
         return 0.0
+
 def _safe_bool(value: Any) -> bool:
     if isinstance(value, bool):
         return value
     return str(value).strip().lower() in {'1', 'true', 'yes', 'on'}
+
 def _find_child(parent: ET.Element, name: str) -> ET.Element | None:
     for child in list(parent):
         if _tag_name(child) == name:
             return child
     return None
+
 def _children_named(parent: ET.Element, name: str) -> list[ET.Element]:
     return [child for child in list(parent) if _tag_name(child) == name]
+
 def _tag_name(elem: ET.Element) -> str:
     return elem.tag.rsplit('}', 1)[-1]
 _decompress_document = decompress_if_needed
@@ -3820,6 +3255,7 @@ _classify_document = classify_roblox_document
 _RbxmDeserializer = RbxmDeserializer
 _write_rbxmx = write_rbxmx
 _write_rbxm = write_rbxm
+
 def apply_visual_polish(root: tk.Tk, theme: Optional[str]='system', palette: Optional[Dict[str, str]]=None):
     global _CURRENT_PALETTE
     try:
@@ -3924,6 +3360,7 @@ def apply_visual_polish(root: tk.Tk, theme: Optional[str]='system', palette: Opt
     except Exception:
         pass
     _theme_open_windows(root)
+
 def darken_menus(menus: Iterable) -> None:
     p = _CURRENT_PALETTE
     bg_dark = p.get('bg_dark', '#1e1e1e')
@@ -3931,6 +3368,7 @@ def darken_menus(menus: Iterable) -> None:
     fg_white = p.get('fg', '#d4d4d4')
     accent = p.get('accent', '#007acc')
     seen = set()
+
     def _apply(menu):
         if id(menu) in seen:
             return
@@ -3954,11 +3392,13 @@ def darken_menus(menus: Iterable) -> None:
             _apply(m)
         except Exception:
             pass
+
 def _set_pane_minsize(paned: ttk.PanedWindow, pane, size: int) -> None:
     try:
         paned.paneconfigure(pane, minsize=size)
     except Exception:
         pass
+
 def _toggle_toplevel_maximize(win, state=None):
     try:
         if state is None:
@@ -3975,6 +3415,7 @@ def _toggle_toplevel_maximize(win, state=None):
         win._routils_max_state = state
     except Exception:
         pass
+
 def theme_toplevel(win) -> None:
     p = _CURRENT_PALETTE
     try:
@@ -4007,6 +3448,7 @@ def theme_toplevel(win) -> None:
         except Exception:
             pass
         theme_toplevel(c)
+
 def _theme_on_map(event) -> None:
     try:
         widget = event.widget
@@ -4014,6 +3456,7 @@ def _theme_on_map(event) -> None:
             theme_toplevel(widget)
     except Exception:
         pass
+
 def _theme_open_windows(root) -> None:
     try:
         for child in root.winfo_children():
@@ -4021,21 +3464,26 @@ def _theme_open_windows(root) -> None:
                 theme_toplevel(child)
     except Exception:
         pass
+
 def default_paths():
     local = os.environ.get('LOCALAPPDATA') or os.path.expanduser('~')
     db = os.path.join(local, 'Roblox', 'rbx-storage.db')
     shard_root = os.path.join(local, 'Roblox', 'rbx-storage')
     return (db, shard_root)
+
 def human_size(n: int) -> str:
     n = max(0, int(n))
     for unit in ('B', 'KB', 'MB', 'GB', 'TB'):
         if n < 1024 or unit == 'TB':
             return f'{n:.0f}{unit}' if unit == 'B' else f'{n:.1f}{unit}'
         n /= 1024.0
+
 def id_bytes_to_hex(b: bytes) -> str:
     return b.hex()
+
 def shard_path(root: str, hash_hex: str) -> str:
     return os.path.join(root, hash_hex[:2], hash_hex)
+
 def read_shard_bytes(root: str, hash_hex: str) -> Optional[bytes]:
     path = shard_path(root, hash_hex)
     try:
@@ -4043,8 +3491,10 @@ def read_shard_bytes(root: str, hash_hex: str) -> Optional[bytes]:
             return f.read()
     except Exception:
         return None
+
 def now_hms() -> str:
     return datetime.now().strftime('%H:%M:%S')
+
 def _sanitize_filename_for_windows(s: str) -> str:
     s = str(s or '')
     illegal = '<>:"/\\|?*'
@@ -4059,12 +3509,14 @@ def _sanitize_filename_for_windows(s: str) -> str:
     if stem in reserved:
         cleaned = '_' + cleaned
     return cleaned[:180].rstrip(' .')
+
 def load_settings() -> Dict:
     try:
         with open(SETTINGS_PATH, 'r', encoding='utf-8') as f:
             return json.load(f)
     except Exception:
         return {}
+
 def save_settings(data: Dict) -> None:
     try:
         with open(SETTINGS_PATH, 'w', encoding='utf-8') as f:
@@ -4074,6 +3526,7 @@ def save_settings(data: Dict) -> None:
 _BUNDLE_DIR = getattr(sys, '_MEIPASS', BASE_DIR)
 ICON_PATH = os.path.join(_BUNDLE_DIR, 'routils.ico')
 RPC_LOGO_PATH = os.path.join(DATA_DIR, 'routils_rpc.png')
+
 def _ensure_discord_rpc_logo():
     try:
         os.makedirs(DATA_DIR, exist_ok=True)
@@ -4091,6 +3544,7 @@ WEBVIEW2_URL_DEFAULTS = 'https://raw.githubusercontent.com/MaximumADHD/Roblox-FF
 WEBVIEW2_URL_OFFSETS_ROOT = 'https://offsets.imtheo.lol/'
 WEBVIEW2_URL_OFFSETS_TEMPLATE = 'https://offsets.imtheo.lol/{version}/fflags.hpp'
 GITHUB_PRESETS_API = 'https://api.github.com/repos/offp001/routils/contents/routils_windows/src/presets?ref=main'
+
 class _WindowsTrayIcon:
     WM_USER = 1024
     WM_TRAYICON = WM_USER + 100
@@ -4109,10 +3563,13 @@ class _WindowsTrayIcon:
     MF_STRING = 0
     ID_OPEN = 1001
     ID_EXIT = 1002
+
     class NOTIFYICONDATAW(ctypes.Structure):
         _fields_ = [('cbSize', ctypes.wintypes.DWORD), ('hWnd', ctypes.wintypes.HWND), ('uID', ctypes.wintypes.UINT), ('uFlags', ctypes.wintypes.UINT), ('uCallbackMessage', ctypes.wintypes.UINT), ('hIcon', ctypes.c_void_p), ('szTip', ctypes.wintypes.WCHAR * 128), ('dwState', ctypes.wintypes.DWORD), ('dwStateMask', ctypes.wintypes.DWORD), ('szInfo', ctypes.wintypes.WCHAR * 256), ('uVersion', ctypes.wintypes.UINT), ('szInfoTitle', ctypes.wintypes.WCHAR * 64), ('dwInfoFlags', ctypes.wintypes.DWORD), ('guidItem', ctypes.c_byte * 16), ('hBalloonIcon', ctypes.c_void_p)]
+
     class WNDCLASSW(ctypes.Structure):
         _fields_ = [('style', ctypes.wintypes.UINT), ('lpfnWndProc', ctypes.WINFUNCTYPE(ctypes.c_ssize_t, ctypes.wintypes.HWND, ctypes.wintypes.UINT, ctypes.wintypes.WPARAM, ctypes.wintypes.LPARAM)), ('cbClsExtra', ctypes.c_int), ('cbWndExtra', ctypes.c_int), ('hInstance', ctypes.c_void_p), ('hIcon', ctypes.c_void_p), ('hCursor', ctypes.c_void_p), ('hbrBackground', ctypes.c_void_p), ('lpszMenuName', ctypes.wintypes.LPCWSTR), ('lpszClassName', ctypes.wintypes.LPCWSTR)]
+
     def __init__(self, icon_path, on_open, on_exit):
         self.icon_path = icon_path
         self.on_open = on_open
@@ -4123,6 +3580,7 @@ class _WindowsTrayIcon:
         self._wndproc_ref = ctypes.WINFUNCTYPE(ctypes.c_ssize_t, ctypes.wintypes.HWND, ctypes.wintypes.UINT, ctypes.wintypes.WPARAM, ctypes.wintypes.LPARAM)(self._wndproc)
         self._class_atom = None
         self._nid = None
+
     def _wndproc(self, hwnd, msg, wparam, lparam):
         if msg == self.WM_TRAYICON:
             if lparam in (self.WM_LBUTTONUP, self.WM_LBUTTONDBLCLK):
@@ -4144,8 +3602,10 @@ class _WindowsTrayIcon:
                 pass
             return 0
         return ctypes.windll.user32.DefWindowProcW(hwnd, msg, wparam, lparam)
+
     def _show_menu(self):
         user32 = ctypes.windll.user32
+
         class POINT(ctypes.Structure):
             _fields_ = [('x', ctypes.c_long), ('y', ctypes.c_long)]
         pt = POINT()
@@ -4158,6 +3618,7 @@ class _WindowsTrayIcon:
         user32.SetForegroundWindow(self.hwnd)
         user32.TrackPopupMenu(menu, self.TPM_LEFTALIGN | self.TPM_BOTTOMALIGN, pt.x, pt.y, 0, self.hwnd, None)
         user32.DestroyMenu(menu)
+
     def run(self):
         user32 = ctypes.windll.user32
         shell32 = ctypes.windll.shell32
@@ -4216,6 +3677,7 @@ class _WindowsTrayIcon:
             user32.UnregisterClassW(self._class_name, hinstance)
         except Exception:
             pass
+
     def stop(self):
         if self.hwnd:
             try:
@@ -4223,6 +3685,7 @@ class _WindowsTrayIcon:
                 ctypes.windll.user32.PostMessageW(self.hwnd, 18, 0, 0)
             except Exception:
                 pass
+
 def _launch_webview2(url: str, title: str) -> None:
     try:
         import webview
@@ -4237,8 +3700,10 @@ def _launch_webview2(url: str, title: str) -> None:
             messagebox.showerror(UI_TEXT['f1'], UI_TEXT['h1'].format(p0=e))
         except Exception:
             pass
+
 def _get_latest_offsets_webview_url() -> str:
     return 'https://imtheo.lol/Offsets/FFlags.hpp'
+
 def _open_webview2_process(url: str, title: str) -> None:
     try:
         if getattr(sys, 'frozen', False):
@@ -4250,6 +3715,7 @@ def _open_webview2_process(url: str, title: str) -> None:
         subprocess.Popen([target, *args], cwd=BASE_DIR, close_fds=True)
     except Exception as e:
         messagebox.showerror(UI_TEXT['f1'], UI_TEXT['i1'].format(p0=e))
+
 def _normalize_fflag_json(data):
     flags = []
     if isinstance(data, dict):
@@ -4269,6 +3735,7 @@ FFLAG_VK_NAMES.update({'MOUSE1': 1, 'MOUSE2': 2, 'MOUSE3': 4, 'MOUSE4': 5, 'MOUS
 FFLAG_VK_NAMES.update({'OEM1': 186, 'PLUS': 187, 'COMMA': 188, 'MINUS': 189, 'PERIOD': 190, 'SLASH': 191, 'OEM3': 192, 'LBRACKET': 219, 'BACKSLASH': 220, 'RBRACKET': 221, 'QUOTE': 222})
 FFLAG_VK_NAMES.update({str(i): 48 + i for i in range(10)})
 FFLAG_VK_NAMES.update({chr(ord('A') + i): 65 + i for i in range(26)})
+
 def fflag_key_to_vk(key: str) -> int:
     key = str(key or '').strip().upper()
     if key in FFLAG_VK_NAMES:
@@ -4281,6 +3748,7 @@ def fflag_key_to_vk(key: str) -> int:
             pass
     return 0
 RBXH_MAGIC = b'RBXH'
+
 def _parse_header_lines(hdr_text: str) -> Dict[str, str]:
     headers: Dict[str, str] = {}
     if not hdr_text:
@@ -4292,6 +3760,7 @@ def _parse_header_lines(hdr_text: str) -> Dict[str, str]:
         k, v = line.split(':', 1)
         headers[k.strip().lower()] = v.strip()
     return headers
+
 def parse_rbxh(blob: bytes) -> Dict:
     res = {'wrapped': False, 'version': None, 'url': None, 'status': None, 'headers': {}, 'header_text': None, 'body': blob, 'full_payload': blob}
     if not blob or blob[:4] != RBXH_MAGIC:
@@ -4335,6 +3804,7 @@ def parse_rbxh(blob: bytes) -> Dict:
     except Exception:
         res['body'] = bytes(data)
         return res
+
 def _maybe_gunzip(b: bytes, headers: Dict[str, str]) -> bytes:
     enc = (headers.get('content-encoding') or headers.get('content_encoding') or '').lower()
     if 'gzip' in enc:
@@ -4348,10 +3818,12 @@ def _maybe_gunzip(b: bytes, headers: Dict[str, str]) -> bytes:
         except Exception:
             return b
     return b
+
 def _content_type(headers: Dict[str, str]) -> str:
     ct = (headers.get('content-type') or headers.get('content_type') or '').lower()
     return ct.split(';')[0].strip()
 _ticket_url_re = re.compile(b'https?://([A-Za-z0-9\\.\\-]+)\\S+', re.IGNORECASE)
+
 def detect_ticket(payload: bytes, url: Optional[str]) -> Tuple[bool, str]:
     if url and 'rbxcdn.com' in url and any((k in url for k in ('__token_', 'signature', 'key-pair-id', 'policy', 'expires'))):
         return (True, UI_TEXT['g32'])
@@ -4367,6 +3839,7 @@ def detect_ticket(payload: bytes, url: Optional[str]) -> Tuple[bool, str]:
                     pass
             return (True, f'Ticket ({host})')
     return (False, '')
+
 def find_embedded_image(body: bytes) -> Tuple[str, int]:
     end = min(len(body), 131072)
     i = body.find(b'RIFF', 0, end)
@@ -4380,6 +3853,7 @@ def find_embedded_image(body: bytes) -> Tuple[str, int]:
         if j != -1:
             return (lbl, j)
     return ('', -1)
+
 def _is_ogg_at(scan: bytes, j: int, end_limit=None) -> bool:
     limit = min(len(scan), int(end_limit)) if end_limit is not None else len(scan)
     if j < 0 or j + 27 > limit:
@@ -4392,8 +3866,10 @@ def _is_ogg_at(scan: bytes, j: int, end_limit=None) -> bool:
     return b'vorbis' in tail or b'OpusHead' in tail
 _BITRATES = {(3, 3): [0, 32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448, 0], (3, 2): [0, 32, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384, 0], (3, 1): [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 0], (2, 3): [0, 32, 48, 56, 64, 80, 96, 112, 128, 144, 160, 176, 192, 224, 256, 0], (2, 2): [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 0], (2, 1): [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 0], (0, 3): [0, 32, 48, 56, 64, 80, 96, 112, 128, 144, 160, 176, 192, 224, 256, 0], (0, 2): [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 0], (0, 1): [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 0]}
 _SAMPLERATES = {3: [44100, 48000, 32000, 0], 2: [22050, 24000, 16000, 0], 0: [11025, 12000, 8000, 0]}
+
 def _read_u32_be(b: bytes, i: int) -> int:
     return b[i] << 24 | b[i + 1] << 16 | b[i + 2] << 8 | b[i + 3] << 0
+
 def _is_valid_mp3_header(h: int) -> Tuple[bool, dict]:
     if h >> 21 & 2047 != 2047:
         return (False, {})
@@ -4411,6 +3887,7 @@ def _is_valid_mp3_header(h: int) -> Tuple[bool, dict]:
     if sr == 0 or br == 0:
         return (False, {})
     return (True, {'ver': ver, 'layer': layer, 'sr': sr, 'br': br, 'pad': pad})
+
 def _mp3_frame_size(info: dict) -> int:
     ver = info['ver']
     layer = info['layer']
@@ -4421,6 +3898,7 @@ def _mp3_frame_size(info: dict) -> int:
         return int((12 * br / sr + pad) * 4)
     coef = 144 if ver == 3 else 72
     return int(coef * br / sr + pad)
+
 def _find_mp3_two_frames(scan: bytes) -> int:
     n = min(len(scan), 131072)
     i = 0
@@ -4441,6 +3919,7 @@ def _find_mp3_two_frames(scan: bytes) -> int:
             return i
         i += 1
     return -1
+
 def find_embedded_audio_robust(body: bytes) -> Tuple[str, int]:
     end = min(len(body), 131072)
     i = body.find(b'RIFF', 0, end)
@@ -4457,6 +3936,7 @@ def find_embedded_audio_robust(body: bytes) -> Tuple[str, int]:
     return ('', -1)
 KTX1_MAGIC = b'\xabKTX 11\xbb\r\n\x1a\n'
 KTX2_MAGIC = b'\xabKTX 20\xbb\r\n\x1a\n'
+
 def _label_ktx1(body: bytes, off: int) -> str:
     if off + 64 > len(body):
         return 'KTX1'
@@ -4469,6 +3949,7 @@ def _label_ktx1(body: bytes, off: int) -> str:
     if astc_min <= gl_internal <= astc_max:
         return 'KTX1 (ASTC)'
     return 'KTX1'
+
 def _label_ktx2(body: bytes, off: int) -> str:
     if off + 48 > len(body):
         return 'KTX2'
@@ -4480,6 +3961,7 @@ def _label_ktx2(body: bytes, off: int) -> str:
     if vkfmt in astc:
         return 'KTX2 (ASTC)'
     return 'KTX2'
+
 def detect_ktx_anywhere(body: bytes) -> Tuple[str, str]:
     end = min(len(body), 131072)
     i1 = body.find(KTX1_MAGIC, 0, end)
@@ -4489,6 +3971,7 @@ def detect_ktx_anywhere(body: bytes) -> Tuple[str, str]:
     if i2 != -1:
         return ('Texture', _label_ktx2(body, i2))
     return ('', '')
+
 def detect_mesh_kind(payload: bytes) -> Tuple[str, str]:
     if payload.startswith(b'version '):
         try:
@@ -4506,6 +3989,7 @@ def detect_mesh_kind(payload: bytes) -> Tuple[str, str]:
     if payload.find(b'DRACO', 0, min(len(payload), 4096)) != -1 or payload.find(b'MESH', 0, min(len(payload), 16)) != -1:
         return ('Mesh', 'v6/v7 (binary)')
     return ('', '')
+
 def detect_font_kind(body: bytes, ct: str) -> Tuple[str, str]:
     if ct.startswith('font/') or ct in ('application/font-sfnt', 'application/font-woff', 'application/font-woff2'):
         if 'woff2' in ct:
@@ -4527,6 +4011,7 @@ def detect_font_kind(body: bytes, ct: str) -> Tuple[str, str]:
     if body[:4] == b'\x00\x01\x00\x00':
         return ('Font', 'TTF')
     return ('', '')
+
 def _find_json_head_slice(body: bytes, headers: Dict[str, str]) -> Optional[str]:
     end = min(len(body), 262144)
     i = body.find(b'{', 0, end)
@@ -4545,6 +4030,7 @@ def _find_json_head_slice(body: bytes, headers: Dict[str, str]) -> Optional[str]
             except Exception:
                 pass
     return None
+
 def is_translation_json_text(text: str) -> bool:
     t = text.lower()
     if 'localizationtable' in t:
@@ -4556,6 +4042,7 @@ def is_translation_json_text(text: str) -> bool:
     if hits >= 1 and ('"locale"' in t or 'language' in t or 'sourcelanguage' in t):
         return True
     return False
+
 def detect_translation_json(body: bytes, headers: Dict[str, str]) -> Tuple[bool, str]:
     head = _find_json_head_slice(body, headers)
     if not head:
@@ -4567,6 +4054,7 @@ _RBXM_BIN_MAGIC = b'<roblox!'
 _RBXM_SCAN_LIMIT = 8192
 _ROBLOX_TAG_RE = re.compile(b'<roblox', re.IGNORECASE)
 _ANIMATION_MARKER_RE = re.compile(b'keyframesequence|animationclip', re.IGNORECASE)
+
 def _leading_ws_offset(data: bytes) -> int:
     if not data or data[0] not in (32, 9, 10, 11, 12, 13):
         return 0
@@ -4575,15 +4063,18 @@ def _leading_ws_offset(data: bytes) -> int:
     while position < length and data[position] in (32, 9, 10, 11, 12, 13):
         position += 1
     return position
+
 def detect_rbxm_binary(body: bytes) -> int:
     p = body.find(_RBXM_BIN_MAGIC, 0, min(len(body), _RBXM_SCAN_LIMIT))
     if p != -1 and p <= 64:
         return p
     return -1
+
 def _walk_instance_tree(instances) -> list:
     roots = list(instances.values()) if isinstance(instances, dict) else list(instances or [])
     out = []
     seen = set()
+
     def visit(node):
         key = id(node)
         if key in seen:
@@ -4595,6 +4086,7 @@ def _walk_instance_tree(instances) -> list:
     for node in roots:
         visit(node)
     return out
+
 def _has_animation_structure(nodes) -> bool:
     classes = {getattr(node, 'class_name', '') for node in nodes}
     if classes & {'KeyframeSequence', 'CurveAnimation', 'AnimationClip'}:
@@ -4609,6 +4101,7 @@ def _has_animation_structure(nodes) -> bool:
                 return True
             stack.extend(getattr(child, 'children', ()) or ())
     return False
+
 def _classify_rbxm_asset(body: bytes):
     _MODEL_CLASSES = {'Model', 'Folder', 'Tool', 'Accessory', 'Accoutrement', 'Handle', 'Part', 'MeshPart', 'WedgePart', 'CornerWedgePart', 'TrussPart', 'CylinderPart', 'UnionOperation', 'PartOperation', 'SpecialMesh', 'FileMesh', 'BasePart', 'Humanoid', 'Motor6D', 'Texture', 'Decal'}
     try:
@@ -4658,6 +4151,7 @@ def _classify_rbxm_asset(body: bytes):
     except Exception:
         return (None, None)
     return (None, None)
+
 def _extract_rbxm_name(body: bytes) -> str:
     try:
         body_start = _leading_ws_offset(body)
@@ -4680,6 +4174,7 @@ def _extract_rbxm_name(body: bytes) -> str:
     except Exception:
         pass
     return ''
+
 def _asset_name(body: bytes, url: Optional[str]) -> str:
     name = _extract_rbxm_name(body)
     if name:
@@ -4689,6 +4184,7 @@ def _asset_name(body: bytes, url: Optional[str]) -> str:
         if tail and '.' not in tail and (len(tail) < 120):
             return tail
     return ''
+
 def sniff_kind(body: bytes, url: Optional[str], headers: Dict[str, str], full_payload: bytes) -> Tuple[str, str, bool]:
     is_t, ticket_label = detect_ticket(full_payload or body, url)
     if is_t:
@@ -4705,7 +4201,7 @@ def sniff_kind(body: bytes, url: Optional[str], headers: Dict[str, str], full_pa
         return ('Decal' if is_decal_url else 'Image', 'GIF', False)
     if body[:2] == b'\xff\xd8':
         return ('Decal' if is_decal_url else 'Image', 'JPEG', False)
-    if len(body) >= 12 and body[:4] == b'RIFF' and body[8:12] == b'WEBP':
+    if len(body) >= 12 and body[:4] == b'RIFF' and (body[8:12] == b'WEBP'):
         return ('Decal' if is_decal_url else 'Image', 'WEBP', False)
     if body[:4] == b'OTTO':
         return ('Font', 'OTF', False)
@@ -4719,7 +4215,7 @@ def sniff_kind(body: bytes, url: Optional[str], headers: Dict[str, str], full_pa
         return ('Font', 'TTF', False)
     if body[:3] == b'ID3':
         return ('Sound', 'MP3', False)
-    if len(body) >= 12 and body[:4] == b'RIFF' and body[8:12] == b'WAVE':
+    if len(body) >= 12 and body[:4] == b'RIFF' and (body[8:12] == b'WAVE'):
         return ('Sound', 'WAV', False)
     if _is_ogg_at(body, 0, min(len(body), 131072)):
         return ('Sound', 'OGG', False)
@@ -4735,7 +4231,7 @@ def sniff_kind(body: bytes, url: Optional[str], headers: Dict[str, str], full_pa
         f_cat, f_lbl = detect_font_kind(body, ct)
         if f_cat:
             return (f_cat, f_lbl, False)
-    if ct.startswith('video/') and not body[:256].lstrip().lower().startswith(b'#extm3u'):
+    if ct.startswith('video/') and (not body[:256].lstrip().lower().startswith(b'#extm3u')):
         subtype = ct.split('/', 1)[1].upper()
         if subtype in ('X-MATROSKA', 'MATROSKA'):
             subtype = 'WEBM'
@@ -4749,6 +4245,7 @@ def sniff_kind(body: bytes, url: Optional[str], headers: Dict[str, str], full_pa
     is_tr, tr_label = detect_translation_json(body, headers)
     if is_tr:
         return ('Translations', tr_label, False)
+
     def _is_decal_url(u: Optional[str]) -> bool:
         if not u:
             return False
@@ -4881,6 +4378,7 @@ def sniff_kind(body: bytes, url: Optional[str], headers: Dict[str, str], full_pa
     if body[:4] == b'\x04"M\x18':
         return ('Compressed', 'LZ4F', False)
     return ('Unknown', '', False)
+
 def connect_ro(db_path: str) -> sqlite3.Connection:
     uri = f'file:{db_path}?mode=ro&cache=shared'
     conn = sqlite3.connect(uri, uri=True, timeout=0.5, isolation_level=None)
@@ -4891,9 +4389,11 @@ def connect_ro(db_path: str) -> sqlite3.Connection:
     except sqlite3.Error:
         pass
     return conn
+
 def connect_rw(db_path: str) -> sqlite3.Connection:
     uri = f'file:{db_path}?mode=rwc&cache=shared'
     return sqlite3.connect(uri, uri=True, timeout=5.0, isolation_level=None)
+
 @dataclass
 class ScanItem:
     time: str
@@ -4910,6 +4410,7 @@ class ScanItem:
     id_bytes: bytes = field(repr=False, default=b'')
     size_text: str = ''
     search_text: str = field(repr=False, default='')
+
 def scan_db_once(db_path: str, shard_root: str, seen: set, max_rows: Optional[int]=None, on_batch=None, batch_size: int=800) -> List[ScanItem]:
     out: List[ScanItem] = []
     try:
@@ -4979,10 +4480,12 @@ def scan_db_once(db_path: str, shard_root: str, seen: set, max_rows: Optional[in
         except Exception:
             pass
     return out
+
 @dataclass
 class Keyframe:
     time: float
     pose_by_part_name: Dict[str, Dict]
+
 def parse_xml_animation(anim_data: bytes) -> List[Keyframe]:
     try:
         anim_data = _decompress_document(anim_data)
@@ -5020,11 +4523,13 @@ def parse_xml_animation(anim_data: bytes) -> List[Keyframe]:
         keys.append(Keyframe(t, poses))
     keys.sort(key=lambda k: k.time)
     return keys
+
 def _safe_number(value, default=0.0) -> float:
     try:
         return float(value)
     except (TypeError, ValueError):
         return default
+
 def parse_binary_animation(data: bytes) -> List[Keyframe]:
     data = _decompress_document(data)
     instances = {}
@@ -5032,6 +4537,7 @@ def parse_binary_animation(data: bytes) -> List[Keyframe]:
         instances = parse_rbxm(data)
     except Exception:
         instances = {}
+
     def _collect_poses(node, out):
         for child in node.children:
             if child.class_name in ('Pose', 'NumberPose'):
@@ -5050,12 +4556,14 @@ def parse_binary_animation(data: bytes) -> List[Keyframe]:
             poses['__frame__'] = {'pos': _cf_position(cf), 'cf': cf}
         keyframes.append(Keyframe(_safe_number(kf.properties.get('Time', 0.0)), poses))
     if not keyframes and _RbxmDeserializer is not None:
+
         def _props(d: dict) -> dict:
             out = {}
             for k, v in d.items():
                 nm = k.name if hasattr(k, 'name') else str(k)
                 out[nm] = v.value if hasattr(v, 'value') else v
             return out
+
         def _collect(node, out: dict):
             for child in node.children:
                 if child.class_name in ('Pose', 'NumberPose'):
@@ -5078,6 +4586,7 @@ def parse_binary_animation(data: bytes) -> List[Keyframe]:
                 keyframes.append(Keyframe(_safe_number(p.get('Time', 0.0)), poses))
             keyframes.sort(key=lambda k: k.time)
     return keyframes
+
 def parse_animation(data: bytes) -> List[Keyframe]:
     if not data:
         return []
@@ -5108,13 +4617,16 @@ def parse_animation(data: bytes) -> List[Keyframe]:
         except Exception:
             pass
     return parse_xml_animation(stripped)
+
 def parse_curve_animation(anim_data: bytes) -> List[Keyframe]:
     _b64 = base64
     _struct = struct
     TICKS = 14400.0
     bone_curves: Dict[str, dict] = {}
+
     def _empty_bc():
         return {'px': [], 'py': [], 'pz': [], 'rx': [], 'ry': [], 'rz': []}
+
     def _vat(raw_b: bytes):
         if len(raw_b) < 8:
             return []
@@ -5131,6 +4643,7 @@ def parse_curve_animation(anim_data: bytes) -> List[Keyframe]:
             tk = _struct.unpack_from('<I', raw_b, off_t + 8 + i * 4)[0]
             out.append((tk / TICKS, v))
         return out
+
     def _lerp(tv, t):
         if not tv:
             return 0.0
@@ -5152,12 +4665,14 @@ def parse_curve_animation(anim_data: bytes) -> List[Keyframe]:
             tree = _RbxmDeserializer().deserialize(_decompress_document(anim_data))
         except Exception:
             return []
+
         def _prop(inst, key):
             for k, v in inst.properties.items():
                 pk = k.name if hasattr(k, 'name') else str(k)
                 if pk == key:
                     return v.value if hasattr(v, 'value') else v
             return None
+
         def _vat_rbxm(inst):
             for k, v in inst.properties.items():
                 pk = k.name if hasattr(k, 'name') else str(k)
@@ -5167,6 +4682,7 @@ def parse_curve_animation(anim_data: bytes) -> List[Keyframe]:
                         rb = raw.encode('latin-1') if isinstance(raw, str) else bytes(raw)
                         return _vat(rb)
             return []
+
         def _walk_rbxm(inst):
             nonlocal bone_curves
             if inst.class_name == 'Folder':
@@ -5215,6 +4731,7 @@ def parse_curve_animation(anim_data: bytes) -> List[Keyframe]:
             root = ET.fromstring(text)
         except Exception:
             return []
+
         def _vat_xml(fc_item):
             for bs in fc_item.iter('BinaryString'):
                 if bs.get('name') == 'ValuesAndTimes' and bs.text:
@@ -5223,6 +4740,7 @@ def parse_curve_animation(anim_data: bytes) -> List[Keyframe]:
                     except Exception:
                         pass
             return []
+
         def _walk_xml(item):
             nonlocal bone_curves
             cls = item.get('class', '')
@@ -5285,6 +4803,7 @@ def parse_curve_animation(anim_data: bytes) -> List[Keyframe]:
             poses[name] = {'pos': (_lerp(bc['px'], t), _lerp(bc['py'], t), _lerp(bc['pz'], t)), 'rot': (_lerp(bc['rx'], t), _lerp(bc['ry'], t), _lerp(bc['rz'], t))}
         keys.append(Keyframe(t, poses))
     return keys
+
 def _cf_position(cf) -> Tuple[float, float, float]:
     if isinstance(cf, dict):
         if 'position' in cf:
@@ -5306,6 +4825,7 @@ def _cf_position(cf) -> Tuple[float, float, float]:
         except Exception:
             pass
     return (0.0, 0.0, 0.0)
+
 def _extract_document_body(data: bytes) -> bytes:
     raw = data or b''
     if raw[:4] == RBXH_MAGIC:
@@ -5318,6 +4838,7 @@ def _extract_document_body(data: bytes) -> bytes:
     if pos >= 0:
         return raw[pos:]
     return raw
+
 def _copy_pose_properties(src, dst):
     sp = src.find('Properties') if src is not None else None
     if sp is None:
@@ -5326,6 +4847,7 @@ def _copy_pose_properties(src, dst):
         for el in sp.findall(tag):
             if el.get('name') in ('EasingDirection', 'EasingStyle', 'Weight'):
                 ET.SubElement(dst, tag, {'name': el.get('name')}).text = el.text
+
 def _pose_cf(src):
     if src is None:
         return None
@@ -5333,6 +4855,7 @@ def _pose_cf(src):
     if sp is None:
         return None
     return sp.find("CoordinateFrame[@name='CFrame']")
+
 def _make_r15_pose(name: str, source_pose=None) -> ET.Element:
     item = ET.Element('Item', {'class': 'Pose', 'referent': f'R15_{os.urandom(8).hex()}'})
     props = ET.SubElement(item, 'Properties')
@@ -5347,6 +4870,7 @@ def _make_r15_pose(name: str, source_pose=None) -> ET.Element:
             ET.SubElement(c, tag).text = val
     _copy_pose_properties(source_pose, props)
     return item
+
 def _normalize_roblox_document(data: bytes) -> bytes:
     raw = data or b''
     if raw[:4] == RBXH_MAGIC:
@@ -5365,6 +4889,7 @@ def _normalize_roblox_document(data: bytes) -> bytes:
         return write_rbxmx(_RbxmDeserializer().deserialize(raw))
     return raw
 R6_TO_R15_POSE_MAP = {'Torso': 'UpperTorso', 'Left Arm': 'LeftUpperArm', 'Right Arm': 'RightUpperArm', 'Left Leg': 'LeftUpperLeg', 'Right Leg': 'RightUpperLeg', 'LeftArm': 'LeftUpperArm', 'RightArm': 'RightUpperArm', 'LeftLeg': 'LeftUpperLeg', 'RightLeg': 'RightUpperLeg', 'RootJoint': 'Root', 'Root': 'Root', 'HumanoidRootPart': 'HumanoidRootPart', 'Head': 'Head'}
+
 def convert_r6_animation_to_r15(data: bytes) -> bytes:
     raw = _normalize_roblox_document(data)
     text = raw.decode('utf-8-sig', errors='replace')
@@ -5376,10 +4901,12 @@ def convert_r6_animation_to_r15(data: bytes) -> bytes:
     for m in list(root):
         if m.tag == 'Meta' and m.get('name') == 'RoutilsR6ToR15':
             root.remove(m)
+
     def get_name(pose):
         props = pose.find('Properties')
         e = props.find("string[@name='Name']") if props is not None else None
         return (e.text or '').strip() if e is not None else ''
+
     def get_cf(pose):
         props = pose.find('Properties')
         e = props.find("CoordinateFrame[@name='CFrame']") if props is not None else None
@@ -5390,6 +4917,7 @@ def convert_r6_animation_to_r15(data: bytes) -> bytes:
             q = e.find(tag)
             vals.append(float(q.text) if q is not None and q.text else 1.0 if tag in ('R00', 'R11', 'R22') else 0.0)
         return vals
+
     def easing(pose):
         props = pose.find('Properties')
         out = ['0', '0', '1']
@@ -5404,6 +4932,7 @@ def convert_r6_animation_to_r15(data: bytes) -> bytes:
             if w is not None:
                 out[2] = w.text or '1'
         return tuple(out)
+
     def make_pose(name, cf, ease):
         item = ET.Element('Item', {'class': 'Pose', 'referent': 'RBX' + uuid.uuid4().hex.upper()})
         props = ET.SubElement(item, 'Properties')
@@ -5415,8 +4944,10 @@ def convert_r6_animation_to_r15(data: bytes) -> bytes:
         ET.SubElement(props, 'token', {'name': 'EasingStyle'}).text = ease[1]
         ET.SubElement(props, 'float', {'name': 'Weight'}).text = ease[2]
         return item
+
     def collect(kf):
         found = {}
+
         def walk(parent):
             for ch in parent.findall('Item'):
                 if ch.get('class') == 'Pose':
@@ -5424,6 +4955,7 @@ def convert_r6_animation_to_r15(data: bytes) -> bytes:
                     walk(ch)
         walk(kf)
         return found
+
     def r6_position_to_r15(cf):
         return [cf[0], cf[2], cf[1]] + cf[3:]
     identity = [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
@@ -5432,6 +4964,7 @@ def convert_r6_animation_to_r15(data: bytes) -> bytes:
         extras = [c for c in list(kf) if c.get('class') != 'Pose']
         for c in list(kf):
             kf.remove(c)
+
         def p(name, source=None, transform_pos=False):
             if source and source in poses:
                 cf, e = poses[source]
@@ -5466,12 +4999,14 @@ def convert_r6_animation_to_r15(data: bytes) -> bytes:
     except Exception:
         pass
     return b'<?xml version="1.0" encoding="utf-8"?>\n' + ET.tostring(root, encoding='utf-8')
+
 def parse_model_parts(data: bytes) -> Tuple[List[Dict], str]:
     parts: List[Dict] = []
     try:
         raw = _decompress_document(data)
     except Exception:
         raw = data
+
     def _dict_pos(d):
         if isinstance(d, dict):
             try:
@@ -5484,6 +5019,7 @@ def parse_model_parts(data: bytes) -> Tuple[List[Dict], str]:
             except Exception:
                 pass
         return (1.0, 1.0, 1.0)
+
     def _cf_pos(cf):
         return _cf_position(cf)
     if raw.lstrip().startswith(b'<roblox!'):
@@ -5551,7 +5087,9 @@ def parse_model_parts(data: bytes) -> Tuple[List[Dict], str]:
     if not parts:
         return ([], UI_TEXT['q29'])
     return (parts, f"{UI_TEXT['s32']}{len(parts)} parts")
+
 class Viewport3DPanel(ttk.Frame):
+
     def __init__(self, master, title=UI_TEXT['j28']):
         super().__init__(master)
         self.angle_x = 0.3
@@ -5617,6 +5155,7 @@ class Viewport3DPanel(ttk.Frame):
         self.canvas.bind('<KeyRelease>', self._on_key_release)
         self._keys_held = set()
         self.pack_forget()
+
     def _layout_controls(self, event=None):
         width = event.width if event is not None else self.controls.winfo_width()
         if not getattr(self, '_model_controls_visible', False):
@@ -5639,6 +5178,7 @@ class Viewport3DPanel(ttk.Frame):
             self.lbl_mode.grid_configure(row=0, column=0, sticky='w', padx=3)
             self.chk_wireframe.grid_configure(row=0, column=1, sticky='w', padx=3)
             self.chk_optimize.grid_configure(row=0, column=2, sticky='w', padx=3)
+
     def _on_canvas_configure(self, _event=None):
         self._resize_preview_mode = True
         self._resize_quiet_until = time.monotonic() + 0.48
@@ -5661,6 +5201,7 @@ class Viewport3DPanel(ttk.Frame):
             except Exception:
                 pass
         self._resize_draw_job = self.after(500, self._redraw_after_resize)
+
     def _redraw_after_resize(self):
         self._resize_draw_job = None
         try:
@@ -5675,20 +5216,25 @@ class Viewport3DPanel(ttk.Frame):
         self._resize_quiet_until = 0.0
         if not self.is_playing:
             self.draw_frame()
+
     def _zoom_by(self, factor: float) -> None:
         self.zoom = max(0.05, min(20.0, self.zoom * factor))
         self.draw_frame()
+
     def _on_mouse_wheel(self, event):
         try:
             step = -1 if event.delta > 0 else 1
             self._zoom_by(1.12 if step < 0 else 0.9)
         except Exception:
             pass
+
     def _on_key_press(self, event):
         self._keys_held.add(event.keysym.lower())
         self._move_with_keys()
+
     def _on_key_release(self, event):
         self._keys_held.discard(event.keysym.lower())
+
     def _move_with_keys(self):
         step = 8.0
         if 'w' in self._keys_held:
@@ -5700,6 +5246,7 @@ class Viewport3DPanel(ttk.Frame):
         if 'd' in self._keys_held:
             self.pan_x -= step
         self.draw_frame()
+
     def set_asset_data_from_temp(self, temp_file_path: str, is_anim=False, is_mesh=False, is_model=False, is_audio=False):
         self.keyframes = []
         self.mesh_vertices = []
@@ -5729,6 +5276,7 @@ class Viewport3DPanel(ttk.Frame):
         else:
             self.mesh_info = 'No preview for this asset type'
         self.draw_frame()
+
     def _load_audio(self, data: bytes) -> None:
         ext = ''
         fmt, off = find_embedded_audio_robust(data)
@@ -5756,6 +5304,7 @@ class Viewport3DPanel(ttk.Frame):
         except Exception:
             stamp = ''
         self.mesh_info = f'Audio: {fmt} · {len(payload):,} bytes · {stamp} (▶ plays with system audio player)'
+
     def _toggle_audio_play(self):
         if not self.audio_path or not os.path.isfile(self.audio_path):
             return
@@ -5763,6 +5312,7 @@ class Viewport3DPanel(ttk.Frame):
             os.startfile(self.audio_path)
         except Exception as e:
             messagebox.showerror(UI_TEXT['p1'], UI_TEXT['q1'].format(p0=e))
+
     def _load_model(self, data: bytes) -> None:
         self.model_parts, self.mesh_info = parse_model_parts(data)
         if not self.model_parts:
@@ -5771,7 +5321,9 @@ class Viewport3DPanel(ttk.Frame):
                 self.model_parts, self.mesh_info = parse_model_parts(xml)
             except Exception:
                 pass
+
     def _load_mesh(self, data: bytes) -> None:
+
         def _convert(b):
             try:
                 return convert(b)
@@ -5809,13 +5361,14 @@ class Viewport3DPanel(ttk.Frame):
         self.mesh_faces = faces
         self._mesh_bounds_cache = None
         self.mesh_info = f'Vertices: {len(verts):,} · Faces: {len(faces):,}'
+
     def show(self, is_anim=True, mode_label='Mesh'):
         self.lbl_mode.config(text=str(mode_label))
         if str(mode_label).lower().startswith('audio'):
             self.lbl_mode.grid_remove()
         else:
             self.lbl_mode.grid()
-        model_preview = bool((self.mesh_vertices and self.mesh_faces) or self.model_parts)
+        model_preview = bool(self.mesh_vertices and self.mesh_faces or self.model_parts)
         self._model_controls_visible = model_preview
         if model_preview:
             self.chk_wireframe.grid()
@@ -5832,12 +5385,14 @@ class Viewport3DPanel(ttk.Frame):
         playable = bool(self.keyframes) or bool(self.audio_path and os.path.isfile(self.audio_path))
         self.btn_play.config(text=UI_TEXT['l1'], state='normal' if playable else 'disabled', width=8)
         self.draw_frame()
+
     def hide(self):
         self.is_playing = False
         if self.anim_job:
             self.after_cancel(self.anim_job)
             self.anim_job = None
         self.pack_forget()
+
     def toggle_play(self):
         if self.audio_path and os.path.isfile(self.audio_path):
             self._toggle_audio_play()
@@ -5848,10 +5403,12 @@ class Viewport3DPanel(ttk.Frame):
             return
         self.is_playing = not self.is_playing
         self.btn_play.config(text=UI_TEXT['r1'] if self.is_playing else UI_TEXT['l1'])
-        if self.is_playing and not self.anim_job:
+        if self.is_playing and (not self.anim_job):
             self._animate_loop()
+
     def _on_mouse_down(self, event):
         self._last_mouse = (event.x, event.y)
+
     def _on_mouse_drag(self, event):
         dx = event.x - self._last_mouse[0]
         dy = event.y - self._last_mouse[1]
@@ -5859,8 +5416,9 @@ class Viewport3DPanel(ttk.Frame):
         self.angle_x += dy * 0.01
         self._last_mouse = (event.x, event.y)
         self.draw_frame()
+
     def _animate_loop(self):
-        if not self.winfo_ismapped() or not self.is_playing or not self.keyframes:
+        if not self.winfo_ismapped() or not self.is_playing or (not self.keyframes):
             self.anim_job = None
             if not self.keyframes:
                 self.is_playing = False
@@ -5883,6 +5441,7 @@ class Viewport3DPanel(ttk.Frame):
         self.anim_time += 0.03
         self.draw_frame()
         self.anim_job = self.after(33, self._animate_loop)
+
     def draw_frame(self):
         self.canvas.delete('all')
         w = self.canvas.winfo_width() or 300
@@ -5905,6 +5464,7 @@ class Viewport3DPanel(ttk.Frame):
         else:
             self.canvas.create_text(w / 2, h / 2, text=UI_TEXT['t1'], fill='#007acc', font=('Segoe UI', 10))
     BONES = [('Head', 'UpperTorso'), ('Head', 'Torso'), ('UpperTorso', 'LowerTorso'), ('Torso', 'LowerTorso'), ('LowerTorso', 'UpperTorso'), ('UpperTorso', 'UpperArm'), ('UpperArm', 'LowerArm'), ('LowerArm', 'Hand'), ('UpperTorso', 'LeftUpperArm'), ('LeftUpperArm', 'LeftLowerArm'), ('LeftLowerArm', 'LeftHand'), ('UpperTorso', 'RightUpperArm'), ('RightUpperArm', 'RightLowerArm'), ('RightLowerArm', 'RightHand'), ('UpperArm', 'LeftUpperArm'), ('UpperArm', 'RightUpperArm'), ('LowerTorso', 'UpperLeg'), ('UpperLeg', 'LowerLeg'), ('LowerLeg', 'Foot'), ('LowerTorso', 'LeftUpperLeg'), ('LeftUpperLeg', 'LeftLowerLeg'), ('LeftLowerLeg', 'LeftFoot'), ('LowerTorso', 'RightUpperLeg'), ('RightUpperLeg', 'RightLowerLeg'), ('RightLowerLeg', 'RightFoot'), ('UpperLeg', 'LeftUpperLeg'), ('UpperLeg', 'RightUpperLeg')]
+
     def _project_point(self, pos, cx, cy, scale, mirror_y=True):
         x, y, z = pos
         r = 0.0
@@ -5913,6 +5473,7 @@ class Viewport3DPanel(ttk.Frame):
         px = cx + x1 * scale
         py = cy - y * scale + z1 * scale * 0.35
         return (px, py)
+
     def _draw_model(self, w, h):
         if not self.model_parts:
             return
@@ -5932,6 +5493,7 @@ class Viewport3DPanel(ttk.Frame):
         scale = base / span_all
         mid = [(mins[i] + maxs[i]) / 2 for i in range(3)]
         cosx, sinx, cosy, siny = (math.cos(ax), math.sin(ax), math.cos(ay), math.sin(ay))
+
         def _proj(x, y, z):
             px, py, pz = (x - mid[0], y - mid[1], z - mid[2])
             x1 = px * cosy + pz * siny
@@ -5985,6 +5547,7 @@ class Viewport3DPanel(ttk.Frame):
                 self.canvas.create_polygon(flat_s, fill='#000000', outline='', stipple='gray12')
             except Exception:
                 pass
+
     def _draw_skeleton(self, w, h):
         n = len(self.keyframes)
         idx = int(self.anim_time * 30.0) % n if self.is_playing and n else 0
@@ -6018,6 +5581,7 @@ class Viewport3DPanel(ttk.Frame):
         self.canvas.create_text(w / 2, 8, text=info, anchor='n', justify='center', width=max(80, w - 24), fill='#8ad0ff', font=('Consolas', 8))
         if not has_geo:
             self.canvas.create_text(w / 2, h / 2, text=UI_TEXT['u1'], fill='#78909c', font=('Segoe UI', 9))
+
     def _draw_mesh(self, w, h):
         verts = self.mesh_vertices
         if not verts:
@@ -6026,7 +5590,7 @@ class Viewport3DPanel(ttk.Frame):
         faces = self.mesh_faces
         if preview:
             max_faces = 48
-        elif self.reduce_polys.get() and len(verts) > 500 and len(faces) > 128:
+        elif self.reduce_polys.get() and len(verts) > 500 and (len(faces) > 128):
             max_faces = 128
         else:
             max_faces = len(faces)
@@ -6049,8 +5613,8 @@ class Viewport3DPanel(ttk.Frame):
                 self._mesh_bounds_cache = (tuple(mins), tuple(maxs))
             mins, maxs = self._mesh_bounds_cache
         except Exception:
-            mins = tuple(min(float(v[i]) for v in verts) for i in range(3))
-            maxs = tuple(max(float(v[i]) for v in verts) for i in range(3))
+            mins = tuple((min((float(v[i]) for v in verts)) for i in range(3)))
+            maxs = tuple((max((float(v[i]) for v in verts)) for i in range(3)))
         ax, ay = (self.angle_x, self.angle_y)
         cx, cy = (w / 2 + self.pan_x, h / 2 + self.pan_y)
         base = max(20.0, min(w, h) / 4) * self.zoom
@@ -6064,7 +5628,7 @@ class Viewport3DPanel(ttk.Frame):
         for face in faces:
             if len(face) < 3:
                 continue
-            normalized = tuple(int(index) % vertex_count for index in face)
+            normalized = tuple((int(index) % vertex_count for index in face))
             if len(normalized) < 3:
                 continue
             valid_faces.append(normalized)
@@ -6085,7 +5649,7 @@ class Viewport3DPanel(ttk.Frame):
         items = []
         for face in valid_faces:
             coords = [c for index in face for c in pts2d[index]]
-            depth = sum(pts3d[index] for index in face) / len(face)
+            depth = sum((pts3d[index] for index in face)) / len(face)
             items.append((depth, coords))
         if not preview:
             try:
@@ -6108,7 +5672,9 @@ class Viewport3DPanel(ttk.Frame):
                 shade = max(35, min(150, shade))
                 fill = '#%02x%02x%02x' % (shade, shade + 8, shade + 18)
                 self.canvas.create_polygon(coords, fill=fill, outline='')
+
 class ReplacerPane(ttk.Frame):
+
     def _console_log(self, message):
         try:
             root = self.winfo_toplevel()
@@ -6117,6 +5683,7 @@ class ReplacerPane(ttk.Frame):
                 logger(message)
         except Exception:
             pass
+
     def __init__(self, master):
         super().__init__(master)
         self.script_dir = DATA_DIR
@@ -6177,6 +5744,7 @@ class ReplacerPane(ttk.Frame):
         for widget in (self, self.container, self.top, self.action_bar, self.source_row, self.list_frame):
             widget.bind('<Button-1>', self._clear_selection_bg, add='+')
         self.refresh_view()
+
     def _obj_key(self, obj):
         k = obj.get('kind')
         if k == 'item':
@@ -6188,10 +5756,13 @@ class ReplacerPane(ttk.Frame):
         if k == 'hash':
             return ('hash', obj['path'])
         return None
+
     def _get_selected_objs(self):
         return [self.view_index[i] for i in self.item_list.curselection()]
+
     def _snapshot_selection(self):
         return [self._obj_key(o) for o in self._get_selected_objs()]
+
     def _restore_selection(self, keys):
         if not keys:
             return
@@ -6203,6 +5774,7 @@ class ReplacerPane(ttk.Frame):
             for i in to_select:
                 self.item_list.selection_set(i)
             self.item_list.activate(to_select[0])
+
     def _row_index_from_event(self, event):
         size = self.item_list.size()
         if size <= 0:
@@ -6215,10 +5787,12 @@ class ReplacerPane(ttk.Frame):
         if event.y < y0 or event.y > y0 + h:
             return None
         return idx
+
     def _is_over_arrow(self, event, row) -> bool:
         indent = row.get('indent', 0)
         start = indent * self.indent_px
         return start <= event.x <= start + 20
+
     def _clear_hover(self):
         if self.hover_index is not None:
             try:
@@ -6226,6 +5800,7 @@ class ReplacerPane(ttk.Frame):
             except Exception:
                 pass
             self.hover_index = None
+
     def _on_hover_move(self, event):
         idx = self._row_index_from_event(event)
         if idx == self.hover_index:
@@ -6237,8 +5812,10 @@ class ReplacerPane(ttk.Frame):
                 self.hover_index = idx
             except Exception:
                 pass
+
     def _on_hover_leave(self, event):
         self._clear_hover()
+
     def _clear_selection_bg(self, event):
         self._clear_hover()
         if event.widget in (self, self.container, self.top, self.action_bar, self.list_frame):
@@ -6252,10 +5829,12 @@ class ReplacerPane(ttk.Frame):
             except Exception:
                 pass
             self.drag_label = None
+
     def _on_press(self, event):
         self.drag_start_x, self.drag_start_y = (event.x, event.y)
         self.dragging = False
         return self._on_left_click(event)
+
     def _on_left_click(self, event):
         idx = self._row_index_from_event(event)
         if idx is None:
@@ -6268,6 +5847,7 @@ class ReplacerPane(ttk.Frame):
             self.group_states[path] = not self.group_states.get(path, False)
             self.after_idle(lambda: self.refresh_view(True, sel_keys))
             return 'break'
+
     def _on_drag_motion(self, event):
         if self.drag_start_x is None or self.drag_start_y is None:
             return 'break'
@@ -6289,6 +5869,7 @@ class ReplacerPane(ttk.Frame):
         if self.dragging and self.drag_label:
             self.drag_label.geometry(f'+{event.x_root + 15}+{event.y_root + 15}')
         return 'break'
+
     def _base_dir_for_view(self, view=None):
         v = view or self.source_var.get()
         if v == 'HashSaves':
@@ -6296,6 +5877,7 @@ class ReplacerPane(ttk.Frame):
         if v == 'FileSaves':
             return self.file_saves_dir
         return self.own_dir
+
     def _move_selection_to(self, target_dir):
         objs = self._get_selected_objs()
         base_dir = self._base_dir_for_view()
@@ -6357,6 +5939,7 @@ class ReplacerPane(ttk.Frame):
                             os.remove(src)
                     except Exception:
                         pass
+
     def _on_drag_release(self, event):
         if self.drag_label:
             try:
@@ -6381,6 +5964,7 @@ class ReplacerPane(ttk.Frame):
         self.dragging = False
         self.refresh_view()
         return 'break'
+
     def _on_double_click(self, event):
         idx = self._row_index_from_event(event)
         if idx is None:
@@ -6393,6 +5977,7 @@ class ReplacerPane(ttk.Frame):
             self.group_states[path] = not self.group_states.get(path, False)
             self.after_idle(lambda: self.refresh_view(True, sel_keys))
         return 'break'
+
     def _on_context_request(self, event):
         idx = self._row_index_from_event(event)
         clicked_obj = None
@@ -6423,11 +6008,13 @@ class ReplacerPane(ttk.Frame):
             self.ctx_menu.tk_popup(event.x_root, event.y_root)
         finally:
             self.ctx_menu.grab_release()
+
     def _passes_search(self, s: str) -> bool:
         q = self.search_var.get().strip().lower()
         if not q:
             return True
         return q in s.lower()
+
     def _update_actions_panel(self):
         for btn in (self.btn_create, self.btn_applycache, self.btn_savehash, self.btn_savefile):
             try:
@@ -6443,16 +6030,19 @@ class ReplacerPane(ttk.Frame):
         else:
             self.btn_create.pack(side='left', padx=(0, 6), pady=0)
             self.btn_applycache.pack(side='left', padx=(0, 6), pady=0)
+
     def _sanitize_filename(self, s: str) -> str:
         illegal = '<>:"/\\|?*'
         cleaned = ''.join(('_' if c in illegal else c for c in s))
         return cleaned.rstrip(' .')
+
     def _swap_hash_display(self, filename: str) -> str:
         parts = filename.split(' - ', 1)
         if len(parts) == 2:
             h, n = (parts[0], parts[1])
             return f'{n} ({h})'
         return filename
+
     def _render_saves_tree(self, base_dir, display_fn, current_dir=None, indent=0):
         current = current_dir or base_dir
         try:
@@ -6491,6 +6081,7 @@ class ReplacerPane(ttk.Frame):
                 self.view_index.append({'kind': 'hash', 'name': disp, 'path': path, 'realname': f, 'indent': indent})
             else:
                 self.view_index.append({'kind': 'group_item', 'display': disp, 'group_path': current, 'filename': f, 'indent': indent})
+
     def _render_cache_tree(self, current_dir, indent=0):
         try:
             entries = os.listdir(current_dir)
@@ -6529,6 +6120,7 @@ class ReplacerPane(ttk.Frame):
                 self.view_index.append({'kind': 'group_item', 'display': disp, 'group_path': current_dir, 'filename': f, 'indent': indent})
         if indent == 0:
             return {f.split(' - ', 1)[1] for f in files}
+
     def refresh_view(self, preserve_selection=False, selection_keys=None):
         if preserve_selection and selection_keys is None:
             selection_keys = self._snapshot_selection()
@@ -6557,6 +6149,7 @@ class ReplacerPane(ttk.Frame):
         if preserve_selection:
             self._restore_selection(selection_keys)
         self._update_actions_panel()
+
     def _scan_hash_saves(self) -> List[Tuple[str, str, str]]:
         out = []
         base = self.hash_saves_dir
@@ -6570,6 +6163,7 @@ class ReplacerPane(ttk.Frame):
                 out.append((name, h.strip(), os.path.join(root, f)))
         out.sort(key=lambda t: t[0].lower())
         return out
+
     def _scan_file_saves(self) -> List[Tuple[str, str]]:
         out = []
         base = self.file_saves_dir
@@ -6580,9 +6174,10 @@ class ReplacerPane(ttk.Frame):
                 out.append((f, os.path.join(root, f)))
         out.sort(key=lambda t: t[0].lower())
         return out
+
     def create_cache(self):
         dialog = tk.Toplevel(self)
-        dialog.title('Create Cache')
+        dialog.title('create cache')
         dialog.transient(self)
         dialog.grab_set()
         theme_toplevel(dialog)
@@ -6598,6 +6193,7 @@ class ReplacerPane(ttk.Frame):
         hs = []
         hash_names = []
         chosen_hash = {'hex': None}
+
         def ask_custom_hash():
             ch = simpledialog.askstring(UI_TEXT['h2'], UI_TEXT['i2'], parent=dialog)
             if ch and ch.strip():
@@ -6613,6 +6209,7 @@ class ReplacerPane(ttk.Frame):
         fs = []
         file_names = []
         chosen_file = {'path': None}
+
         def pick_custom_file():
             p = filedialog.askopenfilename(title=UI_TEXT['n2'])
             if p:
@@ -6624,6 +6221,7 @@ class ReplacerPane(ttk.Frame):
         entry_name.grid(row=2, column=1, columnspan=2, sticky='we', padx=10, pady=(8, 4))
         btnf = ttk.Frame(body)
         btnf.grid(row=3, column=0, columnspan=3, pady=12)
+
         def on_ok():
             final_hash = chosen_hash['hex']
             if not final_hash:
@@ -6700,6 +6298,7 @@ class ReplacerPane(ttk.Frame):
         ttk.Button(btnf, text=UI_TEXT['b3'], command=dialog.destroy).pack(side='left', padx=6)
         body.columnconfigure(1, weight=1)
         entry_name.focus_set()
+
         def load_sources():
             nonlocal hs, fs, hash_names, file_names
             if not dialog.winfo_exists():
@@ -6707,11 +6306,13 @@ class ReplacerPane(ttk.Frame):
             hash_status.set(UI_TEXT['c3'])
             file_status.set(UI_TEXT['c3'])
             dialog.update_idletasks()
+
             def scan():
                 try:
-                    return self._scan_hash_saves(), self._scan_file_saves()
+                    return (self._scan_hash_saves(), self._scan_file_saves())
                 except Exception:
-                    return [], []
+                    return ([], [])
+
             def apply_results(results):
                 nonlocal hs, fs, hash_names, file_names
                 if not dialog.winfo_exists():
@@ -6729,6 +6330,7 @@ class ReplacerPane(ttk.Frame):
                     file_combo.current(0)
             result_queue = queue.Queue(maxsize=1)
             threading.Thread(target=lambda: result_queue.put(scan()), daemon=True).start()
+
             def poll_results():
                 if not dialog.winfo_exists():
                     return
@@ -6739,9 +6341,10 @@ class ReplacerPane(ttk.Frame):
             dialog.after(35, poll_results)
         dialog.after_idle(load_sources)
         dialog.wait_window()
+
     def save_hash(self):
         dialog = tk.Toplevel(self)
-        dialog.title('Save Hash')
+        dialog.title('save hash')
         dialog.transient(self)
         dialog.grab_set()
         theme_toplevel(dialog)
@@ -6754,6 +6357,7 @@ class ReplacerPane(ttk.Frame):
         btn_frame = ttk.Frame(dialog)
         btn_frame.grid(row=2, column=0, columnspan=2, pady=12)
         dialog.columnconfigure(1, weight=1)
+
         def on_ok():
             hv = entry_hash.get().strip()
             nv = entry_name.get().strip()
@@ -6794,13 +6398,15 @@ class ReplacerPane(ttk.Frame):
         ttk.Button(btn_frame, text=UI_TEXT['b3'], command=dialog.destroy).pack(side='left', padx=6)
         entry_hash.focus_set()
         dialog.wait_window()
+
     def save_file(self):
         dialog = tk.Toplevel(self)
-        dialog.title('Save File')
+        dialog.title('save file')
         dialog.transient(self)
         dialog.grab_set()
         theme_toplevel(dialog)
         chosen = {'path': None}
+
         def pick_file():
             p = filedialog.askopenfilename(title=UI_TEXT['n3'])
             if p:
@@ -6817,6 +6423,7 @@ class ReplacerPane(ttk.Frame):
         btn_frame = ttk.Frame(dialog)
         btn_frame.grid(row=3, column=0, columnspan=2, pady=12)
         dialog.columnconfigure(1, weight=1)
+
         def on_ok():
             src = chosen['path']
             name = entry_name.get().strip()
@@ -6870,6 +6477,7 @@ class ReplacerPane(ttk.Frame):
         ttk.Button(btn_frame, text=UI_TEXT['b3'], command=dialog.destroy).pack(side='left', padx=6)
         entry_name.focus_set()
         dialog.wait_window()
+
     def _clean_hex(self, s: str) -> str:
         s = s.strip()
         if s.lower().startswith('0x'):
@@ -6878,6 +6486,7 @@ class ReplacerPane(ttk.Frame):
         if len(s) % 2 == 1:
             s = '0' + s
         return s
+
     def _resolve_cache_file_for_item(self, obj) -> Optional[Tuple[str, str, str]]:
         if obj.get('kind') == 'hash':
             fname = obj.get('realname') or os.path.basename(obj.get('path') or '')
@@ -6905,6 +6514,7 @@ class ReplacerPane(ttk.Frame):
                         h = fname.split(' - ', 1)[0].strip()
                         return (h, os.path.join(folder, fname), disp)
         return None
+
     def apply_caches(self):
         root = self.winfo_toplevel()
         db_path = getattr(root, 'db_path', None)
@@ -6991,6 +6601,7 @@ class ReplacerPane(ttk.Frame):
                 recorder(applied)
         messagebox.showinfo(UI_TEXT['y1'], UI_TEXT['c4'].format(p0=ok, p1=len(targets)))
         self._console_log(UI_TEXT['d4'].format(p0=ok, p1=len(targets)))
+
     def rename_selected(self):
         objs = self._get_selected_objs()
         if len(objs) != 1:
@@ -7039,6 +6650,7 @@ class ReplacerPane(ttk.Frame):
             messagebox.showerror(UI_TEXT['h3'], UI_TEXT['f4'].format(p0=e))
             return
         self.refresh_view()
+
     def delete_selected(self):
         objs = self._get_selected_objs()
         if not objs:
@@ -7086,6 +6698,7 @@ class ReplacerPane(ttk.Frame):
         self.refresh_view()
         messagebox.showinfo(UI_TEXT['x2'], UI_TEXT['m4'].format(p0=deleted_units))
         self._console_log(UI_TEXT['n4'].format(p0=deleted_units))
+
     def delete_selected_groups(self):
         objs = self._get_selected_objs()
         groups = [o for o in objs if o.get('kind') == 'group']
@@ -7106,6 +6719,7 @@ class ReplacerPane(ttk.Frame):
         self.refresh_view()
         messagebox.showinfo(UI_TEXT['x2'], UI_TEXT['q4'].format(p0=deleted))
         self._console_log(UI_TEXT['r4'].format(p0=deleted))
+
     def ungroup_selected_groups(self):
         objs = self._get_selected_objs()
         groups = [o for o in objs if o.get('kind') == 'group']
@@ -7153,6 +6767,7 @@ class ReplacerPane(ttk.Frame):
         self.refresh_view()
         messagebox.showinfo(UI_TEXT['x2'], UI_TEXT['v4'].format(p0=removed_groups, p1=moved_files))
         self._console_log(UI_TEXT['w4'].format(p0=removed_groups, p1=moved_files))
+
     def create_group_from_selection(self):
         objs = self._get_selected_objs()
         view = self.source_var.get()
@@ -7162,6 +6777,7 @@ class ReplacerPane(ttk.Frame):
             allowed = {'hash', 'group_item'}
         if any((o['kind'] not in allowed for o in objs)):
             return
+
         def parent_dir(o):
             if o['kind'] == 'group_item':
                 return o['group_path']
@@ -7236,12 +6852,14 @@ SOUND_FILES = ('action_falling.ogg', 'action_footsteps_plastic.mp3', 'action_get
 FFLAG_PATTERN = bytes.fromhex('48 83 EC 38 48 8B 0D 00 00 00 00 4C 8D 05')
 FFLAG_MASK = 'xxxxxxx????xxx'
 FFLAG_MODULE_SIZE = 200 * 1024 * 1024
+
 def fflag_strip_prefix(name: str) -> str:
     name = str(name).strip()
     for pfx in FFLAG_PREFIXES:
         if name.startswith(pfx):
             return name[len(pfx):]
     return name
+
 def fflag_infer_type(value: str) -> str:
     v = str(value).strip().lower()
     if v in ('true', 'false'):
@@ -7255,6 +6873,7 @@ def fflag_infer_type(value: str) -> str:
             return 'float'
         except ValueError:
             return 'string'
+
 class RobloxFFlagEngine:
     PROCESS_ALL_ACCESS = 2035711
     TH32CS_SNAPMODULE = 8
@@ -7262,12 +6881,14 @@ class RobloxFFlagEngine:
     MEM_COMMIT = 4096
     PAGE_NOACCESS = 1
     PAGE_GUARD = 256
+
     def __init__(self):
         self.handle = None
         self.pid = 0
         self.module_base = 0
         self.module_size = FFLAG_MODULE_SIZE
         self.cached_singleton = 0
+
     def close(self):
         if self.handle:
             try:
@@ -7278,6 +6899,7 @@ class RobloxFFlagEngine:
         self.pid = 0
         self.module_base = 0
         self.cached_singleton = 0
+
     def attach(self, pid: int) -> bool:
         self.close()
         if os.name != 'nt':
@@ -7293,7 +6915,9 @@ class RobloxFFlagEngine:
             self.close()
             return False
         return True
+
     def _get_module_base(self, pid: int, wanted: str) -> int:
+
         class MODULEENTRY32W(ctypes.Structure):
             _fields_ = [('dwSize', ctypes.wintypes.DWORD), ('th32ModuleID', ctypes.wintypes.DWORD), ('th32ProcessID', ctypes.wintypes.DWORD), ('GlblcntUsage', ctypes.wintypes.DWORD), ('ProccntUsage', ctypes.wintypes.DWORD), ('modBaseAddr', ctypes.POINTER(ctypes.c_ubyte)), ('modBaseSize', ctypes.wintypes.DWORD), ('hModule', ctypes.c_void_p), ('szModule', ctypes.wintypes.WCHAR * 256), ('szExePath', ctypes.wintypes.WCHAR * 260)]
         snap = ctypes.windll.kernel32.CreateToolhelp32Snapshot(self.TH32CS_SNAPMODULE | self.TH32CS_SNAPMODULE32, int(pid))
@@ -7312,6 +6936,7 @@ class RobloxFFlagEngine:
         finally:
             ctypes.windll.kernel32.CloseHandle(snap)
         return 0
+
     def _read(self, address: int, size: int):
         if not self.handle or not address or size <= 0:
             return None
@@ -7319,9 +6944,11 @@ class RobloxFFlagEngine:
         got = ctypes.c_size_t()
         ok = ctypes.windll.kernel32.ReadProcessMemory(self.handle, ctypes.c_void_p(address), buf, size, ctypes.byref(got))
         return bytes(buf.raw[:got.value]) if ok and got.value == size else None
+
     def _read_u64(self, address: int) -> int:
         b = self._read(address, 8)
         return int.from_bytes(b, 'little', signed=False) if b else 0
+
     def get_singleton(self) -> int:
         if not self.handle or not self.module_base:
             self.cached_singleton = 0
@@ -7372,6 +6999,7 @@ class RobloxFFlagEngine:
                         idx += 1
             addr = vbase + max(vsize, 4096)
         return 0
+
     @staticmethod
     def _fnv1a64(name: str) -> int:
         h = 14695981039346656037
@@ -7379,6 +7007,7 @@ class RobloxFFlagEngine:
             h ^= ord(ch)
             h = h * 1099511628211 & 18446744073709551615
         return h
+
     def set_flag(self, name: str, value: str) -> bool:
         singleton = self.get_singleton()
         if not singleton:
@@ -7422,6 +7051,7 @@ class RobloxFFlagEngine:
                 return bool(ctypes.windll.kernel32.WriteProcessMemory(self.handle, ctypes.c_void_p(vp), data, 4, ctypes.byref(written)))
             node = int.from_bytes(entry[8:16], 'little', signed=False)
         return False
+
     def get_flag_address(self, name: str) -> int:
         singleton = self.get_singleton()
         if not singleton:
@@ -7454,6 +7084,7 @@ class RobloxFFlagEngine:
                 return self._read_u64(vpr + 192)
             node = int.from_bytes(entry[8:16], 'little', signed=False)
         return 0
+
     def get_flag_address_with_prefixes(self, name: str) -> int:
         addr = self.get_flag_address(name)
         if addr:
@@ -7463,6 +7094,7 @@ class RobloxFFlagEngine:
             if addr:
                 return addr
         return 0
+
     def set_flag_with_prefixes(self, name: str, value: str) -> bool:
         if self.set_flag(name, value):
             return True
@@ -7470,6 +7102,7 @@ class RobloxFFlagEngine:
             if self.set_flag(pfx + name, value):
                 return True
         return False
+
 def _get_process_exe_path(pid):
     if not pid or sys.platform != 'win32':
         return ''
@@ -7487,25 +7120,27 @@ def _get_process_exe_path(pid):
     except Exception:
         pass
     return ''
+
 def _fflag_find_pid() -> int:
     try:
         clients = list_roblox_clients()
         return int(clients[0]['pid']) if clients else 0
     except Exception:
         return 0
-
 _NATIVE_MESSAGEBOX = messagebox
+
 def _pady_pair(value):
     try:
         if isinstance(value, (tuple, list)):
             vals = list(value)
             if len(vals) == 1:
-                return int(float(vals[0] or 0)), int(float(vals[0] or 0))
-            return int(float(vals[0] or 0)), int(float(vals[1] or 0))
+                return (int(float(vals[0] or 0)), int(float(vals[0] or 0)))
+            return (int(float(vals[0] or 0)), int(float(vals[1] or 0)))
         n = int(float(value or 0))
-        return n, n
+        return (n, n)
     except Exception:
-        return 0, 0
+        return (0, 0)
+
 def _routils_center_popup(win):
     try:
         if not win.winfo_exists() or getattr(win, '_skip_popup_centering', False):
@@ -7520,6 +7155,7 @@ def _routils_center_popup(win):
         win.geometry(f'+{x}+{y}')
     except Exception:
         pass
+
 def _routils_clear_window_references(event, win):
     if getattr(event, 'widget', None) is not win:
         return
@@ -7539,6 +7175,7 @@ def _routils_clear_window_references(event, win):
                     pass
     except Exception:
         pass
+
 def _routils_close_popup(win):
     try:
         if not win.winfo_exists():
@@ -7572,6 +7209,7 @@ def _routils_close_popup(win):
         win.destroy()
     except Exception:
         pass
+
 def _routils_process_has_focus(root=None):
     try:
         if sys.platform == 'win32':
@@ -7589,6 +7227,7 @@ def _routils_process_has_focus(root=None):
         return bool(focus and focus.winfo_toplevel())
     except Exception:
         return False
+
 def _routils_sync_popup_topmost(root=None):
     try:
         root = root or tk._default_root
@@ -7615,7 +7254,7 @@ def _routils_sync_popup_topmost(root=None):
                     hwnd = _win32_root_hwnd(widget)
                     if hwnd:
                         insert_after = -1 if focused else -2
-                        ctypes.windll.user32.SetWindowPos(hwnd, insert_after, 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010)
+                        ctypes.windll.user32.SetWindowPos(hwnd, insert_after, 0, 0, 0, 0, 1 | 2 | 16)
                 if focused:
                     widget.lift()
             except Exception:
@@ -7634,6 +7273,7 @@ def _routils_sync_popup_topmost(root=None):
         return focused
     except Exception:
         return False
+
 def _routils_popup_chrome(win):
     try:
         if not win.winfo_exists() or getattr(win, '_skip_custom_chrome', False) or getattr(win, '_routils_custom_chrome', False):
@@ -7647,7 +7287,7 @@ def _routils_popup_chrome(win):
         bg = palette.get('bg_dark', '#111318')
         fg = palette.get('fg', '#e6e9ef')
         accent = palette.get('accent', '#8ab4f8')
-        bar_bg = _routils_darken_color(bg, 0.20)
+        bar_bg = _routils_darken_color(bg, 0.2)
         height = 34
         children = list(win.winfo_children())
         pack_children = [child for child in children if child.winfo_manager() == 'pack']
@@ -7659,7 +7299,7 @@ def _routils_popup_chrome(win):
             top, bottom = _pady_pair(info.get('pady', 0))
             first.pack_configure(pady=(top + height, bottom))
         elif grid_children:
-            minrow = min(int(child.grid_info().get('row', 0)) for child in grid_children)
+            minrow = min((int(child.grid_info().get('row', 0)) for child in grid_children))
             for child in grid_children:
                 info = child.grid_info()
                 if int(info.get('row', 0)) == minrow:
@@ -7699,8 +7339,10 @@ def _routils_popup_chrome(win):
         win._routils_chrome_close = close
         win._routils_chrome_colors = {'accent': accent, 'bar': bar_bg, 'fg': fg}
         drag = {'x': 0, 'y': 0, 'wx': 0, 'wy': 0, 'pending': None, 'job': None, 'last': None}
+
         def start_drag(event):
             drag.update(x=event.x_root, y=event.y_root, wx=win.winfo_x(), wy=win.winfo_y(), last=None)
+
         def apply_drag():
             drag['job'] = None
             position = drag.get('pending')
@@ -7716,6 +7358,7 @@ def _routils_popup_chrome(win):
                 win.geometry(f'+{int(position[0])}+{int(position[1])}')
             except Exception:
                 pass
+
         def move_drag(event):
             drag['pending'] = (int(drag['wx'] + event.x_root - drag['x']), int(drag['wy'] + event.y_root - drag['y']))
             if drag['job'] is None:
@@ -7723,6 +7366,7 @@ def _routils_popup_chrome(win):
                     drag['job'] = win.after(16, apply_drag)
                 except Exception:
                     drag['job'] = None
+
         def finish_drag(_event=None):
             job = drag.get('job')
             if job is not None:
@@ -7736,6 +7380,7 @@ def _routils_popup_chrome(win):
             widget.bind('<ButtonPress-1>', start_drag, add='+')
             widget.bind('<B1-Motion>', move_drag, add='+')
             widget.bind('<ButtonRelease-1>', finish_drag, add='+')
+
         def sync_topmost(_event=None):
             try:
                 _routils_sync_popup_topmost(tk._default_root)
@@ -7743,19 +7388,20 @@ def _routils_popup_chrome(win):
                 pass
         win.bind('<FocusIn>', sync_topmost, add='+')
         win.bind('<FocusOut>', lambda _e: win.after(180, sync_topmost), add='+')
-        win.after_idle(lambda w=win, b=bar: (b.lift() if w.winfo_exists() and b.winfo_exists() else None))
+        win.after_idle(lambda w=win, b=bar: b.lift() if w.winfo_exists() and b.winfo_exists() else None)
         win.after_idle(lambda w=win: _routils_center_popup(w))
         win.after_idle(lambda w=win: _routils_refresh_popup_chrome(w))
         win.after(100, sync_topmost)
     except Exception:
         pass
+
 def _routils_refresh_popup_chrome(win):
     try:
         if not win.winfo_exists() or not getattr(win, '_routils_custom_chrome', False):
             return
         palette = _CURRENT_PALETTE if isinstance(_CURRENT_PALETTE, dict) else THEMES[DEFAULT_THEME]
         accent = palette.get('accent', '#8ab4f8')
-        bar_bg = _routils_darken_color(palette.get('bg_dark', '#111318'), 0.20)
+        bar_bg = _routils_darken_color(palette.get('bg_dark', '#111318'), 0.2)
         fg = palette.get('fg', '#e6e9ef')
         win.configure(bg=accent, highlightbackground=accent, highlightcolor=accent)
         bar = getattr(win, '_routils_chrome_bar', None)
@@ -7771,6 +7417,7 @@ def _routils_refresh_popup_chrome(win):
     except Exception:
         pass
 _original_toplevel_init = tk.Toplevel.__init__
+
 def _routils_toplevel_init(self, *args, **kwargs):
     skip_popup_chrome = bool(getattr(tk, '_routils_skip_next_popup_chrome', False))
     if skip_popup_chrome:
@@ -7786,6 +7433,7 @@ def _routils_toplevel_init(self, *args, **kwargs):
     except Exception:
         pass
 tk.Toplevel.__init__ = _routils_toplevel_init
+
 def _routils_nonblocking_grab_set(self, *args, **kwargs):
     try:
         self.focus_set()
@@ -7793,9 +7441,11 @@ def _routils_nonblocking_grab_set(self, *args, **kwargs):
         pass
     return None
 tk.Toplevel.grab_set = _routils_nonblocking_grab_set
+
 class _MacNotification:
     _active = []
     _pulse_jobs = {}
+
     @classmethod
     def _app_has_focus(cls, root):
         try:
@@ -7806,6 +7456,7 @@ class _MacNotification:
             return top is root or str(top.transient()) == str(root)
         except Exception:
             return False
+
     @classmethod
     def _reposition(cls):
         live = []
@@ -7823,19 +7474,20 @@ class _MacNotification:
                 root = getattr(win, '_routils_notification_parent', None)
                 if root is not None and root.winfo_exists():
                     root.update_idletasks()
-                    rx, ry = root.winfo_rootx(), root.winfo_rooty()
-                    rw, rh = root.winfo_width(), root.winfo_height()
+                    rx, ry = (root.winfo_rootx(), root.winfo_rooty())
+                    rw, rh = (root.winfo_width(), root.winfo_height())
                     x = rx + rw - width - 14
-                    y = ry + rh - height - 14 - sum(h + 10 for _, h in ordered[:index])
+                    y = ry + rh - height - 14 - sum((h + 10 for _, h in ordered[:index]))
                 else:
                     x = win.winfo_screenwidth() - width - 22
-                    y = win.winfo_screenheight() - height - 58 - sum(h + 12 for _, h in ordered[:index])
-                sw, sh = win.winfo_screenwidth(), win.winfo_screenheight()
+                    y = win.winfo_screenheight() - height - 58 - sum((h + 12 for _, h in ordered[:index]))
+                sw, sh = (win.winfo_screenwidth(), win.winfo_screenheight())
                 x = max(0, min(int(x), sw - width))
                 y = max(0, min(int(y), sh - height))
                 win.geometry(f'{width}x{height}+{x}+{y}')
             except Exception:
                 pass
+
     @classmethod
     def show(cls, title, message, parent=None, kind='info'):
         try:
@@ -7852,7 +7504,7 @@ class _MacNotification:
             bg = _CURRENT_PALETTE.get('bg_dark', '#111318')
             panel = _CURRENT_PALETTE.get('bg_medium', '#1a1d24')
             fg = _CURRENT_PALETTE.get('fg', '#e6e9ef')
-            lines = max(1, min(4, (len(str(message)) // 46) + 1))
+            lines = max(1, min(4, len(str(message)) // 46 + 1))
             height = 46 + lines * 14
             toast = tk.Toplevel(root)
             toast._routils_notification_parent = root
@@ -7877,6 +7529,7 @@ class _MacNotification:
             body = tk.Label(card, text=str(message), bg=panel, fg=fg, justify='left', anchor='w', wraplength=238, font=('Segoe UI', 8))
             body.pack(fill='both', expand=True, padx=9, pady=(1, 7))
             state = {'count': 0, 'closed': False}
+
             def close_toast():
                 if state['closed']:
                     return
@@ -7896,6 +7549,7 @@ class _MacNotification:
             close.bind('<Button-1>', lambda _e: close_toast())
             close.bind('<Enter>', lambda _e: close.configure(bg='#542a31'))
             close.bind('<Leave>', lambda _e: close.configure(bg=panel))
+
             def sync_topmost(_event=None):
                 try:
                     toast.attributes('-topmost', True)
@@ -7919,6 +7573,7 @@ class _MacNotification:
                 root.bind('<Configure>', lambda _e: cls._reposition(), add='+')
             except Exception:
                 pass
+
             def pulse():
                 if state['closed'] or not toast.winfo_exists():
                     return
@@ -7937,16 +7592,21 @@ class _MacNotification:
             toast.after(4200, close_toast)
         except Exception:
             pass
+
 class _DarkMessageBox:
+
     @staticmethod
     def showinfo(title, message, parent=None, **kwargs):
         _MacNotification.show(title, message, parent, 'info')
+
     @staticmethod
     def showwarning(title, message, parent=None, **kwargs):
         _MacNotification.show(title, message, parent, 'warning')
+
     @staticmethod
     def showerror(title, message, parent=None, **kwargs):
         _MacNotification.show(title, message, parent, 'error')
+
     @staticmethod
     def askyesno(title, message, parent=None, **kwargs):
         root = parent or tk._default_root
@@ -7956,7 +7616,7 @@ class _DarkMessageBox:
         result = {'value': False}
         try:
             dialog = tk.Toplevel(root)
-            dialog.title(str(title or 'RoUtils'))
+            dialog.title(str(title or 'routils'))
             dialog.transient(root)
             dialog.resizable(False, False)
             body = ttk.Frame(dialog, padding=(16, 15, 16, 12))
@@ -7965,6 +7625,7 @@ class _DarkMessageBox:
             prompt.pack(fill='x', anchor='w', pady=(3, 16))
             buttons = ttk.Frame(body)
             buttons.pack(fill='x')
+
             def finish(answer):
                 result['value'] = bool(answer)
                 try:
@@ -7972,9 +7633,9 @@ class _DarkMessageBox:
                         dialog.destroy()
                 except Exception:
                     pass
-            no_button = ttk.Button(buttons, text='No', command=lambda: finish(False))
+            no_button = ttk.Button(buttons, text='no', command=lambda: finish(False))
             no_button.pack(side='right', padx=(7, 0))
-            yes_button = ttk.Button(buttons, text='Yes', command=lambda: finish(True))
+            yes_button = ttk.Button(buttons, text='yes', command=lambda: finish(True))
             yes_button.pack(side='right')
             dialog.protocol('WM_DELETE_WINDOW', lambda: finish(False))
             dialog.bind('<Escape>', lambda _event: finish(False))
@@ -7994,7 +7655,9 @@ class _DarkMessageBox:
                 pass
             return _NATIVE_MESSAGEBOX.askyesno(title, message, parent=parent, **kwargs)
 messagebox = _DarkMessageBox()
+
 class _ScrollableTab(ttk.Frame):
+
     def __init__(self, master, padding=0, **kwargs):
         super().__init__(master, **kwargs)
         self.columnconfigure(0, weight=1)
@@ -8018,10 +7681,12 @@ class _ScrollableTab(ttk.Frame):
         self.inner.bind('<Button-2>', self._middle_press)
         self.inner.bind('<B2-Motion>', self._middle_drag)
         self.inner.bind('<ButtonRelease-2>', self._middle_release)
+
     def _update_region(self, _event=None):
         if getattr(self, '_region_job', None):
             return
         self._region_job = self.after_idle(self._apply_scroll_region)
+
     def _apply_scroll_region(self):
         self._region_job = None
         try:
@@ -8031,6 +7696,7 @@ class _ScrollableTab(ttk.Frame):
                 self._last_scrollregion = bbox
         except Exception:
             pass
+
     def _resize_inner(self, event):
         width = max(1, int(getattr(event, 'width', 0) or 0))
         if width == getattr(self, '_last_inner_width', -1):
@@ -8047,35 +7713,45 @@ class _ScrollableTab(ttk.Frame):
             self.canvas.itemconfigure(self.window, width=width)
         except Exception:
             pass
+
     def _wheel(self, event):
         if event.delta:
             self.canvas.yview_scroll(int(-event.delta / 120), 'units')
         return 'break'
+
     def _middle_press(self, event):
         self._middle_y = event.y
         return 'break'
+
     def _middle_drag(self, event):
         if self._middle_y is not None:
             self.canvas.yview_scroll(int((self._middle_y - event.y) / 2), 'units')
             self._middle_y = event.y
         return 'break'
+
     def _middle_release(self, _event):
         self._middle_y = None
         return 'break'
+
 class _ConsoleStream:
+
     def __init__(self, app, original):
         self.app = app
         self.original = original
+
     def write(self, data):
         self.original.write(data)
         if str(data).strip():
             self.app._console_log(str(data).rstrip())
+
     def flush(self):
         try:
             self.original.flush()
         except Exception:
             pass
+
 class _RoUtilsDiscordRPC:
+
     def __init__(self, client_id, status_callback=None):
         self.client_id = str(client_id)
         self.status_callback = status_callback
@@ -8085,7 +7761,8 @@ class _RoUtilsDiscordRPC:
         self._thread = None
         self._enabled = True
         self._reconnect_requested = False
-        self._activity = (f'Using RoUtils v{APP_VERSION}', 'Not Playing Roblox')
+        self._activity = (f'using routils v{APP_VERSION}', 'not playing roblox')
+
     def _status(self, text):
         callback = self.status_callback
         if callback is not None:
@@ -8093,10 +7770,12 @@ class _RoUtilsDiscordRPC:
                 callback(str(text))
             except Exception:
                 pass
+
     def set_enabled(self, enabled):
         with self._lock:
             self._enabled = bool(enabled)
         self._wake.set()
+
     def set_client_id(self, client_id):
         value = str(client_id or '').strip()
         if not value.isdigit():
@@ -8108,6 +7787,7 @@ class _RoUtilsDiscordRPC:
             self._reconnect_requested = True
         self._wake.set()
         return True
+
     def set_activity(self, details, state):
         activity = (str(details)[:128], str(state)[:128])
         with self._lock:
@@ -8115,18 +7795,21 @@ class _RoUtilsDiscordRPC:
                 return
             self._activity = activity
         self._wake.set()
+
     def start(self):
         if self._thread is not None and self._thread.is_alive():
             return
         self._stop_event.clear()
         self._thread = threading.Thread(target=self._run, daemon=True, name='RoUtils-DiscordRPC')
         self._thread.start()
+
     def stop(self):
         self._stop_event.set()
         self._wake.set()
         thread = self._thread
-        if thread is not None and thread.is_alive() and thread is not threading.current_thread():
+        if thread is not None and thread.is_alive() and (thread is not threading.current_thread()):
             thread.join(timeout=2.0)
+
     def _close_presence(self, presence):
         if presence is not None:
             try:
@@ -8137,6 +7820,7 @@ class _RoUtilsDiscordRPC:
                 presence.close()
             except Exception:
                 pass
+
     def _run(self):
         presence = None
         last_activity = None
@@ -8183,10 +7867,10 @@ class _RoUtilsDiscordRPC:
             if activity != last_activity or now - last_update >= DISCORD_RPC_INTERVAL:
                 details, state = activity
                 try:
-                    presence.update(name='RoUtils', details=details, state=state, large_image='routils', large_text='RoUtils', buttons=[{'label': 'RoUtils Github', 'url': 'https://github.com/offp001/routils'}, {'label': 'RoUtils Website', 'url': 'https://offp001.github.io/routilsw/'}])
+                    presence.update(name='routils', details=details, state=state, large_image='routils', large_text='routils', buttons=[{'label': 'routils github', 'url': 'https://github.com/offp001/routils'}, {'label': 'routils website', 'url': 'https://offp001.github.io/routilsw/'}])
                 except Exception:
                     try:
-                        presence.update(name='RoUtils', details=details, state=state)
+                        presence.update(name='routils', details=details, state=state)
                     except Exception:
                         self._close_presence(presence)
                         presence = None
@@ -8203,6 +7887,7 @@ class _RoUtilsDiscordRPC:
             self._wake.clear()
         self._close_presence(presence)
         self._status('Discord RPC stopped')
+
 def _win32_root_hwnd(win):
     if sys.platform != 'win32':
         return 0
@@ -8212,6 +7897,7 @@ def _win32_root_hwnd(win):
         return int(user32.GetAncestor(raw, 2) or raw)
     except Exception:
         return 0
+
 def _prepare_borderless_appwindow(win):
     if sys.platform != 'win32':
         return
@@ -8249,6 +7935,7 @@ def _prepare_borderless_appwindow(win):
         user32.SetWindowPos(hwnd, 0, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED)
     except Exception:
         pass
+
 def _apply_native_titlebar_theme(win):
     if sys.platform != 'win32':
         return
@@ -8283,10 +7970,12 @@ from settings.settings import SettingsMixin
 from subplace.subplace import SubplaceMixin
 from themes.themes import ThemesMixin
 from viewer.viewer import ViewerMixin
+
 class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, EmoteManagerMixin, ExternalOffsetsMixin, FFlagMixin, HistoryMixin, HomeMixin, PluginsMixin, ReleaseNotesMixin, ServerViewerMixin, SettingsMixin, SubplaceMixin, ThemesMixin, ViewerMixin, _TkAppBase):
+
     def after(self, ms, func=None, *args):
         ui_thread = getattr(self, '_ui_thread_id', None)
-        if func is not None and ui_thread is not None and threading.get_ident() != ui_thread:
+        if func is not None and ui_thread is not None and (threading.get_ident() != ui_thread):
             if getattr(self, '_ui_dispatch_closed', False):
                 return None
             token = None
@@ -8298,7 +7987,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                 if key is not None:
                     with self._thread_ui_coalesce_lock:
                         previous = self._thread_ui_coalesce_tokens.get(key)
-                        if previous is not None and not self._thread_token_cancelled(previous):
+                        if previous is not None and (not self._thread_token_cancelled(previous)):
                             return previous
                         if previous is not None:
                             self._thread_ui_coalesce_tokens.pop(key, None)
@@ -8325,6 +8014,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                     self._forget_thread_ui_token(token)
                 return None
         return super().after(ms, func, *args)
+
     def after_cancel(self, after_id):
         if isinstance(after_id, str) and after_id.startswith('__routils_thread_after_'):
             with self._thread_ui_cancel_lock:
@@ -8335,6 +8025,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         if after_id is None:
             return
         return super().after_cancel(after_id)
+
     def _forget_thread_ui_coalesce_key(self, token):
         lock = getattr(self, '_thread_ui_coalesce_lock', None)
         if lock is None:
@@ -8343,11 +8034,13 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             key = self._thread_ui_token_coalesce_keys.pop(token, None)
             if key is not None and self._thread_ui_coalesce_tokens.get(key) == token:
                 self._thread_ui_coalesce_tokens.pop(key, None)
+
     def _forget_thread_ui_token(self, token):
         with self._thread_ui_cancel_lock:
             self._thread_ui_cancelled.discard(token)
             self._thread_ui_known_tokens.discard(token)
         self._forget_thread_ui_coalesce_key(token)
+
     def _thread_token_cancelled(self, token, consume=False):
         with self._thread_ui_cancel_lock:
             cancelled = token in self._thread_ui_cancelled
@@ -8355,6 +8048,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                 self._thread_ui_cancelled.discard(token)
                 self._thread_ui_known_tokens.discard(token)
             return cancelled
+
     def _store_thread_ui_overflow(self, task):
         due, token, func, args = task
         key = self._thread_ui_coalesce_key(func, args)
@@ -8383,6 +8077,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             if key is not None:
                 self._thread_ui_overflow_keys[key] = token
         return token
+
     def _take_thread_ui_overflow(self, limit):
         result = []
         with self._thread_ui_overflow_lock:
@@ -8390,23 +8085,25 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             for _ in range(count):
                 item = heapq.heappop(self._thread_ui_overflow)
                 result.append(item)
-                key, token = item[4], item[1]
+                key, token = (item[4], item[1])
                 if key is not None and self._thread_ui_overflow_keys.get(key) == token:
                     self._thread_ui_overflow_keys.pop(key, None)
         return result
+
     def _thread_ui_coalesce_key(self, func, args):
         target = getattr(func, '__func__', func)
         name = str(getattr(target, '__name__', '') or '')
         lower = name.lower()
         owner = id(getattr(func, '__self__', None))
+
         def part(value):
             if value is None or isinstance(value, (str, int, float, bool, bytes)):
                 return (type(value).__name__, value)
             if isinstance(value, (tuple, list)) and len(value) <= 8:
-                return (type(value).__name__, tuple(part(item) for item in value))
+                return (type(value).__name__, tuple((part(item) for item in value)))
             return (type(value).__name__, id(value))
         try:
-            args_key = tuple(part(value) for value in args)
+            args_key = tuple((part(value) for value in args))
         except Exception:
             args_key = (id(args),)
         if lower == '<lambda>':
@@ -8430,6 +8127,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         if not repeatable:
             return None
         return (owner, id(target), args_key)
+
     def _pump_thread_ui_queue(self):
         resizing = bool(getattr(self, '_resize_active', False))
         max_pull = 96 if resizing else 24
@@ -8469,7 +8167,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             now = time.monotonic()
             processed = 0
             started = time.perf_counter()
-            while self._thread_ui_pending and processed < 6 and time.perf_counter() - started < 0.0045:
+            while self._thread_ui_pending and processed < 6 and (time.perf_counter() - started < 0.0045):
                 due, token, func, args, key = self._thread_ui_pending[0]
                 if self._thread_token_cancelled(token, consume=True):
                     heapq.heappop(self._thread_ui_pending)
@@ -8497,8 +8195,10 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                 self.after(delay, self._pump_thread_ui_queue)
         except Exception:
             pass
+
     def report_callback_exception(self, exc_type, exc_value, exc_tb):
         _report_rotools_error(exc_type, exc_value, exc_tb, self)
+
     def __init__(self):
         self._ui_thread_id = threading.get_ident()
         self._ui_dispatch_closed = False
@@ -8542,7 +8242,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             configured_discord_id = DISCORD_APPLICATION_ID
         self.settings['discord_application_id'] = configured_discord_id
         self.discord_application_id_var = tk.StringVar(value=configured_discord_id)
-        self.discord_rpc_status_var = tk.StringVar(value='Starting Discord RPC...')
+        self.discord_rpc_status_var = tk.StringVar(value='starting discord rpc...')
         self.cconfigs_dir = os.path.join(DATA_DIR, 'cconfigs')
         self.jsons_dir = os.path.join(DATA_DIR, 'jsons')
         os.makedirs(self.cconfigs_dir, exist_ok=True)
@@ -8566,27 +8266,27 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             if isinstance(_saved_custom_palette, dict):
                 for _color_key, _fallback_color in THEMES[DEFAULT_THEME].items():
                     _saved_color = _saved_custom_palette.get(_color_key, _fallback_color)
-                    _initial_palette[_color_key] = _saved_color if isinstance(_saved_color, str) and re.fullmatch(r'#[0-9a-fA-F]{6}', _saved_color) else _fallback_color
+                    _initial_palette[_color_key] = _saved_color if isinstance(_saved_color, str) and re.fullmatch('#[0-9a-fA-F]{6}', _saved_color) else _fallback_color
         apply_visual_polish(self, theme=UI_THEME, palette=_initial_palette)
-        self.title('RoUtils')
+        self.title('routils')
         saved_geometry = str(self.settings.get('window_geometry', '') or '')
         screen_width = max(800, int(self.winfo_screenwidth() or 1920))
         screen_height = max(600, int(self.winfo_screenheight() or 1080))
-        if re.match(r'^\d+x\d+(?:[+-]\d+[+-]\d+)?$', saved_geometry):
-            match = re.match(r'^(\d+)x(\d+)(?:([+-]\d+)([+-]\d+))?$', saved_geometry)
+        if re.match('^\\d+x\\d+(?:[+-]\\d+[+-]\\d+)?$', saved_geometry):
+            match = re.match('^(\\d+)x(\\d+)(?:([+-]\\d+)([+-]\\d+))?$', saved_geometry)
             width = min(int(match.group(1)), max(700, screen_width - 40))
             height = min(int(match.group(2)), max(420, screen_height - 80))
-            x, y = match.group(3), match.group(4)
+            x, y = (match.group(3), match.group(4))
             if x is None or y is None:
-                x, y = str(max(0, (screen_width-width)//2)), str(max(0, (screen_height-height)//2))
+                x, y = (str(max(0, (screen_width - width) // 2)), str(max(0, (screen_height - height) // 2)))
             else:
-                x = str(max(0, min(int(x), screen_width-width)))
-                y = str(max(0, min(int(y), screen_height-height)))
+                x = str(max(0, min(int(x), screen_width - width)))
+                y = str(max(0, min(int(y), screen_height - height)))
             startup_geometry = f'{width}x{height}{int(x):+d}{int(y):+d}'
         else:
             width = min(1400, max(900, screen_width - 80))
             height = min(800, max(560, screen_height - 100))
-            startup_geometry = f'{width}x{height}+{max(0,(screen_width-width)//2)}+{max(0,(screen_height-height)//2)}'
+            startup_geometry = f'{width}x{height}+{max(0, (screen_width - width) // 2)}+{max(0, (screen_height - height) // 2)}'
         self.geometry(startup_geometry)
         self._responsive_reference_width = max(1, int(width))
         self._responsive_reference_height = max(1, int(height))
@@ -8673,16 +8373,47 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             style.configure('RoUtils.Hidden.TNotebook', tabmargins=0, padding=0, borderwidth=0)
         except Exception:
             pass
-        self._tab_nav = ttk.Frame(self)
-        self._tab_nav.pack(fill='x', side='top', padx=8, pady=(6, 4))
-        self._tab_nav_inner = ttk.Frame(self._tab_nav)
-        self._tab_nav_inner.pack(fill='x', expand=True)
+        self._app_shell = ttk.Frame(self, style='RoUtils.AppShell.TFrame')
+        self._app_shell.pack(fill='both', expand=True, padx=10, pady=(0, 10))
+        self._tab_nav = ttk.Frame(self._app_shell, style='RoUtils.Sidebar.TFrame', width=218)
+        self._tab_nav.pack(side='left', fill='y', padx=(0, 10))
+        self._tab_nav.pack_propagate(False)
+        self._sidebar_brand = ttk.Frame(self._tab_nav, style='RoUtils.Sidebar.TFrame', padding=(16, 18, 14, 15))
+        self._sidebar_brand.pack(fill='x')
+        ttk.Label(self._sidebar_brand, text='routils', style='RoUtils.Brand.TLabel').pack(anchor='w')
+        ttk.Label(self._sidebar_brand, text='roblox toolkit', style='RoUtils.BrandSub.TLabel').pack(anchor='w', pady=(2, 0))
+        ttk.Separator(self._tab_nav).pack(fill='x', padx=12)
+        self._tab_nav_viewport = ttk.Frame(self._tab_nav, style='RoUtils.Sidebar.TFrame')
+        self._tab_nav_viewport.pack(fill='both', expand=True, padx=(7, 3), pady=(8, 5))
+        self._tab_nav_canvas = tk.Canvas(self._tab_nav_viewport, bg=_CURRENT_PALETTE.get('bg_medium', '#111c2e'), bd=0, highlightthickness=0)
+        self._tab_nav_canvas.pack(fill='both', expand=True)
+        self._tab_nav_inner = ttk.Frame(self._tab_nav_canvas, style='RoUtils.Sidebar.TFrame')
+        self._tab_nav_window = self._tab_nav_canvas.create_window((0, 0), window=self._tab_nav_inner, anchor='nw')
+        self._tab_nav_inner.bind('<Configure>', lambda _e: self._tab_nav_canvas.configure(scrollregion=self._tab_nav_canvas.bbox('all')), add='+')
+        self._tab_nav_canvas.bind('<Configure>', lambda e: self._tab_nav_canvas.itemconfigure(self._tab_nav_window, width=e.width), add='+')
+        self._tab_nav_canvas.bind('<MouseWheel>', lambda e: self._tab_nav_canvas.yview_scroll(-int(e.delta / 120), 'units'), add='+')
+        self._tab_nav_canvas.bind('<Button-4>', lambda _e: self._tab_nav_canvas.yview_scroll(-1, 'units'), add='+')
+        self._tab_nav_canvas.bind('<Button-5>', lambda _e: self._tab_nav_canvas.yview_scroll(1, 'units'), add='+')
+        ttk.Separator(self._tab_nav).pack(fill='x', padx=12, pady=(4, 0))
+        self._sidebar_footer = ttk.Frame(self._tab_nav, style='RoUtils.Sidebar.TFrame', padding=(14, 11, 12, 13))
+        self._sidebar_footer.pack(fill='x')
+        ttk.Label(self._sidebar_footer, text=f'v{APP_VERSION}  •  ready', style='RoUtils.SidebarStatus.TLabel').pack(anchor='w')
+        self._main_area = ttk.Frame(self._app_shell, style='RoUtils.AppShell.TFrame')
+        self._main_area.pack(side='left', fill='both', expand=True)
+        self._content_header = ttk.Frame(self._main_area, style='RoUtils.Header.TFrame', padding=(20, 13, 20, 12))
+        self._content_header.pack(fill='x', pady=(0, 9))
+        self._page_title_var = tk.StringVar(value='home')
+        self._page_subtitle_var = tk.StringVar(value='your roblox workspace')
+        self._page_title_label = ttk.Label(self._content_header, textvariable=self._page_title_var, style='RoUtils.PageTitle.TLabel')
+        self._page_title_label.pack(anchor='w')
+        self._page_subtitle_label = ttk.Label(self._content_header, textvariable=self._page_subtitle_var, style='RoUtils.PageSubtitle.TLabel')
+        self._page_subtitle_label.pack(anchor='w', pady=(2, 0))
         self._tab_nav_refresh_job = None
         self._tab_nav_layout_signature = None
         self._tab_nav.bind('<Configure>', self._schedule_tab_nav_refresh, add='+')
         self._setup_tab_nav_styles()
-        self.nb = ttk.Notebook(self, style='RoUtils.Hidden.TNotebook')
-        self.nb.pack(fill='both', expand=True, padx=8, pady=(0, 8))
+        self.nb = ttk.Notebook(self._main_area, style='RoUtils.Hidden.TNotebook')
+        self.nb.pack(fill='both', expand=True)
         self.tab_viewer = ttk.Frame(self.nb)
         self.nb.add(self.tab_viewer, text=UI_TEXT['f5'])
         self.hpaned = ttk.PanedWindow(self.tab_viewer, orient='horizontal')
@@ -8729,6 +8460,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         self.stay_on_top = tk.BooleanVar(value=self.settings.get('stay_on_top', False))
         self.show_lines = tk.BooleanVar(value=self.settings.get('show_lines', True))
         self.streamer_mode = tk.BooleanVar(value=self.settings.get('streamer_mode', False))
+
         def _trace(*_):
             self._save_settings()
         for v in (self.autoscroll, self.hide_tickets, self.stay_on_top, self.show_lines, self.streamer_mode):
@@ -8842,7 +8574,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         self.after(80, self._initial_tab_order_post_map)
         if self.nb.tabs():
             preferred = str(self.settings.get('selected_tab', UI_TEXT['w5']))
-            if preferred == 'Themes':
+            if preferred.lower() in {'themes', 'customize', 'customize app'}:
                 preferred = UI_TEXT['q5']
             selected_id = next((tid for tid in self.nb.tabs() if self.nb.tab(tid, 'text') == preferred), None)
             if selected_id is None:
@@ -8873,13 +8605,14 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         if self._routils_splash is not None:
             self.after(90, self._startup_mint_theme_cycle)
             self.after(420, self._finish_startup_splash)
+
     def _startup_mint_theme_cycle(self):
         if getattr(self, '_startup_mint_theme_cycle_done', False):
             return
         self._startup_mint_theme_cycle_done = True
         try:
             theme_id = next((tab_id for tab_id in self.nb.tabs() if str(self.nb.tab(tab_id, 'text')) == UI_TEXT['q5']), None)
-            if theme_id is not None and not hasattr(self, 'theme_var'):
+            if theme_id is not None and (not hasattr(self, 'theme_var')):
                 info = self._lazy_tabs.get(str(theme_id))
                 if info is not None:
                     tab_name, builder, placeholder = info
@@ -8902,6 +8635,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             if original_theme not in THEMES and original_theme != 'Custom':
                 original_theme = DEFAULT_THEME
             theme_listbox = getattr(self, '_theme_listbox', None)
+
             def select_theme_item(name):
                 try:
                     if theme_listbox is None or not theme_listbox.winfo_exists():
@@ -8934,6 +8668,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                         pass
         except Exception:
             pass
+
     def _create_startup_splash(self):
         if '--tray' in sys.argv:
             return
@@ -8954,7 +8689,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             palette = _CURRENT_PALETTE if isinstance(_CURRENT_PALETTE, dict) else THEMES[DEFAULT_THEME]
             accent = palette.get('accent', '#7f8cff')
             bg = palette.get('bg_dark', '#1b1b1c')
-            width, height = 440, 176
+            width, height = (440, 176)
             screen_w = int(splash.winfo_screenwidth() or 1920)
             screen_h = int(splash.winfo_screenheight() or 1080)
             x = max(0, (screen_w - width) // 2)
@@ -8999,6 +8734,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                 self.deiconify()
             except Exception:
                 pass
+
     def _animate_startup_splash(self):
         splash = getattr(self, '_routils_splash', None)
         canvas = getattr(self, '_routils_splash_canvas', None)
@@ -9018,16 +8754,18 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             self.after(45, self._animate_startup_splash)
         except Exception:
             pass
+
     def _download_startup_splash_image(self):
         try:
             _ensure_splash_image_file()
         finally:
             self._routils_splash_image_done.set()
+
     def _apply_startup_splash_image(self):
         try:
             splash = self._routils_splash
             canvas = self._routils_splash_canvas
-            if splash is None or canvas is None or not splash.winfo_exists() or not os.path.isfile(SPLASH_IMAGE_PATH):
+            if splash is None or canvas is None or (not splash.winfo_exists()) or (not os.path.isfile(SPLASH_IMAGE_PATH)):
                 return
             canvas.update_idletasks()
             target_width = max(1, int(canvas.winfo_width() or 436))
@@ -9044,6 +8782,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             self._routils_splash_image_applied = True
         except Exception:
             pass
+
     def _poll_startup_splash_image(self):
         splash = getattr(self, '_routils_splash', None)
         if splash is None:
@@ -9051,11 +8790,12 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         try:
             if not splash.winfo_exists():
                 return
-            if self._routils_splash_image_done.is_set() and not self._routils_splash_image_applied:
+            if self._routils_splash_image_done.is_set() and (not self._routils_splash_image_applied):
                 self._apply_startup_splash_image()
             self.after(100, self._poll_startup_splash_image)
         except Exception:
             pass
+
     def _finish_startup_splash(self):
         splash = getattr(self, '_routils_splash', None)
         if splash is None:
@@ -9104,8 +8844,10 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                 self.deiconify()
             except Exception:
                 pass
+
     def _is_resize_deferred_ui_key(self, key):
         return key in ('cache_toolbar', 'settings_region', 'history_region') or str(key).startswith(('ai_region_', 'settings_scrollbar_'))
+
     def _schedule_ui(self, key, delay_ms, callback):
         jobs = getattr(self, '_ui_jobs', None)
         if jobs is None:
@@ -9126,6 +8868,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             except Exception:
                 pass
         jobs[key] = self.after(delay_ms, lambda: self._run_ui_job(key, callback))
+
     def _run_ui_job(self, key, callback):
         jobs = getattr(self, '_ui_jobs', None)
         if jobs is not None:
@@ -9137,6 +8880,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             callback()
         except Exception:
             pass
+
     def _lazy_build_cache(self):
         if getattr(self, '_cache_built', False):
             return
@@ -9144,12 +8888,14 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         self._cache_built = True
         self._schedule_startup_layouts()
         self.after_idle(self._update_status)
+
     def _schedule_startup_layouts(self):
         for delay in (80, 220, 500, 900):
             try:
                 self.after(delay, self._apply_startup_layouts)
             except Exception:
                 pass
+
     def _lazy_tab_changed(self, _event=None):
         self._refresh_tab_nav()
         try:
@@ -9214,6 +8960,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             self.after_idle(self._install_global_scroll_support)
         except Exception:
             pass
+
     def _apply_saved_viewer_state(self):
         if not getattr(self, '_cache_built', False):
             return
@@ -9222,21 +8969,23 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                 self._toggle_viewer_pane()
         except Exception:
             pass
+
     def _start_global_hotkeys(self):
         if self._hotkey_thread and self._hotkey_thread.is_alive():
             return
         if sys.platform != 'win32':
             return
+
         def worker():
             user32 = ctypes.windll.user32
             toggle_was_down = False
             while not self._hotkey_stop.is_set():
                 try:
-                    ctrl_down = bool(user32.GetAsyncKeyState(0x11) & 32768)
-                    f3_vk = fflag_key_to_vk('F3') or 0x72
+                    ctrl_down = bool(user32.GetAsyncKeyState(17) & 32768)
+                    f3_vk = fflag_key_to_vk('F3') or 114
                     f3_down = bool(user32.GetAsyncKeyState(f3_vk) & 32768)
                     toggle_down = ctrl_down and f3_down
-                    if toggle_down and not toggle_was_down:
+                    if toggle_down and (not toggle_was_down):
                         self._global_hotkey_q.put(('emote_controls_toggle', {}))
                     if toggle_down:
                         self._hotkey_prev[f3_vk] = True
@@ -9304,6 +9053,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                 time.sleep(0.025)
         self._hotkey_thread = threading.Thread(target=worker, name='RoUtilsGlobalHotkeys', daemon=True)
         self._hotkey_thread.start()
+
     def _process_global_hotkeys(self):
         if getattr(self, '_resize_active', False):
             if not self._hotkey_stop.is_set():
@@ -9336,6 +9086,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             pass
         if not self._hotkey_stop.is_set():
             self.after(UI_HOTKEY_INTERVAL_MS, self._process_global_hotkeys)
+
     def _show_quick_panel(self):
         if self._quick_panel_visible:
             return
@@ -9358,6 +9109,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                     pass
         except Exception:
             self._quick_panel_visible = False
+
     def _hide_quick_panel(self, to_tray=False):
         if not self._quick_panel_visible:
             if to_tray:
@@ -9380,6 +9132,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                     pass
         except Exception:
             self._quick_panel_visible = False
+
     def _toggle_quick_panel(self):
         if self._quick_panel_enabled and (not self._quick_panel_visible):
             self._show_quick_panel()
@@ -9390,9 +9143,11 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             return
         self._quick_panel_enabled = True
         self._show_quick_panel()
+
     def _quick_panel_tick(self):
         if not self._hotkey_stop.is_set():
             self.after(UI_QUICK_PANEL_INTERVAL_MS, self._quick_panel_tick)
+
     def _handle_fps_hotkey(self, binding):
         try:
             fps = max(0, min(240, int(binding.get('fps', 0))))
@@ -9406,8 +9161,10 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                 self._fps_text_var.set(str(fps))
         except Exception:
             pass
+
     def _sync_fps_hotkey_slots(self):
         self.fps_hotkeys = {str(item.get('fps')): str(item.get('key', '')).upper() for item in getattr(self, 'fps_hotkey_slots', []) if int(item.get('fps', 0) or 0) > 0 and item.get('key')}
+
     def _fps_slot_editor(self, index):
         dlg = tk.Toplevel(self)
         dlg.title(f"{UI_TEXT['p32']}{index + 1}")
@@ -9425,6 +9182,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         key_entry = ttk.Entry(outer, textvariable=key_var)
         key_entry.pack(fill='x', pady=(4, 6))
         ttk.Label(outer, text=UI_TEXT['d6'], foreground='#9aa0a6').pack(anchor='w')
+
         def capture(event):
             if getattr(event, 'num', None) is not None:
                 key_var.set({1: 'MOUSE1', 2: 'MOUSE2', 3: 'MOUSE3', 4: 'MOUSE4', 5: 'MOUSE5'}.get(event.num, f'MOUSE{event.num}'))
@@ -9435,6 +9193,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         key_entry.bind('<KeyPress>', capture)
         for n in range(1, 6):
             key_entry.bind(f'<Button-{n}>', capture)
+
         def save():
             try:
                 fps = int(fps_var.get().strip())
@@ -9460,6 +9219,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         ttk.Button(btns, text=UI_TEXT['j6'], command=lambda: (self.fps_hotkey_slots.__setitem__(index, {'fps': 0, 'key': ''}), self._sync_fps_hotkey_slots(), self._save_settings(), self._refresh_fps_hotkey_buttons(), dlg.destroy())).pack(side='left', padx=6)
         ttk.Button(btns, text=UI_TEXT['b3'], command=dlg.destroy).pack(side='right')
         key_entry.focus_set()
+
     def _refresh_fps_hotkey_buttons(self):
         if not hasattr(self, '_fps_hotkey_buttons'):
             return
@@ -9474,6 +9234,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             item = self.fps_hotkey_slots[index]
             fps, key = (item.get('fps', 0), str(item.get('key', '') or '').upper())
             button.config(text=UI_TEXT['k6'].format(p0=fps, p1=key) if fps and key else UI_TEXT['l6'])
+
     def _add_fps_hotkey_slot(self):
         if len(self.fps_hotkey_slots) >= 15:
             return
@@ -9481,6 +9242,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         self._sync_fps_hotkey_slots()
         self._save_settings()
         self._build_fps_hotkey_buttons()
+
     def _build_fps_hotkey_buttons(self):
         frame = getattr(self, '_fps_hotkey_frame', None)
         if frame is None:
@@ -9500,12 +9262,14 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         for col in range(5):
             frame.columnconfigure(col, weight=1)
         self._refresh_fps_hotkey_buttons()
+
     def _reset_fps_hotkeys(self):
         self.fps_hotkey_slots = [{'fps': 0, 'key': ''}]
         self._sync_fps_hotkey_slots()
         self._hotkey_prev.clear()
         self._save_settings()
         self._build_fps_hotkey_buttons()
+
     def _handle_fflag_hotkey(self, binding):
         flag_name = fflag_strip_prefix(str(binding.get('flag', '')).strip())
         if not flag_name:
@@ -9539,6 +9303,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         if self.fflag_pid and self.fflag_engine.handle:
             pid = self.fflag_pid
             engine = self.fflag_engine
+
             def apply_hotkey_value():
                 try:
                     started = time.perf_counter()
@@ -9547,7 +9312,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                     if not success:
                         self.after(0, lambda: self._fflag_apply(silent=True))
                     else:
-                        elapsed_text = f"{elapsed:.9f}".replace('.', ',')
+                        elapsed_text = f'{elapsed:.9f}'.replace('.', ',')
                         status = f'{flag_name} = {new_value} (Applied in {elapsed_text} seconds)'
                         self.after(0, lambda text=status: self._fflag_status_text(text, '#65d98b'))
                 except Exception:
@@ -9556,6 +9321,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                     except Exception:
                         pass
             threading.Thread(target=apply_hotkey_value, name='RoUtilsFFlagHotkeyApply', daemon=True).start()
+
     def _remove_fflag_hotkey(self, tree, refresh):
         sel = tree.selection()
         if not sel:
@@ -9563,6 +9329,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         del self.fflag_hotkeys[int(sel[0])]
         self._save_settings()
         refresh()
+
     def _apply_streamer_mode(self, _retry=0):
         if sys.platform != 'win32' or not self.winfo_exists():
             return
@@ -9604,6 +9371,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                     self.after(150, lambda: self._apply_streamer_mode(_retry + 1))
                 except Exception:
                     pass
+
     def _ensure_main_window_visible(self):
         try:
             if not self.winfo_exists() or '--tray' in sys.argv:
@@ -9620,6 +9388,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                 pass
         except Exception:
             pass
+
     def _startup_focus_cycle(self):
         try:
             if self.state() != 'normal':
@@ -9629,6 +9398,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             self.after(180, lambda: (self.deiconify(), self._restore_windows_taskbar_presence()))
         except Exception:
             pass
+
     def _restore_windows_taskbar_presence(self):
         if sys.platform != 'win32' or not self.winfo_exists():
             return
@@ -9644,6 +9414,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                     user32.SendMessageW(hwnd, 128, 0, hicon)
         except Exception:
             pass
+
     def _setup_custom_titlebar(self):
         self._prepare_borderless = True
         self._titlebar = tk.Frame(self, bg=_CURRENT_PALETTE.get('bg_dark', '#1b1b1c'), height=38, bd=0, highlightthickness=0)
@@ -9684,11 +9455,12 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             saved_button_colors = {}
         for name, (item, command, old_color) in list(self._titlebar_buttons.items()):
             selected_color = saved_button_colors.get(name, legacy_button_color or default_button_colors.get(name, old_color))
-            if not isinstance(selected_color, str) or not re.fullmatch(r'#[0-9a-fA-F]{6}', selected_color):
+            if not isinstance(selected_color, str) or not re.fullmatch('#[0-9a-fA-F]{6}', selected_color):
                 selected_color = default_button_colors.get(name, old_color)
             self._titlebar_buttons[name] = (item, command, selected_color)
             self._titlebar_canvas.itemconfigure(item, fill=selected_color)
         self.after_idle(self._restore_windows_taskbar_presence)
+
     def _open_notification_center(self):
         panel = getattr(self, '_notification_center_panel', None)
         if panel is not None:
@@ -9733,6 +9505,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         self._refresh_notification_center()
         panel.lift()
         return panel
+
     def _refresh_notification_center(self):
         panel = getattr(self, '_notification_center_panel', None)
         listbox = getattr(self, '_notification_center_listbox', None)
@@ -9740,7 +9513,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         if panel is None or listbox is None or details is None:
             return
         try:
-            if not panel.winfo_exists() or not listbox.winfo_exists() or not details.winfo_exists():
+            if not panel.winfo_exists() or not listbox.winfo_exists() or (not details.winfo_exists()):
                 return
             with _NOTIFICATION_HISTORY_LOCK:
                 entries = list(reversed(_NOTIFICATION_HISTORY))
@@ -9759,6 +9532,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                 details.configure(state='disabled')
         except tk.TclError:
             pass
+
     def _notification_center_show_selected(self, _event=None):
         listbox = getattr(self, '_notification_center_listbox', None)
         details = getattr(self, '_notification_center_details', None)
@@ -9776,11 +9550,13 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             details.configure(state='disabled')
         except tk.TclError:
             pass
+
     def _clear_notification_history(self):
         with _NOTIFICATION_HISTORY_LOCK:
             _NOTIFICATION_HISTORY.clear()
             _save_notification_history()
         self._refresh_notification_center()
+
     def _open_spotlight(self):
         existing = getattr(self, '_spotlight_window', None)
         if existing is not None:
@@ -9797,14 +9573,14 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         win = tk.Toplevel(self)
         win._skip_custom_chrome = True
         win._skip_popup_centering = True
-        win.title('RoUtils Command Search')
+        win.title('routils command search')
         win.overrideredirect(True)
         accent = _CURRENT_PALETTE.get('accent', '#8ab4f8')
         bg = _CURRENT_PALETTE.get('bg_dark', '#111318')
         surface = _CURRENT_PALETTE.get('bg_medium', '#1a1d24')
         foreground = _CURRENT_PALETTE.get('fg', '#e6e9ef')
         win.configure(bg=accent)
-        width, height = 740, 470
+        width, height = (740, 470)
         x = max(0, (self.winfo_screenwidth() - width) // 2)
         y = max(0, (self.winfo_screenheight() - height) // 2 - 35)
         win.geometry(f'{width}x{height}+{x}+{y}')
@@ -9820,14 +9596,15 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         entry = ttk.Entry(header, textvariable=var, font=('Segoe UI', 12))
         entry.pack(side='left', fill='x', expand=True, padx=(0, 8), ipady=5)
         ttk.Button(header, text='×', width=3, command=win.destroy).pack(side='right')
-        hint = tk.Label(card, text='Search tabs, actions, settings, and FFlag commands', bg=bg, fg='#9aa0a6', anchor='w', font=('Segoe UI', 9))
+        hint = tk.Label(card, text='search tabs, actions, settings, and fflag commands', bg=bg, fg='#9aa0a6', anchor='w', font=('Segoe UI', 9))
         hint.pack(fill='x', padx=15, pady=(0, 7))
         results = tk.Listbox(card, bg=surface, fg=foreground, selectbackground=accent, selectforeground='#ffffff', bd=0, highlightthickness=0, activestyle='none', font=('Segoe UI', 10), height=16, selectborderwidth=0)
         results.pack(fill='both', expand=True, padx=12, pady=(0, 7))
-        footer = tk.Label(card, text='↑ ↓ Navigate     Enter Open     Esc Close     Ctrl+K Search', bg=bg, fg='#9aa0a6', anchor='w', font=('Segoe UI', 9))
+        footer = tk.Label(card, text='↑ ↓ navigate     enter open     esc close     ctrl+k search', bg=bg, fg='#9aa0a6', anchor='w', font=('Segoe UI', 9))
         footer.pack(fill='x', padx=15, pady=(0, 10))
         matches = []
         action_order = {}
+
         def widget_text(widget):
             values = []
             for option in ('text', 'label', 'title'):
@@ -9838,17 +9615,19 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                 except Exception:
                     pass
             return ' '.join(values).strip()
+
         def is_searchable_text(value):
-            value = re.sub(r'\s+', ' ', str(value or '')).strip()
-            if len(value) < 2 or not re.search(r'[A-Za-zÇĞİÖŞÜçğıöşü]', value):
+            value = re.sub('\\s+', ' ', str(value or '')).strip()
+            if len(value) < 2 or not re.search('[A-Za-zÇĞİÖŞÜçğıöşü]', value):
                 return False
-            if re.search(r'\b[A-Z]{1,8}\s+VAR\s*\d+\b', value, re.I):
+            if re.search('\\b[A-Z]{1,8}\\s+VAR\\s*\\d+\\b', value, re.I):
                 return False
-            if re.search(r'\bversion\s*:?\s*v?\d+(?:\.\d+){1,4}\b', value, re.I):
+            if re.search('\\bversion\\s*:?\\s*v?\\d+(?:\\.\\d+){1,4}\\b', value, re.I):
                 return False
-            if re.fullmatch(r'[vV]?\d+(?:\.\d+){1,4}', value):
+            if re.fullmatch('[vV]?\\d+(?:\\.\\d+){1,4}', value):
                 return False
             return True
+
         def find_tab(tab_name):
             for tab_id in self.nb.tabs():
                 try:
@@ -9857,38 +9636,11 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                 except Exception:
                     pass
             return None
-        action_specs = [
-            ('Open FFlags History', UI_TEXT['h5'], 'fflag_history', ('fflag history', 'flag change history', 'history of flags', 'changes history')),
-            ('Apply FFlags', UI_TEXT['h5'], 'fflag_apply', ('apply flags', 'inject fflags', 'apply fastflags')),
-            ('Add FFlag', UI_TEXT['h5'], 'fflag_add', ('new flag', 'create fflag', 'add fastflag')),
-            ('Save FFlags', UI_TEXT['h5'], 'fflag_save', ('save flags', 'save fastflags')),
-            ('Toggle FFlag Auto Apply', UI_TEXT['h5'], 'fflag_auto', ('auto apply', 'automatic fflag apply')),
-            ('Open FFlag JSON Editor', UI_TEXT['h5'], 'fflag_json', ('edit flag json', 'json editor')),
-            ('Import FFlags', UI_TEXT['h5'], 'fflag_import', ('import flags', 'load flags json')),
-            ('Export FFlags', UI_TEXT['h5'], 'fflag_export', ('export flags', 'save flags json')),
-            ('Refresh Roblox Process', UI_TEXT['h5'], 'fflag_process', ('detect roblox', 'refresh pid', 'find roblox process')),
-            ('Open Console', UI_TEXT['u5'], 'console', ('terminal', 'commands', 'console commands')),
-            ('Open Cache', UI_TEXT['f5'], 'cache', ('cache viewer', 'cache files')),
-            ('Open Themes', UI_TEXT['q5'], 'themes', ('appearance', 'colors', 'change theme')),
-            ('Open Settings', UI_TEXT['r5'], 'settings', ('preferences', 'app settings'))
-        ]
+        action_specs = [('Open FFlags History', UI_TEXT['h5'], 'fflag_history', ('fflag history', 'flag change history', 'history of flags', 'changes history')), ('Apply FFlags', UI_TEXT['h5'], 'fflag_apply', ('apply flags', 'inject fflags', 'apply fastflags')), ('Add FFlag', UI_TEXT['h5'], 'fflag_add', ('new flag', 'create fflag', 'add fastflag')), ('Save FFlags', UI_TEXT['h5'], 'fflag_save', ('save flags', 'save fastflags')), ('Toggle FFlag Auto Apply', UI_TEXT['h5'], 'fflag_auto', ('auto apply', 'automatic fflag apply')), ('Open FFlag JSON Editor', UI_TEXT['h5'], 'fflag_json', ('edit flag json', 'json editor')), ('Import FFlags', UI_TEXT['h5'], 'fflag_import', ('import flags', 'load flags json')), ('Export FFlags', UI_TEXT['h5'], 'fflag_export', ('export flags', 'save flags json')), ('Refresh Roblox Process', UI_TEXT['h5'], 'fflag_process', ('detect roblox', 'refresh pid', 'find roblox process')), ('Open Console', UI_TEXT['u5'], 'console', ('terminal', 'commands', 'console commands')), ('Open Cache', UI_TEXT['f5'], 'cache', ('cache viewer', 'cache files')), ('Open Themes', UI_TEXT['q5'], 'themes', ('appearance', 'colors', 'change theme')), ('Open Settings', UI_TEXT['r5'], 'settings', ('preferences', 'app settings'))]
+
         def collect():
             found = []
-            tab_aliases = {
-                UI_TEXT['f5']: ('Cache Viewer', 'Cache Editor', 'Browse Roblox cache', 'Find cached assets', 'Replace cache assets', 'Delete cache entries', 'Watch cache changes', 'Export caches'),
-                UI_TEXT['h5']: ('FastFlags', 'Fast Flag Manager', 'FFlag values', 'FFlag offsets', 'Edit Roblox flags', 'FFlag History', 'Change History', 'FastFlag Settings'),
-                UI_TEXT['l5']: ('Roblox configs', 'CConfig manager', 'Save config', 'Load config', 'Import config', 'Export config'),
-                UI_TEXT['k5']: ('Mesh tools', 'Convert mesh', 'Replace Roblox meshes', 'Asset modifications'),
-                UI_TEXT['m5']: ('Join Roblox game', 'Join subplace', 'Place ID', 'Server deeplink'),
-                UI_TEXT['n5']: ('View Roblox server', 'Server deeplink', 'Job ID'),
-                UI_TEXT['o5']: ('Recent games', 'Recent servers', 'Join history', 'Copy deeplink'),
-                UI_TEXT['p5']: ('Roblox client info', 'CPU usage', 'RAM usage', 'Refresh client info'),
-                UI_TEXT['q5']: ('Appearance', 'Change theme', 'Customize colors', 'Topbar button colors'),
-                UI_TEXT['j5']: ('Ask AI', 'Gemini chat', 'RoUtils help'),
-                UI_TEXT['s5']: ('Manage plugins', 'Enable plugins', 'Disable plugins'),
-                UI_TEXT['u5']: ('Commands', 'Command console', 'Cache commands', 'FFlag commands'),
-                UI_TEXT['r5']: ('Preferences', 'Performance settings', 'Startup settings', 'Hotkeys', 'Update settings')
-            }
+            tab_aliases = {UI_TEXT['f5']: ('Cache Viewer', 'Cache Editor', 'Browse Roblox cache', 'Find cached assets', 'Replace cache assets', 'Delete cache entries', 'Watch cache changes', 'Export caches'), UI_TEXT['h5']: ('FastFlags', 'Fast Flag Manager', 'FFlag values', 'FFlag offsets', 'Edit Roblox flags', 'FFlag History', 'Change History', 'FastFlag Settings'), UI_TEXT['l5']: ('Roblox configs', 'CConfig manager', 'Save config', 'Load config', 'Import config', 'Export config'), UI_TEXT['k5']: ('Mesh tools', 'Convert mesh', 'Replace Roblox meshes', 'Asset modifications'), UI_TEXT['m5']: ('Join Roblox game', 'Join subplace', 'Place ID', 'Server deeplink'), UI_TEXT['n5']: ('View Roblox server', 'Server deeplink', 'Job ID'), UI_TEXT['o5']: ('Recent games', 'Recent servers', 'Join history', 'Copy deeplink'), UI_TEXT['p5']: ('Roblox client info', 'CPU usage', 'RAM usage', 'Refresh client info'), UI_TEXT['q5']: ('Appearance', 'Change theme', 'Customize colors', 'Topbar button colors'), UI_TEXT['j5']: ('Ask AI', 'Gemini chat', 'RoUtils help'), UI_TEXT['s5']: ('Manage plugins', 'Enable plugins', 'Disable plugins'), UI_TEXT['u5']: ('Commands', 'Command console', 'Cache commands', 'FFlag commands'), UI_TEXT['r5']: ('Preferences', 'Performance settings', 'Startup settings', 'Hotkeys', 'Update settings')}
             for tab_id in self.nb.tabs():
                 try:
                     tab_name = str(self.nb.tab(tab_id, 'text')).strip()
@@ -9925,16 +9677,17 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             unique = []
             seen = set()
             for item in found:
-                label, tab_name = item[0], item[1]
+                label, tab_name = (item[0], item[1])
                 key = (label.casefold(), tab_name.casefold())
                 if key not in seen:
                     seen.add(key)
                     unique.append(item)
             return unique
         all_items = collect()
+
         def score_item(item, query, terms):
             label, tab_name, _tab_id, widget = item
-            label_norm = re.sub(r'\s+', ' ', str(label)).casefold().strip()
+            label_norm = re.sub('\\s+', ' ', str(label)).casefold().strip()
             tab_norm = str(tab_name).casefold()
             haystack = f'{label_norm} {tab_norm}'
             is_action = isinstance(widget, str) and widget.startswith('__action__:')
@@ -9949,9 +9702,9 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                 return 300
             if label_norm.startswith(query):
                 return 240 - len(label_norm) * 0.02
-            if all(term in haystack for term in terms):
-                return 190 - len(label_norm) * 0.015 + sum(10 for term in terms if label_norm.startswith(term))
-            tokens = re.findall(r'[a-z0-9çğıöşü]+', label_norm)
+            if all((term in haystack for term in terms)):
+                return 190 - len(label_norm) * 0.015 + sum((10 for term in terms if label_norm.startswith(term)))
+            tokens = re.findall('[a-z0-9çğıöşü]+', label_norm)
             token_scores = []
             for term in terms:
                 token_scores.append(max([difflib.SequenceMatcher(None, term, token).ratio() for token in tokens] + [0.0]))
@@ -9959,9 +9712,10 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             full_fuzzy = difflib.SequenceMatcher(None, query, label_norm).ratio()
             score = max(fuzzy * 150, full_fuzzy * 135)
             return score if score >= 72 else -1
+
         def render(*_):
             query = var.get().strip().casefold()
-            terms = [part for part in re.split(r'\s+', query) if part]
+            terms = [part for part in re.split('\\s+', query) if part]
             matches.clear()
             results.delete(0, 'end')
             ranked = []
@@ -9981,25 +9735,17 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                 results.selection_clear(0, 'end')
                 results.selection_set(0)
                 results.activate(0)
-                footer.configure(text=f'{len(matches)} result(s)     ↑ ↓ Navigate     Enter Open     Esc Close')
+                footer.configure(text=f'{len(matches)} result(s)     ↑ ↓ navigate     enter open     esc close')
             else:
                 results.insert('end', 'No matching commands or controls')
-                footer.configure(text='Try a shorter phrase or search by tab, action, setting, or FFlag name')
+                footer.configure(text='try a shorter phrase or search by tab, action, setting, or fflag name')
+
         def dispatch_action(action):
-            callbacks = {
-                'fflag_history': self._open_fflag_history_panel,
-                'fflag_apply': self._fflag_apply,
-                'fflag_add': self._fflag_add_dialog,
-                'fflag_save': self._save_fflag_flags,
-                'fflag_auto': self._toggle_fflag_auto_apply,
-                'fflag_json': self._fflag_json_editor,
-                'fflag_import': self._fflag_import,
-                'fflag_export': self._fflag_export,
-                'fflag_process': self._fflag_refresh_process
-            }
+            callbacks = {'fflag_history': self._open_fflag_history_panel, 'fflag_apply': self._fflag_apply, 'fflag_add': self._fflag_add_dialog, 'fflag_save': self._save_fflag_flags, 'fflag_auto': self._toggle_fflag_auto_apply, 'fflag_json': self._fflag_json_editor, 'fflag_import': self._fflag_import, 'fflag_export': self._fflag_export, 'fflag_process': self._fflag_refresh_process}
             callback = callbacks.get(action)
             if callback:
                 callback()
+
         def activate(_event=None):
             selection = results.curselection()
             if not selection or selection[0] >= len(matches):
@@ -10050,6 +9796,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             except Exception as exc:
                 self._console_log(UI_TEXT['e7'].format(p0=exc))
             return 'break'
+
         def move_selection(delta):
             if not matches:
                 return 'break'
@@ -10062,6 +9809,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             results.see(index)
             return 'break'
         render_job = {'id': None}
+
         def schedule_render(*_):
             previous_job = render_job.get('id')
             if previous_job:
@@ -10069,6 +9817,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                     win.after_cancel(previous_job)
                 except Exception:
                     pass
+
             def run_render():
                 render_job['id'] = None
                 render()
@@ -10088,6 +9837,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         win._spotlight_entry = entry
         render()
         entry.focus_set()
+
     def _update_kill_routils_visibility(self):
         try:
             enabled = bool(self.hide_to_tray_on_close.get())
@@ -10109,6 +9859,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             self._layout_titlebar(force=True)
         except Exception:
             pass
+
     def _kill_ro_utils(self):
         try:
             pid = os.getpid()
@@ -10132,6 +9883,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                 os._exit(1)
             except BaseException:
                 pass
+
     def _layout_titlebar(self, event=None, force=False):
         try:
             w = max(160, self._titlebar_canvas.winfo_width())
@@ -10152,6 +9904,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                 x -= 23
         except Exception:
             pass
+
     def _titlebar_hit(self, x, y):
         kill_items = getattr(self, '_kill_ro_utils_items', None)
         if kill_items:
@@ -10161,13 +9914,13 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                     return ('kill_ro_utils', self._kill_ro_utils)
         try:
             box = self._titlebar_canvas.bbox('notification_button')
-            if box and box[0] - 5 <= x <= box[2] + 5 and box[1] - 5 <= y <= box[3] + 5:
+            if box and box[0] - 5 <= x <= box[2] + 5 and (box[1] - 5 <= y <= box[3] + 5):
                 return ('notifications', self._open_notification_center)
         except Exception:
             pass
         try:
             box = self._titlebar_canvas.bbox('spotlight')
-            if box and box[0] <= x <= box[2] and box[1] <= y <= box[3]:
+            if box and box[0] <= x <= box[2] and (box[1] <= y <= box[3]):
                 return ('spotlight', self._open_spotlight)
         except Exception:
             pass
@@ -10176,6 +9929,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             if coords and coords[0] <= x <= coords[2] and (coords[1] <= y <= coords[3]):
                 return (name, command)
         return (None, None)
+
     def _titlebar_press(self, event):
         name, _ = self._titlebar_hit(event.x, event.y)
         if name:
@@ -10185,6 +9939,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             return 'break'
         self._titlebar_drag_data = ('drag', event.x_root, event.y_root, self.winfo_x(), self.winfo_y())
         return 'break'
+
     def _titlebar_drag(self, event):
         data = self._titlebar_drag_data
         if not data or data[0] != 'drag':
@@ -10192,6 +9947,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         _, sx, sy, ox, oy = data
         self._titlebar_pending_xy = (int(ox + event.x_root - sx), int(oy + event.y_root - sy))
         if self._titlebar_drag_job is None:
+
             def apply_drag():
                 self._titlebar_drag_job = None
                 xy = getattr(self, '_titlebar_pending_xy', None)
@@ -10209,6 +9965,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                     pass
             self._titlebar_drag_job = self.after(16, apply_drag)
         return 'break'
+
     def _titlebar_release(self, event):
         data = self._titlebar_drag_data
         self._titlebar_drag_data = None
@@ -10244,12 +10001,15 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             elif name == 'spotlight':
                 self._open_spotlight()
         return 'break'
+
     def _titlebar_motion(self, event):
         name, _ = self._titlebar_hit(event.x, event.y)
         self._titlebar_canvas.configure(cursor='hand2' if name else '')
         return 'break'
+
     def _titlebar_close(self):
         self._on_close()
+
     def _titlebar_minimize(self):
         try:
             self.iconify()
@@ -10258,6 +10018,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                 self.state('iconic')
             except Exception:
                 pass
+
     def _titlebar_toggle_maximize(self):
         try:
             if self.state() == 'zoomed' or getattr(self, '_custom_maximized', False):
@@ -10268,6 +10029,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                 self._custom_maximized = True
         except Exception:
             pass
+
     def _schedule_tab_nav_refresh(self, _event=None):
         try:
             if self._tab_nav_refresh_job is not None:
@@ -10275,6 +10037,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             self._tab_nav_refresh_job = self.after(220, self._run_tab_nav_refresh)
         except Exception:
             self._tab_nav_refresh_job = None
+
     def _run_tab_nav_refresh(self):
         self._tab_nav_refresh_job = None
         if getattr(self, '_resize_active', False):
@@ -10284,81 +10047,81 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                 self._tab_nav_refresh_job = None
             return
         self._refresh_tab_nav()
+
     def _refresh_tab_nav(self):
         if not hasattr(self, '_tab_nav_inner') or not hasattr(self, 'nb'):
             return
         try:
-            active_id = str(self.nb.select()) if self.nb.select() else ''
             current_tabs = list(self.nb.tabs())
+            active_id = str(self.nb.select()) if self.nb.select() else ''
+            names = {tab_id: str(self.nb.tab(tab_id, 'text')).lower() for tab_id in current_tabs}
+            sections = [('workspace', (UI_TEXT['w5'], UI_TEXT['f5'], UI_TEXT['h5'], UI_TEXT['i5'], UI_TEXT['j5'])), ('utilities', (UI_TEXT['l5'], UI_TEXT['k5'], UI_TEXT['m5'], UI_TEXT['n5'], UI_TEXT['o5'])), ('tools', (UI_TEXT['p5'], 'luau interpreter')), ('application', (UI_TEXT['q5'], UI_TEXT['s5'], UI_TEXT['t5'], UI_TEXT['u5'], UI_TEXT['r5']))]
+            grouped = []
+            included = set()
+            for section_name, section_names in sections:
+                items = [tab_id for tab_id in current_tabs if names[tab_id] in section_names]
+                if items:
+                    grouped.append((section_name, items))
+                    included.update(items)
+            extras = [tab_id for tab_id in current_tabs if tab_id not in included]
+            if extras:
+                grouped.append(('extensions', extras))
+            signature = tuple(((section, tuple(((tab_id, names[tab_id]) for tab_id in items))) for section, items in grouped))
             buttons = getattr(self, '_tab_nav_buttons', {})
             grips = getattr(self, '_tab_grips', {})
-            for tab_id in tuple(buttons):
-                if tab_id not in current_tabs:
-                    for widget in (buttons.get(tab_id), grips.get(tab_id)):
-                        try:
-                            widget.destroy()
-                        except Exception:
-                            pass
-                    buttons.pop(tab_id, None)
-                    grips.pop(tab_id, None)
-            try:
-                nav_width = max(self.winfo_width(), self._tab_nav.winfo_width())
-            except Exception:
-                nav_width = 1200
-            if nav_width < 760:
-                compact_names = {UI_TEXT['k5']: 'Mods', UI_TEXT['m5']: 'Subpl.', UI_TEXT['n5']: 'Server', UI_TEXT['r5']: 'Set.'}
-            elif nav_width < 1080:
-                compact_names = {UI_TEXT['k5']: 'Mods', UI_TEXT['m5']: 'Subplace', UI_TEXT['n5']: 'Server', UI_TEXT['r5']: UI_TEXT['r5']}
-            else:
-                compact_names = {}
-            display_rows = []
+            if signature != getattr(self, '_tab_nav_layout_signature', None):
+                for child in tuple(self._tab_nav_inner.winfo_children()):
+                    try:
+                        child.destroy()
+                    except Exception:
+                        pass
+                buttons = {}
+                grips = {}
+                row = 0
+                for section_name, items in grouped:
+                    heading = ttk.Label(self._tab_nav_inner, text=section_name, style='RoUtils.NavSection.TLabel')
+                    heading.grid(row=row, column=0, columnspan=2, sticky='w', padx=(9, 4), pady=(8 if row else 3, 3))
+                    row += 1
+                    for tab_id in items:
+                        display_name = names[tab_id]
+                        grip = tk.Label(self._tab_nav_inner, text='⋮', bg=_CURRENT_PALETTE.get('bg_medium', '#111c2e'), fg='#718096', font=('Segoe UI Symbol', 11), cursor='hand2', padx=3, pady=4)
+                        grip.bind('<ButtonPress-1>', lambda event, tid=tab_id: self._tab_drag_start(event, tid))
+                        grip.bind('<B1-Motion>', self._tab_drag_motion)
+                        grip.bind('<ButtonRelease-1>', self._tab_drag_release)
+                        grip.grid(row=row, column=0, sticky='ns', padx=(2, 0), pady=1)
+                        button = ttk.Button(self._tab_nav_inner, text=display_name, takefocus=False, style='RoUtils.Nav.TButton', command=lambda tid=tab_id: self.nb.select(tid))
+                        button.grid(row=row, column=1, sticky='ew', padx=(0, 5), pady=1)
+                        buttons[tab_id] = button
+                        grips[tab_id] = grip
+                        row += 1
+                self._tab_nav_inner.columnconfigure(1, weight=1)
+                self._tab_nav_buttons = buttons
+                self._tab_grips = grips
+                self._tab_nav_layout_signature = signature
+                try:
+                    self._tab_nav_canvas.configure(scrollregion=self._tab_nav_canvas.bbox('all'))
+                except Exception:
+                    pass
             for tab_id in current_tabs:
-                name = str(self.nb.tab(tab_id, 'text'))
-                display_name = compact_names.get(name, name)
-                display_rows.append((tab_id, display_name))
                 button = buttons.get(tab_id)
                 if button is None or not button.winfo_exists():
-                    button = ttk.Button(self._tab_nav_inner, text=display_name, takefocus=False, style='RoUtils.Nav.TButton', command=lambda tid=tab_id: self.nb.select(tid))
-                    buttons[tab_id] = button
-                elif str(button.cget('text')) != display_name:
-                    button.configure(text=display_name)
-                grip = grips.get(tab_id)
-                if grip is None or not grip.winfo_exists():
-                    grip = tk.Label(self._tab_nav_inner, text=UI_TEXT['g7'], bg=_CURRENT_PALETTE.get('bg_dark', '#111318'), fg='#8490a6', font=('Segoe UI Symbol', 10), cursor='hand2', padx=1)
-                    grip.bind('<ButtonPress-1>', lambda event, tid=tab_id: self._tab_drag_start(event, tid))
-                    grip.bind('<B1-Motion>', self._tab_drag_motion)
-                    grip.bind('<ButtonRelease-1>', self._tab_drag_release)
-                    grips[tab_id] = grip
-                else:
-                    grip.configure(bg=_CURRENT_PALETTE.get('bg_dark', '#111318'))
-            self._tab_nav_buttons = buttons
-            self._tab_grips = grips
-            columns = max(3, min(12, int(max(1, nav_width) // 118)))
-            signature = (tuple(display_rows), columns)
-            if signature != getattr(self, '_tab_nav_layout_signature', None):
-                for column in range(columns * 2):
-                    self._tab_nav_inner.columnconfigure(column, weight=0)
-                for index, (tab_id, _display_name) in enumerate(display_rows):
-                    grip = grips[tab_id]
-                    button = buttons[tab_id]
-                    grip.pack_forget()
-                    button.pack_forget()
-                    row = index // columns
-                    column = (index % columns) * 2
-                    grip.grid(row=row, column=column, sticky='w', padx=(3, 0), pady=(0, 2))
-                    button.grid(row=row, column=column + 1, sticky='w', padx=(0, 4), pady=(0, 2))
-                self._tab_nav_inner.grid_anchor('center')
-                self._tab_nav_layout_signature = signature
-            for tab_id in current_tabs:
-                button = buttons[tab_id]
+                    continue
                 selected_style = 'RoUtils.ActiveNav.TButton' if tab_id == active_id else 'RoUtils.Nav.TButton'
                 if str(button.cget('style')) != selected_style:
                     button.configure(style=selected_style)
+            if active_id:
+                page_name = names.get(active_id, 'routils')
+                descriptions = {'home': 'your roblox workspace', 'cache': 'browse, preview and manage local cache files', 'fflag': 'manage client flags and saved presets', 'emote manager': 'organize emotes and keyboard shortcuts', 'ai': 'ask questions and work with your assistant', 'configs': 'manage configuration profiles', 'modifications': 'adjust supported client options', 'subplace joiner': 'open a place using its place id', 'server viewer': 'browse available game servers', 'history': 'review recent activity and changes', 'client': 'manage local client settings', 'luau interpreter': 'run standalone luau code locally', 'customize': 'personalize colors and appearance', 'plugins': 'manage optional extensions', 'release notes': 'review version changes', 'console': 'inspect application output and diagnostics', 'settings': 'configure application preferences'}
+                if hasattr(self, '_page_title_var'):
+                    self._page_title_var.set(page_name)
+                    self._page_subtitle_var.set(descriptions.get(page_name, 'manage this section'))
         except Exception:
             pass
+
     def _tab_drag_start(self, event, tab_id):
         self._tab_drag_state = {'tab_id': str(tab_id), 'x': event.x_root, 'y': event.y_root, 'moved': False}
         return 'break'
+
     def _tab_drag_motion(self, event):
         state = getattr(self, '_tab_drag_state', None)
         if not state:
@@ -10370,6 +10133,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             except Exception:
                 pass
         return 'break'
+
     def _tab_drag_release(self, event):
         state = getattr(self, '_tab_drag_state', None)
         self._tab_drag_state = None
@@ -10383,9 +10147,9 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         if tab_id not in self.nb.tabs():
             return 'break'
         try:
-            left, top = self.winfo_rootx(), self.winfo_rooty()
-            right, bottom = left + self.winfo_width(), top + self.winfo_height()
-            if event.x_root < left or event.x_root > right or event.y_root < top or event.y_root > bottom:
+            left, top = (self.winfo_rootx(), self.winfo_rooty())
+            right, bottom = (left + self.winfo_width(), top + self.winfo_height())
+            if event.x_root < left or event.x_root > right or event.y_root < top or (event.y_root > bottom):
                 return 'break'
             entries = []
             for current_id in self.nb.tabs():
@@ -10402,7 +10166,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                 order = list(self.nb.tabs())
                 order.remove(tab_id)
                 index = order.index(target)
-                target_center = next(item[1] for item in entries if item[2] == target)
+                target_center = next((item[1] for item in entries if item[2] == target))
                 if event.x_root > target_center:
                     index += 1
                 order.insert(index, tab_id)
@@ -10413,15 +10177,42 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         except Exception as exc:
             self._console_log(UI_TEXT['h7'].format(p0=exc))
         return 'break'
+
     def _setup_tab_nav_styles(self):
         style = ttk.Style(self)
-        self._tab_nav_buttons = {}
+        self._tab_nav_buttons = getattr(self, '_tab_nav_buttons', {})
+        self._tab_grips = getattr(self, '_tab_grips', {})
+        p = _CURRENT_PALETTE
         try:
-            style.configure('RoUtils.Nav.TButton', padding=(7, 4), font=('Segoe UI Semibold', 9))
-            style.configure('RoUtils.ActiveNav.TButton', padding=(7, 4), font=('Segoe UI Semibold', 9), foreground=_CURRENT_PALETTE.get('accent', '#7f8cff'))
+            style.configure('RoUtils.AppShell.TFrame', background=p.get('bg_dark', '#0b1220'))
+            style.configure('RoUtils.Sidebar.TFrame', background=p.get('bg_medium', '#111c2e'))
+            style.configure('RoUtils.Header.TFrame', background=p.get('bg_medium', '#111c2e'), relief='flat')
+            style.configure('RoUtils.Brand.TLabel', background=p.get('bg_medium', '#111c2e'), foreground=p.get('fg', '#e5edf7'), font=('Segoe UI Semibold', 21))
+            style.configure('RoUtils.BrandSub.TLabel', background=p.get('bg_medium', '#111c2e'), foreground='#91a2bb', font=('Segoe UI', 9))
+            style.configure('RoUtils.SidebarStatus.TLabel', background=p.get('bg_medium', '#111c2e'), foreground='#91a2bb', font=('Segoe UI', 8))
+            style.configure('RoUtils.NavSection.TLabel', background=p.get('bg_medium', '#111c2e'), foreground='#8292aa', font=('Segoe UI Semibold', 9), padding=(1, 3))
+            style.configure('RoUtils.PageTitle.TLabel', background=p.get('bg_medium', '#111c2e'), foreground=p.get('fg', '#e5edf7'), font=('Segoe UI Semibold', 20))
+            style.configure('RoUtils.PageSubtitle.TLabel', background=p.get('bg_medium', '#111c2e'), foreground='#91a2bb', font=('Segoe UI', 10))
+            style.configure('RoUtils.Nav.TButton', padding=(10, 8), font=('Segoe UI', 10), anchor='w', background=p.get('bg_medium', '#111c2e'), foreground=p.get('fg', '#e5edf7'), borderwidth=0, relief='flat')
+            style.map('RoUtils.Nav.TButton', background=[('active', p.get('bg_hover', '#253653')), ('pressed', p.get('bg_light', '#1c2940'))], foreground=[('active', p.get('fg', '#e5edf7'))])
+            style.configure('RoUtils.ActiveNav.TButton', padding=(11, 9), font=('Segoe UI Semibold', 10), anchor='w', background=p.get('bg_light', '#1c2940'), foreground=p.get('accent', '#72a7ff'), borderwidth=0, relief='flat')
+            style.map('RoUtils.ActiveNav.TButton', background=[('active', p.get('bg_hover', '#253653'))], foreground=[('active', p.get('accent', '#72a7ff'))])
+            style.configure('RoUtils.Primary.TButton', padding=(14, 10), font=('Segoe UI Semibold', 9), background=p.get('accent', '#72a7ff'), foreground='#ffffff', borderwidth=0, relief='flat')
+            style.map('RoUtils.Primary.TButton', background=[('active', p.get('bg_hover', '#253653')), ('pressed', p.get('accent', '#72a7ff'))], foreground=[('active', '#ffffff')])
+            style.configure('RoUtils.Secondary.TButton', padding=(12, 9), font=('Segoe UI Semibold', 9), background=p.get('bg_light', '#1c2940'), foreground=p.get('fg', '#e5edf7'), borderwidth=0, relief='flat')
+            style.map('RoUtils.Secondary.TButton', background=[('active', p.get('bg_hover', '#253653'))])
+            style.configure('RoUtils.Card.TFrame', background=p.get('bg_medium', '#111c2e'), borderwidth=0, relief='flat')
+            style.configure('RoUtils.CardTitle.TLabel', background=p.get('bg_medium', '#111c2e'), foreground=p.get('fg', '#e5edf7'), font=('Segoe UI Semibold', 12))
+            style.configure('RoUtils.CardBody.TLabel', background=p.get('bg_medium', '#111c2e'), foreground='#91a2bb', font=('Segoe UI', 10))
+            style.configure('RoUtils.Eyebrow.TLabel', background=p.get('bg_dark', '#0b1220'), foreground=p.get('accent', '#72a7ff'), font=('Segoe UI Semibold', 9))
+            style.configure('RoUtils.HeroTitle.TLabel', background=p.get('bg_medium', '#111c2e'), foreground=p.get('fg', '#e5edf7'), font=('Segoe UI Semibold', 28))
+            style.configure('RoUtils.HeroBody.TLabel', background=p.get('bg_medium', '#111c2e'), foreground='#a9b8cb', font=('Segoe UI', 11))
+            style.configure('RoUtils.Muted.TLabel', background=p.get('bg_dark', '#0b1220'), foreground='#91a2bb', font=('Segoe UI', 9))
         except Exception:
             pass
+
     def _install_global_scroll_support(self):
+
         def wheel(event):
             try:
                 x, y = (event.x_root, event.y_root)
@@ -10471,6 +10262,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         self.bind_all('<Button-4>', wheel, add='+')
         self.bind_all('<Button-5>', wheel, add='+')
         middle = {'target': None, 'y': None}
+
         def middle_target(event):
             w = self.winfo_containing(event.x_root, event.y_root)
             over_scrollbar = False
@@ -10500,6 +10292,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                 page = self.nametowidget(selected) if selected else None
                 if isinstance(page, _ScrollableTab) and page.winfo_ismapped():
                     return page.canvas
+
                 def active_canvas(parent):
                     for child in parent.winfo_children():
                         if isinstance(child, tk.Canvas):
@@ -10518,6 +10311,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                         return canvas
             except Exception:
                 pass
+
             def find_scroll_canvas(parent):
                 try:
                     for child in parent.winfo_children():
@@ -10533,16 +10327,19 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                     pass
                 return None
             return find_scroll_canvas(self)
+
         def middle_press(event):
             middle['target'] = middle_target(event)
             middle['y'] = event.y_root if middle['target'] is not None else None
             return 'break'
+
         def middle_drag(event):
             target = middle.get('target')
             if target is not None and middle.get('y') is not None:
                 target.yview_scroll(int((middle['y'] - event.y_root) / 2), 'units')
                 middle['y'] = event.y_root
                 return 'break'
+
         def middle_release(_event):
             middle['target'] = None
             middle['y'] = None
@@ -10554,6 +10351,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         self.bind_class(middle_tag, '<ButtonPress-2>', middle_press)
         self.bind_class(middle_tag, '<B2-Motion>', middle_drag)
         self.bind_class(middle_tag, '<ButtonRelease-2>', middle_release)
+
         def attach_middle_tag(parent):
             try:
                 for child in parent.winfo_children():
@@ -10568,6 +10366,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             except Exception:
                 pass
         attach_middle_tag(self)
+
     def _add_json_editor_value(self, txt, dlg):
         try:
             data = json.loads(txt.get('1.0', 'end'))
@@ -10599,6 +10398,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         for n in sorted(os.listdir(self.jsons_dir)) if os.path.isdir(self.jsons_dir) else []:
             if n.lower().endswith('.json'):
                 self.json_tree.insert('end', n)
+
     def _apply_selected_json(self):
         if not hasattr(self, 'json_tree'):
             return
@@ -10632,6 +10432,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             self.roblox_path_var.set(path)
             self.settings['roblox_path'] = path
             self._save_settings()
+
     def _resolve_history_game_name(self, place_id):
         place_id = str(place_id or '').strip()
         if not place_id.isdigit():
@@ -10661,6 +10462,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         except Exception:
             pass
         return None
+
     def _build_emote_manager_tab(self):
         tab = ttk.Frame(self.nb, padding=12)
         self.nb.add(tab, text=UI_TEXT['i5'])
@@ -10698,12 +10500,16 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         self._emote_refresh_list()
         self._emote_update_control_button_states()
         self.after(100, self._emote_status_tick)
+
     def _open_default_fflag_values(self):
         self._show_fflag_reference_panel()
+
     def _open_latest_fflag_list(self):
         self._show_fflag_reference_panel()
+
     def _fps_apply_tick(self):
         return
+
     def _load_console_history(self):
         try:
             with open(CONSOLE_HISTORY_PATH, 'r', encoding='utf-8') as f:
@@ -10711,6 +10517,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             return [_routils_visible_text(str(x)) for x in data][-1000:] if isinstance(data, list) else []
         except Exception:
             return []
+
     def _save_console_history(self):
         self._console_save_job = None
         if getattr(self, '_resize_active', False):
@@ -10727,6 +10534,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             os.replace(temp, CONSOLE_HISTORY_PATH)
         except Exception:
             pass
+
     def _apply_or_defer_canvas_window_width(self, canvas, window_id, width, state_key):
         try:
             width = max(1, int(width))
@@ -10741,6 +10549,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             setattr(self, state_key, width)
         except Exception:
             pass
+
     def _discord_rpc_status_changed(self, status):
         if threading.get_ident() != getattr(self, '_ui_thread_id', threading.get_ident()):
             try:
@@ -10753,12 +10562,13 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                 self.discord_rpc_status_var.set(str(status))
         except Exception:
             pass
+
     def _prompt_change_discord_application_id(self):
         if getattr(self, '_discord_id_prompt_open', False):
             return
         self._discord_id_prompt_open = True
         win = tk.Toplevel(self)
-        win.title('Discord Rich Presence')
+        win.title('discord rich presence')
         win.transient(self)
         win.resizable(False, False)
         try:
@@ -10767,24 +10577,26 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             pass
         body = tk.Frame(win, bg=_CURRENT_PALETTE['bg_dark'], padx=22, pady=18)
         body.pack(fill='both', expand=True)
-        tk.Label(body, text='Do you want to change Application ID?\n(Not suggested most users)', bg=_CURRENT_PALETTE['bg_dark'], fg=_CURRENT_PALETTE['fg'], justify='center', font=('Segoe UI', 10)).pack(pady=(2, 18))
+        tk.Label(body, text='do you want to change application id?\n(not suggested most users)', bg=_CURRENT_PALETTE['bg_dark'], fg=_CURRENT_PALETTE['fg'], justify='center', font=('Segoe UI', 10)).pack(pady=(2, 18))
         buttons = tk.Frame(body, bg=_CURRENT_PALETTE['bg_dark'])
         buttons.pack()
-        continue_button = ttk.Button(buttons, text='Continue (3s)', state='disabled')
+        continue_button = ttk.Button(buttons, text='continue (3s)', state='disabled')
         continue_button.pack(side='left', padx=6)
-        cancel_button = ttk.Button(buttons, text="I don't want to", command=win.destroy)
+        cancel_button = ttk.Button(buttons, text="i don't want to", command=win.destroy)
         cancel_button.pack(side='left', padx=6)
         entry_area = tk.Frame(body, bg=_CURRENT_PALETTE['bg_dark'])
+
         def finish_prompt():
             self._discord_id_prompt_open = False
             try:
                 win.destroy()
             except Exception:
                 pass
+
         def continue_to_edit():
             finish_prompt()
             edit = tk.Toplevel(self)
-            edit.title('Application ID')
+            edit.title('application id')
             edit.transient(self)
             edit.resizable(False, False)
             try:
@@ -10794,41 +10606,44 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             panel = tk.Frame(edit, bg=_CURRENT_PALETTE['bg_dark'], padx=18, pady=16)
             panel.pack(fill='both', expand=True)
             value = tk.StringVar(value=self.discord_application_id_var.get())
-            tk.Label(panel, text='Application ID', bg=_CURRENT_PALETTE['bg_dark'], fg=_CURRENT_PALETTE['fg']).pack(anchor='w', pady=(0, 6))
+            tk.Label(panel, text='application id', bg=_CURRENT_PALETTE['bg_dark'], fg=_CURRENT_PALETTE['fg']).pack(anchor='w', pady=(0, 6))
             field = ttk.Entry(panel, textvariable=value, width=34)
             field.pack(fill='x', pady=(0, 12))
+
             def save_value():
                 candidate = value.get().strip()
                 if not candidate.isdigit():
-                    messagebox.showwarning('Discord Rich Presence', 'Application ID must contain digits only.', parent=edit)
+                    messagebox.showwarning('discord rich presence', 'application id must contain digits only.', parent=edit)
                     return
                 self.discord_application_id_var.set(candidate)
                 self._save_discord_application_id()
                 edit.destroy()
-            ttk.Button(panel, text='Save', command=save_value).pack(anchor='e')
+            ttk.Button(panel, text='save', command=save_value).pack(anchor='e')
             edit.after(80, field.focus_set)
             edit.update_idletasks()
             edit.geometry(f'+{self.winfo_rootx() + 80}+{self.winfo_rooty() + 80}')
         continue_button.configure(command=continue_to_edit)
         state = {'left': 3}
+
         def tick():
             if not win.winfo_exists():
                 self._discord_id_prompt_open = False
                 return
             if state['left'] > 0:
-                continue_button.configure(text=f"Continue ({state['left']}s)", state='disabled')
+                continue_button.configure(text=f"continue ({state['left']}s)", state='disabled')
                 state['left'] -= 1
                 win.after(1000, tick)
             else:
-                continue_button.configure(text='Continue', state='normal')
+                continue_button.configure(text='continue', state='normal')
         win.protocol('WM_DELETE_WINDOW', finish_prompt)
         win.update_idletasks()
         win.geometry(f'+{self.winfo_rootx() + 60}+{self.winfo_rooty() + 60}')
         win.after(1000, tick)
+
     def _save_discord_application_id(self):
         application_id = str(self.discord_application_id_var.get() or '').strip()
         if not application_id.isdigit():
-            messagebox.showwarning('Discord Rich Presence', 'Application ID must contain digits only.', parent=self)
+            messagebox.showwarning('discord rich presence', 'application id must contain digits only.', parent=self)
             return
         self.discord_application_id_var.set(application_id)
         self.settings['discord_application_id'] = application_id
@@ -10841,6 +10656,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             rpc.set_client_id(application_id)
             self._discord_rpc_status_changed('Reconnecting Discord RPC...')
             self._refresh_discord_rpc_activity()
+
     def _refresh_discord_rpc_activity(self):
         rpc = getattr(self, '_discord_rpc', None)
         if rpc is None:
@@ -10850,7 +10666,8 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             playing = bool(_fflag_find_pid())
         except Exception:
             playing = False
-        rpc.set_activity(f'Using RoUtils v{APP_VERSION}', 'Playing Roblox' if playing else 'Not Playing Roblox')
+        rpc.set_activity(f'using routils v{APP_VERSION}', 'playing roblox' if playing else 'not playing roblox')
+
     def _discord_rpc_poll_tick(self):
         try:
             if not self.winfo_exists():
@@ -10859,6 +10676,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             self.after(int(DISCORD_RPC_INTERVAL * 1000), self._discord_rpc_poll_tick)
         except Exception:
             pass
+
     def _save_settings(self):
         if getattr(self, '_resize_active', False):
             self._settings_save_deferred = True
@@ -10869,10 +10687,11 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         data.pop('discord_rpc_enabled', None)
         data['emote_hotkeys_enabled'] = bool(getattr(self, '_emote_hotkeys_enabled', self.settings.get('emote_hotkeys_enabled', True)))
         data['emote_hotkeys_toggle_key'] = str(getattr(self, '_emote_hotkeys_toggle_key', self.settings.get('emote_hotkeys_toggle_key', '')) or '').upper()
-        data.update({'autoscroll': self.autoscroll.get(), 'hide_tickets': self.hide_tickets.get(), 'stay_on_top': self.stay_on_top.get(), 'show_lines': self.show_lines.get(), 'preview_optimize_vertices': self.viewport_3d.reduce_polys.get() if hasattr(self, 'viewport_3d') else self.settings.get('preview_optimize_vertices', True), 'streamer_mode': self.streamer_mode.get() if hasattr(self, 'streamer_mode') else self.settings.get('streamer_mode', False), 'fps_limit': self.fps_limit.get() if hasattr(self, 'fps_limit') else self.settings.get('fps_limit', 0), 'autostart_watch': self.autostart_watch.get() if hasattr(self, 'autostart_watch') else self.settings.get('autostart_watch', False), 'max_rows': self.max_rows.get() if hasattr(self, 'max_rows') else self.settings.get('max_rows', 0), 'type_filter': self.type_filter.get(), 'columns': {c: var.get() for c, var in getattr(self, '_col_vars', {}).items()}, 'viewer_collapsed': self.viewer_collapsed, 'theme': self.theme_var.get() if hasattr(self, 'theme_var') else self.settings.get('theme', DEFAULT_THEME), 'fflag_hotkeys': self.fflag_hotkeys, 'fps_hotkeys': self.fps_hotkeys, 'fps_hotkey_slots': self.fps_hotkey_slots, 'fflag_auto_apply': self.fflag_auto_apply.get() if hasattr(self, 'fflag_auto_apply') else self.settings.get('fflag_auto_apply', False), 'launch_on_tray': self.launch_on_tray.get() if hasattr(self, 'launch_on_tray') else self.settings.get('launch_on_tray', False), 'launch_on_startup': self.launch_on_startup.get() if hasattr(self, 'launch_on_startup') else self.settings.get('launch_on_startup', False), 'hide_to_tray_on_close': self.hide_to_tray_on_close.get() if hasattr(self, 'hide_to_tray_on_close') else self.settings.get('hide_to_tray_on_close', False), 'auto_update': self.auto_update.get() if hasattr(self, 'auto_update') else self.settings.get('auto_update', False), 'dpi_percent': int(self.dpi_percent.get()) if hasattr(self, 'dpi_percent') else int(getattr(self, '_dpi_scale', 1.0) * 100), 'plugin_enabled': getattr(self, '_plugin_enabled', self.settings.get('plugin_enabled', {})), 'emote_nav_binds': dict(getattr(self, '_emote_nav_binds', self.settings.get('emote_nav_binds', {}))), 'emote_hud_enabled': False, 'hpaned_sash_v2': self.hpaned.sashpos(0) if hasattr(self, 'hpaned') and self.hpaned.winfo_width() > 0 and self.hpaned.sashpos(0) > 0 else self.settings.get('hpaned_sash_v2', None), 'roblox_path': self.settings.get('roblox_path', ''), 'roblox_username': self.settings.get('roblox_username', ''), 'roblox_user_id': self.settings.get('roblox_user_id', ''), 'gemini_api_key': self.gemini_api_key.get().strip() if hasattr(self, 'gemini_api_key') else self.settings.get('gemini_api_key', ''), 'custom_theme': self.settings.get('custom_theme', {}), 'db_path': getattr(self, 'db_path', self.settings.get('db_path', '')), 'shard_root': getattr(self, 'shard_root', self.settings.get('shard_root', '')), 'window_geometry': self.geometry() if self.winfo_exists() else self.settings.get('window_geometry', STARTUP_GEOMETRY), 'include_cconfigs': self.include_cconfigs.get() if hasattr(self, 'include_cconfigs') else self.settings.get('include_cconfigs', False), 'include_cache_dumps': self.include_cache_dumps.get() if hasattr(self, 'include_cache_dumps') else self.settings.get('include_cache_dumps', False), 'tab_order': [self.nb.tab(t, 'text') for t in self.nb.tabs()] if hasattr(self, 'nb') else self.settings.get('tab_order', []), 'selected_tab': self.nb.tab(self.nb.select(), 'text') if hasattr(self, 'nb') and self.nb.select() else self.settings.get('selected_tab', UI_TEXT['w5']), 'hpaned_sash': self.hpaned.sashpos(0) if hasattr(self, 'hpaned') else self.settings.get('hpaned_sash', None), 'vpaned_sash': self.vpaned.sashpos(0) if hasattr(self, 'vpaned') else self.settings.get('vpaned_sash', None)})
+        data.update({'autoscroll': self.autoscroll.get(), 'hide_tickets': self.hide_tickets.get(), 'stay_on_top': self.stay_on_top.get(), 'show_lines': self.show_lines.get(), 'preview_optimize_vertices': self.viewport_3d.reduce_polys.get() if hasattr(self, 'viewport_3d') else self.settings.get('preview_optimize_vertices', True), 'streamer_mode': self.streamer_mode.get() if hasattr(self, 'streamer_mode') else self.settings.get('streamer_mode', False), 'fps_limit': self.fps_limit.get() if hasattr(self, 'fps_limit') else self.settings.get('fps_limit', 0), 'autostart_watch': self.autostart_watch.get() if hasattr(self, 'autostart_watch') else self.settings.get('autostart_watch', False), 'max_rows': self.max_rows.get() if hasattr(self, 'max_rows') else self.settings.get('max_rows', 0), 'type_filter': self.type_filter.get(), 'columns': {c: var.get() for c, var in getattr(self, '_col_vars', {}).items()}, 'viewer_collapsed': self.viewer_collapsed, 'theme': self.theme_var.get() if hasattr(self, 'theme_var') else self.settings.get('theme', DEFAULT_THEME), 'fflag_hotkeys': self.fflag_hotkeys, 'fps_hotkeys': self.fps_hotkeys, 'fps_hotkey_slots': self.fps_hotkey_slots, 'fflag_auto_apply': self.fflag_auto_apply.get() if hasattr(self, 'fflag_auto_apply') else self.settings.get('fflag_auto_apply', False), 'launch_on_tray': self.launch_on_tray.get() if hasattr(self, 'launch_on_tray') else self.settings.get('launch_on_tray', False), 'launch_on_startup': self.launch_on_startup.get() if hasattr(self, 'launch_on_startup') else self.settings.get('launch_on_startup', False), 'hide_to_tray_on_close': self.hide_to_tray_on_close.get() if hasattr(self, 'hide_to_tray_on_close') else self.settings.get('hide_to_tray_on_close', False), 'auto_update': self.auto_update.get() if hasattr(self, 'auto_update') else self.settings.get('auto_update', False), 'dpi_percent': int(self.dpi_percent.get()) if hasattr(self, 'dpi_percent') else int(getattr(self, '_dpi_scale', 1.0) * 100), 'plugin_enabled': getattr(self, '_plugin_enabled', self.settings.get('plugin_enabled', {})), 'emote_nav_binds': dict(getattr(self, '_emote_nav_binds', self.settings.get('emote_nav_binds', {}))), 'emote_hud_enabled': False, 'hpaned_sash_v2': self.hpaned.sashpos(0) if hasattr(self, 'hpaned') and self.hpaned.winfo_width() > 0 and (self.hpaned.sashpos(0) > 0) else self.settings.get('hpaned_sash_v2', None), 'roblox_path': self.settings.get('roblox_path', ''), 'roblox_username': self.settings.get('roblox_username', ''), 'roblox_user_id': self.settings.get('roblox_user_id', ''), 'gemini_api_key': self.gemini_api_key.get().strip() if hasattr(self, 'gemini_api_key') else self.settings.get('gemini_api_key', ''), 'custom_theme': self.settings.get('custom_theme', {}), 'db_path': getattr(self, 'db_path', self.settings.get('db_path', '')), 'shard_root': getattr(self, 'shard_root', self.settings.get('shard_root', '')), 'window_geometry': self.geometry() if self.winfo_exists() else self.settings.get('window_geometry', STARTUP_GEOMETRY), 'include_cconfigs': self.include_cconfigs.get() if hasattr(self, 'include_cconfigs') else self.settings.get('include_cconfigs', False), 'include_cache_dumps': self.include_cache_dumps.get() if hasattr(self, 'include_cache_dumps') else self.settings.get('include_cache_dumps', False), 'tab_order': [self.nb.tab(t, 'text') for t in self.nb.tabs()] if hasattr(self, 'nb') else self.settings.get('tab_order', []), 'selected_tab': self.nb.tab(self.nb.select(), 'text') if hasattr(self, 'nb') and self.nb.select() else self.settings.get('selected_tab', UI_TEXT['w5']), 'hpaned_sash': self.hpaned.sashpos(0) if hasattr(self, 'hpaned') else self.settings.get('hpaned_sash', None), 'vpaned_sash': self.vpaned.sashpos(0) if hasattr(self, 'vpaned') else self.settings.get('vpaned_sash', None)})
         data['discord_application_id'] = str(self.discord_application_id_var.get()).strip() if hasattr(self, 'discord_application_id_var') else str(self.settings.get('discord_application_id') or DISCORD_APPLICATION_ID)
         save_settings(data)
         self.settings = data
+
     def _apply_startup_layouts(self):
         if not getattr(self, '_cache_built', False):
             return
@@ -10902,17 +10721,20 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         except Exception:
             pass
         self._autosize_columns_once()
+
     def _start_dump_all_caches(self, include_videos=False):
         dump_root = os.path.abspath(os.path.join(DATA_DIR, 'Dump'))
         self._last_dump_folder = dump_root
         os.makedirs(dump_root, exist_ok=True)
         self._console_log(UI_TEXT['b24'] if include_videos else UI_TEXT['c24'])
         self._console_log(UI_TEXT['d24'])
+
         def log(message):
             try:
                 self.after(0, lambda m=str(message): self._console_log(m))
             except Exception:
                 pass
+
         def worker():
             try:
                 db_path, shard_root = default_paths()
@@ -10943,7 +10765,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                             failed += 1
                     except Exception as e:
                         failed += 1
-                        log(f'Failed {getattr(it, "hash", "unknown")}: {e}')
+                        log(f"Failed {getattr(it, 'hash', 'unknown')}: {e}")
                     if index % 10 == 0 or index == total:
                         log(f'Processed {index}/{total} | dumped={dumped} failed={failed}')
                 log(f'Finished. Dumped: {dumped} | Failed: {failed}')
@@ -10956,6 +10778,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                 except Exception:
                     self._dump_caches_running = False
         threading.Thread(target=worker, daemon=True, name='RoUtils-DumpCaches').start()
+
     def _run_dump_caches_cli(self):
         if os.name == 'nt':
             try:
@@ -11006,13 +10829,14 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                     failed += 1
             except Exception as e:
                 failed += 1
-                print(UI_TEXT['j24'].format(p0=getattr(it, "hash", "unknown"), p1=e), flush=True)
+                print(UI_TEXT['j24'].format(p0=getattr(it, 'hash', 'unknown'), p1=e), flush=True)
             if index % 10 == 0 or index == total:
                 print(UI_TEXT['k24'].format(p0=index, p1=total, p2=dumped, p3=failed), flush=True)
         print()
         print(UI_TEXT['l24'].format(p0=dumped, p1=failed), flush=True)
         print(UI_TEXT['m24'].format(p0=dump_root), flush=True)
         return 0
+
     @staticmethod
     def _extract_signed_urls_from_bytes(payload: bytes) -> List[str]:
         if not payload:
@@ -11025,10 +10849,12 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             if 'rbxcdn.com' in low and any((k in low for k in ('__token_', 'signature', 'key-pair-id', 'policy', 'expires'))):
                 urls.append(u)
         return list(dict.fromkeys(urls))
+
     def _start_tray(self):
         if self._tray_icon is not None or self._tray_starting or os.name != 'nt':
             return
         self._tray_starting = True
+
         def worker():
             try:
                 self._tray_icon = _WindowsTrayIcon(icon_path=ICON_PATH, on_open=lambda: self.after(0, self._restore_from_tray), on_exit=lambda: self.after(0, self._exit_from_tray))
@@ -11039,6 +10865,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                 self._tray_starting = False
         self._tray_thread = threading.Thread(target=worker, daemon=True)
         self._tray_thread.start()
+
     def _hide_to_tray(self):
         self._start_tray()
         self._tray_hidden = True
@@ -11054,6 +10881,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             self.after(80, self._emote_controls_ensure_visible_after_hide)
         except Exception:
             pass
+
     def _restore_from_tray(self):
         self._tray_hidden = False
         try:
@@ -11067,9 +10895,11 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             self.after(100, self._emote_controls_restore_activation)
         except Exception:
             pass
+
     def _exit_from_tray(self):
         self._tray_hidden = False
         self._on_close(force=True)
+
     def _on_close(self, force=False):
         if not force and self.hide_to_tray_on_close.get():
             self._save_settings()
@@ -11105,98 +10935,27 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         self._resize_active = False
         self._settings_save_deferred = False
         self.destroy()
+
 def _routils_visible_text(value):
-    if not isinstance(value, str) or not value:
-        return value
-    lowered_value = value.lower()
-    if _routils_is_network_error(value):
-        return 'could not reach the server check your internet connection and try again'
-    special_phrases = (
-        UI_TEXT['i5'], 'Gemini AI', 'RoUtils AI', 'Roblox File Converter',
-        UI_TEXT['m5'], UI_TEXT['n5'], 'Global FFlag Hotkeys',
-        'R6 Animation → R15', 'Mesh to OBJ'
-    )
-    saved_phrases = []
-    for index, phrase in enumerate(special_phrases):
-        marker = chr(0xE000 + index)
-        if re.search(re.escape(phrase), value, re.IGNORECASE):
-            value = re.sub(re.escape(phrase), marker, value, flags=re.IGNORECASE)
-            saved_phrases.append((marker, phrase))
-    def clean_line(line):
-        if not line.strip():
-            return line
-        abbreviation_tokens = ('e.g.', 'i.e.', 'mr.', 'mrs.', 'dr.', 'vs.')
-        protected = []
-        for index, token in enumerate(abbreviation_tokens):
-            marker = chr(0xE100 + index)
-            if re.search(re.escape(token), line, re.IGNORECASE):
-                line = re.sub(re.escape(token), marker, line, flags=re.IGNORECASE)
-                protected.append((marker, token))
-        parts = re.split(r'(?<!\.)\.(?!\.)(?=\s+)', line)
-        if len(parts) > 1:
-            leading = line[:len(line) - len(line.lstrip())]
-            result = '\n'.join((leading if index == 0 else '') + clean_line(part.strip()) for index, part in enumerate(parts) if part.strip())
-            for marker, token in protected:
-                result = result.replace(marker, token)
-            return result
-        line = re.sub(r'(?<!\.)\.(?!\.)(?=\s|$)', '', line)
-        for marker, token in protected:
-            line = line.replace(marker, token)
-        plain = line.strip()
-        if not plain or any(token in plain for token in ('://', '\\', '/e ', '{', '}', '```')):
-            return line
-        words = re.findall(r"[A-Za-z][A-Za-z0-9]*", plain)
-        special = {'routils', 'roblox', 'fflag', 'fflags', 'ai', 'api', 'pid', 'fps', 'json', 'xml', 'csv', 'url', 'cpu', 'ram', 'http', 'https', 'obj', 'rbxm', 'rbxmx', 'rbxl', 'ctrl', 'shift', 'alt', 'esc', 'enter', 'tab', 'ui', 'hashsaves', 'filesaves', 'cconfigs', 'id', 'dpi', 'gpu', 'ram', 'f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9', 'f10', 'f11', 'f12'}
-        def title_like(word):
-            low = word.lower()
-            if low in special or word.isupper() or re.fullmatch(r'[A-Z]+\d+', word) or re.fullmatch(r'\d+', word):
-                return True
-            return len(word) > 0 and word[0].isupper() and word[1:].islower()
-        if len(words) >= 2 and all(title_like(word) for word in words):
-            first_alpha = True
-            def convert_title_case_match(match):
-                nonlocal first_alpha
-                word = match.group(0)
-                low = word.lower()
-                if low in special:
-                    mapping = {'routils':'RoUtils','roblox':'Roblox','fflag':'FFlag','fflags':UI_TEXT['h5'],'ai':UI_TEXT['j5'],'api':'API','pid':'PID','fps':'FPS','json':'JSON','xml':'XML','csv':'CSV','url':'URL','cpu':'CPU','ram':'RAM','http':'HTTP','https':'HTTPS','obj':'OBJ','rbxm':'RBXM','rbxmx':'RBXMX','rbxl':'RBXL','ctrl':'Ctrl','shift':'Shift','alt':'Alt','esc':'Esc','enter':'Enter','tab':'Tab','ui':'UI','hashsaves':'HashSaves','filesaves':'FileSaves','cconfigs':'CConfigs','id':'ID','dpi':'DPI','gpu':'GPU'}
-                    return mapping.get(low, word)
-                if word.isupper() or re.fullmatch(r'[A-Z]+\d+', word) or re.fullmatch(r'\d+', word):
-                    return word
-                if first_alpha:
-                    first_alpha = False
-                    return word[:1].upper() + word[1:].lower()
-                first_alpha = False
-                return word.lower()
-            plain = re.sub(r'[A-Za-z][A-Za-z0-9]*', convert_title_case_match, plain)
-            leading = line[:len(line) - len(line.lstrip())]
-            trailing = line[len(line.rstrip()):]
-            line = leading + plain + trailing
-        return line
-    value = '\n'.join(clean_line(line) for line in value.split('\n'))
-    for marker, phrase in saved_phrases:
-        value = value.replace(marker, phrase)
-    return value
+    return value.lower() if isinstance(value, str) else value
+
 def _routils_install_text_rules():
-    widget_classes = (
-        (tk.Label, False, False), (tk.Button, False, False), (tk.Checkbutton, True, False),
-        (tk.Radiobutton, False, False), (tk.LabelFrame, False, False),
-        (ttk.Label, False, False), (ttk.Button, False, False), (ttk.Checkbutton, True, True),
-        (ttk.Radiobutton, False, False), (ttk.LabelFrame, False, False)
-    )
+    widget_classes = ((tk.Label, False, False), (tk.Button, False, False), (tk.Checkbutton, True, False), (tk.Radiobutton, False, False), (tk.LabelFrame, False, False), (ttk.Label, False, False), (ttk.Button, False, False), (ttk.Checkbutton, True, True), (ttk.Radiobutton, False, False), (ttk.LabelFrame, False, False))
     for widget_class, is_checkbutton, is_ttk_checkbutton in widget_classes:
         if getattr(widget_class, '_routils_text_rules_installed', False):
             continue
         original_init = widget_class.__init__
         original_configure = widget_class.configure
+
         def wrapped_init(self, *args, __original=original_init, __is_check=is_checkbutton, __ttk_check=is_ttk_checkbutton, __widget_class=widget_class, **kwargs):
             if 'text' in kwargs:
                 kwargs['text'] = _routils_visible_text(kwargs['text'])
-            if __ttk_check and ttkbootstrap is not None and kwargs.get('style') in (None, '', 'TCheckbutton'):
+            if __ttk_check and ttkbootstrap is not None and (kwargs.get('style') in (None, '', 'TCheckbutton')):
                 kwargs['style'] = 'primary.TCheckbutton'
             if __is_check and __widget_class is tk.Checkbutton:
                 kwargs.setdefault('selectcolor', '#1688e8')
             __original(self, *args, **kwargs)
+
         def wrapped_configure(self, cnf=None, __original=original_configure, __is_check=is_checkbutton, __ttk_check=is_ttk_checkbutton, **kwargs):
             if isinstance(cnf, dict):
                 cnf = dict(cnf)
@@ -11204,7 +10963,7 @@ def _routils_install_text_rules():
                     cnf['text'] = _routils_visible_text(cnf['text'])
             if 'text' in kwargs:
                 kwargs['text'] = _routils_visible_text(kwargs['text'])
-            if __ttk_check and ttkbootstrap is not None and kwargs.get('style') == 'TCheckbutton':
+            if __ttk_check and ttkbootstrap is not None and (kwargs.get('style') == 'TCheckbutton'):
                 kwargs['style'] = 'primary.TCheckbutton'
             return __original(self, cnf, **kwargs)
         widget_class.__init__ = wrapped_init
@@ -11213,18 +10972,21 @@ def _routils_install_text_rules():
         widget_class._routils_text_rules_installed = True
     for widget_class in (tk.Tk, tk.Toplevel):
         original_title = widget_class.title
+
         def wrapped_title(self, text=None, __original=original_title):
             if text is None:
                 return __original(self)
             return __original(self, _routils_visible_text(text))
         widget_class.title = wrapped_title
     original_create_text = tk.Canvas.create_text
+
     def wrapped_create_text(self, *args, **kwargs):
         if 'text' in kwargs:
             kwargs['text'] = _routils_visible_text(kwargs['text'])
         return original_create_text(self, *args, **kwargs)
     tk.Canvas.create_text = wrapped_create_text
     original_itemconfigure = tk.Canvas.itemconfigure
+
     def wrapped_itemconfigure(self, *args, **kwargs):
         if isinstance(kwargs.get('text'), str):
             kwargs['text'] = _routils_visible_text(kwargs['text'])
@@ -11233,6 +10995,7 @@ def _routils_install_text_rules():
     tk.Canvas.itemconfig = wrapped_itemconfigure
     for method_name in ('add_command', 'add_cascade', 'add_radiobutton', 'add_checkbutton'):
         original_menu_method = getattr(tk.Menu, method_name)
+
         def wrapped_menu_method(self, *args, __original=original_menu_method, **kwargs):
             if 'label' in kwargs:
                 kwargs['label'] = _routils_visible_text(kwargs['label'])
@@ -11241,12 +11004,14 @@ def _routils_install_text_rules():
             return __original(self, *args, **kwargs)
         setattr(tk.Menu, method_name, wrapped_menu_method)
     original_heading = ttk.Treeview.heading
+
     def wrapped_heading(self, column, option=None, **kwargs):
         if isinstance(kwargs.get('text'), str):
             kwargs['text'] = _routils_visible_text(kwargs['text'])
         return original_heading(self, column, option, **kwargs)
     ttk.Treeview.heading = wrapped_heading
     original_notebook_add = ttk.Notebook.add
+
     def wrapped_notebook_add(self, child, **kwargs):
         if isinstance(kwargs.get('text'), str):
             kwargs['text'] = _routils_visible_text(kwargs['text'])
@@ -11261,10 +11026,11 @@ def _routils_install_text_rules():
         original_messagebox = getattr(messagebox, name, None)
         if not callable(original_messagebox):
             continue
+
         def wrapped_messagebox(title, text, *args, __original=original_messagebox, __name=name, **kwargs):
             title = _routils_visible_text(title)
             text = _routils_visible_text(text)
-            if __name == 'showerror' and isinstance(text, str) and re.search(r'(Traceback|AttributeError|TclError|WinError|RuntimeError|FileNotFoundError|No module named)', text, re.IGNORECASE):
+            if __name == 'showerror' and isinstance(text, str) and re.search('(Traceback|AttributeError|TclError|WinError|RuntimeError|FileNotFoundError|No module named)', text, re.IGNORECASE):
                 text = 'RoUtils could not complete this action\n\nTry again and check the error log if it keeps happening'
             return __original(title, text, *args, **kwargs)
         setattr(messagebox, name, wrapped_messagebox)
@@ -11275,6 +11041,7 @@ for _routils_module_name in _routils_shared_module_names:
         _routils_module.__dict__.update({k: v for k, v in globals().items() if not k.startswith('__') and k not in {'_host'}})
         _routils_module.__dict__['__file__'] = __file__
 del _routils_shared_module_names, _routils_module_name, _routils_module
+
 def main():
     global _ACTIVE_APP
     _routils_install_text_rules()

@@ -2,7 +2,9 @@ import sys
 _host = sys.modules.get('main') or sys.modules.get('__main__')
 if _host is not None:
     globals().update({k: v for k, v in vars(_host).items() if not k.startswith('__') and k not in {'_host'}})
+
 class EmoteManagerMixin:
+
     def _emote_refresh_list(self):
         if not hasattr(self, 'emote_tree') or not self.emote_tree.winfo_exists():
             return
@@ -14,6 +16,7 @@ class EmoteManagerMixin:
             self.emote_tree.insert('', 'end', iid=dance, values=(key, dance))
         if selected_dance and selected_dance in self.emote_names:
             self.emote_tree.selection_set(selected_dance)
+
     def _emote_selected_dance(self):
         if not hasattr(self, 'emote_tree'):
             return None
@@ -22,6 +25,7 @@ class EmoteManagerMixin:
             messagebox.showinfo(UI_TEXT['i5'], UI_TEXT['y13'], parent=self)
             return None
         return self.emote_tree.item(selected[0], 'values')[1]
+
     def _emote_add_bind(self):
         dance = self._emote_selected_dance()
         if not dance:
@@ -34,7 +38,7 @@ class EmoteManagerMixin:
                 pass
         dlg = tk.Toplevel(self)
         self._emote_capture_dialog = dlg
-        dlg.title('Add Bind')
+        dlg.title('add bind')
         dlg.transient(self)
         dlg.resizable(False, False)
         theme_toplevel(dlg)
@@ -42,6 +46,7 @@ class EmoteManagerMixin:
         key_var = tk.StringVar(value=UI_TEXT['w28'])
         ttk.Label(dlg, textvariable=key_var).pack(padx=20, pady=(0, 18))
         captured = {'key': ''}
+
         def capture(event):
             if event.keysym in ('Shift_L', 'Shift_R', 'Control_L', 'Control_R', 'Alt_L', 'Alt_R', 'Win_L', 'Win_R'):
                 return 'break'
@@ -59,12 +64,14 @@ class EmoteManagerMixin:
         dlg.bind('<KeyPress>', capture)
         dlg.bind('<Button-1>', lambda _e: dlg.focus_force())
         dlg.after(100, dlg.focus_force)
+
     def _emote_remove_bind(self):
         dance = self._emote_selected_dance()
         if not dance:
             return
         self.emote_binds[dance] = ''
         self._emote_refresh_list()
+
     def _emote_save_binds(self):
         used = {}
         all_bindings = [(dance, key) for dance, key in self.emote_binds.items()]
@@ -83,11 +90,12 @@ class EmoteManagerMixin:
         if hasattr(self, 'emote_status'):
             self.emote_status.config(text=UI_TEXT['b14'], foreground='#65d98b')
         self._emote_refresh_list()
+
     def _emote_update_control_button_states(self):
         try:
             enabled = bool(getattr(self, '_emote_hotkeys_enabled', True))
             if hasattr(self, '_emote_hotkeys_button') and self._emote_hotkeys_button.winfo_exists():
-                self._emote_hotkeys_button.configure(text=UI_TEXT['c14'].format(p0='ON' if enabled else 'OFF'))
+                self._emote_hotkeys_button.configure(text=UI_TEXT['c14'].format(p0='on' if enabled else 'off'))
             if hasattr(self, '_emote_toggle_hotkey_button') and self._emote_toggle_hotkey_button.winfo_exists():
                 self._emote_toggle_hotkey_button.configure(text=self._emote_toggle_hotkey_button_text())
             panel = getattr(self, '_emote_controls_window', None)
@@ -95,9 +103,11 @@ class EmoteManagerMixin:
                 self._emote_controls_button.configure(text=UI_TEXT['d14'] if panel is not None and panel.winfo_exists() else UI_TEXT['x13'])
         except Exception:
             pass
+
     def _emote_toggle_hotkey_button_text(self):
         key = str(getattr(self, '_emote_hotkeys_toggle_key', '') or '').upper()
         return f'Toggle Key: {key}' if key else 'Set Toggle Key'
+
     def _emote_assign_toggle_hotkey(self):
         existing_dialog = getattr(self, '_emote_toggle_capture_dialog', None)
         if existing_dialog is not None:
@@ -110,15 +120,16 @@ class EmoteManagerMixin:
                 pass
         dlg = tk.Toplevel(self)
         self._emote_toggle_capture_dialog = dlg
-        dlg.title('Set Hotkeys Toggle Key')
+        dlg.title('set hotkeys toggle key')
         dlg.geometry('390x154')
         dlg.resizable(False, False)
         dlg.transient(self)
         theme_toplevel(dlg)
-        ttk.Label(dlg, text='Press a key to toggle Emote Manager Hotkeys ON/OFF.', wraplength=350, justify='center').pack(fill='x', padx=16, pady=(20, 7))
-        ttk.Label(dlg, text='Escape cancels. Backspace or Delete clears the assigned key.', wraplength=350, justify='center').pack(fill='x', padx=16, pady=(0, 14))
+        ttk.Label(dlg, text='press a key to toggle emote manager hotkeys on/off.', wraplength=350, justify='center').pack(fill='x', padx=16, pady=(20, 7))
+        ttk.Label(dlg, text='escape cancels. backspace or delete clears the assigned key.', wraplength=350, justify='center').pack(fill='x', padx=16, pady=(0, 14))
         state = {'closed': False}
         self._emote_toggle_hotkey_capture_active = True
+
         def close_dialog(clear_capture=True):
             if state['closed']:
                 return
@@ -131,6 +142,7 @@ class EmoteManagerMixin:
             except Exception:
                 pass
             self._emote_toggle_capture_dialog = None
+
         def capture(event):
             keysym = str(getattr(event, 'keysym', '') or '')
             upper = keysym.upper()
@@ -173,25 +185,30 @@ class EmoteManagerMixin:
         dlg.bind('<Escape>', lambda _event: close_dialog())
         dlg.protocol('WM_DELETE_WINDOW', close_dialog)
         dlg.after(100, dlg.focus_force)
+
     def _set_emote_hotkeys_enabled(self, enabled, persist=True):
         self._emote_hotkeys_enabled = bool(enabled)
         self.settings['emote_hotkeys_enabled'] = self._emote_hotkeys_enabled
         self._emote_update_control_button_states()
         if persist:
             self._save_settings()
+
     def _toggle_emote_hotkeys(self):
         self._set_emote_hotkeys_enabled(not bool(getattr(self, '_emote_hotkeys_enabled', True)))
         enabled = bool(getattr(self, '_emote_hotkeys_enabled', True))
         self._emote_set_action_status(UI_TEXT['x28'] if enabled else UI_TEXT['y28'], '#65d98b' if enabled else '#f2c94c')
+
     def _emote_current_dance(self):
         names = list(getattr(self, 'emote_names', ['/e dance1']))
         if not names:
             return '/e dance1'
         self._emote_current_index = max(0, min(int(getattr(self, '_emote_current_index', 0)), len(names) - 1))
         return names[self._emote_current_index]
+
     def _emote_key_label(self, action):
         key = str(getattr(self, '_emote_nav_binds', {}).get(action, '') or '').upper()
         return key if key else '—'
+
     def _emote_refresh_controls(self, capture_action=None):
         labels = getattr(self, '_emote_controls_labels', {})
         dance = self._emote_current_dance()
@@ -210,6 +227,7 @@ class EmoteManagerMixin:
             except Exception:
                 pass
         self._emote_update_control_button_states()
+
     def _emote_controls_remove_duplicate_windows(self):
         if os.name != 'nt':
             return
@@ -219,6 +237,7 @@ class EmoteManagerMixin:
             keep_hwnd = _win32_root_hwnd(panel) if panel is not None and panel.winfo_exists() else 0
             enum_proc_type = getattr(ctypes, 'WINFUNCTYPE', ctypes.CFUNCTYPE)
             callback_type = enum_proc_type(ctypes.wintypes.BOOL, ctypes.wintypes.HWND, ctypes.wintypes.LPARAM)
+
             def visit(hwnd, _lparam):
                 try:
                     hwnd_value = int(hwnd)
@@ -247,6 +266,7 @@ class EmoteManagerMixin:
             user32.EnumWindows(callback, 0)
         except Exception:
             pass
+
     def _toggle_emote_controls(self):
         panel = getattr(self, '_emote_controls_window', None)
         if panel is not None:
@@ -274,7 +294,7 @@ class EmoteManagerMixin:
             panel = tk.Toplevel(self)
         finally:
             tk._routils_skip_next_popup_chrome = False
-        panel.title('Emote Manager - Hide: Ctrl + F3')
+        panel.title('emote manager - hide: ctrl + f3')
         panel._skip_custom_chrome = True
         panel._skip_popup_centering = True
         panel.withdraw()
@@ -323,6 +343,7 @@ class EmoteManagerMixin:
         previous.bind('<Button-1>', lambda _e: self._emote_begin_key_capture('previous'))
         next_label.bind('<Button-1>', lambda _e: self._emote_begin_key_capture('next'))
         current.bind('<Button-1>', lambda _e: self._emote_begin_key_capture('play'))
+
         def set_button_hover(widget, hovering):
             try:
                 if not widget.winfo_exists():
@@ -335,7 +356,9 @@ class EmoteManagerMixin:
                 pass
         for label in (previous, current, next_label):
             label.bind('<Enter>', lambda _e, w=label: set_button_hover(w, True))
+
             def leave_button(event, widget=label):
+
                 def clear_if_outside():
                     try:
                         if not widget.winfo_exists():
@@ -365,6 +388,7 @@ class EmoteManagerMixin:
             self._emote_controls_detach_from_main()
         except Exception:
             pass
+
     def _emote_controls_detach_from_main(self, no_activate=False):
         panel = getattr(self, '_emote_controls_window', None)
         if panel is None or os.name != 'nt':
@@ -418,6 +442,7 @@ class EmoteManagerMixin:
                     panel.lift()
             except Exception:
                 pass
+
     def _emote_controls_ensure_visible_after_hide(self):
         panel = getattr(self, '_emote_controls_window', None)
         if panel is None:
@@ -442,6 +467,7 @@ class EmoteManagerMixin:
                 user32.SetWindowPos(hwnd, ctypes.wintypes.HWND(-1), 0, 0, 0, 0, 1 | 2 | 16 | 64)
         except Exception:
             pass
+
     def _emote_controls_restore_activation(self):
         panel = getattr(self, '_emote_controls_window', None)
         if panel is None:
@@ -455,6 +481,7 @@ class EmoteManagerMixin:
             panel.attributes('-topmost', True)
         except Exception:
             pass
+
     def _emote_controls_position_tick(self):
         panel = getattr(self, '_emote_controls_window', None)
         if panel is None:
@@ -470,6 +497,7 @@ class EmoteManagerMixin:
             bottom = int(panel.winfo_screenheight())
             try:
                 if sys.platform == 'win32':
+
                     class RECT(ctypes.Structure):
                         _fields_ = [('left', ctypes.wintypes.LONG), ('top', ctypes.wintypes.LONG), ('right', ctypes.wintypes.LONG), ('bottom', ctypes.wintypes.LONG)]
                     rect = RECT()
@@ -509,6 +537,7 @@ class EmoteManagerMixin:
             self._emote_controls_position_job = self.after(250, self._emote_controls_position_tick)
         except Exception:
             self._emote_controls_position_job = None
+
     def _emote_controls_destroyed(self, event=None):
         try:
             if event is not None and getattr(event, 'widget', None) is self._emote_controls_window:
@@ -525,6 +554,7 @@ class EmoteManagerMixin:
                 self._emote_update_control_button_states()
         except Exception:
             pass
+
     def _emote_begin_key_capture(self, action):
         if action not in ('previous', 'next', 'play'):
             return
@@ -539,6 +569,7 @@ class EmoteManagerMixin:
             panel.focus_force()
         except Exception:
             pass
+
     def _emote_controls_keypress(self, event):
         action = getattr(self, '_emote_control_capture_action', None)
         if not action:
@@ -594,6 +625,7 @@ class EmoteManagerMixin:
         action_text = {'previous': UI_TEXT['r30'], 'next': UI_TEXT['s30'], 'play': UI_TEXT['t30']}.get(action, action)
         self._emote_set_action_status(f"{action_text}{UI_TEXT['c33']}{key}.", '#65d98b')
         return 'break'
+
     def _handle_emote_nav_hotkey(self, binding):
         action = str(binding.get('action', '')).lower()
         key = str(binding.get('key', '')).upper()
@@ -607,6 +639,7 @@ class EmoteManagerMixin:
             self._emote_set_action_status(f"{UI_TEXT['u30']}{self._emote_current_dance()}", '#65d98b')
         elif action == 'play':
             self._handle_emote_hotkey({'key': key, 'dance': self._emote_current_dance()})
+
     def _emote_status_tick(self):
         if not getattr(self, 'winfo_exists', lambda: False)():
             return
@@ -617,12 +650,14 @@ class EmoteManagerMixin:
             else:
                 self.emote_status.config(text=UI_TEXT['q13'], foreground='#9aa0a6')
         self.after(1000, self._emote_status_tick)
+
     def _emote_set_action_status(self, message, color='#9aa0a6'):
         try:
             if hasattr(self, 'emote_action_status') and self.emote_action_status.winfo_exists():
                 self.emote_action_status.config(text=message, foreground=color)
         except Exception:
             pass
+
     def _handle_emote_hotkey(self, binding):
         dance = str(binding.get('dance', '')).strip()
         key = str(binding.get('key', '')).upper()
@@ -640,6 +675,7 @@ class EmoteManagerMixin:
             with self._emote_typing_lock:
                 self._emote_typing_active = False
             self._emote_set_action_status(f"{UI_TEXT['v30']}{e}", '#ff6b6b')
+
     def _emote_type_command(self, dance, key=''):
         user32 = None
         foreground = None
@@ -647,6 +683,7 @@ class EmoteManagerMixin:
         old_layout = None
         english_layout = None
         pressed_keys = set()
+
         def status(message, color='#9aa0a6'):
             try:
                 self.after(0, lambda message=message, color=color: self._emote_set_action_status(message, color))
@@ -675,14 +712,19 @@ class EmoteManagerMixin:
             user32.MapVirtualKeyExW.argtypes = [ctypes.wintypes.UINT, ctypes.wintypes.UINT, ctypes.c_void_p]
             user32.MapVirtualKeyExW.restype = ctypes.wintypes.UINT
             ULONG_PTR = ctypes.wintypes.WPARAM
+
             class MOUSEINPUT(ctypes.Structure):
                 _fields_ = [('dx', ctypes.wintypes.LONG), ('dy', ctypes.wintypes.LONG), ('mouseData', ctypes.wintypes.DWORD), ('dwFlags', ctypes.wintypes.DWORD), ('time', ctypes.wintypes.DWORD), ('dwExtraInfo', ULONG_PTR)]
+
             class KEYBDINPUT(ctypes.Structure):
                 _fields_ = [('wVk', ctypes.wintypes.WORD), ('wScan', ctypes.wintypes.WORD), ('dwFlags', ctypes.wintypes.DWORD), ('time', ctypes.wintypes.DWORD), ('dwExtraInfo', ULONG_PTR)]
+
             class HARDWAREINPUT(ctypes.Structure):
                 _fields_ = [('uMsg', ctypes.wintypes.DWORD), ('wParamL', ctypes.wintypes.WORD), ('wParamH', ctypes.wintypes.WORD)]
+
             class INPUTUNION(ctypes.Union):
                 _fields_ = [('mi', MOUSEINPUT), ('ki', KEYBDINPUT), ('hi', HARDWAREINPUT)]
+
             class INPUT(ctypes.Structure):
                 _fields_ = [('type', ctypes.wintypes.DWORD), ('u', INPUTUNION)]
             user32.SendInput.argtypes = [ctypes.wintypes.UINT, ctypes.POINTER(INPUT), ctypes.c_int]
@@ -711,6 +753,7 @@ class EmoteManagerMixin:
             english_layout = user32.LoadKeyboardLayoutW('00000409', KLF_ACTIVATE | KLF_SUBSTITUTE_OK)
             if not english_layout:
                 raise OSError('Could not load English (US) keyboard layout')
+
             def switch_layout(layout, timeout=1.5):
                 if not layout:
                     raise OSError('Keyboard layout handle is invalid')
@@ -729,6 +772,7 @@ class EmoteManagerMixin:
                     raise OSError('Keyboard layout did not change in Roblox')
                 return True
             scan_code_cache = {}
+
             def send_key_event(vk, key_up=False):
                 vk = int(vk) & 255
                 scan_info = scan_code_cache.get(vk)
@@ -757,14 +801,17 @@ class EmoteManagerMixin:
                 if sent != 1:
                     error = ctypes.get_last_error()
                     raise OSError(error, f'SendInput failed for English scan code {scan:#x}')
+
             def key_down(vk):
                 vk = int(vk) & 255
                 send_key_event(vk, False)
                 pressed_keys.add(vk)
+
             def key_up(vk):
                 vk = int(vk) & 255
                 send_key_event(vk, True)
                 pressed_keys.discard(vk)
+
             def tap_vk(vk, shift=False):
                 if shift:
                     key_down(VK_SHIFT)
@@ -779,6 +826,7 @@ class EmoteManagerMixin:
                 if shift and VK_SHIFT in pressed_keys:
                     key_up(VK_SHIFT)
                     time.sleep(0.00115)
+
             def tap_character(character):
                 mapping = user32.VkKeyScanExW(character, english_layout)
                 if mapping == -1:

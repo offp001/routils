@@ -2,7 +2,9 @@ import sys
 _host = sys.modules.get('main') or sys.modules.get('__main__')
 if _host is not None:
     globals().update({k: v for k, v in vars(_host).items() if not k.startswith('__') and k not in {'_host'}})
+
 class SubplaceMixin:
+
     def _build_subplace_joiner_tab(self):
         tab = ttk.Frame(self.nb, padding=0)
         self.nb.add(tab, text=UI_TEXT['m5'])
@@ -25,6 +27,7 @@ class SubplaceMixin:
         buttons.grid(row=3, column=0, sticky='e', pady=8)
         ttk.Button(buttons, text=UI_TEXT['z12'], command=self._subplace_join).pack(side='left', padx=(0, 6))
         ttk.Button(buttons, text=UI_TEXT['g12'], command=self._subplace_copy_deeplink).pack(side='left')
+
     def _subplace_search(self):
         pid = self.subplace_id.get().strip()
         if not pid.isdigit():
@@ -41,6 +44,7 @@ class SubplaceMixin:
                 self.subplace_tree.insert('', 'end', values=(x.get('id', ''), x.get('name', x.get('id', ''))))
         except Exception as e:
             messagebox.showerror(UI_TEXT['m5'], UI_TEXT['a13'].format(p0=e), parent=self)
+
     def _subplace_copy_deeplink(self):
         place_id = None
         game_instance_id = None
@@ -92,6 +96,7 @@ class SubplaceMixin:
             messagebox.showinfo(UI_TEXT['m5'], UI_TEXT['d13'], parent=self)
         except Exception as e:
             messagebox.showerror(UI_TEXT['m5'], UI_TEXT['e13'].format(p0=e), parent=self)
+
     def _subplace_join(self):
         sel = self.subplace_tree.selection()
         if not sel:

@@ -2,11 +2,14 @@ import sys
 _host = sys.modules.get('main') or sys.modules.get('__main__')
 if _host is not None:
     globals().update({k: v for k, v in vars(_host).items() if not k.startswith('__') and k not in {'_host'}})
+
 class SettingsMixin:
+
     def _settings_canvas_resize(self, canvas, window_id, event):
         width = int(getattr(event, 'width', 0) or 0)
         key = f'_canvas_width_{id(canvas)}'
         self._apply_or_defer_canvas_window_width(canvas, window_id, width, key)
+
     def _auto_update_setting_changed(self):
         if bool(self.auto_update.get()):
             self.settings['auto_update'] = True
@@ -17,7 +20,7 @@ class SettingsMixin:
             return
         self._auto_update_confirmation_open = True
         dialog = tk.Toplevel(self)
-        dialog.title('Custom')
+        dialog.title('custom')
         dialog.transient(self)
         dialog.resizable(False, False)
         try:
@@ -26,10 +29,11 @@ class SettingsMixin:
             pass
         panel = tk.Frame(dialog, bg=_CURRENT_PALETTE['bg_dark'], padx=22, pady=20)
         panel.pack(fill='both', expand=True)
-        tk.Label(panel, text='Updates are important, Do you still want to disable Auto Updates?', bg=_CURRENT_PALETTE['bg_dark'], fg=_CURRENT_PALETTE['fg'], justify='center', wraplength=390, font=('Segoe UI', 10)).pack(fill='x', pady=(4, 20))
+        tk.Label(panel, text='updates are important, do you still want to disable auto updates?', bg=_CURRENT_PALETTE['bg_dark'], fg=_CURRENT_PALETTE['fg'], justify='center', wraplength=390, font=('Segoe UI', 10)).pack(fill='x', pady=(4, 20))
         buttons = ttk.Frame(panel)
         buttons.pack(fill='x')
         state = {'remaining': 8, 'closed': False}
+
         def finish(disable):
             if state['closed']:
                 return
@@ -50,23 +54,24 @@ class SettingsMixin:
                 dialog.destroy()
             except Exception:
                 pass
-        yes_button = ttk.Button(buttons, text='Yes (8s)', state='disabled', command=lambda: finish(True))
+        yes_button = ttk.Button(buttons, text='yes (8s)', state='disabled', command=lambda: finish(True))
         yes_button.grid(row=0, column=0, padx=(0, 8), sticky='e')
-        no_button = ttk.Button(buttons, text='No', command=lambda: finish(False))
+        no_button = ttk.Button(buttons, text='no', command=lambda: finish(False))
         no_button.grid(row=0, column=1, sticky='e')
         buttons.columnconfigure(0, weight=1)
+
         def tick():
             if state['closed'] or not dialog.winfo_exists():
                 return
             state['remaining'] -= 1
             if state['remaining'] > 0:
-                yes_button.configure(text=f"Yes ({state['remaining']}s)")
+                yes_button.configure(text=f"yes ({state['remaining']}s)")
                 dialog.after(1000, tick)
             else:
-                yes_button.configure(text='Yes', state='normal')
+                yes_button.configure(text='yes', state='normal')
         dialog.protocol('WM_DELETE_WINDOW', lambda: finish(False))
         dialog.update_idletasks()
-        width, height = 440, 150
+        width, height = (440, 150)
         x = max(0, self.winfo_rootx() + (self.winfo_width() - width) // 2)
         y = max(0, self.winfo_rooty() + (self.winfo_height() - height) // 2)
         dialog.geometry(f'{width}x{height}+{x}+{y}')
@@ -76,6 +81,7 @@ class SettingsMixin:
             pass
         dialog.after(1000, tick)
         dialog.after(100, lambda: (dialog.lift(), dialog.focus_force()) if dialog.winfo_exists() else None)
+
     def _build_settings_tab(self):
         try:
             st = ttk.Style(self)
@@ -99,8 +105,10 @@ class SettingsMixin:
         canvas.pack(side='left', fill='both', expand=True)
         inner.bind('<Configure>', lambda _e: self._schedule_ui('settings_region', 30, lambda: canvas.configure(scrollregion=canvas.bbox('all'))))
         canvas.bind('<Configure>', lambda e: self._settings_canvas_resize(canvas, window_id, e))
+
         def update_scrollbar(_e=None):
             key = f'settings_scrollbar_{id(canvas)}'
+
             def apply_scrollbar_state():
                 if not canvas.winfo_exists() or not inner.winfo_exists():
                     return
@@ -119,14 +127,17 @@ class SettingsMixin:
         inner.bind('<Configure>', update_scrollbar, add='+')
         canvas.bind('<Configure>', update_scrollbar, add='+')
         middle = {'y': None}
+
         def middle_press(event):
             middle['y'] = event.y
             return 'break'
+
         def middle_drag(event):
             if middle['y'] is not None:
                 canvas.yview_scroll(int((middle['y'] - event.y) / 2), 'units')
                 middle['y'] = event.y
             return 'break'
+
         def middle_release(_event):
             middle['y'] = None
             return 'break'
@@ -134,6 +145,7 @@ class SettingsMixin:
         canvas.bind_class(middle_tag, '<Button-2>', middle_press)
         canvas.bind_class(middle_tag, '<B2-Motion>', middle_drag)
         canvas.bind_class(middle_tag, '<ButtonRelease-2>', middle_release)
+
         def attach_middle_scroll(parent):
             for child in parent.winfo_children():
                 try:
@@ -213,6 +225,7 @@ class SettingsMixin:
         backup_buttons.pack(fill='x', padx=8, pady=8)
         ttk.Button(backup_buttons, text=UI_TEXT['s18'], command=self._export_settings).pack(side='left')
         ttk.Button(backup_buttons, text=UI_TEXT['t18'], command=self._import_settings).pack(side='left', padx=(7, 0))
+
     def _save_dpi_setting_only(self):
         try:
             percent = max(50, min(200, int(self.dpi_percent.get())))
@@ -220,6 +233,7 @@ class SettingsMixin:
             self._save_settings()
         except Exception as exc:
             self._console_log(UI_TEXT['u18'].format(p0=exc))
+
     def _export_settings(self):
         self._save_settings()
         path = filedialog.asksaveasfilename(parent=self, title=UI_TEXT['v18'], defaultextension='.rconfig', filetypes=[(UI_TEXT['w18'], '*.rconfig'), (UI_TEXT['x18'], '*.zip'), (UI_TEXT['y18'], '*.json')])
@@ -250,6 +264,7 @@ class SettingsMixin:
             messagebox.showinfo(UI_TEXT['p18'], UI_TEXT['a19'], parent=self)
         except Exception as exc:
             messagebox.showerror(UI_TEXT['p18'], UI_TEXT['b19'].format(p0=exc), parent=self)
+
     def _import_settings(self):
         path = filedialog.askopenfilename(parent=self, title=UI_TEXT['c19'], filetypes=[(UI_TEXT['w18'], '*.rconfig *.zip'), (UI_TEXT['x18'], '*.zip'), (UI_TEXT['y18'], '*.json'), (UI_TEXT['z7'], '*.*')])
         if not path:
@@ -319,10 +334,12 @@ class SettingsMixin:
             messagebox.showinfo(UI_TEXT['p18'], UI_TEXT['e19'], parent=self)
         except Exception as exc:
             messagebox.showerror(UI_TEXT['p18'], UI_TEXT['f19'].format(p0=exc), parent=self)
+
     def _startup_setting_changed(self):
         self._save_settings()
         self._install_startup_shortcut()
         self._update_kill_routils_visibility()
+
     def _install_startup_shortcut(self):
         if os.name != 'nt':
             return

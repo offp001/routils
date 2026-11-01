@@ -2,11 +2,14 @@ import sys
 _host = sys.modules.get('main') or sys.modules.get('__main__')
 if _host is not None:
     globals().update({k: v for k, v in vars(_host).items() if not k.startswith('__') and k not in {'_host'}})
+
 class CacheMixin:
+
     def _wrap_rbxm_as_blob(self, data: bytes, content_type: str='application/octet-stream') -> bytes:
         if data[:4] == RBXH_MAGIC:
             return _wrap_rbxm_bytes(_extract_rbxh_document(data), content_type)
         return _wrap_rbxm_bytes(data, content_type)
+
     def _utils_r6_to_r15(self):
         src = filedialog.askopenfilename(parent=self, title=UI_TEXT['x7'], filetypes=[(UI_TEXT['y7'], '*.rbxm *.rbxmx'), (UI_TEXT['z7'], '*.*')])
         if not src:
@@ -25,8 +28,10 @@ class CacheMixin:
             self._console_log(UI_TEXT['e8'].format(p0=dest))
         except Exception as e:
             messagebox.showerror(UI_TEXT['c8'], UI_TEXT['f8'].format(p0=e), parent=self)
+
     def _cc_state_path(self):
         return os.path.join(DATA_DIR, 'routils_cconfigs_state.json')
+
     def _cc_load_applied_state(self):
         try:
             with open(self._cc_state_path(), 'r', encoding='utf-8') as f:
@@ -34,12 +39,14 @@ class CacheMixin:
             self.cc_applied_caches = data if isinstance(data, list) else []
         except Exception:
             self.cc_applied_caches = []
+
     def _cc_save_applied_state(self):
         try:
             with open(self._cc_state_path(), 'w', encoding='utf-8') as f:
                 json.dump(self.cc_applied_caches, f, ensure_ascii=False, indent=2)
         except Exception:
             pass
+
     def _cc_record_applied_caches(self, caches):
         if not caches:
             return
@@ -61,9 +68,11 @@ class CacheMixin:
         self._cc_save_applied_state()
         if hasattr(self, 'cc_cache_count_label'):
             self.cc_cache_count_label.config(text=UI_TEXT['g8'].format(p0=len(self.cc_applied_caches)))
+
     def _cc_safe_name(self, name):
         name = re.sub('[<>:"/\\\\\\\\|?*]', '_', str(name)).strip().rstrip('.')
         return name or 'Config'
+
     def _cc_unique_path(self, directory, filename):
         base, ext = os.path.splitext(filename)
         path = os.path.join(directory, filename)
@@ -72,6 +81,7 @@ class CacheMixin:
             path = os.path.join(directory, f'{base} ({i}){ext}')
             i += 1
         return path
+
     def _cc_snapshot_database(self, src_db, dst_db):
         if not os.path.isfile(src_db):
             raise FileNotFoundError(f'Database not found:\n{src_db}')
@@ -90,6 +100,7 @@ class CacheMixin:
             except Exception:
                 pass
             shutil.copy2(src_db, dst_db)
+
     def _cc_make_package(self, destination, name):
         src_db = getattr(self, 'db_path', None)
         if not src_db or not os.path.isfile(src_db):
@@ -101,6 +112,7 @@ class CacheMixin:
             with zipfile.ZipFile(destination, 'w', compression=zipfile.ZIP_DEFLATED) as z:
                 z.write(snap, 'rbx-storage.db')
                 z.writestr('config.json', json.dumps(metadata, ensure_ascii=False, indent=2))
+
     def _cc_read_package_info(self, path):
         if path.lower().endswith('.db'):
             conn = sqlite3.connect(path, timeout=3)
@@ -117,6 +129,7 @@ class CacheMixin:
                 raise ValueError('CConfigs package is missing rbx-storage.db.')
             info['raw_db'] = False
             return info
+
     def _cc_scan_packages(self):
         out = []
         try:
@@ -136,6 +149,7 @@ class CacheMixin:
             out.append(info)
         out.sort(key=lambda x: str(x.get('name', '')).lower())
         return out
+
     def _cc_refresh_list(self, select_path=None):
         if not hasattr(self, 'cc_tree'):
             return
@@ -153,6 +167,7 @@ class CacheMixin:
             self.cc_tree.selection_set(selected_iid)
             self.cc_tree.focus(selected_iid)
         self._cc_show_selected()
+
     def _cc_selected_info(self):
         sel = self.cc_tree.selection() if hasattr(self, 'cc_tree') else ()
         if not sel:
@@ -163,6 +178,7 @@ class CacheMixin:
             return None
         packages = self._cc_scan_packages()
         return packages[idx] if 0 <= idx < len(packages) else None
+
     def _cc_show_selected(self, _event=None):
         if not hasattr(self, 'cc_details'):
             return
@@ -187,11 +203,13 @@ class CacheMixin:
                 lines.append('No cache applications were recorded for this config.')
             self.cc_details.insert(tk.END, '\n'.join(lines))
         self.cc_details.configure(state='disabled')
+
     def _cc_save_db(self):
         name = simpledialog.askstring(UI_TEXT['h8'], UI_TEXT['i8'], parent=self)
         if not name:
             return
         self._cc_save_named_config(name)
+
     def _cc_save_named_config(self, name):
         name = self._cc_safe_name(name)
         if not name:
@@ -204,6 +222,7 @@ class CacheMixin:
             return
         self._cc_refresh_list(select_path=path)
         messagebox.showinfo(UI_TEXT['j8'], UI_TEXT['l8'].format(p0=os.path.basename(path), p1=len(self.cc_applied_caches)), parent=self)
+
     def _cc_upload_db(self):
         path = filedialog.askopenfilename(parent=self, title=UI_TEXT['m8'], filetypes=[(UI_TEXT['n8'], '*.db *.ccdb'), (UI_TEXT['o8'], '*.db'), (UI_TEXT['p8'], '*.ccdb'), (UI_TEXT['z7'], '*.*')])
         if not path:
@@ -222,6 +241,7 @@ class CacheMixin:
             return
         self._cc_refresh_list(select_path=dest)
         messagebox.showinfo(UI_TEXT['j8'], UI_TEXT['r8'].format(p0=os.path.basename(dest)), parent=self)
+
     def _cc_apply_db(self):
         info = self._cc_selected_info()
         if not info:
@@ -266,6 +286,7 @@ class CacheMixin:
         if hasattr(self, 'cc_cache_count_label'):
             self.cc_cache_count_label.config(text=UI_TEXT['g8'].format(p0=len(self.cc_applied_caches)))
         messagebox.showinfo(UI_TEXT['j8'], UI_TEXT['w8'].format(p0=info.get('name', ''), p1=len(self.cc_applied_caches)), parent=self)
+
     def _cc_export_db(self):
         info = self._cc_selected_info()
         if not info:
@@ -299,6 +320,7 @@ class CacheMixin:
                 except Exception:
                     pass
         messagebox.showinfo(UI_TEXT['j8'], UI_TEXT['z8'].format(p0=path), parent=self)
+
     def _cc_delete_db(self):
         info = self._cc_selected_info()
         if not info:
@@ -311,6 +333,7 @@ class CacheMixin:
             messagebox.showerror(UI_TEXT['j8'], UI_TEXT['c9'].format(p0=e), parent=self)
             return
         self._cc_refresh_list()
+
     def _build_cconfigs_tab(self):
         tab = ttk.Frame(self.nb, padding=0)
         self.nb.add(tab, text=UI_TEXT['l5'])
@@ -352,6 +375,7 @@ class CacheMixin:
         self.cc_details.pack(fill='both', expand=True)
         self.cc_details.configure(state='disabled')
         self._cc_refresh_list()
+
     def _build_utils_tab(self):
         tab_outer = _ScrollableTab(self.nb, padding=0)
         tab = tab_outer.inner
@@ -427,6 +451,7 @@ class CacheMixin:
         ttk.Button(others, text=UI_TEXT['b2'], command=lambda: self._delete_other_file('font')).grid(row=4, column=1, padx=5)
         ttk.Button(others, text=UI_TEXT['r9'], command=lambda: self._choose_other_file('font')).grid(row=4, column=2)
         others.columnconfigure(0, weight=1)
+
     def _default_mesh_path(self, name):
         root = self.roblox_path_var.get().strip()
         if not root or os.path.basename(root).lower() != 'robloxplayerbeta.exe':
@@ -434,6 +459,7 @@ class CacheMixin:
         root = os.path.dirname(root)
         folder = 'heads' if name.lower() == 'head.mesh' else 'meshes'
         return os.path.join(root, 'content', 'avatar', folder, name)
+
     def _choose_default_mesh(self, name):
         target = self._default_mesh_path(name)
         if not target:
@@ -451,6 +477,7 @@ class CacheMixin:
             shutil.copy2(src, target)
         except Exception as e:
             messagebox.showerror(UI_TEXT['p9'], UI_TEXT['d11'].format(p0=e), parent=self)
+
     def _delete_default_mesh(self, name):
         target = self._default_mesh_path(name)
         if not target:
@@ -460,11 +487,13 @@ class CacheMixin:
                 os.remove(target)
         except Exception as e:
             messagebox.showerror(UI_TEXT['p9'], UI_TEXT['d11'].format(p0=e), parent=self)
+
     def _skybox_path(self, name):
         root = self.roblox_path_var.get().strip()
         if not root or os.path.basename(root).lower() != 'robloxplayerbeta.exe':
             return None
         return os.path.join(os.path.dirname(root), 'PlatformContent', 'pc', 'textures', 'sky', name)
+
     def _choose_skybox_texture(self, name):
         target = self._skybox_path(name)
         if not target:
@@ -482,6 +511,7 @@ class CacheMixin:
             self._console_log(UI_TEXT['f11'].format(p0=name))
         except Exception as e:
             messagebox.showerror(UI_TEXT['t9'], UI_TEXT['d11'].format(p0=e), parent=self)
+
     def _delete_skybox_texture(self, name):
         target = self._skybox_path(name)
         if not target:
@@ -492,13 +522,16 @@ class CacheMixin:
                 self._console_log(UI_TEXT['g11'].format(p0=name))
         except Exception as e:
             messagebox.showerror(UI_TEXT['t9'], UI_TEXT['d11'].format(p0=e), parent=self)
+
     def _roblox_content_path(self, *parts):
         root = self.roblox_path_var.get().strip()
         if not root or os.path.basename(root).lower() != 'robloxplayerbeta.exe':
             return None
         return os.path.join(os.path.dirname(root), *parts)
+
     def _sound_path(self, name):
         return self._roblox_content_path('content', 'sounds', name)
+
     def _choose_roblox_sound(self, name):
         target = self._sound_path(name)
         if not target:
@@ -516,6 +549,7 @@ class CacheMixin:
             self._console_log(UI_TEXT['i11'].format(p0=name))
         except Exception as e:
             messagebox.showerror(UI_TEXT['v9'], UI_TEXT['d11'].format(p0=e), parent=self)
+
     def _delete_roblox_sound(self, name):
         target = self._sound_path(name)
         if not target:
@@ -527,6 +561,7 @@ class CacheMixin:
                 self._console_log(UI_TEXT['j11'].format(p0=name))
         except Exception as e:
             messagebox.showerror(UI_TEXT['v9'], UI_TEXT['d11'].format(p0=e), parent=self)
+
     def _other_path(self, kind):
         if kind == 'studs':
             return self._roblox_content_path('PlatformContent', 'pc', 'textures', 'plastic', 'normal.dds')
@@ -535,6 +570,7 @@ class CacheMixin:
         if kind == 'font':
             return self._roblox_content_path('content', 'fonts', 'CustomFont.ttf')
         return None
+
     def _choose_other_file(self, kind):
         target = self._other_path(kind)
         if not target:
@@ -561,6 +597,7 @@ class CacheMixin:
             self._console_log(UI_TEXT['k11'].format(p0=os.path.basename(target)))
         except Exception as e:
             messagebox.showerror(UI_TEXT['x9'], UI_TEXT['d11'].format(p0=e), parent=self)
+
     def _delete_other_file(self, kind):
         target = self._other_path(kind)
         if not target:
@@ -572,6 +609,7 @@ class CacheMixin:
                 self._console_log(UI_TEXT['l11'].format(p0=os.path.basename(target)))
         except Exception as e:
             messagebox.showerror(UI_TEXT['x9'], UI_TEXT['d11'].format(p0=e), parent=self)
+
     def _utils_mesh_to_obj(self):
         src = filedialog.askopenfilename(parent=self, title=UI_TEXT['m11'], filetypes=[(UI_TEXT['n11'], '*.mesh'), (UI_TEXT['z7'], '*.*')])
         if not src:
@@ -587,6 +625,7 @@ class CacheMixin:
             print(UI_TEXT['q11'].format(p0=out))
         except Exception as e:
             messagebox.showerror(UI_TEXT['o9'], UI_TEXT['r11'].format(p0=e), parent=self)
+
     def _utils_roblox_file_convert(self):
         src = filedialog.askopenfilename(parent=self, title=UI_TEXT['s11'], filetypes=[(UI_TEXT['t11'], '*.rbxm *.rbxh *.rbxmx'), (UI_TEXT['u11'], '*.rbxm'), (UI_TEXT['v11'], '*.rbxh'), (UI_TEXT['w11'], '*.rbxmx'), (UI_TEXT['z7'], '*.*')])
         if not src:
@@ -617,6 +656,7 @@ class CacheMixin:
             self._console_log(UI_TEXT['a12'].format(p0=output_path))
         except Exception as e:
             messagebox.showerror(UI_TEXT['x11'], UI_TEXT['r11'].format(p0=e), parent=self)
+
     def _cache_type_matches(self, it, selected):
         cat = str(it.kind or '').split(' ', 1)[0].strip().lower()
         selected = str(selected).strip().lower()
@@ -639,9 +679,10 @@ class CacheMixin:
         if selected == 'unknown':
             return cat == 'unknown'
         return False
+
     def _open_delete_cache_type(self):
         dlg = tk.Toplevel(self)
-        dlg.title('Delete Cache Type')
+        dlg.title('delete cache type')
         dlg.resizable(False, False)
         dlg.transient(self)
         theme_toplevel(dlg)
@@ -649,8 +690,9 @@ class CacheMixin:
         outer.pack(fill='both', expand=True)
         ttk.Label(outer, text=UI_TEXT['u23']).pack(anchor='w', pady=(0, 7))
         type_var = tk.StringVar(value='Mesh')
-        combo = ttk.Combobox(outer, textvariable=type_var, values=('Mesh', 'Model/RBXM', 'Animation', 'Image', 'Audio', 'Video', 'Font', 'Text', 'Unknown'), state='readonly', width=18)
+        combo = ttk.Combobox(outer, textvariable=type_var, values=('mesh', 'model/rbxm', 'animation', 'image', 'audio', 'video', 'font', 'text', 'unknown'), state='readonly', width=18)
         combo.pack(fill='x')
+
         def do_delete():
             selected = type_var.get()
             dlg.destroy()
@@ -660,6 +702,7 @@ class CacheMixin:
         ttk.Button(btns, text=UI_TEXT['b2'], command=do_delete).pack(side='left')
         ttk.Button(btns, text=UI_TEXT['b3'], command=dlg.destroy).pack(side='right')
         combo.focus_set()
+
     def _delete_cache_type(self, selected):
         if getattr(self, '_cache_type_busy', False):
             return
@@ -671,6 +714,7 @@ class CacheMixin:
         was_running = bool(self.watching)
         if was_running:
             self._stop_watching()
+
         def scan_worker():
             try:
                 if not os.path.isfile(self.db_path):
@@ -683,6 +727,7 @@ class CacheMixin:
                 result = ('error', str(e))
             self.after(0, lambda r=result: self._delete_cache_type_scan_done(selected, r, was_running))
         threading.Thread(target=scan_worker, daemon=True, name='RoUtils-DeleteTypeScan').start()
+
     def _delete_cache_type_scan_done(self, selected, result, was_running):
         if result[0] == 'error':
             self._finish_delete_cache_type(('error', result[1]), was_running)
@@ -699,6 +744,7 @@ class CacheMixin:
         if not ok:
             self._finish_delete_cache_type(('cancel', None), was_running)
             return
+
         def delete_worker():
             deleted_ids = []
             failed = 0
@@ -728,6 +774,7 @@ class CacheMixin:
             except Exception as e:
                 self.after(0, lambda e=e: self._finish_delete_cache_type(('error', str(e)), was_running))
         threading.Thread(target=delete_worker, daemon=True, name='RoUtils-DeleteTypeDelete').start()
+
     def _finish_delete_cache_type(self, result, was_running):
         try:
             kind = result[0]
@@ -769,8 +816,10 @@ class CacheMixin:
                 pass
             if was_running and (not self.watching):
                 self._start_watching()
+
     def _cache_type_label(self, result):
         return 'selected type'
+
     def _dump_blob_body(self, blob):
         meta = parse_rbxh(blob)
         body = meta.get('body') or b''
@@ -785,6 +834,7 @@ class CacheMixin:
         except Exception:
             pass
         return (body, meta)
+
     def _dump_image_payload(self, body):
         try:
             label, off = find_embedded_image(body)
@@ -810,6 +860,7 @@ class CacheMixin:
             return (out.getvalue(), ext)
         except Exception:
             return (None, None)
+
     def _video_payload_from_body(self, it, body, meta):
         if not body:
             return (None, None)
@@ -843,6 +894,7 @@ class CacheMixin:
         if 'mov' in kind or 'quicktime' in content_type:
             return (body, '.mov')
         return (None, None)
+
     def _dump_one_cache(self, it, dump_root, include_video=False):
         blob = self._fetch_full_blob(it)
         if not blob:
@@ -923,6 +975,7 @@ class CacheMixin:
         with open(path, 'wb') as f:
             f.write(payload)
         return True
+
     def _dump_all_caches(self):
         dump_root = os.path.abspath(os.path.join(DATA_DIR, 'Dump'))
         self._last_dump_folder = dump_root
@@ -942,6 +995,7 @@ class CacheMixin:
             self.after(120, lambda: self.console_entry.focus_set() if hasattr(self, 'console_entry') and self.console_entry.winfo_exists() else None)
         except Exception:
             pass
+
     def _clear_storage_now(self):
         was = self.watching
         if was:
@@ -978,6 +1032,7 @@ class CacheMixin:
         messagebox.showinfo(UI_TEXT['b23'], UI_TEXT['o24'].format(p0=deleted_shards, p1='yes' if deleted_db else 'no'))
         if was:
             self._start_watching()
+
     def _install_selected_db(self, source_db):
         local = os.environ.get('LOCALAPPDATA') or os.path.expanduser('~')
         roblox_dir = os.path.join(local, 'Roblox')
@@ -1041,6 +1096,7 @@ class CacheMixin:
             self.db_label.config(text=self.db_path)
         self._reset_seen(clear_list=True)
         return target
+
     def _choose_db(self):
         path = filedialog.askopenfilename(title=UI_TEXT['p24'], filetypes=[(UI_TEXT['o8'], '*.db'), (UI_TEXT['q24'], '*.*')])
         if not path:
@@ -1058,12 +1114,14 @@ class CacheMixin:
         if was_watching:
             self._start_watching()
         messagebox.showinfo(UI_TEXT['r24'], UI_TEXT['t24'])
+
     def _choose_shard_root(self):
         d = filedialog.askdirectory(title=UI_TEXT['u24'])
         if not d:
             return
         self.shard_root = d
         self._reset_seen(clear_list=False)
+
     def _toggle_watch(self):
         if self.watching:
             self._stop_watching()
@@ -1078,6 +1136,7 @@ class CacheMixin:
         self.toggle_btn.config(state='disabled', text=UI_TEXT['v5'])
         if hasattr(self, '_watch_loading_label'):
             self._watch_loading_label.config(text=UI_TEXT['v5'])
+
         def begin():
             started = False
             try:
@@ -1097,6 +1156,7 @@ class CacheMixin:
                 except Exception:
                     pass
         self.after(40, begin)
+
     def _start_watching(self):
         if not os.path.isfile(self.db_path):
             self._update_status()
@@ -1108,22 +1168,26 @@ class CacheMixin:
         self._update_status()
         self._launch_scan_loop()
         return True
+
     def _stop_watching(self):
         self.stop_event.set()
         self.watching = False
         if hasattr(self, 'toggle_btn'):
             self.toggle_btn.config(text=UI_TEXT['d23'])
         self._update_status()
+
     def _launch_scan_loop(self):
         if self.scan_thread and self.scan_thread.is_alive():
             return
         self.scan_thread = threading.Thread(target=self._scan_loop, daemon=True)
         self.scan_thread.start()
+
     def _update_scan_max_rows_value(self, *_):
         try:
             self._scan_max_rows_value = max(0, int(self.max_rows.get()))
         except Exception:
             self._scan_max_rows_value = 0
+
     def _scan_loop(self):
         first_scan = True
         while not self.stop_event.is_set():
@@ -1142,6 +1206,7 @@ class CacheMixin:
                     first_scan = False
                     self._watch_initial_scan_done.set()
             self.stop_event.wait(WATCH_INTERVAL_SEC)
+
     def _drain_queue(self):
         if getattr(self, '_resize_active', False):
             self.after(max(120, UI_QUEUE_INTERVAL_MS), self._drain_queue)
@@ -1163,6 +1228,7 @@ class CacheMixin:
             except Exception:
                 pass
         self.after(UI_QUEUE_INTERVAL_MS, self._drain_queue)
+
     def _should_display(self, it: ScanItem, filt: str, hide_tickets=None, type_filter=None) -> bool:
         if hide_tickets is None:
             hide_tickets = self.hide_tickets.get()
@@ -1183,6 +1249,7 @@ class CacheMixin:
             if filt not in row_join:
                 return False
         return True
+
     def _tree_insert_many(self, rows):
         if not rows or not hasattr(self, 'tree'):
             return
@@ -1214,6 +1281,7 @@ class CacheMixin:
                 self.tree.tk.call('unset', rows_var)
             except Exception:
                 pass
+
     def _insert_items(self, items: List[ScanItem]):
         if not items or getattr(self, '_ui_dispatch_closed', False):
             return
@@ -1226,6 +1294,7 @@ class CacheMixin:
                 self._tree_insert_pending_job = self.after(0, self._insert_items_batch)
             except Exception:
                 self._tree_insert_pending_job = None
+
     def _insert_items_batch(self):
         self._tree_insert_pending_job = None
         if getattr(self, '_ui_dispatch_closed', False) or not self._tree_insert_pending:
@@ -1284,6 +1353,7 @@ class CacheMixin:
                     self.tree.see(last_iid)
                 except Exception:
                     pass
+
     def _safe_apply_filter(self):
         try:
             self._apply_filter()
@@ -1297,6 +1367,7 @@ class CacheMixin:
                 self._console_log(UI_TEXT['y24'].format(p0=exc))
             except Exception:
                 pass
+
     def _apply_filter(self):
         if not hasattr(self, 'tree'):
             return
@@ -1333,6 +1404,7 @@ class CacheMixin:
             self._filter_render_job = self.after(0, lambda g=generation: self._apply_filter_batch(g))
         except Exception:
             self._filter_render_job = None
+
     def _apply_filter_batch(self, generation=None):
         self._filter_render_job = None
         if generation is None:
@@ -1414,8 +1486,10 @@ class CacheMixin:
                 self._tree_insert_pending_job = self.after(1, self._insert_items_batch)
             except Exception:
                 self._tree_insert_pending_job = None
+
     def _apply_stay_on_top(self):
         self._app_focus_changed()
+
     def _apply_show_lines(self):
         self.viewport_3d.show_wireframe.set(self.show_lines.get())
         if hasattr(self, '_titlebar'):
@@ -1429,6 +1503,7 @@ class CacheMixin:
                 pass
         if self.viewport_3d.winfo_ismapped():
             self.viewport_3d.draw_frame()
+
     def _show_details(self):
         try:
             self._cancel_image_preview()
@@ -1457,6 +1532,7 @@ class CacheMixin:
             self.details_text.configure(state='disabled')
         except tk.TclError:
             return
+
     def _update_preview(self):
         try:
             sel = self.tree.selection()
@@ -1506,6 +1582,7 @@ class CacheMixin:
                 self.viewport_3d.hide()
             except Exception:
                 pass
+
     def _close_animation_preview(self):
         win = getattr(self, '_animation_preview_win', None)
         if win is not None:
@@ -1514,6 +1591,7 @@ class CacheMixin:
                     win.withdraw()
             except Exception:
                 pass
+
     def _update_displaycolumns(self, save: bool=True):
         cols = [c for c in self.columns if self._col_vars[c].get()]
         if not cols:
@@ -1526,12 +1604,15 @@ class CacheMixin:
             self.tree.column(c, width=w)
         if save:
             self._save_settings()
+
     def _on_tree_select(self, event):
         self._clear_tree_hover()
         self._schedule_ui('tree_select', 20, self._update_selected_view)
+
     def _update_selected_view(self):
         self._show_details()
         self._update_preview()
+
     def _clear_tree_hover(self):
         iid = self._tree_hover_iid
         self._tree_hover_iid = None
@@ -1546,9 +1627,11 @@ class CacheMixin:
                 self.tree.item(iid, tags=tags)
         except tk.TclError:
             pass
+
     def _on_tree_leave(self, event):
         self._cancel_image_preview()
         self._clear_tree_hover()
+
     def _on_tree_right_click(self, event):
         self._cancel_image_preview()
         region = self.tree.identify_region(event.x, event.y)
@@ -1582,6 +1665,7 @@ class CacheMixin:
                 self._ctx.tk_popup(event.x_root, event.y_root)
             finally:
                 self._ctx.grab_release()
+
     def _copy_selected_hash(self):
         items = self._get_selected_items()
         if not items:
@@ -1590,6 +1674,7 @@ class CacheMixin:
         self.clipboard_clear()
         self.clipboard_append(joined)
         messagebox.showinfo(UI_TEXT['z24'], UI_TEXT['a25'].format(p0=len(items)))
+
     def _on_tree_motion(self, event):
         try:
             row = self.tree.identify_row(event.y)
@@ -1619,6 +1704,7 @@ class CacheMixin:
         except tk.TclError:
             self._tree_hover_iid = None
             self._hover_preview_iid = None
+
     def _cancel_image_preview(self):
         if self._hover_preview_job:
             try:
@@ -1635,6 +1721,7 @@ class CacheMixin:
             self._img_preview_fade_job = None
         if self._img_preview_win and self._img_preview_win.winfo_exists():
             self._fade_preview(0.0)
+
     def _show_image_preview(self):
         self._hover_preview_job = None
         iid = self._hover_preview_iid
@@ -1688,6 +1775,7 @@ class CacheMixin:
         self._img_preview_win.deiconify()
         self._img_preview_win.lift()
         self._fade_preview(1.0)
+
     def _fade_preview(self, target: float, step: float=0.12):
         if not self._img_preview_win or not self._img_preview_win.winfo_exists():
             return
@@ -1707,6 +1795,7 @@ class CacheMixin:
         cur += step if target > cur else -step
         self._img_preview_win.attributes('-alpha', cur)
         self._img_preview_fade_job = self.after(25, self._fade_preview, target, step)
+
     def _fetch_full_blob(self, it: ScanItem) -> Optional[bytes]:
         if it is None or not getattr(it, 'hash', None):
             return None
@@ -1732,6 +1821,7 @@ class CacheMixin:
         if row is not None and row[0] is not None:
             return row[0]
         return read_shard_bytes(self.shard_root, it.hash)
+
     def _export_selected_full(self):
         items = self._get_selected_items()
         if not items:
@@ -1757,6 +1847,7 @@ class CacheMixin:
             except Exception:
                 pass
         messagebox.showinfo(UI_TEXT['b25'], UI_TEXT['e25'].format(p0=saved, p1=len(items), p2=directory))
+
     def _export_one_full(self, it):
         blob = self._fetch_full_blob(it)
         if not blob:
@@ -1773,6 +1864,7 @@ class CacheMixin:
             messagebox.showinfo(UI_TEXT['b25'], UI_TEXT['j25'].format(p0=path))
         except Exception as e:
             messagebox.showerror(UI_TEXT['b25'], UI_TEXT['k25'].format(p0=e))
+
     def _export_selected_rbxm(self):
         items = self._get_selected_items()
         if not items:
@@ -1813,6 +1905,7 @@ class CacheMixin:
             messagebox.showinfo(UI_TEXT['l25'], UI_TEXT['p25'].format(p0=path))
         except Exception as e:
             messagebox.showerror(UI_TEXT['l25'], UI_TEXT['k25'].format(p0=e))
+
     def _export_selected_mesh_obj(self):
         items = [it for it in self._get_selected_items() if (it.kind or '').split(' ', 1)[0] == 'Mesh']
         if not items:
@@ -1852,6 +1945,7 @@ class CacheMixin:
             messagebox.showerror(UI_TEXT['m23'], UI_TEXT['v25'] + '\n'.join(errors), parent=self)
         elif saved:
             messagebox.showinfo(UI_TEXT['m23'], UI_TEXT['w25'].format(p0=saved), parent=self)
+
     def _video_signed_query_values(self, source_url: str) -> Dict[str, str]:
         values = {}
         try:
@@ -1862,10 +1956,12 @@ class CacheMixin:
         except Exception:
             pass
         return values
+
     @staticmethod
     def _video_has_placeholders(text: str) -> bool:
         low = str(text or '').lower()
         return any((x in low for x in ('{$__token_}', '{$__token__}', '{$expires}', '{$policy}', '{$signature}', '{$key-pair-id}', '${__token_}', '${expires}', '${policy}', '${signature}', '${key-pair-id}')))
+
     def _find_video_ticket_urls(self, video_it: ScanItem, manifest: bytes) -> List[str]:
         candidates = []
         manifest_text = manifest.decode('utf-8', 'ignore')
@@ -1936,10 +2032,12 @@ class CacheMixin:
             candidates.append((score, candidate_url))
         candidates.sort(key=lambda item: item[0], reverse=True)
         return list(dict.fromkeys((url for _score, url in candidates[:80])))
+
     def _resolve_hls_uri(self, uri: str, base_url: str, token_values: Dict[str, str]) -> str:
         uri = str(uri or '').strip().strip('"\'')
         if not uri:
             return ''
+
         def repl(match):
             key = match.group(1).strip().lower()
             return token_values.get(key, match.group(0))
@@ -1947,8 +2045,10 @@ class CacheMixin:
         uri = re.sub('\\$\\{([^}]+)\\}', repl, uri)
         uri = re.sub('\\$([A-Za-z0-9_-]+)', repl, uri)
         return urljoin(base_url, uri)
+
     def _download_hls_video(self, manifest: bytes, source_url: str, video_it: Optional[ScanItem]=None, timeout: int=20):
         headers = {'User-Agent': f'RoUtils/{APP_VERSION}', 'Accept': '*/*', 'Accept-Encoding': 'identity'}
+
         def fetch(url):
             with _routils_request(url, timeout=timeout, headers=headers) as r:
                 return (r.read(), r.geturl(), dict(r.headers.items()))
@@ -1959,6 +2059,7 @@ class CacheMixin:
         if source_url and (not self._video_has_placeholders(source_url)) and (source_url != '-'):
             initial_urls.append(source_url)
         initial_urls.extend(ticket_urls)
+
         def parse_manifest(data, base_url, token_values=None, depth=0):
             if depth > 5:
                 raise RuntimeError('HLS playlist nesting is too deep.')
@@ -2052,6 +2153,7 @@ class CacheMixin:
             return parse_manifest(manifest, source_url, self._video_signed_query_values(source_url))
         detail = errors[0] if errors else UI_TEXT['n29']
         raise RuntimeError('Could not recover the Roblox video ticket from cache. ' + detail)
+
     def _export_selected_video(self):
         if getattr(self, '_video_export_running', False):
             self._console_log(UI_TEXT['x25'])
@@ -2080,6 +2182,7 @@ class CacheMixin:
         self._video_export_running = True
         self._console_select_tab(UI_TEXT['u5'])
         self._console_log(UI_TEXT['c26'].format(p0=len(video_items)))
+
         def worker():
             saved = 0
             failed = 0
@@ -2117,6 +2220,7 @@ class CacheMixin:
             except Exception:
                 self._video_export_running = False
         threading.Thread(target=worker, daemon=True, name='RoUtils-VideoExport').start()
+
     def _finish_video_export(self, saved, failed, total, paths, directory, selected_path, errors):
         self._video_export_running = False
         self._console_log(UI_TEXT['f26'].format(p0=saved, p1=total, p2=failed))
@@ -2135,6 +2239,7 @@ class CacheMixin:
             if errors:
                 message += '\n\n' + '\n'.join(errors)
             messagebox.showerror(UI_TEXT['y25'], message, parent=self)
+
     def _rbxm_body(self, it):
         try:
             blob = self._fetch_full_blob(it)
@@ -2166,6 +2271,7 @@ class CacheMixin:
         except Exception:
             return None
         return None
+
     def _export_selected_image(self):
         items = self._get_selected_items()
         if not items:
@@ -2206,6 +2312,7 @@ class CacheMixin:
             messagebox.showinfo(UI_TEXT['j26'], UI_TEXT['o26'].format(p0=path))
         except Exception as e:
             messagebox.showerror(UI_TEXT['j26'], UI_TEXT['k25'].format(p0=e))
+
     def _image_from_item(self, it) -> Optional[Image.Image]:
         blob = self._fetch_full_blob(it)
         if not blob:
@@ -2219,6 +2326,7 @@ class CacheMixin:
             return Image.open(io.BytesIO(body))
         except Exception:
             return None
+
     def _get_selected_item(self) -> Optional[ScanItem]:
         try:
             sel = self.tree.selection()
@@ -2230,6 +2338,7 @@ class CacheMixin:
             return self.items_by_iid.get(iid) or self.items_by_hash.get(iid)
         except tk.TclError:
             return None
+
     def _get_selected_items(self) -> List[ScanItem]:
         out: List[ScanItem] = []
         try:
@@ -2242,14 +2351,17 @@ class CacheMixin:
         except tk.TclError:
             return []
         return out
+
     def _pause_scanner(self):
         was = self.watching
         if was:
             self._stop_watching()
         return was
+
     def _resume_scanner(self, was_running: bool):
         if was_running:
             self._start_watching()
+
     def _parse_new_hash(self, s: str, expected_nibbles: int) -> bytes:
         if not s:
             raise ValueError('Empty input.')
@@ -2263,6 +2375,7 @@ class CacheMixin:
             return bytes.fromhex(s)
         except Exception:
             raise ValueError('Invalid hex characters.')
+
     def _action_change_hash(self):
         it = self._get_selected_item()
         if not it:
@@ -2319,6 +2432,7 @@ class CacheMixin:
             messagebox.showerror(UI_TEXT['p26'], UI_TEXT['x26'].format(p0=e))
         finally:
             self._resume_scanner(was_running)
+
     def _action_delete_blob(self):
         items = self._get_selected_items()
         if not items:
@@ -2360,6 +2474,7 @@ class CacheMixin:
             messagebox.showerror(UI_TEXT['y26'], UI_TEXT['c27'].format(p0=e))
         finally:
             self._resume_scanner(was_running)
+
     def _action_save_hash_to_saves(self):
         items = self._get_selected_items()
         if not items:
@@ -2408,6 +2523,7 @@ class CacheMixin:
         except Exception:
             pass
         messagebox.showinfo(UI_TEXT['z1'], UI_TEXT['g27'].format(p0=saved))
+
     def _action_save_blob_to_saves(self):
         items = self._get_selected_items()
         if not items:
@@ -2455,6 +2571,7 @@ class CacheMixin:
         except Exception:
             pass
         messagebox.showinfo(UI_TEXT['h27'], UI_TEXT['l27'].format(p0=saved))
+
     def _reset_seen(self, clear_list: bool):
         self.seen_hashes.clear()
         if clear_list:
@@ -2481,6 +2598,7 @@ class CacheMixin:
             except Exception:
                 pass
         self._update_status()
+
     def _sort_by(self, col_key: str, numeric: bool=False):
         fields = {'time': 'time', 'name': 'name', 'hash': 'hash', 'size': 'size', 'kind': 'kind', 'src': 'src'}
         field_name = fields.get(col_key)
@@ -2502,6 +2620,7 @@ class CacheMixin:
                 items.append((value, iid))
         else:
             items = [(self.tree.set(iid, col_key), iid) for iid in iids]
+
         def size_value(value):
             if isinstance(value, (int, float)):
                 return float(value)
@@ -2534,6 +2653,7 @@ class CacheMixin:
                     self.tree.move(iid, '', idx)
                 except Exception:
                     pass
+
     def _update_status(self):
         if not hasattr(self, 'status_label'):
             return

@@ -2,7 +2,9 @@ import sys
 _host = sys.modules.get('main') or sys.modules.get('__main__')
 if _host is not None:
     globals().update({k: v for k, v in vars(_host).items() if not k.startswith('__') and k not in {'_host'}})
+
 class ConsoleMixin:
+
     def _console_log(self, message):
         if threading.get_ident() != getattr(self, '_ui_thread_id', threading.get_ident()):
             try:
@@ -23,6 +25,7 @@ class ConsoleMixin:
             if getattr(self, '_console_render_pending', False):
                 return
             self._console_render_pending = True
+
             def render():
                 try:
                     self._console_render_pending = False
@@ -37,6 +40,7 @@ class ConsoleMixin:
                 self.after(0, render)
             except Exception:
                 pass
+
     def _console_undo(self):
         if not self._console_undo_stack:
             self._console_log(UI_TEXT['g19'])
@@ -62,12 +66,14 @@ class ConsoleMixin:
                 f.write(data)
             self._cc_refresh_list()
             self._console_log(UI_TEXT['j19'].format(p0=os.path.basename(path)))
+
     def _console_select_tab(self, name):
         for tab_id in self.nb.tabs():
             if self.nb.tab(tab_id, 'text') == name:
                 self.nb.select(tab_id)
                 return True
         return False
+
     def _console_cache_search(self, query=''):
         query = str(query or '').lower().strip()
         rows = []
@@ -76,6 +82,7 @@ class ConsoleMixin:
             if not query or query in text:
                 rows.append(f'{it.name} | {it.hash} | {it.kind}')
         self._console_log(UI_TEXT['k19'] + ('\n'.join(rows) if rows else UI_TEXT['l19']))
+
     def _console_create_backup(self, name='backup'):
         safe = _sanitize_filename_for_windows(str(name).strip()) or 'backup'
         backup_dir = os.path.join(DATA_DIR, 'backups')
@@ -94,6 +101,7 @@ class ConsoleMixin:
                             source = os.path.join(current, filename)
                             archive.write(source, os.path.relpath(source, DATA_DIR))
         self._console_log(UI_TEXT['m19'].format(p0=path))
+
     def _console_restore_backup(self, path):
         path = os.path.abspath(os.path.expandvars(os.path.expanduser(str(path))))
         if not os.path.isfile(path) or not path.lower().endswith('.zip'):
@@ -108,6 +116,7 @@ class ConsoleMixin:
         if hasattr(self, 'replacer'):
             self.replacer.refresh_view(preserve_selection=True)
         self._console_log(UI_TEXT['n19'].format(p0=path))
+
     def _console_command(self, raw):
         raw = str(raw or '').strip()
         if not raw:
@@ -260,6 +269,7 @@ class ConsoleMixin:
                 self._console_log(UI_TEXT['m20'])
         except Exception as e:
             self._console_log(UI_TEXT['n20'] + str(e))
+
     def _console_apply_cache(self, path, hash_value):
         path = os.path.abspath(os.path.expandvars(os.path.expanduser(path)))
         clean = re.sub('[^0-9A-Fa-f]', '', str(hash_value))
@@ -278,6 +288,7 @@ class ConsoleMixin:
         finally:
             conn.close()
         self._console_log(UI_TEXT['o20'].format(p0=clean, p1=path))
+
     def _console_delete_cache(self, hash_value):
         clean = re.sub('[^0-9A-Fa-f]', '', str(hash_value)).lower()
         if not clean or len(clean) % 2:
@@ -315,6 +326,7 @@ class ConsoleMixin:
         if deleted and old_blob is not None:
             self._console_undo_stack.append(('cache', (clean, old_blob)))
         self._console_log(UI_TEXT['p20'].format(p0=clean) if deleted else UI_TEXT['q20'].format(p0=clean))
+
     def _console_list_caches(self, query=''):
         query = str(query or '').lower()
         rows = []
@@ -323,6 +335,7 @@ class ConsoleMixin:
             if not query or query in text:
                 rows.append(f"{item.hash} | {item.name or '(unnamed)'} | {item.kind}")
         self._console_log(UI_TEXT['r20'] + ('\n'.join(rows) if rows else UI_TEXT['s20']))
+
     def _console_delete_fflag(self, query):
         query = fflag_strip_prefix(str(query)).lower()
         matches = [x for x in self.fflag_flags if fflag_strip_prefix(x.get('name', '')).lower() == query]
@@ -333,13 +346,16 @@ class ConsoleMixin:
         self._refresh_fflag_list()
         self._fflag_apply(silent=True)
         self._console_log(UI_TEXT['t20'].format(p0=query))
+
     def _console_list_fflags(self):
         rows = [f"{x.get('name', '')} = {x.get('value', '')}" for x in self.fflag_flags]
         self._console_log(UI_TEXT['u20'] + ('\n'.join(rows) if rows else UI_TEXT['v20']))
+
     def _console_list_configs(self):
         configs = self._cc_scan_packages()
         rows = [f"{x.get('name', '')} | {x.get('_file', '')}" for x in configs]
         self._console_log(UI_TEXT['w20'] + ('\n'.join(rows) if rows else UI_TEXT['v20']))
+
     def _console_delete_config(self, query):
         q = str(query).lower()
         matches = [x for x in self._cc_scan_packages() if str(x.get('name', '')).lower().startswith(q)]
@@ -351,8 +367,10 @@ class ConsoleMixin:
         os.remove(path)
         self._cc_refresh_list()
         self._console_log(UI_TEXT['x20'].format(p0=matches[0].get('name', '')))
+
     def _console_apply_config(self, query):
         self._console_select_tab(UI_TEXT['l5'])
+
         def apply():
             candidates = self._cc_scan_packages()
             q = str(query).lower()
@@ -366,11 +384,13 @@ class ConsoleMixin:
             self._cc_apply_db()
             self._console_log(UI_TEXT['y20'].format(p0=matches[0].get('name', '')))
         self.after(150, lambda: self._console_safe_call(apply))
+
     def _console_safe_call(self, fn):
         try:
             fn()
         except Exception as e:
             self._console_log(UI_TEXT['n20'] + str(e))
+
     def _console_mesh_to_obj(self, path):
         path = os.path.abspath(os.path.expandvars(os.path.expanduser(path)))
         if not os.path.isfile(path):
@@ -380,6 +400,7 @@ class ConsoleMixin:
             data = f.read()
         convert(data, out)
         self._console_log(UI_TEXT['z20'].format(p0=out))
+
     def _console_replace_mesh(self, mesh_name, replacement, roblox_path=''):
         mesh_aliases = {'head': 'Head.mesh', 'torso': 'Torso.mesh', 'left arm': 'Left Arm.mesh', 'right arm': 'Right Arm.mesh', 'left leg': 'Left Leg.mesh', 'right leg': 'Right Leg.mesh'}
         mesh_name = mesh_aliases.get(str(mesh_name).strip().lower(), str(mesh_name).strip())
@@ -396,16 +417,19 @@ class ConsoleMixin:
         os.makedirs(os.path.dirname(target), exist_ok=True)
         shutil.copy2(source, target)
         self._console_log(UI_TEXT['a21'].format(p0=mesh_name))
+
     def _console_apply_theme(self, query):
         names = [x for x in THEME_NAMES if x.lower() == str(query).lower() or x.lower().startswith(str(query).lower())]
         if len(names) != 1:
             raise ValueError(UI_TEXT['j29'])
         self._console_select_tab(UI_TEXT['q5'])
+
         def apply():
             self.theme_var.set(names[0])
             self._apply_theme()
             self._console_log(UI_TEXT['b21'].format(p0=names[0]))
         self.after(150, lambda: self._console_safe_call(apply))
+
     def _build_console_tab(self):
         tab = ttk.Frame(self.nb, padding=10)
         self.nb.add(tab, text=UI_TEXT['u5'])

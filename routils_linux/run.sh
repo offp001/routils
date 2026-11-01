@@ -9,7 +9,7 @@ if [[ -x "$ROOT/dist/routils" ]]; then
 fi
 
 if [[ ! -f "$ROOT/venv/bin/activate" ]]; then
-    printf '%s\n' 'Error: The virtual environment was not found. Run ./install.sh first.' >&2
+    printf '%s\n' 'error: The virtual environment was not found. run ./install.sh first.' >&2
     exit 1
 fi
 

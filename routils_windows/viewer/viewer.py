@@ -2,7 +2,9 @@ import sys
 _host = sys.modules.get('main') or sys.modules.get('__main__')
 if _host is not None:
     globals().update({k: v for k, v in vars(_host).items() if not k.startswith('__') and k not in {'_host'}})
+
 class ViewerMixin:
+
     def _build_viewer_widgets(self):
         top = ttk.Frame(self.viewer_root, padding=(8, 6))
         top.pack(fill='x')
@@ -136,6 +138,7 @@ class ViewerMixin:
         status.pack(fill='x')
         self.status_label = ttk.Label(status, text=UI_TEXT['m1'])
         self.status_label.pack(side='left')
+
     def _responsive_cache_toolbar(self, _event=None):
         top = getattr(self, '_cache_top', None)
         if top is None:
@@ -194,11 +197,11 @@ class ViewerMixin:
                     top.columnconfigure(col, weight=0, uniform='')
         except Exception:
             pass
+
     def _ensure_pane_order(self):
         try:
             panes = self.vpaned.panes()
             tf = str(self.table_frame)
-
             if not panes or panes[0] != tf:
                 self.vpaned.forget(self.table_frame)
                 self.vpaned.forget(self.details)
@@ -208,9 +211,11 @@ class ViewerMixin:
                 _set_pane_minsize(self.vpaned, self.details, 100)
         except Exception:
             pass
+
     def _on_hsash_release(self, _event=None):
         self._clamp_hsash()
         self._save_settings()
+
     def _clamp_hsash(self):
         try:
             panes = self.hpaned.panes()
@@ -227,6 +232,7 @@ class ViewerMixin:
                     self.hpaned.sashpos(0, clamped)
         except Exception:
             pass
+
     def _toggle_viewer_pane(self):
         if self.viewer_collapsed:
             try:
@@ -275,6 +281,7 @@ class ViewerMixin:
             self.viewer_collapsed = True
             self.collapse_btn.config(text=UI_TEXT['t23'])
             self._save_settings()
+
     def _app_focus_changed(self, _event=None):
         try:
             focused = _routils_process_has_focus(self)
@@ -294,6 +301,7 @@ class ViewerMixin:
                 pass
         except Exception:
             pass
+
     def _finish_resize_activity(self):
         self._resize_idle_job = None
         self._resize_active = False
@@ -332,6 +340,7 @@ class ViewerMixin:
                     viewport.after(500, viewport._redraw_after_resize)
         except Exception:
             pass
+
     def _run_resize_release_jobs(self):
         self._resize_release_job = None
         if getattr(self, '_resize_active', False):
@@ -340,6 +349,7 @@ class ViewerMixin:
             return
         key, job = self._resize_release_jobs.pop(0)
         delay_ms, callback = job
+
         def run_one():
             if getattr(self, '_resize_active', False):
                 self._resize_release_jobs.insert(0, (key, job))
@@ -364,6 +374,7 @@ class ViewerMixin:
                 self.after_idle(run_one)
         except Exception:
             self._resize_release_job = None
+
     def _schedule_resize_canvas_flush(self, delay_ms=None):
         if self._resize_canvas_flush_job is not None or not self._deferred_canvas_widths:
             return
@@ -373,6 +384,7 @@ class ViewerMixin:
             self._resize_canvas_flush_job = self.after(max(0, int(delay_ms)), self._flush_deferred_canvas_widths)
         except Exception:
             self._resize_canvas_flush_job = None
+
     def _flush_deferred_canvas_widths(self):
         self._resize_canvas_flush_job = None
         if not self._deferred_canvas_widths:
@@ -389,6 +401,7 @@ class ViewerMixin:
             pass
         if self._deferred_canvas_widths:
             self._schedule_resize_canvas_flush(65 if getattr(self, '_resize_active', False) else 22)
+
     def _schedule_responsive_ui_scale(self, dimensions=None):
         try:
             if dimensions is None:
@@ -410,6 +423,7 @@ class ViewerMixin:
             self._responsive_scale_job = self.after(190, lambda value=ratio: self._apply_responsive_ui_scale(value))
         except Exception:
             pass
+
     def _apply_responsive_ui_scale(self, ratio):
         self._responsive_scale_job = None
         if getattr(self, '_resize_active', False):
@@ -437,6 +451,7 @@ class ViewerMixin:
                 self._responsive_font_objects = {}
             if not hasattr(self, '_responsive_font_base_sizes'):
                 self._responsive_font_base_sizes = {}
+
             def scale_widget(widget):
                 try:
                     if not widget.winfo_exists():
@@ -508,6 +523,7 @@ class ViewerMixin:
                 pass
         except Exception:
             pass
+
     def _on_geometry_configure(self, event=None):
         if event is not None and event.widget is not self:
             return
@@ -537,6 +553,7 @@ class ViewerMixin:
                 self._geometry_configure_idle_job = self.after_idle(self._commit_geometry_configure)
         except Exception:
             return
+
     def _commit_geometry_configure(self):
         self._geometry_configure_idle_job = None
         if getattr(self, '_resize_active', False):
@@ -552,6 +569,7 @@ class ViewerMixin:
             self._geometry_save_job = self.after(1100, self._save_settings)
         except Exception:
             self._geometry_save_job = None
+
     def _apply_mesh_preview_vertices_setting(self):
         value = bool(self.mesh_preview_vertices.get())
         self.settings['preview_optimize_vertices'] = value
@@ -561,6 +579,7 @@ class ViewerMixin:
         except Exception:
             pass
         self._save_settings()
+
     def _autosize_columns_once(self, padding=24):
         cols = self.tree['columns']
         for c in cols:
