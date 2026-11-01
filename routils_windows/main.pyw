@@ -8374,17 +8374,34 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         except Exception:
             pass
         self._app_shell = ttk.Frame(self, style='RoUtils.AppShell.TFrame')
-        self._app_shell.pack(fill='both', expand=True, padx=8, pady=(0, 8))
-        self._tab_nav = ttk.Frame(self._app_shell, style='RoUtils.NavBar.TFrame', height=35)
-        self._tab_nav.pack(side='top', fill='x', pady=(0, 7))
+        self._app_shell.pack(fill='both', expand=True, padx=10, pady=(0, 10))
+        self._tab_nav = ttk.Frame(self._app_shell, style='RoUtils.Sidebar.TFrame', width=218)
+        self._tab_nav.pack(side='left', fill='y', padx=(0, 10))
         self._tab_nav.pack_propagate(False)
-        self._tab_nav_inner = ttk.Frame(self._tab_nav, style='RoUtils.NavBar.TFrame')
-        self._tab_nav_inner.pack(fill='both', expand=True, padx=1, pady=1)
-        self._tab_nav_canvas = None
+        self._sidebar_brand = ttk.Frame(self._tab_nav, style='RoUtils.Sidebar.TFrame', padding=(16, 18, 14, 15))
+        self._sidebar_brand.pack(fill='x')
+        ttk.Label(self._sidebar_brand, text='routils', style='RoUtils.Brand.TLabel').pack(anchor='w')
+        ttk.Label(self._sidebar_brand, text='roblox toolkit', style='RoUtils.BrandSub.TLabel').pack(anchor='w', pady=(2, 0))
+        ttk.Separator(self._tab_nav).pack(fill='x', padx=12)
+        self._tab_nav_viewport = ttk.Frame(self._tab_nav, style='RoUtils.Sidebar.TFrame')
+        self._tab_nav_viewport.pack(fill='both', expand=True, padx=(7, 3), pady=(8, 5))
+        self._tab_nav_canvas = tk.Canvas(self._tab_nav_viewport, bg=_CURRENT_PALETTE.get('bg_medium', '#111c2e'), bd=0, highlightthickness=0)
+        self._tab_nav_canvas.pack(fill='both', expand=True)
+        self._tab_nav_inner = ttk.Frame(self._tab_nav_canvas, style='RoUtils.Sidebar.TFrame')
+        self._tab_nav_window = self._tab_nav_canvas.create_window((0, 0), window=self._tab_nav_inner, anchor='nw')
+        self._tab_nav_inner.bind('<Configure>', lambda _e: self._tab_nav_canvas.configure(scrollregion=self._tab_nav_canvas.bbox('all')), add='+')
+        self._tab_nav_canvas.bind('<Configure>', lambda e: self._tab_nav_canvas.itemconfigure(self._tab_nav_window, width=e.width), add='+')
+        self._tab_nav_canvas.bind('<MouseWheel>', lambda e: self._tab_nav_canvas.yview_scroll(-int(e.delta / 120), 'units'), add='+')
+        self._tab_nav_canvas.bind('<Button-4>', lambda _e: self._tab_nav_canvas.yview_scroll(-1, 'units'), add='+')
+        self._tab_nav_canvas.bind('<Button-5>', lambda _e: self._tab_nav_canvas.yview_scroll(1, 'units'), add='+')
+        ttk.Separator(self._tab_nav).pack(fill='x', padx=12, pady=(4, 0))
+        self._sidebar_footer = ttk.Frame(self._tab_nav, style='RoUtils.Sidebar.TFrame', padding=(14, 11, 12, 13))
+        self._sidebar_footer.pack(fill='x')
+        ttk.Label(self._sidebar_footer, text=f'v{APP_VERSION}  •  ready', style='RoUtils.SidebarStatus.TLabel').pack(anchor='w')
         self._main_area = ttk.Frame(self._app_shell, style='RoUtils.AppShell.TFrame')
-        self._main_area.pack(side='top', fill='both', expand=True)
-        self._content_header = ttk.Frame(self._main_area, style='RoUtils.Header.TFrame', padding=(13, 6, 13, 6))
-        self._content_header.pack(fill='x', pady=(0, 7))
+        self._main_area.pack(side='left', fill='both', expand=True)
+        self._content_header = ttk.Frame(self._main_area, style='RoUtils.Header.TFrame', padding=(20, 13, 20, 12))
+        self._content_header.pack(fill='x', pady=(0, 9))
         self._page_title_var = tk.StringVar(value='home')
         self._page_subtitle_var = tk.StringVar(value='your roblox workspace')
         self._page_title_label = ttk.Label(self._content_header, textvariable=self._page_title_var, style='RoUtils.PageTitle.TLabel')
@@ -10038,39 +10055,20 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             current_tabs = list(self.nb.tabs())
             active_id = str(self.nb.select()) if self.nb.select() else ''
             names = {tab_id: str(self.nb.tab(tab_id, 'text')).lower() for tab_id in current_tabs}
-            available_width = max(1, int(self._tab_nav_inner.winfo_width()))
-            slot_width = available_width / max(1, len(current_tabs))
-            if slot_width >= 76:
-                mode = 'full'
-            elif slot_width >= 48:
-                mode = 'medium'
-            else:
-                mode = 'compact'
-            short_names = {
-                'home': ('home', 'home', 'home'),
-                'cache': ('cache', 'cache', 'cach'),
-                'fflag': ('fflag', 'flags', 'flag'),
-                'fflags': ('fflags', 'flags', 'flag'),
-                'emote manager': ('emote manager', 'emote', 'emot'),
-                'ai': ('ai', 'ai', 'ai'),
-                'configs': ('configs', 'config', 'cfg'),
-                'cconfigs': ('cconfigs', 'config', 'cfg'),
-                'modifications': ('modifications', 'mods', 'mod'),
-                'subplace joiner': ('subplace joiner', 'join', 'join'),
-                'server viewer': ('server viewer', 'server', 'srv'),
-                'history': ('history', 'history', 'hist'),
-                'client': ('client', 'client', 'cli'),
-                'luau interpreter': ('luau interpreter', 'luau', 'lua'),
-                'customize': ('customize', 'theme', 'thm'),
-                'themes': ('themes', 'theme', 'thm'),
-                'plugins': ('plugins', 'plugins', 'plg'),
-                'release notes': ('release notes', 'release', 'rel'),
-                'console': ('console', 'console', 'con'),
-                'settings': ('settings', 'settings', 'set'),
-                'external': ('external', 'external', 'ext')
-            }
-            signature = (tuple((tab_id, names[tab_id]) for tab_id in current_tabs), mode)
+            sections = [('workspace', (UI_TEXT['w5'], UI_TEXT['f5'], UI_TEXT['h5'], UI_TEXT['i5'], UI_TEXT['j5'])), ('utilities', (UI_TEXT['l5'], UI_TEXT['k5'], UI_TEXT['m5'], UI_TEXT['n5'], UI_TEXT['o5'])), ('tools', (UI_TEXT['p5'], 'luau interpreter')), ('application', (UI_TEXT['q5'], UI_TEXT['s5'], UI_TEXT['t5'], UI_TEXT['u5'], UI_TEXT['r5']))]
+            grouped = []
+            included = set()
+            for section_name, section_names in sections:
+                items = [tab_id for tab_id in current_tabs if names[tab_id] in section_names]
+                if items:
+                    grouped.append((section_name, items))
+                    included.update(items)
+            extras = [tab_id for tab_id in current_tabs if tab_id not in included]
+            if extras:
+                grouped.append(('extensions', extras))
+            signature = tuple(((section, tuple(((tab_id, names[tab_id]) for tab_id in items))) for section, items in grouped))
             buttons = getattr(self, '_tab_nav_buttons', {})
+            grips = getattr(self, '_tab_grips', {})
             if signature != getattr(self, '_tab_nav_layout_signature', None):
                 for child in tuple(self._tab_nav_inner.winfo_children()):
                     try:
@@ -10078,31 +10076,42 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                     except Exception:
                         pass
                 buttons = {}
-                for column, tab_id in enumerate(current_tabs):
-                    display_name = names[tab_id]
-                    labels = short_names.get(display_name, (display_name, display_name[:6], display_name[:4]))
-                    label_index = {'full': 0, 'medium': 1, 'compact': 2}[mode]
-                    label = labels[label_index]
-                    style_name = {'full': 'RoUtils.NavFull.TButton', 'medium': 'RoUtils.NavMedium.TButton', 'compact': 'RoUtils.NavCompact.TButton'}[mode]
-                    active_style = {'full': 'RoUtils.ActiveNavFull.TButton', 'medium': 'RoUtils.ActiveNavMedium.TButton', 'compact': 'RoUtils.ActiveNavCompact.TButton'}[mode]
-                    button = ttk.Button(self._tab_nav_inner, text=label, takefocus=False, style=active_style if tab_id == active_id else style_name, command=lambda tid=tab_id: self.nb.select(tid))
-                    button.grid(row=0, column=column, sticky='nsew', padx=1, pady=1)
-                    self._tab_nav_inner.columnconfigure(column, weight=1, uniform='routils_nav')
-                    buttons[tab_id] = button
-                self._tab_nav_inner.rowconfigure(0, weight=1)
+                grips = {}
+                row = 0
+                for section_name, items in grouped:
+                    heading = ttk.Label(self._tab_nav_inner, text=section_name, style='RoUtils.NavSection.TLabel')
+                    heading.grid(row=row, column=0, columnspan=2, sticky='w', padx=(9, 4), pady=(8 if row else 3, 3))
+                    row += 1
+                    for tab_id in items:
+                        display_name = names[tab_id]
+                        grip = tk.Label(self._tab_nav_inner, text='⋮', bg=_CURRENT_PALETTE.get('bg_medium', '#111c2e'), fg='#718096', font=('Segoe UI Symbol', 11), cursor='hand2', padx=3, pady=4)
+                        grip.bind('<ButtonPress-1>', lambda event, tid=tab_id: self._tab_drag_start(event, tid))
+                        grip.bind('<B1-Motion>', self._tab_drag_motion)
+                        grip.bind('<ButtonRelease-1>', self._tab_drag_release)
+                        grip.grid(row=row, column=0, sticky='ns', padx=(2, 0), pady=1)
+                        button = ttk.Button(self._tab_nav_inner, text=display_name, takefocus=False, style='RoUtils.Nav.TButton', command=lambda tid=tab_id: self.nb.select(tid))
+                        button.grid(row=row, column=1, sticky='ew', padx=(0, 5), pady=1)
+                        buttons[tab_id] = button
+                        grips[tab_id] = grip
+                        row += 1
+                self._tab_nav_inner.columnconfigure(1, weight=1)
                 self._tab_nav_buttons = buttons
-                self._tab_grips = {}
+                self._tab_grips = grips
                 self._tab_nav_layout_signature = signature
+                try:
+                    self._tab_nav_canvas.configure(scrollregion=self._tab_nav_canvas.bbox('all'))
+                except Exception:
+                    pass
             for tab_id in current_tabs:
                 button = buttons.get(tab_id)
                 if button is None or not button.winfo_exists():
                     continue
-                style_name = {'full': 'RoUtils.NavFull.TButton', 'medium': 'RoUtils.NavMedium.TButton', 'compact': 'RoUtils.NavCompact.TButton'}[mode]
-                active_style = {'full': 'RoUtils.ActiveNavFull.TButton', 'medium': 'RoUtils.ActiveNavMedium.TButton', 'compact': 'RoUtils.ActiveNavCompact.TButton'}[mode]
-                button.configure(style=active_style if tab_id == active_id else style_name)
+                selected_style = 'RoUtils.ActiveNav.TButton' if tab_id == active_id else 'RoUtils.Nav.TButton'
+                if str(button.cget('style')) != selected_style:
+                    button.configure(style=selected_style)
             if active_id:
                 page_name = names.get(active_id, 'routils')
-                descriptions = {'home': 'your roblox workspace', 'cache': 'browse, preview and manage local cache files', 'fflag': 'manage client flags and saved presets', 'fflags': 'manage client flags and saved presets', 'emote manager': 'organize emotes and keyboard shortcuts', 'ai': 'ask questions and work with your assistant', 'configs': 'manage configuration profiles', 'cconfigs': 'manage configuration profiles', 'modifications': 'adjust supported client options', 'subplace joiner': 'open a place using its place id', 'server viewer': 'browse available game servers', 'history': 'review recent activity and changes', 'client': 'manage local client settings', 'luau interpreter': 'run standalone luau code locally', 'customize': 'personalize colors and appearance', 'themes': 'personalize colors and appearance', 'plugins': 'manage optional extensions', 'release notes': 'review version changes', 'console': 'inspect application output and diagnostics', 'settings': 'configure application preferences', 'external': 'edit supported client properties'}
+                descriptions = {'home': 'your roblox workspace', 'cache': 'browse, preview and manage local cache files', 'fflag': 'manage client flags and saved presets', 'emote manager': 'organize emotes and keyboard shortcuts', 'ai': 'ask questions and work with your assistant', 'configs': 'manage configuration profiles', 'modifications': 'adjust supported client options', 'subplace joiner': 'open a place using its place id', 'server viewer': 'browse available game servers', 'history': 'review recent activity and changes', 'client': 'manage local client settings', 'luau interpreter': 'run standalone luau code locally', 'customize': 'personalize colors and appearance', 'plugins': 'manage optional extensions', 'release notes': 'review version changes', 'console': 'inspect application output and diagnostics', 'settings': 'configure application preferences'}
                 if hasattr(self, '_page_title_var'):
                     self._page_title_var.set(page_name)
                     self._page_subtitle_var.set(descriptions.get(page_name, 'manage this section'))
@@ -10176,24 +10185,18 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         p = _CURRENT_PALETTE
         try:
             style.configure('RoUtils.AppShell.TFrame', background=p.get('bg_dark', '#0b1220'))
-            style.configure('RoUtils.NavBar.TFrame', background=p.get('bg_medium', '#111c2e'))
+            style.configure('RoUtils.Sidebar.TFrame', background=p.get('bg_medium', '#111c2e'))
             style.configure('RoUtils.Header.TFrame', background=p.get('bg_medium', '#111c2e'), relief='flat')
-            style.configure('RoUtils.PageTitle.TLabel', background=p.get('bg_medium', '#111c2e'), foreground=p.get('fg', '#e5edf7'), font=('Segoe UI Semibold', 13))
-            style.configure('RoUtils.PageSubtitle.TLabel', background=p.get('bg_medium', '#111c2e'), foreground='#91a2bb', font=('Segoe UI', 8))
-            nav_base = {'background': p.get('bg_medium', '#111c2e'), 'foreground': p.get('fg', '#e5edf7'), 'borderwidth': 0, 'relief': 'flat', 'anchor': 'center'}
-            nav_active = {'background': p.get('bg_light', '#1c2940'), 'foreground': p.get('accent', '#72a7ff'), 'borderwidth': 0, 'relief': 'flat', 'anchor': 'center'}
-            style.configure('RoUtils.NavFull.TButton', padding=(2, 4), font=('Segoe UI', 8), **nav_base)
-            style.configure('RoUtils.NavMedium.TButton', padding=(1, 3), font=('Segoe UI', 8), **nav_base)
-            style.configure('RoUtils.NavCompact.TButton', padding=(0, 2), font=('Segoe UI', 7), **nav_base)
-            style.configure('RoUtils.ActiveNavFull.TButton', padding=(2, 4), font=('Segoe UI Semibold', 8), **nav_active)
-            style.configure('RoUtils.ActiveNavMedium.TButton', padding=(1, 3), font=('Segoe UI Semibold', 8), **nav_active)
-            style.configure('RoUtils.ActiveNavCompact.TButton', padding=(0, 2), font=('Segoe UI Semibold', 7), **nav_active)
-            style.map('RoUtils.NavFull.TButton', background=[('active', p.get('bg_hover', '#253653')), ('pressed', p.get('bg_light', '#1c2940'))])
-            style.map('RoUtils.NavMedium.TButton', background=[('active', p.get('bg_hover', '#253653')), ('pressed', p.get('bg_light', '#1c2940'))])
-            style.map('RoUtils.NavCompact.TButton', background=[('active', p.get('bg_hover', '#253653')), ('pressed', p.get('bg_light', '#1c2940'))])
-            style.map('RoUtils.ActiveNavFull.TButton', background=[('active', p.get('bg_hover', '#253653'))])
-            style.map('RoUtils.ActiveNavMedium.TButton', background=[('active', p.get('bg_hover', '#253653'))])
-            style.map('RoUtils.ActiveNavCompact.TButton', background=[('active', p.get('bg_hover', '#253653'))])
+            style.configure('RoUtils.Brand.TLabel', background=p.get('bg_medium', '#111c2e'), foreground=p.get('fg', '#e5edf7'), font=('Segoe UI Semibold', 21))
+            style.configure('RoUtils.BrandSub.TLabel', background=p.get('bg_medium', '#111c2e'), foreground='#91a2bb', font=('Segoe UI', 9))
+            style.configure('RoUtils.SidebarStatus.TLabel', background=p.get('bg_medium', '#111c2e'), foreground='#91a2bb', font=('Segoe UI', 8))
+            style.configure('RoUtils.NavSection.TLabel', background=p.get('bg_medium', '#111c2e'), foreground='#8292aa', font=('Segoe UI Semibold', 9), padding=(1, 3))
+            style.configure('RoUtils.PageTitle.TLabel', background=p.get('bg_medium', '#111c2e'), foreground=p.get('fg', '#e5edf7'), font=('Segoe UI Semibold', 20))
+            style.configure('RoUtils.PageSubtitle.TLabel', background=p.get('bg_medium', '#111c2e'), foreground='#91a2bb', font=('Segoe UI', 10))
+            style.configure('RoUtils.Nav.TButton', padding=(10, 8), font=('Segoe UI', 10), anchor='w', background=p.get('bg_medium', '#111c2e'), foreground=p.get('fg', '#e5edf7'), borderwidth=0, relief='flat')
+            style.map('RoUtils.Nav.TButton', background=[('active', p.get('bg_hover', '#253653')), ('pressed', p.get('bg_light', '#1c2940'))], foreground=[('active', p.get('fg', '#e5edf7'))])
+            style.configure('RoUtils.ActiveNav.TButton', padding=(11, 9), font=('Segoe UI Semibold', 10), anchor='w', background=p.get('bg_light', '#1c2940'), foreground=p.get('accent', '#72a7ff'), borderwidth=0, relief='flat')
+            style.map('RoUtils.ActiveNav.TButton', background=[('active', p.get('bg_hover', '#253653'))], foreground=[('active', p.get('accent', '#72a7ff'))])
             style.configure('RoUtils.Primary.TButton', padding=(14, 10), font=('Segoe UI Semibold', 9), background=p.get('accent', '#72a7ff'), foreground='#ffffff', borderwidth=0, relief='flat')
             style.map('RoUtils.Primary.TButton', background=[('active', p.get('bg_hover', '#253653')), ('pressed', p.get('accent', '#72a7ff'))], foreground=[('active', '#ffffff')])
             style.configure('RoUtils.Secondary.TButton', padding=(12, 9), font=('Segoe UI Semibold', 9), background=p.get('bg_light', '#1c2940'), foreground=p.get('fg', '#e5edf7'), borderwidth=0, relief='flat')
