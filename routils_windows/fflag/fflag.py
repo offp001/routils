@@ -1,3 +1,4 @@
+import math
 import sys
 from fflag.processes import list_roblox_clients
 _host = sys.modules.get('main') or sys.modules.get('__main__')
@@ -12,6 +13,12 @@ _FFLAG_DEFAULT_MODE = globals().get('_FFLAG_DEFAULT_MODE', 'Toggle')
 _FFLAG_DEFAULT_TRUE = globals().get('_FFLAG_DEFAULT_TRUE', 'true')
 _FFLAG_DEFAULT_FALSE = globals().get('_FFLAG_DEFAULT_FALSE', 'false')
 _FFLAG_MAX_VALUE_BYTES = 4096
+
+
+def _fflag_clamp_int32(value):
+    number = int(str(value).strip(), 10)
+    return max(-2147483648, min(2147483647, number))
+
 
 class FFlagMixin:
 
@@ -1779,6 +1786,8 @@ class FFlagMixin:
                     self.fps_pid_label.config(text=UI_TEXT['j16'].format(p0=pid), foreground=_FFLAG_COLOR_SUCCESS)
                 if self.fflag_auto_apply.get():
                     self.after(0, lambda: self._fflag_apply(silent=True))
+                if hasattr(self, '_external_property_refresh_selected'):
+                    self.after(250, lambda: self._external_property_refresh_selected(silent=True))
             else:
                 self.fflag_status.config(text=UI_TEXT['k16'], foreground=_FFLAG_COLOR_ERROR)
                 self._console_log(UI_TEXT['l16'].format(p0=pid))
@@ -1845,6 +1854,30 @@ class FFlagMixin:
         except Exception:
             pass
 
+    def _fflag_clamp_int_values(self):
+        changed = []
+        for flag in self.fflag_flags:
+            if not isinstance(flag, dict):
+                continue
+            value_text = str(flag.get('value', '')).strip()
+            kind = str(flag.get('type') or fflag_infer_type(value_text)).strip().lower()
+            if kind not in ('int', 'integer'):
+                continue
+            try:
+                original = int(value_text, 10)
+            except (TypeError, ValueError):
+                continue
+            bounded = _fflag_clamp_int32(original)
+            if bounded != original:
+                flag['value'] = str(bounded)
+                flag['type'] = 'int'
+                changed.append((str(flag.get('name', '')), original, bounded))
+        if changed:
+            self._save_fflag_flags()
+            self._refresh_fflag_list()
+            self._console_log(f'Clamped {len(changed)} FFlag integer value(s) to the signed 32-bit range.')
+        return bool(changed)
+
     def _fflag_write_offset(self, name, value, value_type):
         cache = getattr(self, '_fflag_reference_cache', None)
         if not cache or not isinstance(cache.get('offsets'), dict):
@@ -1879,10 +1912,14 @@ class FFlagMixin:
             kind = str(value_type or fflag_infer_type(value_text)).lower()
             if kind == 'bool':
                 data = bytes([1 if value_text.lower() in (_FFLAG_DEFAULT_TRUE, '1') else 0])
-            elif kind == 'int':
-                data = int(value_text, 10).to_bytes(4, 'little', signed=True)
+            elif kind in ('int', 'integer'):
+                numeric = _fflag_clamp_int32(value_text)
+                data = numeric.to_bytes(4, 'little', signed=True)
             elif kind == 'float':
-                data = __import__('struct').pack('<d', float(value_text))
+                numeric = float(value_text)
+                if not math.isfinite(numeric):
+                    return False
+                data = __import__('struct').pack('<d', numeric)
             else:
                 data = value_text.encode('utf-8') + b'\x00'
             original = self.fflag_engine._read(address, len(data))
@@ -1925,6 +1962,7 @@ class FFlagMixin:
             self._load_fflag_reference_panel(force=True)
             self._console_log(UI_TEXT['r16'])
             return
+        self._fflag_clamp_int_values()
         self._sync_fps_flag_to_manager()
         with self._fflag_apply_state_lock:
             if self._fflag_apply_in_progress:
