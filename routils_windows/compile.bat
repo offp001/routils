@@ -5,7 +5,7 @@ cd /d "%~dp0"
 set "PYTHON=%~dp0.venv\Scripts\python.exe"
 
 if not exist "%PYTHON%" (
-    echo python environment not found. run install_requirements.bat first.
+    echo Python environment not found. Run install_requirements.bat first.
     pause
     exit /b 1
 )
@@ -30,7 +30,7 @@ if not exist "routils_rpc.png" (
 
 "%PYTHON%" -m compileall -q main.pyw autoupdate fflag home
 if errorlevel 1 (
-    echo syntax check failed.
+    echo Syntax check failed.
     pause
     exit /b 1
 )
@@ -38,7 +38,7 @@ if errorlevel 1 (
 "%PYTHON%" -m PyInstaller --noconfirm --clean --onefile --windowed --icon=routils.ico --add-data "routils.ico;." --add-data "routils_rpc.png;." --add-data "src\presets;src\presets" --name=RoUtils main.pyw
 if errorlevel 1 (
     echo.
-    echo compiling failed
+    echo Compiling failed
     pause
     exit /b 1
 )
@@ -50,5 +50,5 @@ if not exist "dist\RoUtils.exe" (
 )
 
 echo.
-echo build complete: dist\RoUtils.exe
+echo Build complete: dist\RoUtils.exe
 pause

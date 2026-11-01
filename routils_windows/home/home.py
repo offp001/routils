@@ -2,9 +2,7 @@ import sys
 _host = sys.modules.get('main') or sys.modules.get('__main__')
 if _host is not None:
     globals().update({k: v for k, v in vars(_host).items() if not k.startswith('__') and k not in {'_host'}})
-
 class HomeMixin:
-
     def _open_selected_roblox(self):
         path = self.settings.get('roblox_path', '') if hasattr(self, 'settings') else ''
         if not path:
@@ -16,14 +14,13 @@ class HomeMixin:
             candidate = os.path.join(path, 'RobloxPlayerBeta.exe')
             if os.path.isfile(candidate):
                 path = candidate
-        if not path or os.path.basename(path).lower() != 'robloxplayerbeta.exe' or (not os.path.isfile(path)):
+        if not path or os.path.basename(path).lower() != 'robloxplayerbeta.exe' or not os.path.isfile(path):
             try:
                 messagebox.showwarning(UI_TEXT['x5'], UI_TEXT['i9'])
             except Exception:
                 pass
             return
         self._launch_roblox_executable(path)
-
     def _launch_roblox_executable(self, path):
         try:
             subprocess.Popen([path], shell=False)
@@ -33,67 +30,58 @@ class HomeMixin:
                 messagebox.showerror(UI_TEXT['x5'], UI_TEXT['k9'].format(p0=e))
             except Exception:
                 pass
-
     def _build_home_tab(self):
-        tab = ttk.Frame(self.nb, padding=22)
+        tab = ttk.Frame(self.nb, padding=12)
         self.nb.insert(0, tab, text=UI_TEXT['w5'])
-        content = ttk.Frame(tab)
-        content.pack(fill='both', expand=True)
-        hero = ttk.Frame(content, style='RoUtils.Card.TFrame', padding=(28, 25, 28, 23))
-        hero.pack(fill='x', pady=(0, 16))
-        ttk.Label(hero, text='your roblox workspace', style='RoUtils.Eyebrow.TLabel').pack(anchor='w', pady=(0, 8))
-        ttk.Label(hero, text='routils', style='RoUtils.HeroTitle.TLabel').pack(anchor='w')
-        ttk.Label(hero, text='one place for the tools you use with roblox.', style='RoUtils.HeroBody.TLabel').pack(anchor='w', pady=(5, 16))
-        actions = ttk.Frame(hero, style='RoUtils.Card.TFrame')
-        actions.pack(anchor='w')
-        ttk.Button(actions, text='open github', style='RoUtils.Primary.TButton', command=lambda: webbrowser.open('https://github.com/offp001/routils')).pack(side='left', padx=(0, 8))
-        ttk.Button(actions, text='join discord', style='RoUtils.Secondary.TButton', command=lambda: webbrowser.open('https://discord.com/invite/849VtrYhm2')).pack(side='left')
-        ttk.Label(content, text='quick access', style='RoUtils.Eyebrow.TLabel').pack(anchor='w', pady=(1, 8))
-        quick = ttk.Frame(content)
-        quick.pack(fill='x', pady=(0, 15))
-        quick.columnconfigure((0, 1, 2), weight=1, uniform='quick')
-        quick_items = (('cache', 'preview and manage local files', UI_TEXT['f5']), ('fflag manager', 'edit flags and organize presets', UI_TEXT['h5']), ('server viewer', 'browse public game servers', UI_TEXT['n5']))
-
-        def open_section(name):
-            target = next((tab_id for tab_id in self.nb.tabs() if str(self.nb.tab(tab_id, 'text')).lower() == name.lower()), None)
-            if target:
-                self.nb.select(target)
-                self._lazy_tab_changed()
-        for index, (title, description, target_name) in enumerate(quick_items):
-            card = ttk.Frame(quick, style='RoUtils.Card.TFrame', padding=(15, 14, 15, 13))
-            card.grid(row=0, column=index, sticky='nsew', padx=(0 if index == 0 else 6, 0 if index == 2 else 6))
-            ttk.Label(card, text=title, style='RoUtils.CardTitle.TLabel').pack(anchor='w')
-            ttk.Label(card, text=description, style='RoUtils.CardBody.TLabel', wraplength=205, justify='left').pack(anchor='w', pady=(5, 10))
-            ttk.Button(card, text='open section', style='RoUtils.Secondary.TButton', command=lambda n=target_name: open_section(n)).pack(anchor='w')
-        info_row = ttk.Frame(content)
-        info_row.pack(fill='x', pady=(0, 13))
-        info_row.columnconfigure((0, 1), weight=1, uniform='info')
-        version_card = ttk.Frame(info_row, style='RoUtils.Card.TFrame', padding=(16, 14))
-        version_card.grid(row=0, column=0, sticky='nsew', padx=(0, 6))
-        ttk.Label(version_card, text='installed version', style='RoUtils.CardBody.TLabel').pack(anchor='w')
-        version_line = ttk.Frame(version_card, style='RoUtils.Card.TFrame')
-        version_line.pack(anchor='w', pady=(5, 0))
-        ttk.Label(version_line, text='v', style='RoUtils.CardTitle.TLabel').pack(side='left')
-        self.home_version_value = ttk.Label(version_line, text=self._local_version(), style='RoUtils.CardTitle.TLabel')
+        ttk.Label(tab, text=UI_TEXT['x5'], font=('Segoe UI Semibold', 20)).pack(anchor='w')
+        ttk.Label(tab, text=UI_TEXT['c10'], font=('Segoe UI Semibold', 14)).pack(anchor='w', pady=(14, 14))
+        links = ttk.Frame(tab)
+        links.pack(anchor='w', fill='x')
+        def add_link(text_value, url):
+            label = tk.Label(links, text=text_value, fg='#4da6ff', bg=_CURRENT_PALETTE['bg_dark'], cursor='hand2', font=('Segoe UI Semibold', 12), anchor='w')
+            label.pack(anchor='w', pady=3)
+            label.bind('<Button-1>', lambda _e, u=url: webbrowser.open(u))
+            label.bind('<Enter>', lambda _e, w=label: w.config(font=('Segoe UI Semibold', 12, 'underline')))
+            label.bind('<Leave>', lambda _e, w=label: w.config(font=('Segoe UI Semibold', 12)))
+            return label
+        add_link(UI_TEXT['o29'], 'https://github.com/offp001/routils')
+        add_link(UI_TEXT['p29'], 'https://discord.com/invite/849VtrYhm2')
+        ttk.Label(links, text=UI_TEXT['d10'], foreground='#9aa0a6', font=('Segoe UI', 10)).pack(anchor='w', pady=(0, 8))
+        _q = bytes.fromhex('446973636c616d65723a20546865206f6666696369616c20646f776e6c6f6164207265706f7369746f727920666f7220526f5574696c732069732068747470733a2f2f6769746875622e636f6d2f6f6666703030312f726f7574696c732053696e636520526f5574696c73206973206f70656e2d736f757263652c206974206973206561737920666f72206d616c6963696f757320636f646520746f20626520696e73657274656420696e746f2069743b20696620796f7520646f776e6c6f616465642069742066726f6d20616e20756e6b6e6f776e20736f75726365206f7220612066696c652073656e7420746f20796f7520627920736f6d656f6e6520656c73652c20706c656173652064656c65746520746861742066696c6520616e6420646f776e6c6f61642069742066726f6d20746865206f6666696369616c20736f757263653a2068747470733a2f2f6769746875622e636f6d2f6f6666703030312f726f7574696c730a0a596f752063616e20616c736f207368617265207468652066696c6520796f752070726576696f75736c7920646f776e6c6f616465642077697468206d6520286f66667030303129206279206a6f696e696e672074686520446973636f7264207365727665722061742068747470733a2f2f646973636f72642e636f6d2f696e766974652f38343956747259686d32').decode('utf-8')
+        disclaimer_frame = tk.Frame(tab, bg=_CURRENT_PALETTE.get('bg_dark', '#1e1e1e'))
+        disclaimer_frame.pack(fill='x', pady=(2, 8))
+        disclaimer_text = tk.Text(disclaimer_frame, bg=_CURRENT_PALETTE.get('bg_dark', '#1e1e1e'), fg='#ff0000', font=('Segoe UI', -14, 'bold'), relief='flat', bd=0, highlightthickness=0, wrap='word', height=6, padx=0, pady=0, cursor='arrow')
+        disclaimer_text.pack(fill='x', expand=True)
+        disclaimer_text.tag_configure('plain', foreground='#ff0000', font=('Segoe UI', -14, 'bold'))
+        disclaimer_text.tag_configure('link', foreground='#0080ff', font=('Segoe UI', -14, 'bold', 'underline'))
+        urls = ('https://github.com/offp001/routils', 'https://discord.com/invite/849VtrYhm2')
+        for part in re.split('(https://github\\.com/offp001/routils|https://discord\\.com/invite/849VtrYhm2)', _q):
+            if not part:
+                continue
+            if part in urls:
+                tag = 'url_' + str(abs(hash(part)))
+                disclaimer_text.tag_configure(tag, foreground='#0080ff', font=('Segoe UI', -14, 'bold', 'underline'))
+                disclaimer_text.insert('end', part, tag)
+                disclaimer_text.tag_bind(tag, '<Button-1>', lambda event, url=part: webbrowser.open(url))
+                disclaimer_text.tag_bind(tag, '<Enter>', lambda event: disclaimer_text.configure(cursor='hand2'))
+                disclaimer_text.tag_bind(tag, '<Leave>', lambda event: disclaimer_text.configure(cursor='arrow'))
+            else:
+                disclaimer_text.insert('end', part, 'plain')
+        disclaimer_text.configure(state='disabled')
+        ttk.Separator(tab).pack(fill='x', pady=10)
+        version_row = ttk.Frame(tab)
+        version_row.pack(anchor='w')
+        ttk.Label(version_row, text=UI_TEXT['e10'], font=('Segoe UI', 10, 'bold')).pack(side='left')
+        self.home_version_value = ttk.Label(version_row, text=self._local_version(), font=('Segoe UI', 10, 'bold'))
         self.home_version_value.pack(side='left')
-        self.home_version_state = ttk.Label(version_line, text=UI_TEXT['f10'], style='RoUtils.CardBody.TLabel')
-        self.home_version_state.pack(side='left', padx=(9, 0))
-        self.home_version_var = tk.StringVar(value=f'version: {self._local_version()} (checking)')
-        update_card = ttk.Frame(info_row, style='RoUtils.Card.TFrame', padding=(16, 14))
-        update_card.grid(row=0, column=1, sticky='nsew', padx=(6, 0))
-        ttk.Label(update_card, text='updates', style='RoUtils.CardBody.TLabel').pack(anchor='w')
-        self.home_download_frame = ttk.Frame(update_card, style='RoUtils.Card.TFrame')
-        self.home_download_label = ttk.Label(self.home_download_frame, text=UI_TEXT['g10'], style='RoUtils.CardTitle.TLabel')
+        self.home_version_state = ttk.Label(version_row, text=UI_TEXT['f10'], font=('Segoe UI', 10, 'bold'))
+        self.home_version_state.pack(side='left', padx=(6, 0))
+        self.home_version_var = tk.StringVar(value=f'Version: {self._local_version()} (Checking)')
+        self.home_download_frame = ttk.Frame(tab)
+        self.home_download_label = ttk.Label(self.home_download_frame, text=UI_TEXT['g10'])
         self.home_download_label.pack(anchor='w')
         self.home_download_progress = ttk.Progressbar(self.home_download_frame, orient='horizontal', mode='determinate', length=320)
-        self.home_download_progress.pack(anchor='w', fill='x', pady=(8, 0))
-        self.home_download_frame.pack(fill='x', pady=(5, 0))
-        disclaimer = ttk.Frame(content, style='RoUtils.Card.TFrame', padding=(16, 13))
-        disclaimer.pack(fill='x', pady=(0, 3))
-        ttk.Label(disclaimer, text='download safely', style='RoUtils.CardTitle.TLabel').pack(anchor='w')
-        disclaimer_text = bytes.fromhex('446973636c61696d65723a20546865206f6666696369616c20646f776e6c6f6164207265706f7369746f727920666f7220526f5574696c732069732068747470733a2f2f6769746875622e636f6d2f6f6666703030312f726f7574696c732053696e636520526f5574696c73206973206f70656e2d736f757263652c206974206973206561737920666f72206d616c6963696f757320636f646520746f20626520696e73657274656420696e746f2069743b20696620796f7520646f776e6c6f616465642069742066726f6d20616e20756e6b6e6f776e20736f75726365206f7220612066696c652073656e7420746f20796f7520627920736f6d656f6e6520656c73652c20706c656173652064656c65746520746861742066696c6520616e6420646f776e6c6f61642069742066726f6d20746865206f6666696369616c20736f757263653a2068747470733a2f2f6769746875622e636f6d2f6f6666703030312f726f7574696c730a0a596f752063616e20616c736f207368617265207468652066696c6520796f752070726576696f75736c7920646f776e6c6f616465642077697468206d6520286f66667030303129206279206a6f696e696e672074686520446973636f7264207365727665722061742068747470733a2f2f646973636f72642e636f6d2f696e766974652f38343956747259686d32').decode('utf-8').lower()
-        ttk.Label(disclaimer, text=disclaimer_text, style='RoUtils.CardBody.TLabel', wraplength=940, justify='left').pack(fill='x', anchor='w', pady=(7, 0))
-
+        self.home_download_progress.pack(anchor='w', fill='x', pady=(3, 0))
     def _initial_tab_order_post_map(self, attempts=0):
         try:
             if not self.winfo_exists():
@@ -116,7 +104,6 @@ class HomeMixin:
                     self.after(100, lambda a=attempts + 1: self._initial_tab_order_post_map(a))
                 except Exception:
                     pass
-
     def _reorder_tabs(self):
         defaults = [UI_TEXT['w5'], UI_TEXT['f5'], UI_TEXT['h5'], 'External', UI_TEXT['i5'], UI_TEXT['j5'], UI_TEXT['l5'], UI_TEXT['k5'], UI_TEXT['m5'], UI_TEXT['n5'], UI_TEXT['o5'], UI_TEXT['p5'], UI_TEXT['q5'], UI_TEXT['s5'], UI_TEXT['t5'], UI_TEXT['u5'], UI_TEXT['r5']]
         current_tabs = list(self.nb.tabs())

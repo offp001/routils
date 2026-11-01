@@ -5,6 +5,7 @@ import threading
 import time
 import tkinter as tk
 from tkinter import messagebox, ttk
+
 _host = __import__('sys').modules.get('main') or __import__('sys').modules.get('__main__')
 if _host is not None:
     globals().update({k: v for k, v in vars(_host).items() if not k.startswith('__') and k not in {'_host'}})
@@ -12,15 +13,19 @@ _FFLAG_COLOR_MUTED = globals().get('_FFLAG_COLOR_MUTED', '#9aa0a6')
 _FFLAG_COLOR_SUCCESS = globals().get('_FFLAG_COLOR_SUCCESS', '#65d98b')
 _FFLAG_COLOR_ERROR = globals().get('_FFLAG_COLOR_ERROR', '#ff6b6b')
 _FFLAG_COLOR_WARNING = globals().get('_FFLAG_COLOR_WARNING', '#f2c94c')
+
 PROPERTY_GROUPS = ['Physics', 'Character', 'Character Parts', 'Camera', 'Lighting', 'World', 'GUI', 'Game Info']
 PROPERTY_DEFINITIONS = []
 
+
 def _register(group, title, target, section, rows, classes=None, root='dm'):
     for row in rows:
-        field, value_type = (row[0], row[1])
+        field, value_type = row[0], row[1]
         options = row[2] if len(row) > 2 else {}
         target_name = target if target != 'scan' else classes[0]
         PROPERTY_DEFINITIONS.append({'key': f'{target_name}.{section}.{field}', 'group': group, 'title': title, 'label': options.get('label', field), 'type': value_type, 'target': target, 'classes': tuple(classes) if classes else None, 'root': root, 'at': options.get('at', (section, field)), 'plus': options.get('plus'), 'mask': options.get('mask'), 'conv': options.get('conv'), 'also': options.get('also', []), 'ro': options.get('ro', False)})
+
+
 _READ_ONLY = {'ro': True}
 _register('Physics', 'World', 'world', 'World', [('Gravity', 'float'), ('worldStepsPerSec', 'float', {'label': 'Physics FPS', 'conv': 'div4'}), ('FallenPartsDestroyHeight', 'float')])
 _register('Physics', 'Air Properties', 'airprops', 'AirProperties', [('AirDensity', 'float'), ('GlobalWind', 'vec3')])
@@ -74,8 +79,8 @@ PROPERTY_BY_KEY = {item['key']: item for item in PROPERTY_DEFINITIONS}
 PROPERTY_TYPES = {'float': '<f', 'int': '<i', 'double': '<d', 'byte': '<B', 'bool': '<B', 'flag': '<B', 'i64': '<q', 'vec2': '<2f', 'range': '<2f', 'vec3': '<3f', 'color3': '<3f', 'u8x3': '<3B'}
 PART_ALIASES = {'head': ('Head',), 'torso': ('UpperTorso', 'Torso', 'LowerTorso'), 'uppertorso': ('UpperTorso', 'Torso'), 'lowertorso': ('LowerTorso', 'Torso'), 'leftupperarm': ('LeftUpperArm', 'Left Arm'), 'leftlowerarm': ('LeftLowerArm', 'Left Arm'), 'lefthand': ('LeftHand', 'Left Arm'), 'rightupperarm': ('RightUpperArm', 'Right Arm'), 'rightlowerarm': ('RightLowerArm', 'Right Arm'), 'righthand': ('RightHand', 'Right Arm'), 'leftupperleg': ('LeftUpperLeg', 'Left Leg'), 'leftlowerleg': ('LeftLowerLeg', 'Left Leg'), 'leftfoot': ('LeftFoot', 'Left Leg'), 'rightupperleg': ('RightUpperLeg', 'Right Leg'), 'rightlowerleg': ('RightLowerLeg', 'Right Leg'), 'rightfoot': ('RightFoot', 'Right Leg')}
 
-class _ExternalPropertyContext:
 
+class _ExternalPropertyContext:
     def __init__(self, app, offsets_data=None):
         self.app = app
         self.engine = app.fflag_engine
@@ -116,7 +121,7 @@ class _ExternalPropertyContext:
         if length == 0 or length > max_len:
             return ''
         data_address = self.read_pointer(address) if length >= 16 else address
-        if length >= 16 and (not self.sane(data_address)):
+        if length >= 16 and not self.sane(data_address):
             return ''
         return self.read_bytes(data_address, length).decode('utf-8', 'ignore')
 
@@ -125,7 +130,7 @@ class _ExternalPropertyContext:
 
     @staticmethod
     def _printable(value):
-        return 0 < len(value) <= 64 and all((31 < ord(char) < 127 for char in value))
+        return 0 < len(value) <= 64 and all(31 < ord(char) < 127 for char in value)
 
     def class_name(self, instance):
         descriptor = self.read_pointer(instance + self.off('Instance', 'ClassDescriptor'))
@@ -289,11 +294,13 @@ class _ExternalPropertyContext:
         self.targets[name] = result
         return result
 
+
 def _property_address(prop, obj, context):
     address = obj + context.off(*prop['at'])
     if prop.get('plus'):
         address += context.off(*prop['plus'])
     return address
+
 
 def _read_property_value(prop, address, context):
     value_type = prop['type']
@@ -317,6 +324,7 @@ def _read_property_value(prop, address, context):
         return [round(item, 4) for item in value]
     return value
 
+
 def _parse_property_value(prop, value):
     text = str(value).strip()
     value_type = prop['type']
@@ -325,12 +333,12 @@ def _parse_property_value(prop, value):
             raise ValueError('Enter true or false for this property.')
         return text.casefold() in ('1', 'true', 'on', 'yes')
     if value_type in ('vec2', 'range', 'vec3', 'color3', 'u8x3'):
-        parts = [item for item in __import__('re').split('[,\\s]+', text.strip('[]() ')) if item]
+        parts = [item for item in __import__('re').split(r'[,\s]+', text.strip('[]() ')) if item]
         expected = 2 if value_type in ('vec2', 'range') else 3
         if len(parts) != expected:
             raise ValueError(f'Enter exactly {expected} numeric values separated by commas.')
         values = [float(item) for item in parts]
-        if not all((math.isfinite(item) for item in values)):
+        if not all(math.isfinite(item) for item in values):
             raise ValueError('Values must be finite numbers.')
         return values
     if value_type in ('int', 'byte', 'i64'):
@@ -339,6 +347,7 @@ def _parse_property_value(prop, value):
     if not math.isfinite(number):
         raise ValueError('Value must be a finite number.')
     return number
+
 
 def _write_property_value(prop, address, value, context):
     value_type = prop['type']
@@ -372,6 +381,7 @@ def _write_property_value(prop, address, value, context):
         data = struct.pack(fmt, number)
     context.write_bytes(address, data)
 
+
 def _property_objects(prop, context):
     if prop['target'] == 'scan':
         objects = context.scan(prop['root'], prop['classes'])
@@ -380,9 +390,11 @@ def _property_objects(prop, context):
         return objects
     return [context.target(prop['target'])]
 
+
 def _read_property(prop, context):
     objects = _property_objects(prop, context)
     return {'value': _read_property_value(prop, _property_address(prop, objects[0], context), context), 'count': len(objects)}
+
 
 def _write_property(prop, value, context):
     objects = _property_objects(prop, context)
@@ -403,8 +415,8 @@ def _write_property(prop, value, context):
         raise RuntimeError('The property could not be applied to any matching object.')
     return written
 
-class ExternalPropertiesMixin:
 
+class ExternalPropertiesMixin:
     def _external_build_property_panel(self, tab):
         self._external_property_context = None
         self._external_property_values = {}
@@ -421,8 +433,8 @@ class ExternalPropertiesMixin:
         tab.rowconfigure(1, weight=1)
         header = ttk.Frame(tab)
         header.grid(row=0, column=0, sticky='ew', pady=(0, 8))
-        ttk.Label(header, text='external properties', font=('Segoe UI Semibold', 10)).pack(side='left')
-        self.external_property_status = ttk.Label(header, text='waiting for offsets and roblox client', foreground=_FFLAG_COLOR_MUTED)
+        ttk.Label(header, text='External Properties', font=('Segoe UI Semibold', 10)).pack(side='left')
+        self.external_property_status = ttk.Label(header, text='Waiting for offsets and Roblox client', foreground=_FFLAG_COLOR_MUTED)
         self.external_property_status.pack(side='right')
         self.external_property_notebook = ttk.Notebook(tab)
         self.external_property_notebook.grid(row=1, column=0, sticky='nsew')
@@ -431,11 +443,11 @@ class ExternalPropertiesMixin:
             page.rowconfigure(0, weight=1)
             page.columnconfigure(0, weight=1)
             tree = ttk.Treeview(page, columns=('property', 'value', 'type'), show='tree headings', selectmode='browse')
-            tree.heading('#0', text='hotkey')
+            tree.heading('#0', text='Hotkey')
             tree.column('#0', width=72, minwidth=72, stretch=False, anchor='center')
-            tree.heading('property', text='property')
-            tree.heading('value', text='current value')
-            tree.heading('type', text='type')
+            tree.heading('property', text='Property')
+            tree.heading('value', text='Current Value')
+            tree.heading('type', text='Type')
             tree.column('property', width=230, anchor='w', stretch=True)
             tree.column('value', width=150, anchor='w', stretch=True)
             tree.column('type', width=75, anchor='center', stretch=False)
@@ -453,27 +465,27 @@ class ExternalPropertiesMixin:
                 initial = '192.6' if prop['key'] == 'world.World.Gravity' else '—'
                 tags = ('readonly',) if prop.get('ro') else ('default',) if prop['key'] == 'world.World.Gravity' else ()
                 hotkey = next((str(item.get('key', '')).upper() for item in self.external_property_hotkeys if item.get('property') == prop['key']), '')
-                tree.insert('', 'end', iid=prop['key'], text=hotkey or ('—' if prop.get('ro') else 'hotkey'), values=(prop['label'], initial, prop['type']), tags=tags)
-        editor = ttk.LabelFrame(tab, text='selected property', padding=10)
+                tree.insert('', 'end', iid=prop['key'], text=hotkey or ('—' if prop.get('ro') else 'Hotkey'), values=(prop['label'], initial, prop['type']), tags=tags)
+        editor = ttk.LabelFrame(tab, text='Selected Property', padding=10)
         editor.grid(row=2, column=0, sticky='ew', pady=(8, 0))
         editor.columnconfigure(1, weight=1)
-        self.external_property_name = ttk.Label(editor, text='world · gravity', font=('Segoe UI Semibold', 10))
+        self.external_property_name = ttk.Label(editor, text='World · Gravity', font=('Segoe UI Semibold', 10))
         self.external_property_name.grid(row=0, column=0, sticky='w')
         self.external_property_type = ttk.Label(editor, text='float', foreground=_FFLAG_COLOR_MUTED)
         self.external_property_type.grid(row=0, column=2, sticky='e', padx=(8, 0))
-        ttk.Label(editor, text='value').grid(row=1, column=0, sticky='w', pady=(8, 0))
+        ttk.Label(editor, text='Value').grid(row=1, column=0, sticky='w', pady=(8, 0))
         self.external_property_entry = ttk.Entry(editor, textvariable=self.external_property_value_var, width=24)
         self.external_property_entry.grid(row=1, column=1, sticky='ew', pady=(8, 0), padx=(8, 8))
-        self.external_property_count = ttk.Label(editor, text='default value', foreground=_FFLAG_COLOR_MUTED)
+        self.external_property_count = ttk.Label(editor, text='Default value', foreground=_FFLAG_COLOR_MUTED)
         self.external_property_count.grid(row=1, column=2, sticky='e', pady=(8, 0))
         footer = ttk.Frame(tab)
         footer.grid(row=3, column=0, sticky='ew', pady=(8, 0))
-        self.external_property_status_detail = ttk.Label(footer, text='select a property to inspect its current value.', foreground=_FFLAG_COLOR_MUTED)
+        self.external_property_status_detail = ttk.Label(footer, text='Select a property to inspect its current value.', foreground=_FFLAG_COLOR_MUTED)
         self.external_property_status_detail.pack(side='left', fill='x', expand=True)
-        ttk.Checkbutton(footer, text='auto apply', variable=self.external_property_auto_var, command=self._external_property_toggle_auto).pack(side='left', padx=(8, 10))
-        ttk.Button(footer, text='refresh all', command=lambda: self._external_property_refresh_all(silent=False)).pack(side='right', padx=(0, 6))
-        ttk.Button(footer, text='refresh', command=self._external_property_reload).pack(side='right', padx=(0, 6))
-        self.external_property_apply_button = ttk.Button(footer, text='apply', command=lambda: self._external_property_apply(silent=False))
+        ttk.Checkbutton(footer, text='Auto Apply', variable=self.external_property_auto_var, command=self._external_property_toggle_auto).pack(side='left', padx=(8, 10))
+        ttk.Button(footer, text='Refresh All', command=lambda: self._external_property_refresh_all(silent=False)).pack(side='right', padx=(0, 6))
+        ttk.Button(footer, text='Refresh', command=self._external_property_reload).pack(side='right', padx=(0, 6))
+        self.external_property_apply_button = ttk.Button(footer, text='Apply', command=lambda: self._external_property_apply(silent=False))
         self.external_property_apply_button.pack(side='right')
         self.external_property_entry.configure(state='normal')
         self.external_property_value_var.trace_add('write', self._external_property_value_changed)
@@ -502,7 +514,7 @@ class ExternalPropertiesMixin:
             return
         existing = next((item for item in self.external_property_hotkeys if item.get('property') == property_key), {})
         dialog = tk.Toplevel(self)
-        dialog.title('external property hotkey')
+        dialog.title('External Property Hotkey')
         dialog.transient(self)
         dialog.resizable(False, False)
         dialog.grab_set()
@@ -512,13 +524,13 @@ class ExternalPropertiesMixin:
         ttk.Label(frame, text=f"{prop['title']} · {prop['label']}", font=('Segoe UI Semibold', 10)).pack(anchor='w', pady=(0, 10))
         value_defaults = {'bool': ('false', 'true'), 'flag': ('false', 'true'), 'vec2': ('0, 0', '1, 1'), 'range': ('0, 0', '1, 1'), 'vec3': ('0, 0, 0', '1, 1, 1'), 'color3': ('0, 0, 0', '1, 1, 1'), 'u8x3': ('0, 0, 0', '255, 255, 255')}
         default_value1, default_value2 = value_defaults.get(prop['type'], ('12', '32'))
-        ttk.Label(frame, text='1. value').pack(anchor='w')
+        ttk.Label(frame, text='1. Value').pack(anchor='w')
         value1 = tk.StringVar(value=str(existing.get('value1', default_value1)))
         ttk.Entry(frame, textvariable=value1, width=34).pack(fill='x', pady=(3, 9))
-        ttk.Label(frame, text='2. value').pack(anchor='w')
+        ttk.Label(frame, text='2. Value').pack(anchor='w')
         value2 = tk.StringVar(value=str(existing.get('value2', default_value2)))
         ttk.Entry(frame, textvariable=value2, width=34).pack(fill='x', pady=(3, 9))
-        ttk.Label(frame, text='hotkey').pack(anchor='w')
+        ttk.Label(frame, text='Hotkey').pack(anchor='w')
         key_var = tk.StringVar(value=str(existing.get('key', '')))
         capture_state = {'armed': False, 'after_id': None}
         key_row = ttk.Frame(frame)
@@ -527,7 +539,6 @@ class ExternalPropertiesMixin:
         key_entry.pack(side='left', fill='x', expand=True)
         status_label = ttk.Label(key_row, text='')
         status_label.pack(side='right', padx=(6, 0))
-
         def stop_capture():
             capture_state['armed'] = False
             if capture_state['after_id'] is not None:
@@ -543,7 +554,6 @@ class ExternalPropertiesMixin:
             except Exception:
                 pass
             status_label.configure(text='')
-
         def capture(event):
             if not capture_state['armed']:
                 return None
@@ -558,11 +568,10 @@ class ExternalPropertiesMixin:
                 key_var.set(token)
                 stop_capture()
             return 'break'
-
         def arm_capture():
             stop_capture()
             capture_state['armed'] = False
-            status_label.configure(text='press a key…')
+            status_label.configure(text='Press a key…')
             try:
                 key_entry.focus_set()
                 dialog.bind('<KeyPress>', capture, add='+')
@@ -571,23 +580,22 @@ class ExternalPropertiesMixin:
                 capture_state['after_id'] = dialog.after(250, lambda: capture_state.update(armed=True, after_id=None))
             except Exception:
                 stop_capture()
-        ttk.Button(key_row, text='record', command=arm_capture).pack(side='right', padx=(6, 0))
-        ttk.Label(frame, text='select record, then press your key or mouse button.', foreground=_FFLAG_COLOR_MUTED).pack(anchor='w')
-
+        ttk.Button(key_row, text='Record', command=arm_capture).pack(side='right', padx=(6, 0))
+        ttk.Label(frame, text='Select Record, then press your key or mouse button.', foreground=_FFLAG_COLOR_MUTED).pack(anchor='w')
         def save():
             token = str(key_var.get() or '').strip().upper()
             if not token or not fflag_key_to_vk(token):
-                messagebox.showerror('external property hotkey', 'choose a supported keyboard or mouse key.', parent=dialog)
+                messagebox.showerror('External Property Hotkey', 'Choose a supported keyboard or mouse key.', parent=dialog)
                 return
             occupied = {'F7'}
-            occupied.update((str(item.get('key', '')).upper() for item in self.external_property_hotkeys if item.get('property') != property_key))
-            occupied.update((str(item.get('key', '')).upper() for item in self.fflag_hotkeys))
-            occupied.update((str(value or '').upper() for value in getattr(self, 'fps_hotkeys', {}).values()))
-            occupied.update((str(value or '').upper() for value in getattr(self, 'emote_binds', {}).values()))
-            occupied.update((str(value or '').upper() for value in getattr(self, '_emote_nav_binds', {}).values()))
+            occupied.update(str(item.get('key', '')).upper() for item in self.external_property_hotkeys if item.get('property') != property_key)
+            occupied.update(str(item.get('key', '')).upper() for item in self.fflag_hotkeys)
+            occupied.update(str(value or '').upper() for value in getattr(self, 'fps_hotkeys', {}).values())
+            occupied.update(str(value or '').upper() for value in getattr(self, 'emote_binds', {}).values())
+            occupied.update(str(value or '').upper() for value in getattr(self, '_emote_nav_binds', {}).values())
             occupied.add(str(getattr(self, '_emote_hotkeys_toggle_key', '') or '').upper())
             if token in occupied:
-                messagebox.showerror('external property hotkey', 'this hotkey is already assigned. choose a different key.', parent=dialog)
+                messagebox.showerror('External Property Hotkey', 'This hotkey is already assigned. Choose a different key.', parent=dialog)
                 return
             first = str(value1.get()).strip()
             second = str(value2.get()).strip()
@@ -595,7 +603,7 @@ class ExternalPropertiesMixin:
                 _parse_property_value(prop, first)
                 _parse_property_value(prop, second)
             except Exception as error:
-                messagebox.showerror('external property hotkey', str(error), parent=dialog)
+                messagebox.showerror('External Property Hotkey', str(error), parent=dialog)
                 return
             updated = {'property': property_key, 'key': token, 'value1': first, 'value2': second, 'state': bool(existing.get('state', False))}
             self.external_property_hotkeys = [item for item in self.external_property_hotkeys if item.get('property') != property_key]
@@ -608,20 +616,19 @@ class ExternalPropertiesMixin:
             dialog.destroy()
         buttons = ttk.Frame(frame)
         buttons.pack(fill='x', pady=(12, 0))
-        ttk.Button(buttons, text='save', command=save).pack(side='left')
-        ttk.Button(buttons, text='remove', command=lambda: remove()).pack(side='left', padx=(6, 0))
-        ttk.Button(buttons, text='cancel', command=dialog.destroy).pack(side='right')
-
+        ttk.Button(buttons, text='Save', command=save).pack(side='left')
+        ttk.Button(buttons, text='Remove', command=lambda: remove()).pack(side='left', padx=(6, 0))
+        ttk.Button(buttons, text='Cancel', command=dialog.destroy).pack(side='right')
         def remove():
             self.external_property_hotkeys = [item for item in self.external_property_hotkeys if item.get('property') != property_key]
             self.settings['external_property_hotkeys'] = self.external_property_hotkeys
             self._save_settings()
             tree = self._external_property_trees.get(prop['group'])
             if tree is not None and tree.exists(property_key):
-                tree.item(property_key, text='hotkey')
+                tree.item(property_key, text='Hotkey')
             dialog.destroy()
         dialog.update_idletasks()
-        dialog.geometry(f'+{max(0, self.winfo_rootx() + (self.winfo_width() - dialog.winfo_width()) // 2)}+{max(0, self.winfo_rooty() + (self.winfo_height() - dialog.winfo_height()) // 2)}')
+        dialog.geometry(f"+{max(0, self.winfo_rootx() + (self.winfo_width() - dialog.winfo_width()) // 2)}+{max(0, self.winfo_rooty() + (self.winfo_height() - dialog.winfo_height()) // 2)}")
         key_entry.focus_set()
 
     def _external_handle_property_hotkey(self, binding):
@@ -642,9 +649,8 @@ class ExternalPropertiesMixin:
             return
         engine = getattr(self, 'fflag_engine', None)
         pid = int(getattr(self, 'fflag_pid', 0) or 0)
-        if not engine or not engine.handle or (not pid):
+        if not engine or not engine.handle or not pid:
             return
-
         def worker():
             try:
                 if int(getattr(engine, 'pid', 0)) != pid:
@@ -675,7 +681,7 @@ class ExternalPropertiesMixin:
             self._external_property_trace_suspended = True
             self.external_property_value_var.set(str(result.get('value', '')))
             self._external_property_trace_suspended = False
-        self.external_property_status_detail.configure(text=f"hotkey applied to {result.get('count', 1)} object(s).", foreground=_FFLAG_COLOR_SUCCESS)
+        self.external_property_status_detail.configure(text=f"Hotkey applied to {result.get('count', 1)} object(s).", foreground=_FFLAG_COLOR_SUCCESS)
 
     def _external_properties_offsets_ready(self):
         engine = getattr(self, 'fflag_engine', None)
@@ -712,13 +718,13 @@ class ExternalPropertiesMixin:
             return
         self._external_property_selected = prop
         self.external_property_name.configure(text=f"{prop['title']} · {prop['label']}")
-        self.external_property_type.configure(text=prop['type'] + (' · read only' if prop.get('ro') else ''))
+        self.external_property_type.configure(text=prop['type'] + (' · Read only' if prop.get('ro') else ''))
         self.external_property_apply_button.configure(state='disabled' if prop.get('ro') else 'normal')
         fallback = '192.6' if prop['key'] == 'world.World.Gravity' else str(self._external_property_values.get(prop['key'], ''))
         self._external_property_trace_suspended = True
         self.external_property_value_var.set(fallback)
         self._external_property_trace_suspended = False
-        self.external_property_count.configure(text='default value' if prop['key'] == 'world.world.gravity' else 'not loaded')
+        self.external_property_count.configure(text='Default value' if prop['key'] == 'world.World.Gravity' else 'Not loaded')
         self._external_property_refresh_selected(silent=True)
 
     def _external_property_refresh_all(self, silent=True):
@@ -726,12 +732,12 @@ class ExternalPropertiesMixin:
             return
         engine = getattr(self, 'fflag_engine', None)
         pid = int(getattr(self, 'fflag_pid', 0) or 0)
-        if not engine or not engine.handle or (not pid):
+        if not engine or not engine.handle or not pid:
             if not silent:
-                self.external_property_status_detail.configure(text='attach a roblox client to load current values.', foreground=_FFLAG_COLOR_WARNING)
+                self.external_property_status_detail.configure(text='Attach a Roblox client to load current values.', foreground=_FFLAG_COLOR_WARNING)
             return
         self._external_property_load_active = True
-        self.external_property_status_detail.configure(text='reading current values from the selected roblox client…', foreground=_FFLAG_COLOR_MUTED)
+        self.external_property_status_detail.configure(text='Reading current values from the selected Roblox client…', foreground=_FFLAG_COLOR_MUTED)
 
         def worker():
             values = {}
@@ -756,7 +762,7 @@ class ExternalPropertiesMixin:
                     try:
                         result = _read_property(item, context)
                         value = result.get('value')
-                        display = ', '.join((str(part) for part in value)) if isinstance(value, list) else str(value)
+                        display = ', '.join(str(part) for part in value) if isinstance(value, list) else str(value)
                         values[item['key']] = {'ok': True, 'value': value, 'display': display, 'count': int(result.get('count', 1))}
                     except Exception:
                         values[item['key']] = {'ok': False, 'display': 'N/A', 'count': 0}
@@ -766,20 +772,21 @@ class ExternalPropertiesMixin:
                 self.after(0, self._external_property_refresh_all_finished, pid, values, offsets_data, fatal_error)
             except Exception:
                 self._external_property_load_active = False
+
         threading.Thread(target=worker, daemon=True, name='RoUtilsExternalReadAll').start()
 
     def _external_property_refresh_all_finished(self, pid, values, offsets_data, fatal_error=''):
         self._external_property_load_active = False
         engine = getattr(self, 'fflag_engine', None)
         current_pid = int(getattr(self, 'fflag_pid', 0) or 0)
-        if current_pid != int(pid) or not engine or (not engine.handle):
+        if current_pid != int(pid) or not engine or not engine.handle:
             if current_pid and engine and engine.handle:
                 self.after(100, lambda: self._external_property_refresh_all(silent=True))
             return
         if isinstance(offsets_data, dict):
             self._external_offsets_data = offsets_data
             version = str(offsets_data.get('version') or 'selected client')
-            self.external_property_status.configure(text=f'theo offsets · {version}', foreground=_FFLAG_COLOR_SUCCESS)
+            self.external_property_status.configure(text=f'Theo offsets · {version}', foreground=_FFLAG_COLOR_SUCCESS)
         loaded = 0
         unavailable = 0
         for item in PROPERTY_DEFINITIONS:
@@ -796,9 +803,9 @@ class ExternalPropertiesMixin:
                 tree.set(item['key'], 'value', display)
             selected = self._external_property_selected
             if selected and selected['key'] == item['key']:
-                self.external_property_count.configure(text=f"{result.get('count', 0)} object(s)" if result.get('ok') and result.get('count', 0) > 1 else 'live value' if result.get('ok') else 'unavailable')
+                self.external_property_count.configure(text=f"{result.get('count', 0)} object(s)" if result.get('ok') and result.get('count', 0) > 1 else 'Live value' if result.get('ok') else 'Unavailable')
                 if not result.get('ok'):
-                    self.external_property_status_detail.configure(text='this property is not available in the current roblox session.', foreground=_FFLAG_COLOR_WARNING)
+                    self.external_property_status_detail.configure(text='This property is not available in the current Roblox session.', foreground=_FFLAG_COLOR_WARNING)
                 elif item['key'] not in self._external_property_dirty:
                     self._external_property_trace_suspended = True
                     self.external_property_value_var.set(display)
@@ -806,15 +813,14 @@ class ExternalPropertiesMixin:
         if fatal_error:
             self.external_property_status_detail.configure(text=fatal_error, foreground=_FFLAG_COLOR_ERROR)
         else:
-            self.external_property_status_detail.configure(text=f'loaded {loaded}/{len(PROPERTY_DEFINITIONS)} current values · {unavailable} unavailable in this session.', foreground=_FFLAG_COLOR_SUCCESS if loaded else _FFLAG_COLOR_WARNING)
+            self.external_property_status_detail.configure(text=f'Loaded {loaded}/{len(PROPERTY_DEFINITIONS)} current values · {unavailable} unavailable in this session.', foreground=_FFLAG_COLOR_SUCCESS if loaded else _FFLAG_COLOR_WARNING)
 
     def _external_property_refresh_selected(self, silent=False):
         prop = self._external_property_selected
         engine = getattr(self, 'fflag_engine', None)
         pid = int(getattr(self, 'fflag_pid', 0) or 0)
-        if not prop or not engine or (not engine.handle) or (not pid) or getattr(self, '_external_property_load_active', False):
+        if not prop or not engine or not engine.handle or not pid or getattr(self, '_external_property_load_active', False):
             return
-
         def worker():
             try:
                 if int(getattr(engine, 'pid', 0)) != pid:
@@ -823,7 +829,7 @@ class ExternalPropertiesMixin:
                 context = _ExternalPropertyContext(self, offsets_data)
                 result = _read_property(prop, context)
                 value = result['value']
-                display = ', '.join((str(item) for item in value)) if isinstance(value, list) else str(value)
+                display = ', '.join(str(item) for item in value) if isinstance(value, list) else str(value)
                 outcome = {'ok': True, 'value': value, 'display': display, 'count': result['count'], 'offsets_data': offsets_data}
             except Exception as error:
                 outcome = {'ok': False, 'error': str(error)}
@@ -838,14 +844,14 @@ class ExternalPropertiesMixin:
         if not prop or prop['key'] != key:
             return
         if not result.get('ok'):
-            self.external_property_count.configure(text='default / unavailable' if key == 'world.world.gravity' else 'unavailable')
-            self.external_property_status_detail.configure(text=str(result.get('error', 'could not read property')), foreground=_FFLAG_COLOR_WARNING)
+            self.external_property_count.configure(text='Default / unavailable' if key == 'world.World.Gravity' else 'Unavailable')
+            self.external_property_status_detail.configure(text=str(result.get('error', 'Could not read property')), foreground=_FFLAG_COLOR_WARNING)
             return
         offsets_data = result.get('offsets_data')
         if isinstance(offsets_data, dict):
             self._external_offsets_data = offsets_data
             version = str(offsets_data.get('version') or 'selected client')
-            self.external_property_status.configure(text=f'theo offsets · {version}', foreground=_FFLAG_COLOR_SUCCESS)
+            self.external_property_status.configure(text=f'Theo offsets · {version}', foreground=_FFLAG_COLOR_SUCCESS)
         value = result['value']
         self._external_property_values[key] = value
         display = result['display']
@@ -853,12 +859,12 @@ class ExternalPropertiesMixin:
         if key not in self._external_property_dirty:
             self.external_property_value_var.set(display)
         self._external_property_trace_suspended = False
-        self.external_property_count.configure(text=f"{result['count']} object(s)" if result['count'] > 1 else 'live value')
+        self.external_property_count.configure(text=f"{result['count']} object(s)" if result['count'] > 1 else 'Live value')
         tree = self._external_property_trees.get(prop['group'])
         if tree is not None and tree.exists(key):
             tree.set(key, 'value', display)
         if not silent:
-            self.external_property_status_detail.configure(text='current value loaded from the selected client.', foreground=_FFLAG_COLOR_SUCCESS)
+            self.external_property_status_detail.configure(text='Current value loaded from the selected client.', foreground=_FFLAG_COLOR_SUCCESS)
 
     def _external_property_value_changed(self, *_):
         if self._external_property_trace_suspended:
@@ -881,8 +887,8 @@ class ExternalPropertiesMixin:
         enabled = bool(self.external_property_auto_var.get())
         self.settings['external_properties_auto_apply'] = enabled
         self._save_settings()
-        self.external_property_status_detail.configure(text='auto apply enabled' if enabled else 'auto apply disabled', foreground=_FFLAG_COLOR_SUCCESS if enabled else _FFLAG_COLOR_MUTED)
-        if enabled and self._external_property_selected and (self._external_property_selected['key'] in getattr(self, '_external_property_dirty', set())):
+        self.external_property_status_detail.configure(text='Auto Apply enabled' if enabled else 'Auto Apply disabled', foreground=_FFLAG_COLOR_SUCCESS if enabled else _FFLAG_COLOR_MUTED)
+        if enabled and self._external_property_selected and self._external_property_selected['key'] in getattr(self, '_external_property_dirty', set()):
             self._external_property_apply(silent=True)
 
     def _external_property_apply(self, silent=False):
@@ -892,15 +898,15 @@ class ExternalPropertiesMixin:
             return
         if prop.get('ro'):
             if not silent:
-                messagebox.showinfo('external properties', 'this property is read-only.', parent=self)
+                messagebox.showinfo('External Properties', 'This property is read-only.', parent=self)
             return
-        if not engine or not engine.handle or (not getattr(self, 'fflag_pid', 0)):
+        if not engine or not engine.handle or not getattr(self, 'fflag_pid', 0):
             if not silent:
-                messagebox.showwarning('external properties', 'open roblox, then select a client in clients first.', parent=self)
+                messagebox.showwarning('External Properties', 'Open Roblox, then select a client in Clients first.', parent=self)
             return
         if getattr(self, '_external_property_load_active', False):
             if not silent:
-                self.external_property_status_detail.configure(text='wait for the current value refresh to finish.', foreground=_FFLAG_COLOR_WARNING)
+                self.external_property_status_detail.configure(text='Wait for the current value refresh to finish.', foreground=_FFLAG_COLOR_WARNING)
             return
         if getattr(self, '_external_property_apply_active', False):
             return
@@ -909,13 +915,12 @@ class ExternalPropertiesMixin:
         except Exception as error:
             self.external_property_status_detail.configure(text=str(error), foreground=_FFLAG_COLOR_WARNING)
             if not silent:
-                messagebox.showerror('external properties', str(error), parent=self)
+                messagebox.showerror('External Properties', str(error), parent=self)
             return
         self._external_property_apply_active = True
         self.external_property_apply_button.configure(state='disabled')
         pid = int(self.fflag_pid)
-        value_text = ', '.join((str(item) for item in parsed)) if isinstance(parsed, list) else str(parsed)
-
+        value_text = ', '.join(str(item) for item in parsed) if isinstance(parsed, list) else str(parsed)
         def worker():
             try:
                 if int(getattr(self.fflag_engine, 'pid', 0)) != pid:
@@ -937,15 +942,15 @@ class ExternalPropertiesMixin:
         prop = self._external_property_selected
         self.external_property_apply_button.configure(state='disabled' if not prop or prop.get('ro') else 'normal')
         if not result.get('ok'):
-            self.external_property_status_detail.configure(text=str(result.get('error', 'apply failed')), foreground=_FFLAG_COLOR_ERROR)
+            self.external_property_status_detail.configure(text=str(result.get('error', 'Apply failed')), foreground=_FFLAG_COLOR_ERROR)
             if not silent:
-                messagebox.showerror('external properties', str(result.get('error', 'apply failed')), parent=self)
+                messagebox.showerror('External Properties', str(result.get('error', 'Apply failed')), parent=self)
             return
         offsets_data = result.get('offsets_data')
         if isinstance(offsets_data, dict):
             self._external_offsets_data = offsets_data
             version = str(offsets_data.get('version') or 'selected client')
-            self.external_property_status.configure(text=f'theo offsets · {version}', foreground=_FFLAG_COLOR_SUCCESS)
+            self.external_property_status.configure(text=f'Theo offsets · {version}', foreground=_FFLAG_COLOR_SUCCESS)
         if not hasattr(self, '_external_property_dirty'):
             self._external_property_dirty = set()
         self._external_property_dirty.discard(key)
@@ -954,11 +959,13 @@ class ExternalPropertiesMixin:
             tree = self._external_property_trees.get(prop['group'])
             if tree is not None and tree.exists(key):
                 tree.set(key, 'value', result.get('value', ''))
-        self.external_property_status_detail.configure(text=f"applied to {result.get('count', 1)} object(s).", foreground=_FFLAG_COLOR_SUCCESS)
+        self.external_property_status_detail.configure(text=f"Applied to {result.get('count', 1)} object(s).", foreground=_FFLAG_COLOR_SUCCESS)
         if not silent:
             self._console_log(f"External property {key} applied to {result.get('count', 1)} object(s).")
 
     def _external_property_reload(self):
         if self._external_property_selected:
             self._external_property_refresh_selected(silent=False)
+
+
 __all__ = ['ExternalPropertiesMixin', 'PROPERTY_DEFINITIONS', 'PROPERTY_GROUPS']

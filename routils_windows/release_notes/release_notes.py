@@ -2,9 +2,7 @@ import sys
 _host = sys.modules.get('main') or sys.modules.get('__main__')
 if _host is not None:
     globals().update({k: v for k, v in vars(_host).items() if not k.startswith('__') and k not in {'_host'}})
-
 class ReleaseNotesMixin:
-
     def _build_release_notes_tab(self, tab=None):
         if tab is None:
             tab = ttk.Frame(self.nb, padding=0)
@@ -65,7 +63,6 @@ class ReleaseNotesMixin:
             self.after_idle(lambda fresh=cache_is_fresh: self._refresh_release_notes(force=not fresh))
         else:
             self.after_idle(lambda: self._refresh_release_notes(force=True))
-
     def _refresh_release_notes(self, force=False):
         if not hasattr(self, 'release_notes_tab') or not self.release_notes_tab.winfo_exists():
             return
@@ -80,7 +77,6 @@ class ReleaseNotesMixin:
         self._release_notes_loading = True
         self.release_notes_status.configure(text=UI_TEXT['g21'], fg='#f2c94c')
         self.release_notes_refresh_button.configure(state='disabled')
-
         def worker():
             try:
                 with _routils_request(RELEASES_API_URL, timeout=10, headers={'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28'}, cache_bypass=force) as response:
@@ -95,7 +91,6 @@ class ReleaseNotesMixin:
                 message = str(exc)
                 self.after(0, lambda error=message: self._release_notes_failed(error))
         threading.Thread(target=worker, daemon=True, name='RoUtils-ReleaseNotes').start()
-
     def _release_notes_failed(self, error):
         self._release_notes_loading = False
         try:
@@ -109,17 +104,14 @@ class ReleaseNotesMixin:
                 ttk.Button(panel, text=UI_TEXT['j21'], command=lambda: webbrowser.open(RELEASES_URL)).pack(anchor='w', padx=16, pady=(0, 14))
         except Exception:
             pass
-
     def _release_notes_extract_images(self, body):
         image_urls = []
         markdown_image = re.compile('!\\[([^\\]]*)\\]\\((https?://[^\\s)]+)(?:\\s+[^)]*)?\\)', re.IGNORECASE)
         html_image = re.compile('<img\\b[^>]*?\\bsrc\\s*=\\s*["\\\']([^"\\\']+)["\\\'][^>]*>', re.IGNORECASE)
-
         def keep_markdown(match):
             image_urls.append((html.unescape(match.group(2)), match.group(1).strip()))
             return ''
         body = markdown_image.sub(keep_markdown, body or '')
-
         def keep_html(match):
             image_urls.append((html.unescape(match.group(1).strip()), UI_TEXT['f32']))
             return ''
@@ -138,7 +130,6 @@ class ReleaseNotesMixin:
         body = re.sub('\\n{3,}', '\n\n', body).strip()
         body = re.sub('(?<!\\!)\\[([^\\]]+)\\]\\((https?://[^)]+)\\)', '\\1 (\\2)', body)
         return (body, unique)
-
     def _release_notes_insert_inline(self, widget, text, accent, fg, code_bg, link_index):
         pattern = re.compile('(\\*\\*.+?\\*\\*|`[^`]+`|\\*[^*]+\\*|\\[[^\\]]+\\]\\(https?://[^)]+\\)|https?://[^\\s<>]+)')
         cursor = 0
@@ -173,7 +164,6 @@ class ReleaseNotesMixin:
             cursor = match.end()
         if cursor < len(text):
             widget.insert('end', text[cursor:])
-
     def _release_notes_render_markdown(self, parent, body):
         palette = _CURRENT_PALETTE
         card_bg = palette.get('bg_medium', '#1a1d24')
@@ -217,9 +207,7 @@ class ReleaseNotesMixin:
         widget.configure(state='disabled')
         widget.pack(fill='x', expand=True, pady=(4, 0))
         return widget
-
     def _release_notes_load_image(self, url, label, alt):
-
         def worker():
             try:
                 with _routils_request(url, timeout=12, headers={'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8'}) as response:
@@ -234,7 +222,6 @@ class ReleaseNotesMixin:
             except Exception:
                 self.after(0, lambda: self._release_notes_image_failed(label, alt))
         threading.Thread(target=worker, daemon=True, name='RoUtils-ReleaseImage').start()
-
     def _release_notes_apply_image(self, label, image_data, alt):
         try:
             if not label.winfo_exists():
@@ -245,14 +232,12 @@ class ReleaseNotesMixin:
             self._release_notes_image_refs.append(photo)
         except Exception:
             self._release_notes_image_failed(label, alt)
-
     def _release_notes_image_failed(self, label, alt):
         try:
             if label.winfo_exists():
                 label.configure(text=UI_TEXT['k21'].format(p0=alt), fg='#9aa8bd', padx=10, pady=8)
         except Exception:
             pass
-
     def _render_release_notes(self, releases):
         self._release_notes_loading = False
         self.release_notes_refresh_button.configure(state='normal')

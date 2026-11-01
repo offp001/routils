@@ -8,6 +8,7 @@ import time
 import urllib.request
 from fflag.processes import _windows_process_path
 from external.properties import ExternalPropertiesMixin
+
 _host = sys.modules.get('main') or sys.modules.get('__main__')
 if _host is not None:
     globals().update({k: v for k, v in vars(_host).items() if not k.startswith('__') and k not in {'_host'}})
@@ -16,11 +17,12 @@ _FFLAG_COLOR_SUCCESS = globals().get('_FFLAG_COLOR_SUCCESS', '#65d98b')
 _FFLAG_COLOR_ERROR = globals().get('_FFLAG_COLOR_ERROR', '#ff6b6b')
 _FFLAG_COLOR_WARNING = globals().get('_FFLAG_COLOR_WARNING', '#f2c94c')
 
+
 class ExternalOffsetsMixin(ExternalPropertiesMixin):
     _EXTERNAL_VERSION_API = 'https://www.rbxoffsets.com/api/v1/windows/version'
     _EXTERNAL_OFFSETS_URL = 'https://offsets.imtheo.lol/{version}/offsets.hpp'
     _EXTERNAL_MAX_HEADER_SIZE = 2 * 1024 * 1024
-    _EXTERNAL_VERSION_PATTERN = re.compile('version-[A-Za-z0-9_-]+')
+    _EXTERNAL_VERSION_PATTERN = re.compile(r'version-[A-Za-z0-9_-]+')
 
     @staticmethod
     def _external_parse_header(source):
@@ -30,19 +32,19 @@ class ExternalOffsetsMixin(ExternalPropertiesMixin):
             raise ValueError('The downloaded file is not a supported offsets.hpp header')
         namespace_stack = []
         offsets = {}
-        version_match = re.search('inline\\s+std::string\\s+ClientVersion\\s*=\\s*"([^"]+)"', source)
+        version_match = re.search(r'inline\s+std::string\s+ClientVersion\s*=\s*"([^"]+)"', source)
         for line in source.splitlines():
-            namespace_match = re.match('^\\s*namespace\\s+([A-Za-z_]\\w*)\\s*\\{', line)
+            namespace_match = re.match(r'^\s*namespace\s+([A-Za-z_]\w*)\s*\{', line)
             if namespace_match:
                 namespace_stack.append(namespace_match.group(1))
                 continue
-            value_match = re.match('^\\s*inline\\s+(?:(?:constexpr|const)\\s+)?([A-Za-z_]\\w*(?:::[A-Za-z_]\\w*)*)\\s+([A-Za-z_]\\w*)\\s*=\\s*(0x[0-9A-Fa-f]+|\\d+)\\s*;', line)
+            value_match = re.match(r'^\s*inline\s+(?:(?:constexpr|const)\s+)?([A-Za-z_]\w*(?:::[A-Za-z_]\w*)*)\s+([A-Za-z_]\w*)\s*=\s*(0x[0-9A-Fa-f]+|\d+)\s*;', line)
             if value_match:
                 value_type, name, value = value_match.groups()
                 path = namespace_stack[1:] if namespace_stack and namespace_stack[0] == 'Offsets' else namespace_stack
                 qualified = '::'.join(path + [name])
                 offsets[qualified] = {'name': qualified, 'value': value, 'type': value_type}
-            if re.match('^\\s*}\\s*;?\\s*$', line) and namespace_stack:
+            if re.match(r'^\s*}\s*;?\s*$', line) and namespace_stack:
                 namespace_stack.pop()
         required = ('FakeDataModel::Pointer', 'FakeDataModel::RealDataModel', 'DataModel::Workspace', 'Workspace::World', 'World::Gravity')
         missing = [name for name in required if name not in offsets]
@@ -81,8 +83,9 @@ class ExternalOffsetsMixin(ExternalPropertiesMixin):
                     if found:
                         return found
             return ''
+
         version = find_value(api_data, ('version', 'clientVersion', 'latestVersion'))
-        if not re.fullmatch('version-[A-Za-z0-9_-]+', version):
+        if not re.fullmatch(r'version-[A-Za-z0-9_-]+', version):
             raise ValueError('The latest Windows build version could not be identified')
         display_version = find_value(api_data, ('displayVersion', 'robloxVersion', 'fileVersion')) or version
         url = self._EXTERNAL_OFFSETS_URL.format(version=version)
@@ -92,6 +95,7 @@ class ExternalOffsetsMixin(ExternalPropertiesMixin):
             raise ValueError('The downloaded header version does not match the latest build')
         parsed.update({'version': version, 'display_version': display_version, 'url': url, 'loaded_at': time.time()})
         return parsed
+
 
     def _external_client_version(self, pid):
         client_path = _windows_process_path(pid)
@@ -153,7 +157,7 @@ class ExternalOffsetsMixin(ExternalPropertiesMixin):
             return
         self._external_offsets_loading = True
         if hasattr(self, 'external_property_status'):
-            self.external_property_status.configure(text='loading latest property definitions…', foreground=_FFLAG_COLOR_MUTED)
+            self.external_property_status.configure(text='Loading latest property definitions…', foreground=_FFLAG_COLOR_MUTED)
 
         def worker():
             try:
@@ -183,13 +187,14 @@ class ExternalOffsetsMixin(ExternalPropertiesMixin):
                 self.after(0, self._external_offsets_loaded, result)
             except Exception:
                 self._external_offsets_loading = False
+
         threading.Thread(target=worker, name='RoUtilsExternalDefinitions', daemon=True).start()
 
     def _external_offsets_loaded(self, result):
         self._external_offsets_loading = False
         if not isinstance(result, dict) or not isinstance(result.get('offsets'), dict):
             error = str(result.get('error', 'Unknown error'))
-            self.external_property_status.configure(text='property definitions unavailable', foreground=_FFLAG_COLOR_WARNING)
+            self.external_property_status.configure(text='Property definitions unavailable', foreground=_FFLAG_COLOR_WARNING)
             if hasattr(self, 'external_property_status_detail'):
                 self.external_property_status_detail.configure(text=error, foreground=_FFLAG_COLOR_WARNING)
             return
@@ -203,9 +208,10 @@ class ExternalOffsetsMixin(ExternalPropertiesMixin):
         self.external_property_status.configure(text=f'{state} · {display_version}', foreground=_FFLAG_COLOR_SUCCESS if not result.get('refresh_error') else _FFLAG_COLOR_WARNING)
         self._external_properties_offsets_ready()
 
+
     def _build_external_tab(self):
         tab = ttk.Frame(self.nb, padding=10)
-        self.nb.add(tab, text='external')
+        self.nb.add(tab, text='External')
         self._external_build_offsets_panel(tab)
 
     def _external_build_offsets_panel(self, tab):

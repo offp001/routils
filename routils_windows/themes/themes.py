@@ -2,27 +2,21 @@ import sys
 _host = sys.modules.get('main') or sys.modules.get('__main__')
 if _host is not None:
     globals().update({k: v for k, v in vars(_host).items() if not k.startswith('__') and k not in {'_host'}})
-
 class ThemesMixin:
-
     def _apply_titlebar_theme(self):
-        palette = getattr(self, '_palette', _CURRENT_PALETTE)
         try:
             _apply_native_titlebar_theme(self)
         except Exception:
             pass
         try:
-            self._setup_tab_nav_styles()
-            self._tab_nav_canvas.configure(bg=palette.get('bg_medium', '#111c2e'))
-            for grip in getattr(self, '_tab_grips', {}).values():
-                grip.configure(bg=palette.get('bg_medium', '#111c2e'))
+            style = ttk.Style(self)
+            style.configure('RoUtils.ActiveNav.TButton', foreground=_CURRENT_PALETTE.get('accent', '#7f8cff'))
         except Exception:
             pass
         try:
             self._refresh_tab_nav()
         except Exception:
             pass
-
     def _build_themes_tab(self):
         self.settings.pop('background_image', None)
         self.settings.pop('background_opacity', None)
@@ -41,14 +35,11 @@ class ThemesMixin:
         lb.pack(fill='both', expand=True)
         self._theme_listbox = lb
         theme_names = THEME_NAMES + (['Custom'] if 'Custom' not in THEME_NAMES else [])
-        display_theme_names = [name.lower() for name in theme_names]
-        for name in display_theme_names:
+        for name in theme_names:
             lb.insert('end', name)
         try:
-            selected_name = self.theme_var.get()
-            selected_index = next((index for index, name in enumerate(theme_names) if name.lower() == str(selected_name).lower()), 0)
-            lb.selection_set(selected_index)
-            lb.see(selected_index)
+            lb.selection_set(theme_names.index(self.theme_var.get()))
+            lb.see(theme_names.index(self.theme_var.get()))
         except Exception:
             pass
         lb.bind('<<ListboxSelect>>', lambda _e: self._theme_list_apply(lb))
@@ -102,7 +93,6 @@ class ThemesMixin:
             ttk.Button(color_row, text=UI_TEXT['o7'], command=lambda n=button_name: self._reset_topbar_button_color(n)).pack(side='left', padx=(4, 0))
         self.settings.pop('background_image', None)
         self.settings.pop('background_opacity', None)
-
     def _choose_custom_theme_color(self, key):
         variables = getattr(self, 'custom_theme_vars', {})
         variable = variables.get(key)
@@ -122,7 +112,6 @@ class ThemesMixin:
                 swatch.configure(bg=color, activebackground=color)
             except tk.TclError:
                 pass
-
     def _reset_custom_theme_color(self, key):
         if key not in THEMES[DEFAULT_THEME]:
             return
@@ -136,7 +125,6 @@ class ThemesMixin:
                 swatch.configure(bg=color, activebackground=color)
             except tk.TclError:
                 pass
-
     def _apply_custom_theme(self):
         palette_defaults = THEMES[DEFAULT_THEME]
         palette = {}
@@ -159,11 +147,9 @@ class ThemesMixin:
         except (tk.TclError, ValueError):
             pass
         self._apply_theme()
-
     def _save_custom_theme(self):
         self._apply_custom_theme()
         messagebox.showinfo(UI_TEXT['i7'], UI_TEXT['t7'], parent=self)
-
     def _choose_topbar_button_color(self, button_name):
         if button_name not in {'close', 'max', 'min'}:
             return
@@ -194,7 +180,6 @@ class ThemesMixin:
         except (AttributeError, KeyError, tk.TclError):
             pass
         self._save_settings()
-
     def _reset_topbar_button_color(self, button_name):
         defaults = getattr(self, '_topbar_button_default_colors', {'close': '#ff5f57', 'max': '#28c840', 'min': '#febc2e'})
         if button_name not in defaults:
@@ -221,7 +206,6 @@ class ThemesMixin:
         except (AttributeError, KeyError, tk.TclError):
             pass
         self._save_settings()
-
     def _apply_topbar_button_color(self):
         variables = getattr(self, '_topbar_button_color_vars', {})
         saved = self.settings.get('topbar_button_colors', {})
@@ -240,19 +224,15 @@ class ThemesMixin:
             except (AttributeError, KeyError, tk.TclError):
                 pass
         self._save_settings()
-
     def _theme_list_apply(self, lb):
         try:
             sel = lb.curselection()
             if not sel:
                 return
-            selected = str(lb.get(sel[0])).lower()
-            original = next((name for name in THEME_NAMES + ['Custom'] if name.lower() == selected), DEFAULT_THEME)
-            self.theme_var.set(original)
+            self.theme_var.set(lb.get(sel[0]))
             self._apply_theme()
         except (tk.TclError, AttributeError, IndexError):
             return
-
     def _apply_theme(self):
         theme_variable = getattr(self, 'theme_var', None)
         name = str((theme_variable.get() if theme_variable is not None else self.settings.get('theme', DEFAULT_THEME)) or DEFAULT_THEME)
@@ -327,7 +307,6 @@ class ThemesMixin:
         except (tk.TclError, AttributeError):
             pass
         self._save_settings()
-
     def _collect_menus(self):
         out = []
         try:

@@ -2,6 +2,7 @@ import ctypes
 import ctypes.wintypes
 import os
 
+
 def _windows_process_path(pid):
     handle = None
     try:
@@ -27,11 +28,22 @@ def _windows_process_path(pid):
                 pass
     return ''
 
+
 def _windows_clients():
     clients = []
-
     class PROCESSENTRY32W(ctypes.Structure):
-        _fields_ = [('dwSize', ctypes.wintypes.DWORD), ('cntUsage', ctypes.wintypes.DWORD), ('th32ProcessID', ctypes.wintypes.DWORD), ('th32DefaultHeapID', ctypes.c_size_t), ('th32ModuleID', ctypes.wintypes.DWORD), ('cntThreads', ctypes.wintypes.DWORD), ('th32ParentProcessID', ctypes.wintypes.DWORD), ('pcPriClassBase', ctypes.c_long), ('dwFlags', ctypes.wintypes.DWORD), ('szExeFile', ctypes.wintypes.WCHAR * 260)]
+        _fields_ = [
+            ('dwSize', ctypes.wintypes.DWORD),
+            ('cntUsage', ctypes.wintypes.DWORD),
+            ('th32ProcessID', ctypes.wintypes.DWORD),
+            ('th32DefaultHeapID', ctypes.c_size_t),
+            ('th32ModuleID', ctypes.wintypes.DWORD),
+            ('cntThreads', ctypes.wintypes.DWORD),
+            ('th32ParentProcessID', ctypes.wintypes.DWORD),
+            ('pcPriClassBase', ctypes.c_long),
+            ('dwFlags', ctypes.wintypes.DWORD),
+            ('szExeFile', ctypes.wintypes.WCHAR * 260),
+        ]
     kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
     kernel32.CreateToolhelp32Snapshot.argtypes = [ctypes.wintypes.DWORD, ctypes.wintypes.DWORD]
     kernel32.CreateToolhelp32Snapshot.restype = ctypes.wintypes.HANDLE
@@ -59,6 +71,7 @@ def _windows_clients():
         kernel32.CloseHandle(snapshot)
     clients.sort(key=lambda item: item['pid'])
     return clients
+
 
 def _linux_clients():
     clients = []
@@ -90,7 +103,7 @@ def _linux_clients():
             pid = int(entry)
             try:
                 with open(f'/proc/{pid}/cmdline', 'rb') as source:
-                    command = source.read(65536).replace(b'\x00', b' ').decode('utf-8', 'replace').strip()
+                    command = source.read(65536).replace(b'\0', b' ').decode('utf-8', 'replace').strip()
                 with open(f'/proc/{pid}/comm', 'r', encoding='utf-8', errors='replace') as source:
                     process = source.read().strip()
                 try:
@@ -102,6 +115,7 @@ def _linux_clients():
             except (OSError, ValueError, PermissionError):
                 continue
     return clients
+
 
 def list_roblox_clients():
     if os.name == 'nt':
