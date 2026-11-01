@@ -29,6 +29,20 @@ jobs:
       - name: Download Luau CLI
         run: python routils_linux/tools/download_luau.py --output routils_linux/bin/luau
 
+      - name: Verify Luau CLI
+        shell: bash
+        run: |
+          cat > "$RUNNER_TEMP/routils_luau_smoke.luau" <<'EOF'
+          local total = 0
+          for _, value in ipairs({1, 2, 3, 4, 5}) do
+              total += value
+          end
+          assert(total == 15)
+          print("RoUtils Luau CLI OK")
+          EOF
+          routils_linux/bin/luau "$RUNNER_TEMP/routils_luau_smoke.luau" | tee "$RUNNER_TEMP/routils_luau_output.txt"
+          grep -Fx "RoUtils Luau CLI OK" "$RUNNER_TEMP/routils_luau_output.txt"
+
       - name: Build Linux executable
         shell: bash
         run: |

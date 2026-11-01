@@ -694,6 +694,8 @@ class ExternalPropertiesMixin:
         self.external_property_status.configure(text=state, foreground=_FFLAG_COLOR_SUCCESS)
         if pid and engine and engine.handle:
             self._external_property_refresh_all(silent=True)
+            if hasattr(self, '_external_explorer_refresh'):
+                self.after(250, self._external_explorer_refresh)
         else:
             self._external_property_refresh_selected(silent=True)
 

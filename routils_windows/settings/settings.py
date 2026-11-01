@@ -151,6 +151,14 @@ class SettingsMixin:
         tab = inner
         ttk.Label(tab, style='RoUtils.Settings.TLabel', text=UI_TEXT['l17'], font=('Segoe UI Semibold', 12)).pack(anchor='w')
         ttk.Label(tab, style='RoUtils.Settings.TLabel', text=UI_TEXT['m17'], foreground='#9aa0a6').pack(anchor='w', pady=(0, 10))
+        navigation = ttk.LabelFrame(tab, style='RoUtils.Settings.TLabelframe', text='Navigation')
+        navigation.pack(fill='x', pady=6)
+        navigation_row = ttk.Frame(navigation, style='RoUtils.Settings.TFrame')
+        navigation_row.pack(fill='x', padx=8, pady=8)
+        ttk.Label(navigation_row, style='RoUtils.Settings.TLabel', text='Tab bar position').pack(side='left', padx=(0, 12))
+        self.tab_bar_position_var = tk.StringVar(value=getattr(self, '_tab_bar_position', self.settings.get('tab_bar_position', 'Left')))
+        for position in ('Left', 'Right', 'Top'):
+            ttk.Radiobutton(navigation_row, text=position, value=position, variable=self.tab_bar_position_var, style='Toolbutton', command=self._apply_tab_bar_position_from_settings).pack(side='left', padx=(0, 5))
         dpi_box = ttk.LabelFrame(tab, style='RoUtils.Settings.TLabelframe', text=UI_TEXT['n17'])
         dpi_box.pack(fill='x', pady=6)
         try:

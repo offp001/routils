@@ -64,6 +64,7 @@ class LuauInterpreterMixin:
             candidates.append(os.path.join(bundle_root, 'bin', 'luau'))
         candidates.extend((
             os.path.join(source_root, 'bin', 'luau'),
+            os.path.join(source_root, '..', 'bin', 'luau'),
             shutil.which('luau') or '',
             os.path.expanduser('~/.local/bin/luau'),
             '/usr/local/bin/luau',

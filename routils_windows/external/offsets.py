@@ -217,5 +217,14 @@ class ExternalOffsetsMixin(ExternalPropertiesMixin):
     def _external_build_offsets_panel(self, tab):
         self._external_offsets_data = None
         self._external_offsets_loading = False
-        self._external_build_property_panel(tab)
+        tab.columnconfigure(0, weight=1)
+        tab.rowconfigure(0, weight=1)
+        layout = ttk.PanedWindow(tab, orient='horizontal')
+        layout.grid(row=0, column=0, sticky='nsew')
+        properties = ttk.Frame(layout, padding=5)
+        explorer = ttk.Frame(layout, padding=5)
+        layout.add(properties, weight=1)
+        layout.add(explorer, weight=1)
+        self._external_build_property_panel(properties)
+        self._external_build_explorer_panel(explorer)
         self._external_load_latest_offsets()

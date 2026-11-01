@@ -1780,6 +1780,8 @@ class FFlagMixin:
                 self._console_log(UI_TEXT['i16'].format(p0=pid))
                 if hasattr(self, 'fps_pid_label'):
                     self.fps_pid_label.config(text=UI_TEXT['j16'].format(p0=pid), foreground=_FFLAG_COLOR_SUCCESS)
+                if hasattr(self, '_external_explorer_refresh'):
+                    self.after(400, self._external_explorer_refresh)
                 if self.fflag_auto_apply.get():
                     self.after(0, lambda: self._fflag_apply(silent=True))
                 if hasattr(self, '_external_property_refresh_all'):
@@ -1796,6 +1798,8 @@ class FFlagMixin:
             self.fflag_status.config(text=UI_TEXT['q13'], foreground=_FFLAG_COLOR_MUTED)
             if had_pid:
                 self._console_log(UI_TEXT['m16'])
+                if hasattr(self, '_external_explorer_client_disconnected'):
+                    self._external_explorer_client_disconnected()
             if hasattr(self, 'fps_pid_label'):
                 self.fps_pid_label.config(text=UI_TEXT['r12'], foreground=_FFLAG_COLOR_MUTED)
         self.after(1000, self._fflag_refresh_process)
