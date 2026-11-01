@@ -99,7 +99,7 @@ local function __routils_read(format)
             __routils_input_index += 1
             remaining[#remaining + 1] = __routils_input_values[__routils_input_index]
         end
-        return table.concat(remaining, "\n")
+        return table.concat(remaining, "\\n")
     end
     if __routils_input_index >= #__routils_input_values then
         print("[RoUtils] No queued input remains. Type a line below the console before Run.")
@@ -110,7 +110,7 @@ local function __routils_read(format)
     if format == "*n" then
         return tonumber(value)
     elseif format == "*L" then
-        return value .. "\n"
+        return value .. "\\n"
     end
     return value
 end

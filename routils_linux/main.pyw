@@ -8717,9 +8717,14 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, LuauInterpreterMixi
             self._tab_bar_position = 'Left'
             self.settings['tab_bar_position'] = 'Left'
         try:
-            self._tab_nav_length_percent = max(35, min(90, int(self.settings.get('tab_nav_length_percent', 56) or 56)))
+            if not self.settings.get('tab_nav_half_length_v2', False):
+                self._tab_nav_length_percent = 50
+                self.settings['tab_nav_length_percent'] = 50
+                self.settings['tab_nav_half_length_v2'] = True
+            else:
+                self._tab_nav_length_percent = max(35, min(90, int(self.settings.get('tab_nav_length_percent', 50) or 50)))
         except Exception:
-            self._tab_nav_length_percent = 56
+            self._tab_nav_length_percent = 50
         self._tab_nav_length_resize_start = None
         try:
             if not self.settings.get('tab_nav_width_slightly_wider_v4', False):
@@ -10419,7 +10424,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, LuauInterpreterMixi
         except Exception:
             pass
     def _create_tab_nav_widgets(self):
-        nav_height = max(240, int(max(420, self._main_paned.winfo_height()) * self._tab_nav_length_percent / 100))
+        nav_height = max(160, int(max(320, self._main_paned.winfo_height()) * self._tab_nav_length_percent / 100))
         self._tab_nav = ttk.Frame(self._main_paned, width=self._tab_nav_width, height=nav_height)
         self._tab_nav.grid_propagate(False)
         self._tab_nav.pack_propagate(False)
@@ -10428,7 +10433,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, LuauInterpreterMixi
         self._tab_nav_canvas.configure(yscrollcommand=self._tab_nav_scrollbar.set)
         self._tab_nav_canvas.pack(side='left', fill='both', expand=True)
         self._tab_nav_scrollbar.pack(side='right', fill='y')
-        self._tab_nav_length_grip = tk.Frame(self._tab_nav, height=6, bd=0, highlightthickness=0, cursor='sb_v_double_arrow', bg=_CURRENT_PALETTE.get('border', '#30343d'))
+        self._tab_nav_length_grip = tk.Frame(self._tab_nav, height=8, bd=0, highlightthickness=0, cursor='sb_v_double_arrow', bg=_CURRENT_PALETTE.get('border', '#30343d'))
         self._tab_nav_length_grip.pack(side='bottom', fill='x')
         self._tab_nav_length_grip.bind('<ButtonPress-1>', self._nav_length_resize_start, add='+')
         self._tab_nav_length_grip.bind('<B1-Motion>', self._nav_length_resize_motion, add='+')
@@ -10449,7 +10454,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, LuauInterpreterMixi
             return
         try:
             available = max(320, int(getattr(event, 'height', 0) or self._main_paned.winfo_height()))
-            height = max(240, min(available - 24, int(available * self._tab_nav_length_percent / 100)))
+            height = max(160, min(available - 24, int(available * self._tab_nav_length_percent / 100)))
             if abs(self._tab_nav.winfo_height() - height) > 3:
                 self._tab_nav.configure(height=height)
         except Exception:
@@ -10458,6 +10463,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, LuauInterpreterMixi
     def _nav_length_resize_start(self, event):
         self._tab_nav_length_resize_start = (event.y_root, self._tab_nav.winfo_height())
         try:
+            self._tab_nav_length_grip.grab_set()
             self.configure(cursor='sb_v_double_arrow')
         except Exception:
             pass
@@ -10468,7 +10474,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, LuauInterpreterMixi
         if not start:
             return 'break'
         start_y, start_height = start
-        height = max(240, min(max(320, self._main_paned.winfo_height() - 24), start_height + event.y_root - start_y))
+        height = max(160, min(max(320, self._main_paned.winfo_height() - 24), start_height + event.y_root - start_y))
         available = max(320, self._main_paned.winfo_height())
         self._tab_nav_length_percent = max(35, min(90, round(height * 100 / available)))
         self._tab_nav.configure(height=height)
@@ -10481,6 +10487,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, LuauInterpreterMixi
             self._tab_nav_length_resize_start = None
             self.settings['tab_nav_length_percent'] = self._tab_nav_length_percent
             try:
+                self._tab_nav_length_grip.grab_release()
                 self.configure(cursor='')
             except Exception:
                 pass
@@ -10501,7 +10508,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, LuauInterpreterMixi
             self.nb.grid_forget()
             self._tab_nav.grid_forget()
             if self._tab_nav_sash is None or not self._tab_nav_sash.winfo_exists():
-                self._tab_nav_sash = tk.Frame(self._main_paned, width=6, bd=0, highlightthickness=0, cursor='sb_h_double_arrow', bg=_CURRENT_PALETTE.get('border', '#30343d'))
+                self._tab_nav_sash = tk.Frame(self._main_paned, width=10, bd=0, highlightthickness=0, cursor='sb_h_double_arrow', bg=_CURRENT_PALETTE.get('border', '#30343d'))
                 self._tab_nav_sash.grid_propagate(False)
                 self._tab_nav_sash.bind('<Enter>', lambda _event: self.configure(cursor='sb_h_double_arrow'), add='+')
                 self._tab_nav_sash.bind('<Leave>', lambda _event: self.configure(cursor=''), add='+')
@@ -10522,9 +10529,9 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, LuauInterpreterMixi
             elif self._tab_bar_position == 'Right':
                 self._main_paned.grid_rowconfigure(0, weight=1)
                 self._main_paned.grid_columnconfigure(0, weight=1)
-                self._main_paned.grid_columnconfigure(1, minsize=6, weight=0)
+                self._main_paned.grid_columnconfigure(1, minsize=10, weight=0)
                 self._main_paned.grid_columnconfigure(2, minsize=self._tab_nav_width, weight=0)
-                self._tab_nav_sash.configure(bg=_CURRENT_PALETTE.get('border', '#30343d'), width=6)
+                self._tab_nav_sash.configure(bg=_CURRENT_PALETTE.get('border', '#30343d'), width=10)
                 self.nb.grid(row=0, column=0, sticky='nsew')
                 self._tab_nav_sash.grid(row=0, column=1, sticky='ns')
                 self._tab_nav.configure(width=self._tab_nav_width, height=154)
@@ -10532,9 +10539,9 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, LuauInterpreterMixi
             else:
                 self._main_paned.grid_rowconfigure(0, weight=1)
                 self._main_paned.grid_columnconfigure(0, minsize=self._tab_nav_width, weight=0)
-                self._main_paned.grid_columnconfigure(1, minsize=6, weight=0)
+                self._main_paned.grid_columnconfigure(1, minsize=10, weight=0)
                 self._main_paned.grid_columnconfigure(2, minsize=0, weight=1)
-                self._tab_nav_sash.configure(bg=_CURRENT_PALETTE.get('border', '#30343d'), width=6)
+                self._tab_nav_sash.configure(bg=_CURRENT_PALETTE.get('border', '#30343d'), width=10)
                 self._tab_nav.configure(width=self._tab_nav_width, height=154)
                 self._tab_nav.grid(row=0, column=0, sticky='nw')
                 self._tab_nav_sash.grid(row=0, column=1, sticky='ns')
@@ -10551,6 +10558,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, LuauInterpreterMixi
             return 'break'
         self._tab_nav_resize_start = (event.x_root, self._tab_nav_width)
         try:
+            self._tab_nav_sash.grab_set()
             self.configure(cursor='sb_h_double_arrow')
         except Exception:
             pass
@@ -10570,6 +10578,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, LuauInterpreterMixi
         if self._tab_nav_resize_start is not None:
             self._tab_nav_resize_start = None
             try:
+                self._tab_nav_sash.grab_release()
                 self.configure(cursor='')
             except Exception:
                 pass
@@ -10589,7 +10598,9 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, LuauInterpreterMixi
             self._tab_nav.configure(width=width)
             column = 2 if self._tab_bar_position == 'Right' else 0
             self._main_paned.grid_columnconfigure(column, minsize=width, weight=0)
-            self._main_paned.grid_columnconfigure(1, minsize=6, weight=0)
+            self._main_paned.grid_columnconfigure(1, minsize=10, weight=0)
+            self._tab_nav_sash.configure(width=10)
+            self._tab_nav_sash.lift()
             self.update_idletasks()
         except Exception:
             pass
@@ -11265,7 +11276,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, LuauInterpreterMixi
         data.pop('discord_rpc_enabled', None)
         data['emote_hotkeys_enabled'] = bool(getattr(self, '_emote_hotkeys_enabled', self.settings.get('emote_hotkeys_enabled', True)))
         data['emote_hotkeys_toggle_key'] = str(getattr(self, '_emote_hotkeys_toggle_key', self.settings.get('emote_hotkeys_toggle_key', '')) or '').upper()
-        data.update({'autoscroll': self.autoscroll.get(), 'hide_tickets': self.hide_tickets.get(), 'stay_on_top': self.stay_on_top.get(), 'show_lines': self.show_lines.get(), 'preview_optimize_vertices': self.viewport_3d.reduce_polys.get() if hasattr(self, 'viewport_3d') else self.settings.get('preview_optimize_vertices', True), 'streamer_mode': self.streamer_mode.get() if hasattr(self, 'streamer_mode') else self.settings.get('streamer_mode', False), 'fps_limit': self.fps_limit.get() if hasattr(self, 'fps_limit') else self.settings.get('fps_limit', 0), 'autostart_watch': self.autostart_watch.get() if hasattr(self, 'autostart_watch') else self.settings.get('autostart_watch', False), 'max_rows': self.max_rows.get() if hasattr(self, 'max_rows') else self.settings.get('max_rows', 0), 'type_filter': self.type_filter.get(), 'columns': {c: var.get() for c, var in getattr(self, '_col_vars', {}).items()}, 'viewer_collapsed': self.viewer_collapsed, 'theme': self.theme_var.get() if hasattr(self, 'theme_var') else self.settings.get('theme', DEFAULT_THEME), 'fflag_hotkeys': self.fflag_hotkeys, 'fps_hotkeys': self.fps_hotkeys, 'fps_hotkey_slots': self.fps_hotkey_slots, 'fflag_auto_apply': self.fflag_auto_apply.get() if hasattr(self, 'fflag_auto_apply') else self.settings.get('fflag_auto_apply', False), 'launch_on_tray': self.launch_on_tray.get() if hasattr(self, 'launch_on_tray') else self.settings.get('launch_on_tray', False), 'launch_on_startup': self.launch_on_startup.get() if hasattr(self, 'launch_on_startup') else self.settings.get('launch_on_startup', False), 'hide_to_tray_on_close': self.hide_to_tray_on_close.get() if hasattr(self, 'hide_to_tray_on_close') else self.settings.get('hide_to_tray_on_close', False), 'auto_update': self.auto_update.get() if hasattr(self, 'auto_update') else self.settings.get('auto_update', False), 'dpi_percent': int(self.dpi_percent.get()) if hasattr(self, 'dpi_percent') else int(getattr(self, '_dpi_scale', 1.0) * 100), 'plugin_enabled': getattr(self, '_plugin_enabled', self.settings.get('plugin_enabled', {})), 'emote_nav_binds': dict(getattr(self, '_emote_nav_binds', self.settings.get('emote_nav_binds', {}))), 'emote_hud_enabled': False, 'hpaned_sash_v2': self.hpaned.sashpos(0) if hasattr(self, 'hpaned') and self.hpaned.winfo_width() > 0 and self.hpaned.sashpos(0) > 0 else self.settings.get('hpaned_sash_v2', None), 'roblox_path': self.settings.get('roblox_path', ''), 'roblox_username': self.settings.get('roblox_username', ''), 'roblox_user_id': self.settings.get('roblox_user_id', ''), 'gemini_api_key': self.gemini_api_key.get().strip() if hasattr(self, 'gemini_api_key') else self.settings.get('gemini_api_key', ''), 'custom_theme': self.settings.get('custom_theme', {}), 'db_path': getattr(self, 'db_path', self.settings.get('db_path', '')), 'shard_root': getattr(self, 'shard_root', self.settings.get('shard_root', '')), 'window_geometry': self.geometry() if self.winfo_exists() else self.settings.get('window_geometry', STARTUP_GEOMETRY), 'include_cconfigs': self.include_cconfigs.get() if hasattr(self, 'include_cconfigs') else self.settings.get('include_cconfigs', False), 'include_cache_dumps': self.include_cache_dumps.get() if hasattr(self, 'include_cache_dumps') else self.settings.get('include_cache_dumps', False), 'tab_bar_position': getattr(self, '_tab_bar_position', self.settings.get('tab_bar_position', 'Left')), 'tab_nav_width': getattr(self, '_tab_nav_width', self.settings.get('tab_nav_width', 96)), 'tab_nav_length_percent': getattr(self, '_tab_nav_length_percent', self.settings.get('tab_nav_length_percent', 56)), 'tab_order': [self.nb.tab(t, 'text') for t in self.nb.tabs()] if hasattr(self, 'nb') else self.settings.get('tab_order', []), 'selected_tab': self.nb.tab(self.nb.select(), 'text') if hasattr(self, 'nb') and self.nb.select() else self.settings.get('selected_tab', UI_TEXT['w5']), 'hpaned_sash': self.hpaned.sashpos(0) if hasattr(self, 'hpaned') else self.settings.get('hpaned_sash', None), 'vpaned_sash': self.vpaned.sashpos(0) if hasattr(self, 'vpaned') else self.settings.get('vpaned_sash', None)})
+        data.update({'autoscroll': self.autoscroll.get(), 'hide_tickets': self.hide_tickets.get(), 'stay_on_top': self.stay_on_top.get(), 'show_lines': self.show_lines.get(), 'preview_optimize_vertices': self.viewport_3d.reduce_polys.get() if hasattr(self, 'viewport_3d') else self.settings.get('preview_optimize_vertices', True), 'streamer_mode': self.streamer_mode.get() if hasattr(self, 'streamer_mode') else self.settings.get('streamer_mode', False), 'fps_limit': self.fps_limit.get() if hasattr(self, 'fps_limit') else self.settings.get('fps_limit', 0), 'autostart_watch': self.autostart_watch.get() if hasattr(self, 'autostart_watch') else self.settings.get('autostart_watch', False), 'max_rows': self.max_rows.get() if hasattr(self, 'max_rows') else self.settings.get('max_rows', 0), 'type_filter': self.type_filter.get(), 'columns': {c: var.get() for c, var in getattr(self, '_col_vars', {}).items()}, 'viewer_collapsed': self.viewer_collapsed, 'theme': self.theme_var.get() if hasattr(self, 'theme_var') else self.settings.get('theme', DEFAULT_THEME), 'fflag_hotkeys': self.fflag_hotkeys, 'fps_hotkeys': self.fps_hotkeys, 'fps_hotkey_slots': self.fps_hotkey_slots, 'fflag_auto_apply': self.fflag_auto_apply.get() if hasattr(self, 'fflag_auto_apply') else self.settings.get('fflag_auto_apply', False), 'launch_on_tray': self.launch_on_tray.get() if hasattr(self, 'launch_on_tray') else self.settings.get('launch_on_tray', False), 'launch_on_startup': self.launch_on_startup.get() if hasattr(self, 'launch_on_startup') else self.settings.get('launch_on_startup', False), 'hide_to_tray_on_close': self.hide_to_tray_on_close.get() if hasattr(self, 'hide_to_tray_on_close') else self.settings.get('hide_to_tray_on_close', False), 'auto_update': self.auto_update.get() if hasattr(self, 'auto_update') else self.settings.get('auto_update', False), 'dpi_percent': int(self.dpi_percent.get()) if hasattr(self, 'dpi_percent') else int(getattr(self, '_dpi_scale', 1.0) * 100), 'plugin_enabled': getattr(self, '_plugin_enabled', self.settings.get('plugin_enabled', {})), 'emote_nav_binds': dict(getattr(self, '_emote_nav_binds', self.settings.get('emote_nav_binds', {}))), 'emote_hud_enabled': False, 'hpaned_sash_v2': self.hpaned.sashpos(0) if hasattr(self, 'hpaned') and self.hpaned.winfo_width() > 0 and self.hpaned.sashpos(0) > 0 else self.settings.get('hpaned_sash_v2', None), 'roblox_path': self.settings.get('roblox_path', ''), 'roblox_username': self.settings.get('roblox_username', ''), 'roblox_user_id': self.settings.get('roblox_user_id', ''), 'gemini_api_key': self.gemini_api_key.get().strip() if hasattr(self, 'gemini_api_key') else self.settings.get('gemini_api_key', ''), 'custom_theme': self.settings.get('custom_theme', {}), 'db_path': getattr(self, 'db_path', self.settings.get('db_path', '')), 'shard_root': getattr(self, 'shard_root', self.settings.get('shard_root', '')), 'window_geometry': self.geometry() if self.winfo_exists() else self.settings.get('window_geometry', STARTUP_GEOMETRY), 'include_cconfigs': self.include_cconfigs.get() if hasattr(self, 'include_cconfigs') else self.settings.get('include_cconfigs', False), 'include_cache_dumps': self.include_cache_dumps.get() if hasattr(self, 'include_cache_dumps') else self.settings.get('include_cache_dumps', False), 'tab_bar_position': getattr(self, '_tab_bar_position', self.settings.get('tab_bar_position', 'Left')), 'tab_nav_width': getattr(self, '_tab_nav_width', self.settings.get('tab_nav_width', 96)), 'tab_nav_length_percent': getattr(self, '_tab_nav_length_percent', self.settings.get('tab_nav_length_percent', 50)), 'tab_order': [self.nb.tab(t, 'text') for t in self.nb.tabs()] if hasattr(self, 'nb') else self.settings.get('tab_order', []), 'selected_tab': self.nb.tab(self.nb.select(), 'text') if hasattr(self, 'nb') and self.nb.select() else self.settings.get('selected_tab', UI_TEXT['w5']), 'hpaned_sash': self.hpaned.sashpos(0) if hasattr(self, 'hpaned') else self.settings.get('hpaned_sash', None), 'vpaned_sash': self.vpaned.sashpos(0) if hasattr(self, 'vpaned') else self.settings.get('vpaned_sash', None)})
         data['discord_application_id'] = str(self.discord_application_id_var.get()).strip() if hasattr(self, 'discord_application_id_var') else str(self.settings.get('discord_application_id') or DISCORD_APPLICATION_ID)
         save_settings(data)
         self.settings = data
