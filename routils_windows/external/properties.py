@@ -426,6 +426,7 @@ class ExternalPropertiesMixin:
         self._external_property_after_id = None
         self._external_property_trees = {}
         self._external_property_dirty = set()
+        self._external_property_load_active = False
         self.external_property_auto_var = tk.BooleanVar(value=bool(self.settings.get('external_properties_auto_apply', False)))
         self.external_property_value_var = tk.StringVar(value='192.6')
         tab.columnconfigure(0, weight=1)
@@ -478,6 +479,7 @@ class ExternalPropertiesMixin:
         self.external_property_status_detail = ttk.Label(footer, text='Select a property to inspect its current value.', foreground=_FFLAG_COLOR_MUTED)
         self.external_property_status_detail.pack(side='left', fill='x', expand=True)
         ttk.Checkbutton(footer, text='Auto Apply', variable=self.external_property_auto_var, command=self._external_property_toggle_auto).pack(side='left', padx=(8, 10))
+        ttk.Button(footer, text='Refresh All', command=lambda: self._external_property_refresh_all(silent=False)).pack(side='right', padx=(0, 6))
         ttk.Button(footer, text='Refresh', command=self._external_property_reload).pack(side='right', padx=(0, 6))
         self.external_property_apply_button = ttk.Button(footer, text='Apply', command=lambda: self._external_property_apply(silent=False))
         self.external_property_apply_button.pack(side='right')
@@ -498,7 +500,10 @@ class ExternalPropertiesMixin:
         elif pid:
             state += f' · Client {pid} selected'
         self.external_property_status.configure(text=state, foreground=_FFLAG_COLOR_SUCCESS)
-        self._external_property_refresh_selected(silent=True)
+        if pid and engine and engine.handle:
+            self._external_property_refresh_all(silent=True)
+        else:
+            self._external_property_refresh_selected(silent=True)
 
     def _external_property_select(self, event, group):
         if self._external_property_after_id:
@@ -530,11 +535,99 @@ class ExternalPropertiesMixin:
         self.external_property_count.configure(text='Default value' if prop['key'] == 'world.World.Gravity' else 'Not loaded')
         self._external_property_refresh_selected(silent=True)
 
+    def _external_property_refresh_all(self, silent=True):
+        if getattr(self, '_external_property_load_active', False):
+            return
+        engine = getattr(self, 'fflag_engine', None)
+        pid = int(getattr(self, 'fflag_pid', 0) or 0)
+        if not engine or not engine.handle or not pid:
+            if not silent:
+                self.external_property_status_detail.configure(text='Attach a Roblox client to load current values.', foreground=_FFLAG_COLOR_WARNING)
+            return
+        self._external_property_load_active = True
+        self.external_property_status_detail.configure(text='Reading current values from the selected Roblox client…', foreground=_FFLAG_COLOR_MUTED)
+
+        def worker():
+            values = {}
+            offsets_data = None
+            fatal_error = ''
+            try:
+                if int(getattr(engine, 'pid', 0)) != pid:
+                    raise RuntimeError('The selected Roblox client changed. Select it again.')
+                offsets_data = self._external_offsets_for_client(pid)
+                context = _ExternalPropertyContext(self, offsets_data)
+                scan_targets = {}
+                for item in PROPERTY_DEFINITIONS:
+                    if item.get('target') == 'scan':
+                        scan_targets.setdefault(item.get('root', 'dm'), set()).update(item.get('classes') or ())
+                for root_name, classes in scan_targets.items():
+                    try:
+                        target = context.target(root_name)
+                        context.scans[root_name] = context.scan_classes(target, classes)
+                    except Exception:
+                        context.scans[root_name] = {name: [] for name in classes}
+                for item in PROPERTY_DEFINITIONS:
+                    try:
+                        result = _read_property(item, context)
+                        value = result.get('value')
+                        display = ', '.join(str(part) for part in value) if isinstance(value, list) else str(value)
+                        values[item['key']] = {'ok': True, 'value': value, 'display': display, 'count': int(result.get('count', 1))}
+                    except Exception:
+                        values[item['key']] = {'ok': False, 'display': 'N/A', 'count': 0}
+            except Exception as error:
+                fatal_error = str(error)
+            try:
+                self.after(0, self._external_property_refresh_all_finished, pid, values, offsets_data, fatal_error)
+            except Exception:
+                self._external_property_load_active = False
+
+        threading.Thread(target=worker, daemon=True, name='RoUtilsExternalReadAll').start()
+
+    def _external_property_refresh_all_finished(self, pid, values, offsets_data, fatal_error=''):
+        self._external_property_load_active = False
+        engine = getattr(self, 'fflag_engine', None)
+        current_pid = int(getattr(self, 'fflag_pid', 0) or 0)
+        if current_pid != int(pid) or not engine or not engine.handle:
+            if current_pid and engine and engine.handle:
+                self.after(100, lambda: self._external_property_refresh_all(silent=True))
+            return
+        if isinstance(offsets_data, dict):
+            self._external_offsets_data = offsets_data
+            version = str(offsets_data.get('version') or 'selected client')
+            self.external_property_status.configure(text=f'Theo offsets · {version}', foreground=_FFLAG_COLOR_SUCCESS)
+        loaded = 0
+        unavailable = 0
+        for item in PROPERTY_DEFINITIONS:
+            result = values.get(item['key'], {})
+            tree = self._external_property_trees.get(item['group'])
+            if result.get('ok'):
+                loaded += 1
+                display = result.get('display', 'N/A')
+                self._external_property_values[item['key']] = result.get('value')
+            else:
+                unavailable += 1
+                display = 'N/A'
+            if tree is not None and tree.exists(item['key']):
+                tree.set(item['key'], 'value', display)
+            selected = self._external_property_selected
+            if selected and selected['key'] == item['key']:
+                self.external_property_count.configure(text=f"{result.get('count', 0)} object(s)" if result.get('ok') and result.get('count', 0) > 1 else 'Live value' if result.get('ok') else 'Unavailable')
+                if not result.get('ok'):
+                    self.external_property_status_detail.configure(text='This property is not available in the current Roblox session.', foreground=_FFLAG_COLOR_WARNING)
+                elif item['key'] not in self._external_property_dirty:
+                    self._external_property_trace_suspended = True
+                    self.external_property_value_var.set(display)
+                    self._external_property_trace_suspended = False
+        if fatal_error:
+            self.external_property_status_detail.configure(text=fatal_error, foreground=_FFLAG_COLOR_ERROR)
+        else:
+            self.external_property_status_detail.configure(text=f'Loaded {loaded}/{len(PROPERTY_DEFINITIONS)} current values · {unavailable} unavailable in this session.', foreground=_FFLAG_COLOR_SUCCESS if loaded else _FFLAG_COLOR_WARNING)
+
     def _external_property_refresh_selected(self, silent=False):
         prop = self._external_property_selected
         engine = getattr(self, 'fflag_engine', None)
         pid = int(getattr(self, 'fflag_pid', 0) or 0)
-        if not prop or not engine or not engine.handle or not pid:
+        if not prop or not engine or not engine.handle or not pid or getattr(self, '_external_property_load_active', False):
             return
         def worker():
             try:
@@ -618,6 +711,10 @@ class ExternalPropertiesMixin:
         if not engine or not engine.handle or not getattr(self, 'fflag_pid', 0):
             if not silent:
                 messagebox.showwarning('External Properties', 'Open Roblox, then select a client in Clients first.', parent=self)
+            return
+        if getattr(self, '_external_property_load_active', False):
+            if not silent:
+                self.external_property_status_detail.configure(text='Wait for the current value refresh to finish.', foreground=_FFLAG_COLOR_WARNING)
             return
         if getattr(self, '_external_property_apply_active', False):
             return

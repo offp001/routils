@@ -6,7 +6,7 @@ import sys
 import threading
 import time
 import urllib.request
-from tkinter import messagebox
+from fflag.processes import _windows_process_path
 from external.properties import ExternalPropertiesMixin
 
 _host = sys.modules.get('main') or sys.modules.get('__main__')
@@ -193,8 +193,10 @@ class ExternalOffsetsMixin(ExternalPropertiesMixin):
     def _external_offsets_loaded(self, result):
         self._external_offsets_loading = False
         if not isinstance(result, dict) or not isinstance(result.get('offsets'), dict):
-            self.external_property_status.configure(text='Could not load property definitions', foreground=_FFLAG_COLOR_ERROR)
-            messagebox.showerror('External Properties', str(result.get('error', 'Unknown error')), parent=self)
+            error = str(result.get('error', 'Unknown error'))
+            self.external_property_status.configure(text='Property definitions unavailable', foreground=_FFLAG_COLOR_WARNING)
+            if hasattr(self, 'external_property_status_detail'):
+                self.external_property_status_detail.configure(text=error, foreground=_FFLAG_COLOR_WARNING)
             return
         self._external_offsets_data = result
         state = 'Cached' if result.get('cached') else 'Latest'

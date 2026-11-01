@@ -1786,8 +1786,8 @@ class FFlagMixin:
                     self.fps_pid_label.config(text=UI_TEXT['j16'].format(p0=pid), foreground=_FFLAG_COLOR_SUCCESS)
                 if self.fflag_auto_apply.get():
                     self.after(0, lambda: self._fflag_apply(silent=True))
-                if hasattr(self, '_external_property_refresh_selected'):
-                    self.after(250, lambda: self._external_property_refresh_selected(silent=True))
+                if hasattr(self, '_external_property_refresh_all'):
+                    self.after(250, lambda: self._external_property_refresh_all(silent=True))
             else:
                 self.fflag_status.config(text=UI_TEXT['k16'], foreground=_FFLAG_COLOR_ERROR)
                 self._console_log(UI_TEXT['l16'].format(p0=pid))

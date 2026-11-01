@@ -2,34 +2,34 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
 
-# the name that will appear for the plugin in routils
+                                                     
 PLUGIN_NAME = "Example"
 
-# a short description shown in the plugins section
+                                                  
 PLUGIN_DESCRIPTION = "example plugin showing common routils ui components."
 
 
 def run(app):
 
-    # creates a new tab inside the main routils window
+                                                      
     tab = ttk.Frame(app.nb, padding=16)
     app.nb.add(tab, text=PLUGIN_NAME)
 
-    # the main title of the plugin
+                                  
     ttk.Label(
         tab,
         text="Example Plugin",
         font=("Segoe UI Semibold", 18)
     ).pack(anchor="w", pady=(0, 5))
 
-    # a smaller title that can be used for another section
+                                                          
     ttk.Label(
         tab,
         text="RoUtils Plugin Components",
         font=("Segoe UI Semibold", 12)
     ).pack(anchor="w", pady=(0, 4))
 
-    # a short description explaining what this example plugin does
+                                                                  
     ttk.Label(
         tab,
         text=(
@@ -43,7 +43,7 @@ def run(app):
     ).pack(anchor="w", pady=(0, 15))
 
 
-    # creates a section with a text box where the user can type something
+                                                                         
     text_box = ttk.LabelFrame(
         tab,
         text="Text Box",
@@ -56,10 +56,10 @@ def run(app):
         text="Example Text"
     ).pack(anchor="w")
 
-    # keeps track of whatever text the user entered
+                                                   
     text_value = tk.StringVar(value="Example")
 
-    # this is the actual text box
+                                 
     ttk.Entry(
         text_box,
         textvariable=text_value
@@ -69,7 +69,7 @@ def run(app):
     )
 
 
-    # creates a section with a normal on/off checkbox
+                                                     
     checkbox_box = ttk.LabelFrame(
         tab,
         text="Checkbox",
@@ -77,10 +77,10 @@ def run(app):
     )
     checkbox_box.pack(fill="x", pady=6)
 
-    # stores whether the checkbox is currently enabled
+                                                      
     checkbox_value = tk.BooleanVar(value=False)
 
-    # creates the checkbox the user can tick
+                                            
     ttk.Checkbutton(
         checkbox_box,
         text="Enable Example",
@@ -88,7 +88,7 @@ def run(app):
     ).pack(anchor="w")
 
 
-    # creates a section with a clickable button
+                                               
     button_box = ttk.LabelFrame(
         tab,
         text="Button",
@@ -96,22 +96,22 @@ def run(app):
     )
     button_box.pack(fill="x", pady=6)
 
-    # shows a small status message when the button is used
+                                                          
     button_status = ttk.Label(
         button_box,
         text="Ready"
     )
     button_status.pack(anchor="w", pady=(0, 7))
 
-    # this function runs when the button is clicked
+                                                   
     def button_clicked():
 
-        # changes the status text after clicking the button
+                                                           
         button_status.configure(
             text="Button clicked!"
         )
 
-        # writes a message to the routils console
+                                                 
         try:
             app._console_log(
                 "[Example] Button clicked."
@@ -119,7 +119,7 @@ def run(app):
         except Exception:
             pass
 
-    # creates the button
+                        
     ttk.Button(
         button_box,
         text="Click Me",
@@ -127,7 +127,7 @@ def run(app):
     ).pack(anchor="w")
 
 
-    # creates a section with a slider
+                                     
     slider_box = ttk.LabelFrame(
         tab,
         text="Slider",
@@ -135,17 +135,17 @@ def run(app):
     )
     slider_box.pack(fill="x", pady=6)
 
-    # stores the current value of the slider
+                                            
     slider_value = tk.DoubleVar(value=50)
 
-    # shows the current slider value above it
+                                             
     slider_value_label = ttk.Label(
         slider_box,
         text="Value: 50"
     )
     slider_value_label.pack(anchor="w")
 
-    # updates the text whenever the slider is moved
+                                                   
     def slider_changed(value):
 
         try:
@@ -157,7 +157,7 @@ def run(app):
             text=f"Value: {value_int}"
         )
 
-    # creates a slider going from 0 to 100
+                                          
     ttk.Scale(
         slider_box,
         from_=0,
@@ -170,7 +170,7 @@ def run(app):
     )
 
 
-    # creates a section with radio buttons
+                                          
     radio_box = ttk.LabelFrame(
         tab,
         text="Radio Buttons",
@@ -178,12 +178,12 @@ def run(app):
     )
     radio_box.pack(fill="x", pady=6)
 
-    # stores which radio button is currently selected
+                                                     
     radio_value = tk.StringVar(
         value="Option 1"
     )
 
-    # only one radio button using the same variable can be selected
+                                                                   
     ttk.Radiobutton(
         radio_box,
         text="Option 1",
@@ -206,7 +206,7 @@ def run(app):
     ).pack(anchor="w")
 
 
-    # creates a section for choosing a file from the computer
+                                                             
     choose_box = ttk.LabelFrame(
         tab,
         text="File Chooser",
@@ -214,7 +214,7 @@ def run(app):
     )
     choose_box.pack(fill="x", pady=6)
 
-    # shows the path of the file that was selected
+                                                  
     selected_file = tk.StringVar(
         value="No file selected."
     )
@@ -228,7 +228,7 @@ def run(app):
         pady=(0, 7)
     )
 
-    # opens the normal windows file picker
+                                          
     def choose_file():
 
         path = filedialog.askopenfilename(
@@ -241,12 +241,12 @@ def run(app):
             ]
         )
 
-        # only do something if the user actually picked a file
+                                                              
         if path:
 
             selected_file.set(path)
 
-            # prints the selected file path in the routils console
+                                                                  
             try:
                 app._console_log(
                     f"[Example] Selected file: {path}"
@@ -254,7 +254,7 @@ def run(app):
             except Exception:
                 pass
 
-    # button that opens the file picker
+                                       
     ttk.Button(
         choose_box,
         text="Choose",
@@ -262,7 +262,7 @@ def run(app):
     ).pack(anchor="w")
 
 
-    # creates a section for showing a notification
+                                                  
     notification_box = ttk.LabelFrame(
         tab,
         text="Notification",
@@ -270,8 +270,8 @@ def run(app):
     )
     notification_box.pack(fill="x", pady=6)
 
-    # tries to use a notification function from routils
-    # if none is available, it uses a normal message box instead
+                                                       
+                                                                
     def send_notification():
 
         title = "Example"
@@ -286,7 +286,7 @@ def run(app):
             "_notification",
         ]
 
-        # checks the possible notification functions one by one
+                                                               
         for function_name in possible_functions:
 
             function = getattr(
@@ -316,7 +316,7 @@ def run(app):
                 except Exception:
                     pass
 
-        # fallback if the current routils version has no notification function
+                                                                              
         try:
             messagebox.showinfo(
                 title,
@@ -329,7 +329,7 @@ def run(app):
                 text
             )
 
-    # button that sends the notification
+                                        
     ttk.Button(
         notification_box,
         text="Send Notification",
@@ -337,7 +337,7 @@ def run(app):
     ).pack(anchor="w")
 
 
-    # creates a section for opening a separate window
+                                                     
     window_box = ttk.LabelFrame(
         tab,
         text="Custom Window",
@@ -345,7 +345,7 @@ def run(app):
     )
     window_box.pack(fill="x", pady=6)
 
-    # opens a new window when called
+                                    
     def open_window():
 
         win = tk.Toplevel(app)
@@ -354,7 +354,7 @@ def run(app):
         win.geometry("500x300")
         win.resizable(False, False)
 
-        # tries to use the routils window theme if it is available
+                                                                  
         theme_function = globals().get(
             "theme_toplevel"
         )
@@ -366,7 +366,7 @@ def run(app):
             except Exception:
                 pass
 
-        # title inside the new window
+                                     
         ttk.Label(
             win,
             text="Example Window",
@@ -375,13 +375,13 @@ def run(app):
             pady=(50, 10)
         )
 
-        # a short description inside the new window
+                                                   
         ttk.Label(
             win,
             text="This window was created by the Example plugin."
         ).pack()
 
-        # closes the window when clicked
+                                        
         ttk.Button(
             win,
             text="Close",
@@ -390,7 +390,7 @@ def run(app):
             pady=25
         )
 
-    # button that opens the custom window
+                                         
     ttk.Button(
         window_box,
         text="Open Window",
@@ -398,7 +398,7 @@ def run(app):
     ).pack(anchor="w")
 
 
-    # creates a section showing how plugin settings can be saved
+                                                                
     settings_box = ttk.LabelFrame(
         tab,
         text="Settings",
@@ -406,7 +406,7 @@ def run(app):
     )
     settings_box.pack(fill="x", pady=6)
 
-    # saves the values from the example controls into routils settings
+                                                                      
     def save_settings():
 
         try:
@@ -425,7 +425,7 @@ def run(app):
                 slider_value.get()
             )
 
-            # saves the settings to disk
+                                        
             app._save_settings()
 
             try:
@@ -445,7 +445,7 @@ def run(app):
                 text=f"Settings error: {e}"
             )
 
-    # loads the settings that were saved previously
+                                                   
     def load_settings():
 
         try:
@@ -478,7 +478,7 @@ def run(app):
                 )
             )
 
-            # updates the slider text after loading the saved value
+                                                                   
             slider_changed(
                 slider_value.get()
             )
@@ -486,7 +486,7 @@ def run(app):
         except Exception:
             pass
 
-    # saves the current plugin settings
+                                       
     ttk.Button(
         settings_box,
         text="Save Settings",
@@ -496,7 +496,7 @@ def run(app):
         padx=(0, 6)
     )
 
-    # loads the previously saved plugin settings
+                                                
     ttk.Button(
         settings_box,
         text="Load Settings",
@@ -505,12 +505,12 @@ def run(app):
         side="left"
     )
 
-    # loads saved values when the plugin starts
+                                               
     load_settings()
 
 
-    # this function is called when the plugin gets unloaded
-    # use it to stop timers, threads or anything else the plugin created
+                                                           
+                                                                        
     def cleanup():
 
         try:
@@ -521,7 +521,7 @@ def run(app):
         except Exception:
             pass
 
-    # gives routils the cleanup function
+                                        
     return {
         "cleanup": cleanup
     }
