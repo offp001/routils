@@ -25,6 +25,21 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r routils_windows/requirements.txt
 
+      - name: Download Luau CLI
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path routils_windows/bin | Out-Null
+          python routils_windows/tools/download_luau.py --platform windows --output routils_windows/bin/luau.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Verify Luau CLI
+        shell: pwsh
+        run: |
+          $smoke = Join-Path $env:RUNNER_TEMP "routils_luau_smoke.luau"
+          Set-Content -Path $smoke -Encoding ascii -Value 'local total = 0; for _, value in ipairs({1, 2, 3, 4, 5}) do total += value end; assert(total == 15); print("RoUtils Luau CLI OK")'
+          & routils_windows/bin/luau.exe $smoke
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Build Windows executable
         shell: pwsh
         run: |
@@ -32,7 +47,7 @@ jobs:
           if (!(Test-Path "main.pyw")) {
             throw "routils_windows/main.pyw not found"
           }
-          $buildArgs = @("--noconfirm", "--clean", "--onefile", "--windowed", "--name", "RoUtils")
+          $buildArgs = @("--noconfirm", "--clean", "--onefile", "--windowed", "--name", "RoUtils", "--paths", ".", "--add-binary", "bin/luau.exe;bin")
           if (Test-Path "routils.ico") {
             $buildArgs += @("--icon", "routils.ico")
           }

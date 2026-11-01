@@ -28,14 +28,22 @@ if not exist "routils_rpc.png" (
     exit /b 1
 )
 
-"%PYTHON%" -m compileall -q main.pyw autoupdate fflag home
+"%PYTHON%" -m compileall -q main.pyw autoupdate external fflag home luau_interpreter tools
 if errorlevel 1 (
     echo Syntax check failed.
     pause
     exit /b 1
 )
 
-"%PYTHON%" -m PyInstaller --noconfirm --clean --onefile --windowed --icon=routils.ico --add-data "routils.ico;." --add-data "routils_rpc.png;." --add-data "src\presets;src\presets" --name=RoUtils main.pyw
+if not exist "bin" mkdir "bin"
+"%PYTHON%" tools\download_luau.py --platform windows --output bin\luau.exe
+if errorlevel 1 (
+    echo Luau CLI download failed.
+    pause
+    exit /b 1
+)
+
+"%PYTHON%" -m PyInstaller --noconfirm --clean --onefile --windowed --icon=routils.ico --paths . --add-binary "bin\luau.exe;bin" --add-data "routils.ico;." --add-data "routils_rpc.png;." --add-data "src\presets;src\presets" --name=RoUtils main.pyw
 if errorlevel 1 (
     echo.
     echo Compiling failed

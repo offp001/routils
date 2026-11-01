@@ -157,8 +157,9 @@ class SettingsMixin:
         navigation_row.pack(fill='x', padx=8, pady=8)
         ttk.Label(navigation_row, style='RoUtils.Settings.TLabel', text='Tab bar position').pack(side='left', padx=(0, 12))
         self.tab_bar_position_var = tk.StringVar(value=getattr(self, '_tab_bar_position', self.settings.get('tab_bar_position', 'Left')))
-        for position in ('Left', 'Right', 'Top'):
-            ttk.Radiobutton(navigation_row, text=position, value=position, variable=self.tab_bar_position_var, style='Toolbutton', command=self._apply_tab_bar_position_from_settings).pack(side='left', padx=(0, 5))
+        self.tab_bar_position_select = ttk.Combobox(navigation_row, textvariable=self.tab_bar_position_var, state='readonly', width=11, values=('Left', 'Right', 'Top'))
+        self.tab_bar_position_select.pack(side='left')
+        self.tab_bar_position_select.bind('<<ComboboxSelected>>', lambda _event: self._apply_tab_bar_position_from_settings())
         dpi_box = ttk.LabelFrame(tab, style='RoUtils.Settings.TLabelframe', text=UI_TEXT['n17'])
         dpi_box.pack(fill='x', pady=6)
         try:

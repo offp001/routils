@@ -8270,6 +8270,7 @@ from autoupdate.autoupdate import AutoUpdateMixin
 from ai.ai import AIMixin
 from cache.cache import CacheMixin
 from client.client import ClientMixin
+from luau_interpreter.interpreter import LuauInterpreterMixin
 from console.console import ConsoleMixin
 from emote_manager.emote_manager import EmoteManagerMixin
 from fflag.fflag import FFlagMixin
@@ -8284,7 +8285,7 @@ from settings.settings import SettingsMixin
 from subplace.subplace import SubplaceMixin
 from themes.themes import ThemesMixin
 from viewer.viewer import ViewerMixin
-class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, EmoteManagerMixin, ExternalExplorerMixin, ExternalOffsetsMixin, FFlagMixin, HistoryMixin, HomeMixin, PluginsMixin, ReleaseNotesMixin, ServerViewerMixin, SettingsMixin, SubplaceMixin, ThemesMixin, ViewerMixin, _TkAppBase):
+class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, LuauInterpreterMixin, ConsoleMixin, EmoteManagerMixin, ExternalExplorerMixin, ExternalOffsetsMixin, FFlagMixin, HistoryMixin, HomeMixin, PluginsMixin, ReleaseNotesMixin, ServerViewerMixin, SettingsMixin, SubplaceMixin, ThemesMixin, ViewerMixin, _TkAppBase):
     def after(self, ms, func=None, *args):
         ui_thread = getattr(self, '_ui_thread_id', None)
         if func is not None and ui_thread is not None and threading.get_ident() != ui_thread:
@@ -8644,6 +8645,11 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         self._hotkey_stop = threading.Event()
         self.fflag_hotkeys = list(self.settings.get('fflag_hotkeys', []))
         self.external_property_hotkeys = list(self.settings.get('external_property_hotkeys', []))
+        for binding in self.external_property_hotkeys:
+            if isinstance(binding, dict) and str(binding.get('value1', '')).strip() == '12' and str(binding.get('value2', '')).strip() == '32':
+                binding['value1'] = ''
+                binding['value2'] = ''
+        self.settings['external_property_hotkeys'] = self.external_property_hotkeys
         default_fps_hotkeys = {str(fps): '' for fps in (30, 60, 120, 144, 180, 200, 240)}
         saved_fps_hotkeys = self.settings.get('fps_hotkeys', {})
         if isinstance(saved_fps_hotkeys, dict):
@@ -8678,9 +8684,15 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         if self._tab_bar_position not in ('Left', 'Right', 'Top'):
             self._tab_bar_position = 'Left'
         try:
-            self._tab_nav_width = max(72, min(320, int(self.settings.get('tab_nav_width', 96) or 96)))
+            if not self.settings.get('tab_nav_width_halved_v2', False):
+                previous_width = int(self.settings.get('tab_nav_width', 96) or 96)
+                self._tab_nav_width = max(48, min(240, previous_width // 2))
+                self.settings['tab_nav_width_halved_v2'] = True
+                self.settings['tab_nav_width'] = self._tab_nav_width
+            else:
+                self._tab_nav_width = max(48, min(240, int(self.settings.get('tab_nav_width', 48) or 48)))
         except Exception:
-            self._tab_nav_width = 96
+            self._tab_nav_width = 48
         self._tab_nav_sash = None
         self._tab_nav_resize_start = None
         self._main_paned = ttk.Frame(self)
@@ -8833,8 +8845,8 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         self._lazy_tab_ids = {}
         self.nb.bind('<<NotebookTabChanged>>', self._lazy_tab_changed, add='+')
         self._build_home_tab()
-        lazy_builders = {UI_TEXT['f5']: self._lazy_build_cache, UI_TEXT['h5']: self._build_fflag_tab, 'External': self._build_external_tab, UI_TEXT['i5']: self._build_emote_manager_tab, UI_TEXT['j5']: self._build_ai_tab, UI_TEXT['k5']: self._build_utils_tab, UI_TEXT['l5']: self._build_cconfigs_tab, UI_TEXT['m5']: self._build_subplace_joiner_tab, UI_TEXT['n5']: self._build_server_viewer_tab, UI_TEXT['o5']: self._build_history_tab, UI_TEXT['p5']: self._build_client_tab, UI_TEXT['q5']: self._build_themes_tab, UI_TEXT['r5']: self._build_settings_tab, UI_TEXT['s5']: self._build_plugins_tab, UI_TEXT['t5']: self._build_release_notes_tab, UI_TEXT['u5']: self._build_console_tab}
-        for tab_name in (UI_TEXT['f5'], UI_TEXT['h5'], 'External', UI_TEXT['i5'], UI_TEXT['j5'], UI_TEXT['l5'], UI_TEXT['k5'], UI_TEXT['m5'], UI_TEXT['n5'], UI_TEXT['o5'], UI_TEXT['p5'], UI_TEXT['q5'], UI_TEXT['r5'], UI_TEXT['s5'], UI_TEXT['t5'], UI_TEXT['u5']):
+        lazy_builders = {UI_TEXT['f5']: self._lazy_build_cache, UI_TEXT['h5']: self._build_fflag_tab, 'External': self._build_external_tab, UI_TEXT['i5']: self._build_emote_manager_tab, UI_TEXT['j5']: self._build_ai_tab, UI_TEXT['k5']: self._build_utils_tab, UI_TEXT['l5']: self._build_cconfigs_tab, UI_TEXT['m5']: self._build_subplace_joiner_tab, UI_TEXT['n5']: self._build_server_viewer_tab, UI_TEXT['o5']: self._build_history_tab, UI_TEXT['p5']: self._build_client_tab, 'Luau Interpreter': self._build_luau_interpreter_tab, UI_TEXT['q5']: self._build_themes_tab, UI_TEXT['r5']: self._build_settings_tab, UI_TEXT['s5']: self._build_plugins_tab, UI_TEXT['t5']: self._build_release_notes_tab, UI_TEXT['u5']: self._build_console_tab}
+        for tab_name in (UI_TEXT['f5'], UI_TEXT['h5'], 'External', UI_TEXT['i5'], UI_TEXT['j5'], UI_TEXT['l5'], UI_TEXT['k5'], UI_TEXT['m5'], UI_TEXT['n5'], UI_TEXT['o5'], UI_TEXT['p5'], 'Luau Interpreter', UI_TEXT['q5'], UI_TEXT['r5'], UI_TEXT['s5'], UI_TEXT['t5'], UI_TEXT['u5']):
             if tab_name == UI_TEXT['f5']:
                 tab = self.tab_viewer
             else:
@@ -10279,7 +10291,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         horizontal = self._tab_bar_position == 'Top'
         nav_width = 154 if horizontal else self._tab_nav_width
         self._tab_nav = ttk.Frame(self._main_paned, width=nav_width, height=54 if horizontal else 154)
-        self._tab_nav.grid_propagate(False)
+        self._tab_nav.pack_propagate(False)
         self._tab_nav_canvas = tk.Canvas(self._tab_nav, highlightthickness=0, borderwidth=0, takefocus=0, bg=_CURRENT_PALETTE.get('bg_dark', '#111318'))
         self._tab_nav_scrollbar = ttk.Scrollbar(self._tab_nav, orient='horizontal' if horizontal else 'vertical', command=self._tab_nav_canvas.xview if horizontal else self._tab_nav_canvas.yview)
         if horizontal:
@@ -10294,7 +10306,8 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         self._tab_nav_inner_window = self._tab_nav_canvas.create_window((0, 0), window=self._tab_nav_inner, anchor='nw')
         self._tab_nav_inner.bind('<Configure>', lambda _event: self._tab_nav_canvas.configure(scrollregion=self._tab_nav_canvas.bbox('all')), add='+')
         if horizontal:
-            self._tab_nav_canvas.bind('<Configure>', lambda event: self._tab_nav_canvas.itemconfigure(self._tab_nav_inner_window, height=event.height), add='+')
+            self._tab_nav_canvas.bind('<Configure>', lambda event: (self._tab_nav_canvas.itemconfigure(self._tab_nav_inner_window, height=event.height), self.after_idle(self._center_top_tab_nav)), add='+')
+            self._tab_nav_inner.bind('<Configure>', lambda _event: self.after_idle(self._center_top_tab_nav), add='+')
         else:
             self._tab_nav_canvas.bind('<Configure>', lambda event: self._tab_nav_canvas.itemconfigure(self._tab_nav_inner_window, width=event.width), add='+')
         self._tab_nav_rows = {}
@@ -10309,7 +10322,10 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             self.nb.grid_forget()
             self._tab_nav.grid_forget()
             if self._tab_nav_sash is None or not self._tab_nav_sash.winfo_exists():
-                self._tab_nav_sash = ttk.Separator(self._main_paned, orient='vertical', cursor='sb_h_double_arrow')
+                self._tab_nav_sash = tk.Frame(self._main_paned, width=6, bd=0, highlightthickness=0, cursor='sb_h_double_arrow', bg=_CURRENT_PALETTE.get('border', '#30343d'))
+                self._tab_nav_sash.grid_propagate(False)
+                self._tab_nav_sash.bind('<Enter>', lambda _event: self.configure(cursor='sb_h_double_arrow'), add='+')
+                self._tab_nav_sash.bind('<Leave>', lambda _event: self.configure(cursor=''), add='+')
                 self._tab_nav_sash.bind('<ButtonPress-1>', self._nav_resize_start, add='+')
                 self._tab_nav_sash.bind('<B1-Motion>', self._nav_resize_motion, add='+')
                 self._tab_nav_sash.bind('<ButtonRelease-1>', self._nav_resize_release, add='+')
@@ -10326,17 +10342,19 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             elif self._tab_bar_position == 'Right':
                 self._main_paned.grid_rowconfigure(0, weight=1)
                 self._main_paned.grid_columnconfigure(0, weight=1)
-                self._main_paned.grid_columnconfigure(1, minsize=6)
-                self._main_paned.grid_columnconfigure(2, minsize=self._tab_nav_width)
+                self._main_paned.grid_columnconfigure(1, minsize=6, weight=0)
+                self._main_paned.grid_columnconfigure(2, minsize=self._tab_nav_width, weight=0)
+                self._tab_nav_sash.configure(bg=_CURRENT_PALETTE.get('border', '#30343d'), width=6)
                 self.nb.grid(row=0, column=0, sticky='nsew')
                 self._tab_nav_sash.grid(row=0, column=1, sticky='ns')
                 self._tab_nav.configure(width=self._tab_nav_width, height=154)
                 self._tab_nav.grid(row=0, column=2, sticky='ns')
             else:
                 self._main_paned.grid_rowconfigure(0, weight=1)
-                self._main_paned.grid_columnconfigure(0, minsize=self._tab_nav_width)
-                self._main_paned.grid_columnconfigure(1, minsize=6)
-                self._main_paned.grid_columnconfigure(2, weight=1)
+                self._main_paned.grid_columnconfigure(0, minsize=self._tab_nav_width, weight=0)
+                self._main_paned.grid_columnconfigure(1, minsize=6, weight=0)
+                self._main_paned.grid_columnconfigure(2, minsize=0, weight=1)
+                self._tab_nav_sash.configure(bg=_CURRENT_PALETTE.get('border', '#30343d'), width=6)
                 self._tab_nav.configure(width=self._tab_nav_width, height=154)
                 self._tab_nav.grid(row=0, column=0, sticky='ns')
                 self._tab_nav_sash.grid(row=0, column=1, sticky='ns')
@@ -10380,16 +10398,17 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
 
     def _set_tab_nav_width(self, width, save=False):
         try:
-            width = max(72, min(320, int(width)))
+            width = max(48, min(240, int(width)))
         except Exception:
-            width = 96
-        self._tab_nav_width = width
+            width = 48
         if self._tab_bar_position == 'Top':
             return
+        self._tab_nav_width = width
         try:
             self._tab_nav.configure(width=width)
             column = 2 if self._tab_bar_position == 'Right' else 0
-            self._main_paned.grid_columnconfigure(column, minsize=width)
+            self._main_paned.grid_columnconfigure(column, minsize=width, weight=0)
+            self._main_paned.grid_columnconfigure(1, minsize=6, weight=0)
             self.update_idletasks()
         except Exception:
             pass
@@ -10528,6 +10547,29 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                 selected_style = 'RoUtils.ActiveNav.TButton' if tab_id == active_id else 'RoUtils.Nav.TButton'
                 if str(button.cget('style')) != selected_style:
                     button.configure(style=selected_style)
+            if horizontal:
+                self.after_idle(self._center_top_tab_nav)
+        except Exception:
+            pass
+    def _center_top_tab_nav(self):
+        if getattr(self, '_tab_bar_position', 'Left') != 'Top':
+            return
+        canvas = getattr(self, '_tab_nav_canvas', None)
+        inner = getattr(self, '_tab_nav_inner', None)
+        window = getattr(self, '_tab_nav_inner_window', None)
+        if canvas is None or inner is None or window is None:
+            return
+        try:
+            canvas_width = max(1, canvas.winfo_width())
+            inner.update_idletasks()
+            inner_width = max(1, inner.winfo_reqwidth())
+            x = max(0, (canvas_width - inner_width) // 2)
+            canvas_height = max(1, canvas.winfo_height())
+            canvas.coords(window, x, 0)
+            canvas.itemconfigure(window, width=inner_width, height=canvas_height)
+            scroll_width = max(canvas_width, x + inner_width)
+            canvas.configure(scrollregion=(0, 0, scroll_width, canvas_height))
+            canvas.xview_moveto(0)
         except Exception:
             pass
     def _tab_drag_start(self, event, tab_id):
@@ -10590,8 +10632,8 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         style = ttk.Style(self)
         self._tab_nav_buttons = {}
         try:
-            style.configure('RoUtils.Nav.TButton', padding=(6, 3), font=('Segoe UI Semibold', 8), anchor='w')
-            style.configure('RoUtils.ActiveNav.TButton', padding=(6, 3), font=('Segoe UI Semibold', 8), foreground=_CURRENT_PALETTE.get('accent', '#7f8cff'), anchor='w')
+            style.configure('RoUtils.Nav.TButton', padding=(3, 2), font=('Segoe UI Semibold', 8), anchor='w')
+            style.configure('RoUtils.ActiveNav.TButton', padding=(3, 2), font=('Segoe UI Semibold', 8), foreground=_CURRENT_PALETTE.get('accent', '#7f8cff'), anchor='w')
         except Exception:
             pass
     def _install_global_scroll_support(self):

@@ -8716,9 +8716,15 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, LuauInterpreterMixi
         if self._tab_bar_position not in ('Left', 'Right', 'Top'):
             self._tab_bar_position = 'Left'
         try:
-            self._tab_nav_width = max(72, min(320, int(self.settings.get('tab_nav_width', 96) or 96)))
+            if not self.settings.get('tab_nav_width_halved_v2', False):
+                previous_width = int(self.settings.get('tab_nav_width', 96) or 96)
+                self._tab_nav_width = max(48, min(240, previous_width // 2))
+                self.settings['tab_nav_width_halved_v2'] = True
+                self.settings['tab_nav_width'] = self._tab_nav_width
+            else:
+                self._tab_nav_width = max(48, min(240, int(self.settings.get('tab_nav_width', 48) or 48)))
         except Exception:
-            self._tab_nav_width = 96
+            self._tab_nav_width = 48
         self._tab_nav_sash = None
         self._tab_nav_resize_start = None
         self._main_paned = ttk.Frame(self)
@@ -10409,7 +10415,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, LuauInterpreterMixi
         horizontal = self._tab_bar_position == 'Top'
         nav_width = 154 if horizontal else self._tab_nav_width
         self._tab_nav = ttk.Frame(self._main_paned, width=nav_width, height=54 if horizontal else 154)
-        self._tab_nav.grid_propagate(False)
+        self._tab_nav.pack_propagate(False)
         self._tab_nav_canvas = tk.Canvas(self._tab_nav, highlightthickness=0, borderwidth=0, takefocus=0, bg=_CURRENT_PALETTE.get('bg_dark', '#111318'))
         self._tab_nav_scrollbar = ttk.Scrollbar(self._tab_nav, orient='horizontal' if horizontal else 'vertical', command=self._tab_nav_canvas.xview if horizontal else self._tab_nav_canvas.yview)
         if horizontal:
@@ -10424,7 +10430,8 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, LuauInterpreterMixi
         self._tab_nav_inner_window = self._tab_nav_canvas.create_window((0, 0), window=self._tab_nav_inner, anchor='nw')
         self._tab_nav_inner.bind('<Configure>', lambda _event: self._tab_nav_canvas.configure(scrollregion=self._tab_nav_canvas.bbox('all')), add='+')
         if horizontal:
-            self._tab_nav_canvas.bind('<Configure>', lambda event: self._tab_nav_canvas.itemconfigure(self._tab_nav_inner_window, height=event.height), add='+')
+            self._tab_nav_canvas.bind('<Configure>', lambda event: (self._tab_nav_canvas.itemconfigure(self._tab_nav_inner_window, height=event.height), self.after_idle(self._center_top_tab_nav)), add='+')
+            self._tab_nav_inner.bind('<Configure>', lambda _event: self.after_idle(self._center_top_tab_nav), add='+')
         else:
             self._tab_nav_canvas.bind('<Configure>', lambda event: self._tab_nav_canvas.itemconfigure(self._tab_nav_inner_window, width=event.width), add='+')
         self._tab_nav_rows = {}
@@ -10439,7 +10446,10 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, LuauInterpreterMixi
             self.nb.grid_forget()
             self._tab_nav.grid_forget()
             if self._tab_nav_sash is None or not self._tab_nav_sash.winfo_exists():
-                self._tab_nav_sash = ttk.Separator(self._main_paned, orient='vertical', cursor='sb_h_double_arrow')
+                self._tab_nav_sash = tk.Frame(self._main_paned, width=6, bd=0, highlightthickness=0, cursor='sb_h_double_arrow', bg=_CURRENT_PALETTE.get('border', '#30343d'))
+                self._tab_nav_sash.grid_propagate(False)
+                self._tab_nav_sash.bind('<Enter>', lambda _event: self.configure(cursor='sb_h_double_arrow'), add='+')
+                self._tab_nav_sash.bind('<Leave>', lambda _event: self.configure(cursor=''), add='+')
                 self._tab_nav_sash.bind('<ButtonPress-1>', self._nav_resize_start, add='+')
                 self._tab_nav_sash.bind('<B1-Motion>', self._nav_resize_motion, add='+')
                 self._tab_nav_sash.bind('<ButtonRelease-1>', self._nav_resize_release, add='+')
@@ -10456,17 +10466,19 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, LuauInterpreterMixi
             elif self._tab_bar_position == 'Right':
                 self._main_paned.grid_rowconfigure(0, weight=1)
                 self._main_paned.grid_columnconfigure(0, weight=1)
-                self._main_paned.grid_columnconfigure(1, minsize=6)
-                self._main_paned.grid_columnconfigure(2, minsize=self._tab_nav_width)
+                self._main_paned.grid_columnconfigure(1, minsize=6, weight=0)
+                self._main_paned.grid_columnconfigure(2, minsize=self._tab_nav_width, weight=0)
+                self._tab_nav_sash.configure(bg=_CURRENT_PALETTE.get('border', '#30343d'), width=6)
                 self.nb.grid(row=0, column=0, sticky='nsew')
                 self._tab_nav_sash.grid(row=0, column=1, sticky='ns')
                 self._tab_nav.configure(width=self._tab_nav_width, height=154)
                 self._tab_nav.grid(row=0, column=2, sticky='ns')
             else:
                 self._main_paned.grid_rowconfigure(0, weight=1)
-                self._main_paned.grid_columnconfigure(0, minsize=self._tab_nav_width)
-                self._main_paned.grid_columnconfigure(1, minsize=6)
-                self._main_paned.grid_columnconfigure(2, weight=1)
+                self._main_paned.grid_columnconfigure(0, minsize=self._tab_nav_width, weight=0)
+                self._main_paned.grid_columnconfigure(1, minsize=6, weight=0)
+                self._main_paned.grid_columnconfigure(2, minsize=0, weight=1)
+                self._tab_nav_sash.configure(bg=_CURRENT_PALETTE.get('border', '#30343d'), width=6)
                 self._tab_nav.configure(width=self._tab_nav_width, height=154)
                 self._tab_nav.grid(row=0, column=0, sticky='ns')
                 self._tab_nav_sash.grid(row=0, column=1, sticky='ns')
@@ -10510,16 +10522,17 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, LuauInterpreterMixi
 
     def _set_tab_nav_width(self, width, save=False):
         try:
-            width = max(72, min(320, int(width)))
+            width = max(48, min(240, int(width)))
         except Exception:
-            width = 96
-        self._tab_nav_width = width
+            width = 48
         if self._tab_bar_position == 'Top':
             return
+        self._tab_nav_width = width
         try:
             self._tab_nav.configure(width=width)
             column = 2 if self._tab_bar_position == 'Right' else 0
-            self._main_paned.grid_columnconfigure(column, minsize=width)
+            self._main_paned.grid_columnconfigure(column, minsize=width, weight=0)
+            self._main_paned.grid_columnconfigure(1, minsize=6, weight=0)
             self.update_idletasks()
         except Exception:
             pass
@@ -10658,6 +10671,29 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, LuauInterpreterMixi
                 selected_style = 'RoUtils.ActiveNav.TButton' if tab_id == active_id else 'RoUtils.Nav.TButton'
                 if str(button.cget('style')) != selected_style:
                     button.configure(style=selected_style)
+            if horizontal:
+                self.after_idle(self._center_top_tab_nav)
+        except Exception:
+            pass
+    def _center_top_tab_nav(self):
+        if getattr(self, '_tab_bar_position', 'Left') != 'Top':
+            return
+        canvas = getattr(self, '_tab_nav_canvas', None)
+        inner = getattr(self, '_tab_nav_inner', None)
+        window = getattr(self, '_tab_nav_inner_window', None)
+        if canvas is None or inner is None or window is None:
+            return
+        try:
+            canvas_width = max(1, canvas.winfo_width())
+            inner.update_idletasks()
+            inner_width = max(1, inner.winfo_reqwidth())
+            x = max(0, (canvas_width - inner_width) // 2)
+            canvas_height = max(1, canvas.winfo_height())
+            canvas.coords(window, x, 0)
+            canvas.itemconfigure(window, width=inner_width, height=canvas_height)
+            scroll_width = max(canvas_width, x + inner_width)
+            canvas.configure(scrollregion=(0, 0, scroll_width, canvas_height))
+            canvas.xview_moveto(0)
         except Exception:
             pass
     def _tab_drag_start(self, event, tab_id):
@@ -10720,8 +10756,8 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, LuauInterpreterMixi
         style = ttk.Style(self)
         self._tab_nav_buttons = {}
         try:
-            style.configure('RoUtils.Nav.TButton', padding=(6, 3), font=('Segoe UI Semibold', 8), anchor='w')
-            style.configure('RoUtils.ActiveNav.TButton', padding=(6, 3), font=('Segoe UI Semibold', 8), foreground=_CURRENT_PALETTE.get('accent', '#7f8cff'), anchor='w')
+            style.configure('RoUtils.Nav.TButton', padding=(3, 2), font=('Segoe UI Semibold', 8), anchor='w')
+            style.configure('RoUtils.ActiveNav.TButton', padding=(3, 2), font=('Segoe UI Semibold', 8), foreground=_CURRENT_PALETTE.get('accent', '#7f8cff'), anchor='w')
         except Exception:
             pass
     def _install_global_scroll_support(self):

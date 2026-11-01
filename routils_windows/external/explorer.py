@@ -43,7 +43,7 @@ class ExternalExplorerMixin:
         self._external_explorer_retry_count = 0
         self._external_explorer_loaded = set()
         self._external_explorer_item_data = {}
-        self._external_explorer_detail_vars = {}
+        self._external_explorer_detail_vars = {key: tk.StringVar(value='—') for key in ('path', 'name', 'class', 'parent', 'address', 'children')}
         self._external_explorer_hidden = set()
         self._external_explorer_view_target = 0
         self._external_explorer_action_active = False
@@ -52,44 +52,55 @@ class ExternalExplorerMixin:
         parent.columnconfigure(0, weight=1)
         parent.rowconfigure(2, weight=1)
         header = ttk.Frame(parent)
-        header.grid(row=0, column=0, sticky='ew', pady=(0, 7))
-        ttk.Label(header, text='Explorer', font=('Segoe UI Semibold', 10)).pack(side='left')
+        header.grid(row=0, column=0, sticky='ew', pady=(0, 8))
+        ttk.Label(header, text='Workspace Explorer', font=('Segoe UI Semibold', 11)).pack(side='left')
         self.external_explorer_status = ttk.Label(header, text='Waiting for a Roblox client', foreground=_FFLAG_COLOR_MUTED)
         self.external_explorer_status.pack(side='right')
         controls = ttk.Frame(parent)
-        controls.grid(row=1, column=0, sticky='ew', pady=(0, 7))
+        controls.grid(row=1, column=0, sticky='ew', pady=(0, 8))
         controls.columnconfigure(0, weight=1)
         self.external_explorer_search_var = tk.StringVar(value='')
         self.external_explorer_filter_var = tk.StringVar(value='All')
         self.external_explorer_search_entry = ttk.Entry(controls, textvariable=self.external_explorer_search_var)
-        self.external_explorer_search_entry.grid(row=0, column=0, sticky='ew', padx=(0, 5))
-        self.external_explorer_search_entry.insert(0, '')
+        self.external_explorer_search_entry.grid(row=0, column=0, sticky='ew', padx=(0, 6))
         self.external_explorer_search_entry.bind('<Return>', lambda _event: self._external_explorer_render())
-        self.external_explorer_filter = ttk.Combobox(controls, textvariable=self.external_explorer_filter_var, state='readonly', width=11, values=('All', 'Workspace', 'Models', 'Parts', 'Scripts', 'Folders', 'Remotes'))
-        self.external_explorer_filter.grid(row=0, column=1, padx=(0, 5))
+        self.external_explorer_filter = ttk.Combobox(controls, textvariable=self.external_explorer_filter_var, state='readonly', width=12, values=('All', 'Workspace', 'Models', 'Parts', 'Scripts', 'Folders', 'Remotes'))
+        self.external_explorer_filter.grid(row=0, column=1, padx=(0, 6))
         self.external_explorer_filter.bind('<<ComboboxSelected>>', lambda _event: self._external_explorer_render())
-        ttk.Button(controls, text='Search', command=self._external_explorer_render).grid(row=0, column=2, padx=(0, 5))
+        ttk.Button(controls, text='Search', command=self._external_explorer_render).grid(row=0, column=2, padx=(0, 6))
         self.external_explorer_refresh_button = ttk.Button(controls, text='Refresh', command=self._external_explorer_refresh)
         self.external_explorer_refresh_button.grid(row=0, column=3)
         body = ttk.PanedWindow(parent, orient='horizontal')
         body.grid(row=2, column=0, sticky='nsew')
-        tree_host = ttk.Frame(body, padding=(0, 0, 5, 0))
-        details_host = ttk.Frame(body, padding=(5, 0, 0, 0))
+        tree_host = ttk.Frame(body, padding=(0, 0, 6, 0))
+        details_host = ttk.Frame(body, padding=(6, 0, 0, 0))
         tree_host.columnconfigure(0, weight=1)
         tree_host.rowconfigure(0, weight=1)
         details_host.columnconfigure(0, weight=1)
         details_host.rowconfigure(0, weight=1)
         body.add(tree_host, weight=3)
         body.add(details_host, weight=2)
-        self.external_explorer_tree = ttk.Treeview(tree_host, columns=('class', 'children'), show='tree headings', selectmode='browse')
-        self.external_explorer_tree.heading('#0', text='Instance')
-        self.external_explorer_tree.heading('class', text='Class')
-        self.external_explorer_tree.heading('children', text='Children')
-        self.external_explorer_tree.column('#0', width=175, minwidth=100, stretch=True)
-        self.external_explorer_tree.column('class', width=105, minwidth=72, stretch=True)
-        self.external_explorer_tree.column('children', width=55, minwidth=48, stretch=False, anchor='center')
-        self.external_explorer_tree.tag_configure('search', foreground=_FFLAG_COLOR_SUCCESS)
-        self.external_explorer_tree.tag_configure('hidden', foreground='#8b929a')
+        explorer_style = ttk.Style(parent)
+        try:
+            explorer_style.configure('RoUtils.Explorer.Treeview', rowheight=25, borderwidth=0, relief='flat', font=('Segoe UI', 9), background='#171a21', fieldbackground='#171a21', foreground='#e6e9ef')
+            explorer_style.map('RoUtils.Explorer.Treeview', background=[('selected', '#34415f')], foreground=[('selected', '#ffffff')])
+            explorer_style.configure('RoUtils.Explorer.Heading', font=('Segoe UI Semibold', 9), padding=(7, 5))
+            explorer_style.configure('RoUtils.Properties.Treeview', rowheight=24, borderwidth=0, relief='flat', font=('Segoe UI', 9), background='#171a21', fieldbackground='#171a21', foreground='#e6e9ef')
+            explorer_style.map('RoUtils.Properties.Treeview', background=[('selected', '#34415f')], foreground=[('selected', '#ffffff')])
+        except Exception:
+            pass
+        self.external_explorer_tree = ttk.Treeview(tree_host, columns=('class', 'children'), show='tree', selectmode='browse', style='RoUtils.Explorer.Treeview')
+        self.external_explorer_tree.column('#0', width=250, minwidth=145, stretch=True)
+        self.external_explorer_tree.column('class', width=110, minwidth=70, stretch=False)
+        self.external_explorer_tree.column('children', width=48, minwidth=40, stretch=False, anchor='center')
+        self.external_explorer_tree.tag_configure('search', foreground='#8be0a7')
+        self.external_explorer_tree.tag_configure('hidden', foreground='#858b96')
+        self.external_explorer_tree.tag_configure('workspace', foreground='#d9e4ff')
+        self.external_explorer_tree.tag_configure('model', foreground='#b8c8ff')
+        self.external_explorer_tree.tag_configure('folder', foreground='#d8c69b')
+        self.external_explorer_tree.tag_configure('part', foreground='#a9d6c1')
+        self.external_explorer_tree.tag_configure('script', foreground='#e5c28b')
+        self.external_explorer_tree.tag_configure('remote', foreground='#d2a8f5')
         scrollbar = ttk.Scrollbar(tree_host, orient='vertical', command=self.external_explorer_tree.yview)
         self.external_explorer_tree.configure(yscrollcommand=scrollbar.set)
         self.external_explorer_tree.grid(row=0, column=0, sticky='nsew')
@@ -98,71 +109,67 @@ class ExternalExplorerMixin:
         self.external_explorer_tree.bind('<<TreeviewSelect>>', self._external_explorer_on_select)
         self.external_explorer_tree.bind('<Double-1>', self._external_explorer_on_double_click, add='+')
         self.external_explorer_tree.bind('<Button-3>', self._external_explorer_context_menu)
+        self.external_explorer_tree.bind('<Button-2>', self._external_explorer_context_menu)
         self.external_explorer_tree.bind('<Control-t>', lambda _event: self._external_explorer_run_action('teleport'))
         self.external_explorer_tree.bind('<KeyPress-v>', lambda _event: self._external_explorer_run_action('view'))
         self.external_explorer_tree.bind('<Delete>', lambda _event: self._external_explorer_run_action('delete'))
         self.external_explorer_notebook = ttk.Notebook(details_host)
         self.external_explorer_notebook.grid(row=0, column=0, sticky='nsew')
-        selection_tab = ttk.Frame(self.external_explorer_notebook, padding=8)
-        properties_tab = ttk.Frame(self.external_explorer_notebook, padding=8)
-        self.external_explorer_notebook.add(selection_tab, text='Selection')
+        properties_tab = ttk.Frame(self.external_explorer_notebook, padding=9)
         self.external_explorer_notebook.add(properties_tab, text='Properties')
-        details = ttk.LabelFrame(selection_tab, text='Selected Instance', padding=9)
-        details.pack(fill='both', expand=True)
-        fields = (('path', 'Path'), ('name', 'Name'), ('class', 'Class'), ('parent', 'Parent'), ('address', 'Address'), ('children', 'Children'))
-        for index, (key, label) in enumerate(fields):
-            ttk.Label(details, text=label, foreground=_FFLAG_COLOR_MUTED).grid(row=index * 2, column=0, sticky='w', pady=(2, 0))
-            value = tk.StringVar(value='—')
-            self._external_explorer_detail_vars[key] = value
-            ttk.Label(details, textvariable=value, wraplength=230, justify='left').grid(row=index * 2 + 1, column=0, sticky='ew', pady=(0, 5))
-        details.columnconfigure(0, weight=1)
         properties_tab.columnconfigure(0, weight=1)
-        properties_tab.rowconfigure(1, weight=1)
-        self.external_explorer_property_status_var = tk.StringVar(value='Select a Part to inspect its properties.')
-        ttk.Label(properties_tab, textvariable=self.external_explorer_property_status_var, foreground=_FFLAG_COLOR_MUTED, wraplength=260).grid(row=0, column=0, sticky='ew', pady=(0, 6))
+        properties_tab.rowconfigure(2, weight=1)
+        property_selection = ttk.LabelFrame(properties_tab, text='Selection', padding=(9, 7))
+        property_selection.grid(row=0, column=0, sticky='ew', pady=(0, 7))
+        for column in (1, 3):
+            property_selection.columnconfigure(column, weight=1)
+        self.external_explorer_property_name_var = tk.StringVar(value='—')
+        self.external_explorer_property_class_var = tk.StringVar(value='—')
+        self.external_explorer_property_path_var = tk.StringVar(value='—')
+        ttk.Label(property_selection, text='Name', foreground=_FFLAG_COLOR_MUTED).grid(row=0, column=0, sticky='w', padx=(2, 7), pady=3)
+        ttk.Label(property_selection, textvariable=self.external_explorer_property_name_var).grid(row=0, column=1, sticky='ew', padx=(0, 12), pady=3)
+        ttk.Label(property_selection, text='Class', foreground=_FFLAG_COLOR_MUTED).grid(row=0, column=2, sticky='w', padx=(2, 7), pady=3)
+        ttk.Label(property_selection, textvariable=self.external_explorer_property_class_var).grid(row=0, column=3, sticky='ew', pady=3)
+        ttk.Label(property_selection, text='Path', foreground=_FFLAG_COLOR_MUTED).grid(row=1, column=0, sticky='w', padx=(2, 7), pady=3)
+        ttk.Label(property_selection, textvariable=self.external_explorer_property_path_var, wraplength=360, justify='left').grid(row=1, column=1, columnspan=3, sticky='ew', pady=3)
+        ttk.Label(property_selection, text='Parent', foreground=_FFLAG_COLOR_MUTED).grid(row=2, column=0, sticky='w', padx=(2, 7), pady=3)
+        ttk.Label(property_selection, textvariable=self._external_explorer_detail_vars['parent']).grid(row=2, column=1, sticky='ew', padx=(0, 12), pady=3)
+        ttk.Label(property_selection, text='Children', foreground=_FFLAG_COLOR_MUTED).grid(row=2, column=2, sticky='w', padx=(2, 7), pady=3)
+        ttk.Label(property_selection, textvariable=self._external_explorer_detail_vars['children']).grid(row=2, column=3, sticky='ew', pady=3)
+        ttk.Label(property_selection, text='Address', foreground=_FFLAG_COLOR_MUTED).grid(row=3, column=0, sticky='w', padx=(2, 7), pady=3)
+        ttk.Label(property_selection, textvariable=self._external_explorer_detail_vars['address']).grid(row=3, column=1, columnspan=3, sticky='ew', pady=3)
+        self.external_explorer_property_status_var = tk.StringVar(value='Select an instance to inspect its properties.')
+        ttk.Label(properties_tab, textvariable=self.external_explorer_property_status_var, foreground=_FFLAG_COLOR_MUTED, wraplength=420).grid(row=1, column=0, sticky='ew', pady=(0, 6))
         property_host = ttk.Frame(properties_tab)
-        property_host.grid(row=1, column=0, sticky='nsew')
+        property_host.grid(row=2, column=0, sticky='nsew')
         property_host.columnconfigure(0, weight=1)
         property_host.rowconfigure(0, weight=1)
-        self.external_explorer_property_tree = ttk.Treeview(property_host, columns=('value',), show='tree headings', selectmode='browse', height=12)
+        self.external_explorer_property_tree = ttk.Treeview(property_host, columns=('value',), show='tree headings', selectmode='browse', height=10, style='RoUtils.Properties.Treeview')
         self.external_explorer_property_tree.heading('#0', text='Property')
         self.external_explorer_property_tree.heading('value', text='Value')
-        self.external_explorer_property_tree.column('#0', width=130, minwidth=90, stretch=True)
-        self.external_explorer_property_tree.column('value', width=135, minwidth=100, stretch=True)
+        self.external_explorer_property_tree.column('#0', width=140, minwidth=95, stretch=True)
+        self.external_explorer_property_tree.column('value', width=150, minwidth=95, stretch=True)
+        self.external_explorer_property_tree.tag_configure('property_group', foreground='#aab7d3')
         property_scroll = ttk.Scrollbar(property_host, orient='vertical', command=self.external_explorer_property_tree.yview)
         self.external_explorer_property_tree.configure(yscrollcommand=property_scroll.set)
         self.external_explorer_property_tree.grid(row=0, column=0, sticky='nsew')
         property_scroll.grid(row=0, column=1, sticky='ns')
         self.external_explorer_property_tree.bind('<<TreeviewSelect>>', self._external_explorer_property_on_select)
         self.external_explorer_property_tree.bind('<Double-1>', lambda _event: self.external_explorer_property_entry.focus_set())
-        editor = ttk.LabelFrame(properties_tab, text='Edit selected property', padding=7)
-        editor.grid(row=2, column=0, sticky='ew', pady=(7, 0))
+        editor = ttk.LabelFrame(properties_tab, text='Edit Property', padding=8)
+        editor.grid(row=3, column=0, sticky='ew', pady=(7, 0))
         editor.columnconfigure(0, weight=1)
         self.external_explorer_property_value_var = tk.StringVar(value='')
         self.external_explorer_property_entry = ttk.Entry(editor, textvariable=self.external_explorer_property_value_var)
-        self.external_explorer_property_entry.grid(row=0, column=0, sticky='ew', pady=(0, 6))
+        self.external_explorer_property_entry.grid(row=0, column=0, sticky='ew', pady=(0, 7))
         self.external_explorer_property_entry.bind('<Return>', lambda _event: self._external_explorer_apply_instance_property())
         property_buttons = ttk.Frame(editor)
         property_buttons.grid(row=1, column=0, sticky='ew')
         property_buttons.columnconfigure(0, weight=1)
         property_buttons.columnconfigure(1, weight=1)
         self.external_explorer_property_apply_button = ttk.Button(property_buttons, text='Apply', command=self._external_explorer_apply_instance_property)
-        self.external_explorer_property_apply_button.grid(row=0, column=0, sticky='ew', padx=(0, 3))
-        ttk.Button(property_buttons, text='Refresh', command=self._external_explorer_refresh_instance_properties).grid(row=0, column=1, sticky='ew', padx=(3, 0))
-        actions = ttk.Frame(details_host)
-        actions.grid(row=1, column=0, sticky='ew', pady=(7, 0))
-        for column in range(3):
-            actions.columnconfigure(column, weight=1)
-        action_buttons = (
-            ('Copy Path', lambda: self._external_explorer_copy('path')),
-            ('Copy Name', lambda: self._external_explorer_copy('name')),
-            ('Copy Class', lambda: self._external_explorer_copy('class')),
-            ('Teleport', lambda: self._external_explorer_run_action('teleport')),
-            ('View', lambda: self._external_explorer_run_action('view')),
-            ('Delete', lambda: self._external_explorer_run_action('delete'))
-        )
-        for index, (label, command) in enumerate(action_buttons):
-            ttk.Button(actions, text=label, command=command).grid(row=index // 3, column=index % 3, sticky='ew', padx=2, pady=2)
+        self.external_explorer_property_apply_button.grid(row=0, column=0, sticky='ew', padx=(0, 4))
+        ttk.Button(property_buttons, text='Refresh', command=self._external_explorer_refresh_instance_properties).grid(row=0, column=1, sticky='ew', padx=(4, 0))
         self._external_explorer_status('Attach a Roblox client in Clients, then refresh.')
 
     @staticmethod
@@ -247,9 +254,15 @@ class ExternalExplorerMixin:
             self.external_explorer_property_status_var.set(error_text)
             return
         self.external_explorer_property_value_var.set('')
+        groups = {'Transform': ('Position', 'Size'), 'Physics': ('AssemblyLinearVelocity', 'AssemblyAngularVelocity', 'Anchored', 'CanCollide', 'CanTouch', 'CanQuery', 'Massless', 'Locked'), 'Appearance': ('Transparency', 'Reflectance', 'Color', 'Material', 'CastShadow')}
+        group_ids = {}
+        for group_name in groups:
+            group_ids[group_name] = f'group_{group_name.casefold()}'
+            tree.insert('', 'end', iid=group_ids[group_name], text=group_name, values=('',), open=True, tags=('property_group',))
+        group_for = {key: group_name for group_name, keys in groups.items() for key in keys}
         for key, value in values:
-            tree.insert('', 'end', iid=key, text=key, values=(value,))
-        self.external_explorer_property_status_var.set(f'{len(values)} properties · select a row, edit the value and Apply.')
+            tree.insert(group_ids.get(group_for.get(key, 'Physics')), 'end', iid=key, text=key, values=(value,))
+        self.external_explorer_property_status_var.set(f'{len(values)} properties · select a property, edit its value and Apply.')
 
     def _external_explorer_property_on_select(self, event=None):
         selection = self.external_explorer_property_tree.selection()
@@ -513,6 +526,10 @@ class ExternalExplorerMixin:
             return
         label = self._external_explorer_label(item['name'], item['cls'], address in self._external_explorer_hidden)
         node_tags = tuple(tag) + (('hidden',) if address in self._external_explorer_hidden else ())
+        class_name = str(item.get('cls', ''))
+        class_tag = 'workspace' if class_name == 'Workspace' else 'model' if class_name == 'Model' else 'folder' if class_name == 'Folder' else 'script' if 'Script' in class_name else 'part' if self._external_explorer_is_basepart_class(class_name) else 'remote' if class_name.startswith(('Remote', 'Bindable')) else ''
+        if class_tag:
+            node_tags = tuple(node_tags) + (class_tag,)
         self.external_explorer_tree.insert(parent_iid, 'end', iid=iid, text=label, values=(item['cls'], len(item['kids'])), tags=node_tags)
         self._external_explorer_item_data[iid] = {'kind': 'node', 'address': address}
         if item['kids']:
@@ -631,7 +648,7 @@ class ExternalExplorerMixin:
         root_iid = self._external_explorer_iid(root)
         self._external_explorer_loaded.add(root_iid)
         item = snapshot[root]
-        tree.insert('', 'end', iid=root_iid, text=item['name'] or 'Game', values=(item['cls'], len(item['kids'])), open=True)
+        tree.insert('', 'end', iid=root_iid, text=self._external_explorer_label(item['name'] or 'Game', item['cls']), values=(item['cls'], len(item['kids'])), tags=('workspace',), open=True)
         self._external_explorer_item_data[root_iid] = {'kind': 'node', 'address': root}
         self._external_explorer_insert_children(root_iid, root, 0)
         self._external_explorer_clear_details()
@@ -639,6 +656,10 @@ class ExternalExplorerMixin:
     def _external_explorer_clear_details(self):
         for value in getattr(self, '_external_explorer_detail_vars', {}).values():
             value.set('—')
+        for name in ('external_explorer_property_name_var', 'external_explorer_property_class_var', 'external_explorer_property_path_var'):
+            variable = getattr(self, name, None)
+            if variable is not None:
+                variable.set('—')
         if hasattr(self, 'external_explorer_property_tree'):
             self._external_explorer_clear_instance_properties()
 
@@ -668,6 +689,10 @@ class ExternalExplorerMixin:
         }
         for key, value in values.items():
             self._external_explorer_detail_vars[key].set(value)
+        if hasattr(self, 'external_explorer_property_name_var'):
+            self.external_explorer_property_name_var.set(item['name'])
+            self.external_explorer_property_class_var.set(item['cls'])
+            self.external_explorer_property_path_var.set(values['path'])
         self._external_explorer_load_instance_properties(address)
 
     def _external_explorer_copy(self, key):
@@ -690,22 +715,25 @@ class ExternalExplorerMixin:
             icon = '◌'
             suffix = '  [Hidden]'
         elif cls == 'Workspace':
-            icon = '◉'
+            icon = '▦'
             suffix = ''
         elif cls == 'Model':
-            icon = '◇'
+            icon = '▱'
             suffix = ''
         elif cls == 'Folder':
             icon = '▰'
             suffix = ''
         elif 'Part' in cls or cls in ('UnionOperation', 'Seat', 'VehicleSeat', 'SpawnLocation'):
-            icon = '▣'
+            icon = '□'
             suffix = ''
         elif 'Script' in cls:
-            icon = '▤'
+            icon = '▧'
+            suffix = ''
+        elif cls in ('RemoteEvent', 'RemoteFunction', 'BindableEvent', 'BindableFunction'):
+            icon = '↔'
             suffix = ''
         else:
-            icon = '•'
+            icon = '◦'
             suffix = ''
         return f'{icon}  {name}{suffix}'
 
@@ -742,10 +770,15 @@ class ExternalExplorerMixin:
         menu.add_command(label='View\tV', command=lambda: self._external_explorer_run_action('view'))
         menu.add_command(label='Stop Viewing', command=lambda: self._external_explorer_run_action('stop_view'))
         menu.add_separator()
+        iid = self.external_explorer_tree.selection()[0]
+        is_open = bool(self.external_explorer_tree.item(iid, 'open'))
+        menu.add_command(label='Collapse' if is_open else 'Expand', command=lambda: self.external_explorer_tree.item(iid, open=not is_open))
+        menu.add_command(label='Refresh Explorer', command=self._external_explorer_refresh)
+        menu.add_separator()
         can_edit = 'Part' in cls or cls in ('UnionOperation', 'Seat', 'VehicleSeat', 'SpawnLocation', 'Model')
         menu.add_command(label='Delete Locally\tDel', command=lambda: self._external_explorer_run_action('delete'), state='normal' if can_edit else 'disabled')
         menu.add_separator()
-        menu.add_command(label='Properties', command=lambda: self.external_explorer_notebook.select(1))
+        menu.add_command(label='Properties', command=lambda: self.external_explorer_notebook.select(0))
         menu.add_separator()
         menu.add_command(label='Copy Path', command=lambda: self._external_explorer_copy('path'))
         menu.add_command(label='Copy Name', command=lambda: self._external_explorer_copy('name'))

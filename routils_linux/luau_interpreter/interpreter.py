@@ -59,19 +59,32 @@ class LuauInterpreterMixin:
     def _luau_find_runtime(self):
         bundle_root = getattr(sys, '_MEIPASS', '')
         source_root = os.path.dirname(os.path.abspath(__file__))
+        app_root = os.path.dirname(source_root)
+        executable = 'luau.exe' if os.name == 'nt' else 'luau'
         candidates = []
         if bundle_root:
-            candidates.append(os.path.join(bundle_root, 'bin', 'luau'))
+            candidates.append(os.path.join(bundle_root, 'bin', executable))
         candidates.extend((
-            os.path.join(source_root, 'bin', 'luau'),
-            os.path.join(source_root, '..', 'bin', 'luau'),
+            os.path.join(app_root, 'bin', executable),
+            os.path.join(source_root, 'bin', executable),
+            shutil.which(executable) or '',
             shutil.which('luau') or '',
-            os.path.expanduser('~/.local/bin/luau'),
-            '/usr/local/bin/luau',
-            '/usr/bin/luau',
         ))
+        if os.name != 'nt':
+            candidates.extend((
+                os.path.expanduser('~/.local/bin/luau'),
+                '/usr/local/bin/luau',
+                '/usr/bin/luau',
+            ))
+        seen = set()
         for candidate in candidates:
-            if candidate and os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+            if not candidate:
+                continue
+            candidate = os.path.abspath(candidate)
+            if candidate in seen:
+                continue
+            seen.add(candidate)
+            if os.path.isfile(candidate) and (os.name == 'nt' or os.access(candidate, os.X_OK)):
                 return candidate
         return None
 
@@ -106,7 +119,7 @@ class LuauInterpreterMixin:
         runtime = self._luau_find_runtime()
         if not runtime:
             self.luau_status_var.set('Luau CLI not found')
-            self._luau_console_write('The bundled Luau CLI is missing. Rebuild RoUtils with the Linux compile script or GitHub Actions workflow.\n')
+            self._luau_console_write('The Luau CLI is missing. Rebuild RoUtils with the platform compile script or GitHub Actions workflow.\n')
             return
         self._luau_running = True
         self._luau_run_token += 1
@@ -123,7 +136,7 @@ class LuauInterpreterMixin:
                     script_path = os.path.join(workdir, 'main.luau')
                     with open(script_path, 'w', encoding='utf-8', newline='') as stream:
                         stream.write(source)
-                    result = subprocess.run([runtime, script_path], cwd=workdir, capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=8, check=False)
+                    result = subprocess.run([runtime, script_path], cwd=workdir, capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=8, check=False, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
                     exit_code = int(result.returncode)
                     output = (result.stdout or '') + (result.stderr or '')
             except subprocess.TimeoutExpired as error:
