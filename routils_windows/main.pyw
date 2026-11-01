@@ -8673,16 +8673,19 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             style.configure('RoUtils.Hidden.TNotebook', tabmargins=0, padding=0, borderwidth=0)
         except Exception:
             pass
-        self._tab_nav = ttk.Frame(self)
-        self._tab_nav.pack(fill='x', side='top', padx=8, pady=(6, 4))
+        self._main_paned = ttk.PanedWindow(self, orient='horizontal')
+        self._main_paned.pack(fill='both', expand=True, padx=8, pady=8)
+        self._tab_nav = ttk.Frame(self._main_paned, width=190)
+        self._tab_nav.pack_propagate(False)
+        self._main_paned.add(self._tab_nav, weight=0)
         self._tab_nav_inner = ttk.Frame(self._tab_nav)
-        self._tab_nav_inner.pack(fill='x', expand=True)
+        self._tab_nav_inner.pack(fill='both', expand=True, padx=(0, 6), pady=2)
         self._tab_nav_refresh_job = None
         self._tab_nav_layout_signature = None
         self._tab_nav.bind('<Configure>', self._schedule_tab_nav_refresh, add='+')
         self._setup_tab_nav_styles()
-        self.nb = ttk.Notebook(self, style='RoUtils.Hidden.TNotebook')
-        self.nb.pack(fill='both', expand=True, padx=8, pady=(0, 8))
+        self.nb = ttk.Notebook(self._main_paned, style='RoUtils.Hidden.TNotebook')
+        self._main_paned.add(self.nb, weight=1)
         self.tab_viewer = ttk.Frame(self.nb)
         self.nb.add(self.tab_viewer, text=UI_TEXT['f5'])
         self.hpaned = ttk.PanedWindow(self.tab_viewer, orient='horizontal')
@@ -10301,30 +10304,23 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                             pass
                     buttons.pop(tab_id, None)
                     grips.pop(tab_id, None)
-            try:
-                nav_width = max(self.winfo_width(), self._tab_nav.winfo_width())
-            except Exception:
-                nav_width = 1200
-            if nav_width < 760:
-                compact_names = {UI_TEXT['k5']: 'Mods', UI_TEXT['m5']: 'Subpl.', UI_TEXT['n5']: 'Server', UI_TEXT['r5']: 'Set.'}
-            elif nav_width < 1080:
-                compact_names = {UI_TEXT['k5']: 'Mods', UI_TEXT['m5']: 'Subplace', UI_TEXT['n5']: 'Server', UI_TEXT['r5']: UI_TEXT['r5']}
-            else:
-                compact_names = {}
-            display_rows = []
             for tab_id in current_tabs:
                 name = str(self.nb.tab(tab_id, 'text'))
-                display_name = compact_names.get(name, name)
-                display_rows.append((tab_id, display_name))
                 button = buttons.get(tab_id)
+                row = getattr(self, '_tab_nav_rows', {}).get(tab_id)
+                if row is None or not row.winfo_exists():
+                    if not hasattr(self, '_tab_nav_rows'):
+                        self._tab_nav_rows = {}
+                    row = ttk.Frame(self._tab_nav_inner)
+                    self._tab_nav_rows[tab_id] = row
                 if button is None or not button.winfo_exists():
-                    button = ttk.Button(self._tab_nav_inner, text=display_name, takefocus=False, style='RoUtils.Nav.TButton', command=lambda tid=tab_id: self.nb.select(tid))
+                    button = ttk.Button(row, text=name, takefocus=False, style='RoUtils.Nav.TButton', command=lambda tid=tab_id: self.nb.select(tid))
                     buttons[tab_id] = button
-                elif str(button.cget('text')) != display_name:
-                    button.configure(text=display_name)
+                elif str(button.cget('text')) != name:
+                    button.configure(text=name)
                 grip = grips.get(tab_id)
                 if grip is None or not grip.winfo_exists():
-                    grip = tk.Label(self._tab_nav_inner, text=UI_TEXT['g7'], bg=_CURRENT_PALETTE.get('bg_dark', '#111318'), fg='#8490a6', font=('Segoe UI Symbol', 10), cursor='hand2', padx=1)
+                    grip = tk.Label(row, text=UI_TEXT['g7'], bg=_CURRENT_PALETTE.get('bg_dark', '#111318'), fg='#8490a6', font=('Segoe UI Symbol', 9), cursor='hand2', padx=2)
                     grip.bind('<ButtonPress-1>', lambda event, tid=tab_id: self._tab_drag_start(event, tid))
                     grip.bind('<B1-Motion>', self._tab_drag_motion)
                     grip.bind('<ButtonRelease-1>', self._tab_drag_release)
@@ -10333,21 +10329,24 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                     grip.configure(bg=_CURRENT_PALETTE.get('bg_dark', '#111318'))
             self._tab_nav_buttons = buttons
             self._tab_grips = grips
-            columns = max(3, min(12, int(max(1, nav_width) // 118)))
-            signature = (tuple(display_rows), columns)
+            signature = tuple((tab_id, str(self.nb.tab(tab_id, 'text'))) for tab_id in current_tabs)
             if signature != getattr(self, '_tab_nav_layout_signature', None):
-                for column in range(columns * 2):
-                    self._tab_nav_inner.columnconfigure(column, weight=0)
-                for index, (tab_id, _display_name) in enumerate(display_rows):
-                    grip = grips[tab_id]
-                    button = buttons[tab_id]
-                    grip.pack_forget()
-                    button.pack_forget()
-                    row = index // columns
-                    column = (index % columns) * 2
-                    grip.grid(row=row, column=column, sticky='w', padx=(3, 0), pady=(0, 2))
-                    button.grid(row=row, column=column + 1, sticky='w', padx=(0, 4), pady=(0, 2))
-                self._tab_nav_inner.grid_anchor('center')
+                if not hasattr(self, '_tab_nav_rows'):
+                    self._tab_nav_rows = {}
+                for tab_id, row in tuple(self._tab_nav_rows.items()):
+                    if tab_id not in current_tabs:
+                        try:
+                            row.destroy()
+                        except Exception:
+                            pass
+                        self._tab_nav_rows.pop(tab_id, None)
+                for tab_id in current_tabs:
+                    self._tab_nav_rows[tab_id].pack_forget()
+                for tab_id in current_tabs:
+                    row = self._tab_nav_rows[tab_id]
+                    row.pack(fill='x', expand=False, pady=1)
+                    grips[tab_id].pack(side='left', padx=(2, 4), pady=2)
+                    buttons[tab_id].pack(side='left', fill='x', expand=True, padx=(0, 4), pady=2, ipady=2)
                 self._tab_nav_layout_signature = signature
             for tab_id in current_tabs:
                 button = buttons[tab_id]
@@ -10383,18 +10382,14 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         if tab_id not in self.nb.tabs():
             return 'break'
         try:
-            left, top = self.winfo_rootx(), self.winfo_rooty()
-            right, bottom = left + self.winfo_width(), top + self.winfo_height()
-            if event.x_root < left or event.x_root > right or event.y_root < top or event.y_root > bottom:
-                return 'break'
             entries = []
             for current_id in self.nb.tabs():
-                widget = self._tab_grips.get(current_id) or self._tab_nav_buttons.get(current_id)
+                widget = self._tab_nav_rows.get(current_id)
                 if widget is None or current_id == tab_id:
                     continue
                 try:
-                    center = widget.winfo_rootx() + widget.winfo_width() // 2
-                    entries.append((abs(event.x_root - center), center, current_id))
+                    center = widget.winfo_rooty() + widget.winfo_height() // 2
+                    entries.append((abs(event.y_root - center), center, current_id))
                 except Exception:
                     pass
             if entries:
@@ -10403,11 +10398,12 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                 order.remove(tab_id)
                 index = order.index(target)
                 target_center = next(item[1] for item in entries if item[2] == target)
-                if event.x_root > target_center:
+                if event.y_root > target_center:
                     index += 1
                 order.insert(index, tab_id)
                 for position, item in enumerate(order):
                     self.nb.insert(position, item)
+                self._tab_nav_layout_signature = None
                 self._refresh_tab_nav()
                 self._save_settings()
         except Exception as exc:
@@ -10417,8 +10413,8 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         style = ttk.Style(self)
         self._tab_nav_buttons = {}
         try:
-            style.configure('RoUtils.Nav.TButton', padding=(7, 4), font=('Segoe UI Semibold', 9))
-            style.configure('RoUtils.ActiveNav.TButton', padding=(7, 4), font=('Segoe UI Semibold', 9), foreground=_CURRENT_PALETTE.get('accent', '#7f8cff'))
+            style.configure('RoUtils.Nav.TButton', padding=(8, 6), font=('Segoe UI Semibold', 9), anchor='w')
+            style.configure('RoUtils.ActiveNav.TButton', padding=(8, 6), font=('Segoe UI Semibold', 9), foreground=_CURRENT_PALETTE.get('accent', '#7f8cff'), anchor='w')
         except Exception:
             pass
     def _install_global_scroll_support(self):
