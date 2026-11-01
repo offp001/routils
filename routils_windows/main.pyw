@@ -8677,7 +8677,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         self._tab_bar_position = str(self.settings.get('tab_bar_position', 'Left') or 'Left').capitalize()
         if self._tab_bar_position not in ('Left', 'Right', 'Top'):
             self._tab_bar_position = 'Left'
-        self._main_paned = ttk.PanedWindow(self, orient='horizontal')
+        self._main_paned = ttk.Frame(self)
         self._main_paned.pack(fill='both', expand=True, padx=8, pady=8)
         self.nb = ttk.Notebook(self._main_paned, style='RoUtils.Hidden.TNotebook')
         self._tab_nav_refresh_job = None
@@ -10271,8 +10271,8 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             pass
     def _create_tab_nav_widgets(self):
         horizontal = self._tab_bar_position == 'Top'
-        self._tab_nav = ttk.Frame(self._main_paned, width=154 if not horizontal else 154, height=54 if horizontal else 154)
-        self._tab_nav.pack_propagate(False)
+        self._tab_nav = ttk.Frame(self._main_paned, width=154, height=54 if horizontal else 154)
+        self._tab_nav.grid_propagate(False)
         self._tab_nav_canvas = tk.Canvas(self._tab_nav, highlightthickness=0, borderwidth=0, takefocus=0, bg=_CURRENT_PALETTE.get('bg_dark', '#111318'))
         self._tab_nav_scrollbar = ttk.Scrollbar(self._tab_nav, orient='horizontal' if horizontal else 'vertical', command=self._tab_nav_canvas.xview if horizontal else self._tab_nav_canvas.yview)
         if horizontal:
@@ -10299,24 +10299,33 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
 
     def _arrange_main_paned(self):
         try:
-            for pane in tuple(self._main_paned.panes()):
-                self._main_paned.forget(pane)
-        except Exception:
-            pass
-        horizontal = self._tab_bar_position == 'Top'
-        self._main_paned.configure(orient='vertical' if horizontal else 'horizontal')
-        if self._tab_bar_position == 'Right':
-            self._main_paned.add(self.nb, weight=1)
-            self._main_paned.add(self._tab_nav, weight=0)
-            minimum = 48 if horizontal else 130
-        else:
-            self._main_paned.add(self._tab_nav, weight=0)
-            self._main_paned.add(self.nb, weight=1)
-            minimum = 48 if horizontal else 130
-        try:
-            self._main_paned.pane(self._tab_nav, minsize=minimum)
-        except Exception:
-            pass
+            self.nb.grid_forget()
+            self._tab_nav.grid_forget()
+            for index in range(2):
+                self._main_paned.grid_rowconfigure(index, weight=0, minsize=0)
+                self._main_paned.grid_columnconfigure(index, weight=0, minsize=0)
+            if self._tab_bar_position == 'Top':
+                self._main_paned.grid_rowconfigure(1, weight=1)
+                self._main_paned.grid_columnconfigure(0, weight=1)
+                self._tab_nav.grid(row=0, column=0, sticky='ew')
+                self.nb.grid(row=1, column=0, sticky='nsew')
+            elif self._tab_bar_position == 'Right':
+                self._main_paned.grid_rowconfigure(0, weight=1)
+                self._main_paned.grid_columnconfigure(0, weight=1)
+                self._main_paned.grid_columnconfigure(1, minsize=154)
+                self.nb.grid(row=0, column=0, sticky='nsew')
+                self._tab_nav.grid(row=0, column=1, sticky='ns')
+            else:
+                self._main_paned.grid_rowconfigure(0, weight=1)
+                self._main_paned.grid_columnconfigure(0, minsize=154)
+                self._main_paned.grid_columnconfigure(1, weight=1)
+                self._tab_nav.grid(row=0, column=0, sticky='ns')
+                self.nb.grid(row=0, column=1, sticky='nsew')
+        except Exception as exc:
+            try:
+                _report_rotools_error(type(exc), exc, exc.__traceback__, self)
+            except Exception:
+                pass
 
     def _apply_tab_bar_position_from_settings(self):
         self._apply_tab_bar_position(self.tab_bar_position_var.get())
@@ -10337,8 +10346,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
                 pass
             self._tab_nav_refresh_job = None
         try:
-            for pane in tuple(self._main_paned.panes()):
-                self._main_paned.forget(pane)
+            self._tab_nav.grid_forget()
             self._tab_nav.destroy()
         except Exception:
             pass
