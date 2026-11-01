@@ -8677,6 +8677,12 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         self._tab_bar_position = str(self.settings.get('tab_bar_position', 'Left') or 'Left').capitalize()
         if self._tab_bar_position not in ('Left', 'Right', 'Top'):
             self._tab_bar_position = 'Left'
+        try:
+            self._tab_nav_width = max(72, min(320, int(self.settings.get('tab_nav_width', 96) or 96)))
+        except Exception:
+            self._tab_nav_width = 96
+        self._tab_nav_sash = None
+        self._tab_nav_resize_start = None
         self._main_paned = ttk.Frame(self)
         self._main_paned.pack(fill='both', expand=True, padx=8, pady=8)
         self.nb = ttk.Notebook(self._main_paned, style='RoUtils.Hidden.TNotebook')
@@ -10271,7 +10277,8 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
             pass
     def _create_tab_nav_widgets(self):
         horizontal = self._tab_bar_position == 'Top'
-        self._tab_nav = ttk.Frame(self._main_paned, width=154, height=54 if horizontal else 154)
+        nav_width = 154 if horizontal else self._tab_nav_width
+        self._tab_nav = ttk.Frame(self._main_paned, width=nav_width, height=54 if horizontal else 154)
         self._tab_nav.grid_propagate(False)
         self._tab_nav_canvas = tk.Canvas(self._tab_nav, highlightthickness=0, borderwidth=0, takefocus=0, bg=_CURRENT_PALETTE.get('bg_dark', '#111318'))
         self._tab_nav_scrollbar = ttk.Scrollbar(self._tab_nav, orient='horizontal' if horizontal else 'vertical', command=self._tab_nav_canvas.xview if horizontal else self._tab_nav_canvas.yview)
@@ -10301,31 +10308,94 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         try:
             self.nb.grid_forget()
             self._tab_nav.grid_forget()
-            for index in range(2):
+            if self._tab_nav_sash is None or not self._tab_nav_sash.winfo_exists():
+                self._tab_nav_sash = ttk.Separator(self._main_paned, orient='vertical', cursor='sb_h_double_arrow')
+                self._tab_nav_sash.bind('<ButtonPress-1>', self._nav_resize_start, add='+')
+                self._tab_nav_sash.bind('<B1-Motion>', self._nav_resize_motion, add='+')
+                self._tab_nav_sash.bind('<ButtonRelease-1>', self._nav_resize_release, add='+')
+            for index in range(3):
                 self._main_paned.grid_rowconfigure(index, weight=0, minsize=0)
                 self._main_paned.grid_columnconfigure(index, weight=0, minsize=0)
             if self._tab_bar_position == 'Top':
+                self._tab_nav_sash.grid_forget()
                 self._main_paned.grid_rowconfigure(1, weight=1)
                 self._main_paned.grid_columnconfigure(0, weight=1)
+                self._tab_nav.configure(width=154, height=54)
                 self._tab_nav.grid(row=0, column=0, sticky='ew')
                 self.nb.grid(row=1, column=0, sticky='nsew')
             elif self._tab_bar_position == 'Right':
                 self._main_paned.grid_rowconfigure(0, weight=1)
                 self._main_paned.grid_columnconfigure(0, weight=1)
-                self._main_paned.grid_columnconfigure(1, minsize=154)
+                self._main_paned.grid_columnconfigure(1, minsize=6)
+                self._main_paned.grid_columnconfigure(2, minsize=self._tab_nav_width)
                 self.nb.grid(row=0, column=0, sticky='nsew')
-                self._tab_nav.grid(row=0, column=1, sticky='ns')
+                self._tab_nav_sash.grid(row=0, column=1, sticky='ns')
+                self._tab_nav.configure(width=self._tab_nav_width, height=154)
+                self._tab_nav.grid(row=0, column=2, sticky='ns')
             else:
                 self._main_paned.grid_rowconfigure(0, weight=1)
-                self._main_paned.grid_columnconfigure(0, minsize=154)
-                self._main_paned.grid_columnconfigure(1, weight=1)
+                self._main_paned.grid_columnconfigure(0, minsize=self._tab_nav_width)
+                self._main_paned.grid_columnconfigure(1, minsize=6)
+                self._main_paned.grid_columnconfigure(2, weight=1)
+                self._tab_nav.configure(width=self._tab_nav_width, height=154)
                 self._tab_nav.grid(row=0, column=0, sticky='ns')
-                self.nb.grid(row=0, column=1, sticky='nsew')
+                self._tab_nav_sash.grid(row=0, column=1, sticky='ns')
+                self.nb.grid(row=0, column=2, sticky='nsew')
         except Exception as exc:
             try:
                 _report_rotools_error(type(exc), exc, exc.__traceback__, self)
             except Exception:
                 pass
+
+    def _nav_resize_start(self, event):
+        if self._tab_bar_position == 'Top':
+            return 'break'
+        self._tab_nav_resize_start = (event.x_root, self._tab_nav_width)
+        try:
+            self.configure(cursor='sb_h_double_arrow')
+        except Exception:
+            pass
+        return 'break'
+
+    def _nav_resize_motion(self, event):
+        start = self._tab_nav_resize_start
+        if not start or self._tab_bar_position == 'Top':
+            return 'break'
+        start_x, start_width = start
+        delta = event.x_root - start_x
+        width = start_width - delta if self._tab_bar_position == 'Right' else start_width + delta
+        self._set_tab_nav_width(width, save=False)
+        return 'break'
+
+    def _nav_resize_release(self, _event=None):
+        if self._tab_nav_resize_start is not None:
+            self._tab_nav_resize_start = None
+            try:
+                self.configure(cursor='')
+            except Exception:
+                pass
+            self.settings['tab_nav_width'] = self._tab_nav_width
+            self._save_settings()
+        return 'break'
+
+    def _set_tab_nav_width(self, width, save=False):
+        try:
+            width = max(72, min(320, int(width)))
+        except Exception:
+            width = 96
+        self._tab_nav_width = width
+        if self._tab_bar_position == 'Top':
+            return
+        try:
+            self._tab_nav.configure(width=width)
+            column = 2 if self._tab_bar_position == 'Right' else 0
+            self._main_paned.grid_columnconfigure(column, minsize=width)
+            self.update_idletasks()
+        except Exception:
+            pass
+        if save:
+            self.settings['tab_nav_width'] = width
+            self._save_settings()
 
     def _apply_tab_bar_position_from_settings(self):
         self._apply_tab_bar_position(self.tab_bar_position_var.get())
@@ -10972,7 +11042,7 @@ class App(AutoUpdateMixin, AIMixin, CacheMixin, ClientMixin, ConsoleMixin, Emote
         data.pop('discord_rpc_enabled', None)
         data['emote_hotkeys_enabled'] = bool(getattr(self, '_emote_hotkeys_enabled', self.settings.get('emote_hotkeys_enabled', True)))
         data['emote_hotkeys_toggle_key'] = str(getattr(self, '_emote_hotkeys_toggle_key', self.settings.get('emote_hotkeys_toggle_key', '')) or '').upper()
-        data.update({'autoscroll': self.autoscroll.get(), 'hide_tickets': self.hide_tickets.get(), 'stay_on_top': self.stay_on_top.get(), 'show_lines': self.show_lines.get(), 'preview_optimize_vertices': self.viewport_3d.reduce_polys.get() if hasattr(self, 'viewport_3d') else self.settings.get('preview_optimize_vertices', True), 'streamer_mode': self.streamer_mode.get() if hasattr(self, 'streamer_mode') else self.settings.get('streamer_mode', False), 'fps_limit': self.fps_limit.get() if hasattr(self, 'fps_limit') else self.settings.get('fps_limit', 0), 'autostart_watch': self.autostart_watch.get() if hasattr(self, 'autostart_watch') else self.settings.get('autostart_watch', False), 'max_rows': self.max_rows.get() if hasattr(self, 'max_rows') else self.settings.get('max_rows', 0), 'type_filter': self.type_filter.get(), 'columns': {c: var.get() for c, var in getattr(self, '_col_vars', {}).items()}, 'viewer_collapsed': self.viewer_collapsed, 'theme': self.theme_var.get() if hasattr(self, 'theme_var') else self.settings.get('theme', DEFAULT_THEME), 'fflag_hotkeys': self.fflag_hotkeys, 'fps_hotkeys': self.fps_hotkeys, 'fps_hotkey_slots': self.fps_hotkey_slots, 'fflag_auto_apply': self.fflag_auto_apply.get() if hasattr(self, 'fflag_auto_apply') else self.settings.get('fflag_auto_apply', False), 'launch_on_tray': self.launch_on_tray.get() if hasattr(self, 'launch_on_tray') else self.settings.get('launch_on_tray', False), 'launch_on_startup': self.launch_on_startup.get() if hasattr(self, 'launch_on_startup') else self.settings.get('launch_on_startup', False), 'hide_to_tray_on_close': self.hide_to_tray_on_close.get() if hasattr(self, 'hide_to_tray_on_close') else self.settings.get('hide_to_tray_on_close', False), 'auto_update': self.auto_update.get() if hasattr(self, 'auto_update') else self.settings.get('auto_update', False), 'dpi_percent': int(self.dpi_percent.get()) if hasattr(self, 'dpi_percent') else int(getattr(self, '_dpi_scale', 1.0) * 100), 'plugin_enabled': getattr(self, '_plugin_enabled', self.settings.get('plugin_enabled', {})), 'emote_nav_binds': dict(getattr(self, '_emote_nav_binds', self.settings.get('emote_nav_binds', {}))), 'emote_hud_enabled': False, 'hpaned_sash_v2': self.hpaned.sashpos(0) if hasattr(self, 'hpaned') and self.hpaned.winfo_width() > 0 and self.hpaned.sashpos(0) > 0 else self.settings.get('hpaned_sash_v2', None), 'roblox_path': self.settings.get('roblox_path', ''), 'roblox_username': self.settings.get('roblox_username', ''), 'roblox_user_id': self.settings.get('roblox_user_id', ''), 'gemini_api_key': self.gemini_api_key.get().strip() if hasattr(self, 'gemini_api_key') else self.settings.get('gemini_api_key', ''), 'custom_theme': self.settings.get('custom_theme', {}), 'db_path': getattr(self, 'db_path', self.settings.get('db_path', '')), 'shard_root': getattr(self, 'shard_root', self.settings.get('shard_root', '')), 'window_geometry': self.geometry() if self.winfo_exists() else self.settings.get('window_geometry', STARTUP_GEOMETRY), 'include_cconfigs': self.include_cconfigs.get() if hasattr(self, 'include_cconfigs') else self.settings.get('include_cconfigs', False), 'include_cache_dumps': self.include_cache_dumps.get() if hasattr(self, 'include_cache_dumps') else self.settings.get('include_cache_dumps', False), 'tab_bar_position': getattr(self, '_tab_bar_position', self.settings.get('tab_bar_position', 'Left')), 'tab_order': [self.nb.tab(t, 'text') for t in self.nb.tabs()] if hasattr(self, 'nb') else self.settings.get('tab_order', []), 'selected_tab': self.nb.tab(self.nb.select(), 'text') if hasattr(self, 'nb') and self.nb.select() else self.settings.get('selected_tab', UI_TEXT['w5']), 'hpaned_sash': self.hpaned.sashpos(0) if hasattr(self, 'hpaned') else self.settings.get('hpaned_sash', None), 'vpaned_sash': self.vpaned.sashpos(0) if hasattr(self, 'vpaned') else self.settings.get('vpaned_sash', None)})
+        data.update({'autoscroll': self.autoscroll.get(), 'hide_tickets': self.hide_tickets.get(), 'stay_on_top': self.stay_on_top.get(), 'show_lines': self.show_lines.get(), 'preview_optimize_vertices': self.viewport_3d.reduce_polys.get() if hasattr(self, 'viewport_3d') else self.settings.get('preview_optimize_vertices', True), 'streamer_mode': self.streamer_mode.get() if hasattr(self, 'streamer_mode') else self.settings.get('streamer_mode', False), 'fps_limit': self.fps_limit.get() if hasattr(self, 'fps_limit') else self.settings.get('fps_limit', 0), 'autostart_watch': self.autostart_watch.get() if hasattr(self, 'autostart_watch') else self.settings.get('autostart_watch', False), 'max_rows': self.max_rows.get() if hasattr(self, 'max_rows') else self.settings.get('max_rows', 0), 'type_filter': self.type_filter.get(), 'columns': {c: var.get() for c, var in getattr(self, '_col_vars', {}).items()}, 'viewer_collapsed': self.viewer_collapsed, 'theme': self.theme_var.get() if hasattr(self, 'theme_var') else self.settings.get('theme', DEFAULT_THEME), 'fflag_hotkeys': self.fflag_hotkeys, 'fps_hotkeys': self.fps_hotkeys, 'fps_hotkey_slots': self.fps_hotkey_slots, 'fflag_auto_apply': self.fflag_auto_apply.get() if hasattr(self, 'fflag_auto_apply') else self.settings.get('fflag_auto_apply', False), 'launch_on_tray': self.launch_on_tray.get() if hasattr(self, 'launch_on_tray') else self.settings.get('launch_on_tray', False), 'launch_on_startup': self.launch_on_startup.get() if hasattr(self, 'launch_on_startup') else self.settings.get('launch_on_startup', False), 'hide_to_tray_on_close': self.hide_to_tray_on_close.get() if hasattr(self, 'hide_to_tray_on_close') else self.settings.get('hide_to_tray_on_close', False), 'auto_update': self.auto_update.get() if hasattr(self, 'auto_update') else self.settings.get('auto_update', False), 'dpi_percent': int(self.dpi_percent.get()) if hasattr(self, 'dpi_percent') else int(getattr(self, '_dpi_scale', 1.0) * 100), 'plugin_enabled': getattr(self, '_plugin_enabled', self.settings.get('plugin_enabled', {})), 'emote_nav_binds': dict(getattr(self, '_emote_nav_binds', self.settings.get('emote_nav_binds', {}))), 'emote_hud_enabled': False, 'hpaned_sash_v2': self.hpaned.sashpos(0) if hasattr(self, 'hpaned') and self.hpaned.winfo_width() > 0 and self.hpaned.sashpos(0) > 0 else self.settings.get('hpaned_sash_v2', None), 'roblox_path': self.settings.get('roblox_path', ''), 'roblox_username': self.settings.get('roblox_username', ''), 'roblox_user_id': self.settings.get('roblox_user_id', ''), 'gemini_api_key': self.gemini_api_key.get().strip() if hasattr(self, 'gemini_api_key') else self.settings.get('gemini_api_key', ''), 'custom_theme': self.settings.get('custom_theme', {}), 'db_path': getattr(self, 'db_path', self.settings.get('db_path', '')), 'shard_root': getattr(self, 'shard_root', self.settings.get('shard_root', '')), 'window_geometry': self.geometry() if self.winfo_exists() else self.settings.get('window_geometry', STARTUP_GEOMETRY), 'include_cconfigs': self.include_cconfigs.get() if hasattr(self, 'include_cconfigs') else self.settings.get('include_cconfigs', False), 'include_cache_dumps': self.include_cache_dumps.get() if hasattr(self, 'include_cache_dumps') else self.settings.get('include_cache_dumps', False), 'tab_bar_position': getattr(self, '_tab_bar_position', self.settings.get('tab_bar_position', 'Left')), 'tab_nav_width': getattr(self, '_tab_nav_width', self.settings.get('tab_nav_width', 96)), 'tab_order': [self.nb.tab(t, 'text') for t in self.nb.tabs()] if hasattr(self, 'nb') else self.settings.get('tab_order', []), 'selected_tab': self.nb.tab(self.nb.select(), 'text') if hasattr(self, 'nb') and self.nb.select() else self.settings.get('selected_tab', UI_TEXT['w5']), 'hpaned_sash': self.hpaned.sashpos(0) if hasattr(self, 'hpaned') else self.settings.get('hpaned_sash', None), 'vpaned_sash': self.vpaned.sashpos(0) if hasattr(self, 'vpaned') else self.settings.get('vpaned_sash', None)})
         data['discord_application_id'] = str(self.discord_application_id_var.get()).strip() if hasattr(self, 'discord_application_id_var') else str(self.settings.get('discord_application_id') or DISCORD_APPLICATION_ID)
         save_settings(data)
         self.settings = data
